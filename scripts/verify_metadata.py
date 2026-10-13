@@ -60,6 +60,7 @@ def verify():
         )
         assert dict(entry["console_scripts"]) == project["scripts"]
     with tarfile.open(sdists[0]) as archive:
+        assert not any("/docs/superpowers/" in n for n in archive.getnames())
         assert not any(
             "/qdrant_memory/" in n or n.endswith("/SKILL.md")
             for n in archive.getnames()

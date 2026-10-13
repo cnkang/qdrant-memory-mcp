@@ -28,9 +28,9 @@ then reruns Registry validation/publication; no PyPI upload occurs. Normal retri
 also reuse a verified existing PyPI version. A mismatching package dependency,
 entrypoint, ownership marker or Registry payload fails closed.
 
-GitHub environments have already been configured with required reviewer
-`cnkang` and tag-only `v*` deployment policies: Runtime `pypi`; distribution
-`pypi` and `mcp-registry`. These approvals are never bypassed automatically.
+Publishing requires protected GitHub environments with required reviewers
+and tag-only `v*` deployment policies: Runtime `pypi`; distribution `pypi`
+and `mcp-registry`. Verify these controls before publication; do not bypass them.
 Both projects have published versions. Recheck the existing Trusted Publishers
 and required reviewers before this patch; do not create duplicate publishers.
 
