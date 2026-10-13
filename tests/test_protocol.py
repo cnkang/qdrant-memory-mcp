@@ -4,6 +4,7 @@ import asyncio
 import hashlib
 import json
 import os
+import queue
 import shutil
 import subprocess
 import sys
@@ -154,11 +155,37 @@ def test_stdout_is_jsonrpc_only(sandbox):
         {"jsonrpc": "2.0", "method": "notifications/initialized"},
         {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}},
     ]
-    process = subprocess.run([*script, "--home", str(profile), "mcp"], input="".join(json.dumps(m) + "\n" for m in messages), capture_output=True, text=True, env=env, cwd=profile.parent, timeout=90)
-    assert process.returncode == 0, process.stderr
-    lines = [json.loads(line) for line in process.stdout.splitlines()]
-    assert {line.get("id") for line in lines} == {1, 2}
-    assert all(line["jsonrpc"] == "2.0" and "result" in line for line in lines)
+    process = subprocess.Popen([*script, "--home", str(profile), "mcp"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env, cwd=profile.parent)
+    received = queue.Queue()
+
+    def read_stdout():
+        for line in process.stdout:
+            received.put(line)
+
+    reader = threading.Thread(target=read_stdout, daemon=True)
+    reader.start()
+    try:
+        process.stdin.write(json.dumps(messages[0]) + "\n")
+        process.stdin.flush()
+        initialized = json.loads(received.get(timeout=90))
+        assert initialized["id"] == 1 and initialized["jsonrpc"] == "2.0" and "result" in initialized
+        process.stdin.write("".join(json.dumps(m) + "\n" for m in messages[1:]))
+        process.stdin.flush()
+        listed = json.loads(received.get(timeout=30))
+        assert listed["id"] == 2 and listed["jsonrpc"] == "2.0" and "result" in listed
+        assert len(listed["result"]["tools"]) == 4
+    finally:
+        process.stdin.close()
+        try:
+            process.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait(timeout=5)
+        reader.join(timeout=5)
+    assert process.returncode == 0, process.stderr.read()
+    assert not reader.is_alive() and received.empty(), "Unexpected stdout after protocol responses"
+    process.stdout.close()
+    process.stderr.close()
 
 
 def test_failed_write_recovers_through_mcp_after_restart(sandbox):
