@@ -10,8 +10,9 @@ Its metadata-only wheel contains no Python business implementation. The console
 script points directly to `qdrant_memory.standalone:main` and depends on
 `hermes-plugin-qdrant-memory[mcp]==0.2.1`.
 
-**Versions:** MCP distribution 0.1.1 pins Runtime 0.2.1. The public baseline is
-MCP 0.1.0 / Runtime 0.2.0. The commands below use the pinned versions. Release
+**Versions:** MCP distribution 0.1.1 pins Runtime 0.2.1, which fixes explicit
+writes of distinct, highly similar texts without an LLM. The commands below use
+these exact versions. Release
 artifacts are available through the [distribution PyPI page](https://pypi.org/project/qdrant-memory-mcp/)
 and [Runtime PyPI page](https://pypi.org/project/hermes-plugin-qdrant-memory/).
 See [release checklist](docs/publishing.md) for the publishing sequence.

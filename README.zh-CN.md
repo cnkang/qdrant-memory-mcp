@@ -6,8 +6,8 @@
 `qdrant-memory-mcp` 直接引用 `qdrant_memory.standalone:main`，固定依赖
 `hermes-plugin-qdrant-memory[mcp]==0.2.1`，不需要安装 Hermes。
 
-**版本：** 分发 0.1.1 固定依赖 Runtime 0.2.1。
-公网基线为 MCP 0.1.0 / Runtime 0.2.0，下文安装命令使用固定版本。发行产物见
+**版本：** 分发 0.1.1 固定依赖 Runtime 0.2.1，修复不同但高度相似文本的显式写入，
+无需 LLM。下文安装命令使用这些精确版本。发行产物见
 [分发 PyPI 页面](https://pypi.org/project/qdrant-memory-mcp/) 和
 [Runtime PyPI 页面](https://pypi.org/project/hermes-plugin-qdrant-memory/)。三个仓库的版本独立管理。
 Skill 仅提供可选指导，不是运行依赖。Hermes 的自动提取和 prefetch 仍属于
