@@ -15,11 +15,13 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_metadata_verification_is_independent_of_windows_codepage(monkeypatch):
+    """Ensure UTF-8 metadata checks do not inherit Windows locale decoding."""
     from test_release_guards import load_script
 
     read = Path.read_text
 
     def legacy_windows_read(path, *args, **kwargs):
+        """Simulate cp1252 unless the reader explicitly selects an encoding."""
         kwargs.setdefault("encoding", "cp1252")
         return read(path, *args, **kwargs)
 
@@ -28,6 +30,7 @@ def test_metadata_verification_is_independent_of_windows_codepage(monkeypatch):
 
 
 def test_metadata_contract():
+    """Keep dependency, Registry versions and ownership aligned with packaging."""
     project = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]
     server = json.loads((ROOT / "server.json").read_text())
     assert project["dependencies"] == ["hermes-plugin-qdrant-memory[mcp]==0.2.1"]
@@ -41,6 +44,7 @@ def test_metadata_contract():
 
 
 def test_artifacts_are_metadata_only():
+    """Reject business code and internal plans in wheel and source archives."""
     wheels = list((ROOT / "dist").glob("*.whl"))
     sdists = list((ROOT / "dist").glob("*.tar.gz"))
     assert len(wheels) == len(sdists) == 1
@@ -76,6 +80,7 @@ def test_artifacts_are_metadata_only():
 
 
 def test_installed_entrypoint():
+    """Verify installed distribution provenance and the delegated console command."""
     dist = importlib.metadata.distribution("qdrant-memory-mcp")
     assert dist.version == "0.1.1"
     runtime = importlib.metadata.distribution("hermes-plugin-qdrant-memory")
