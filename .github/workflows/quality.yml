@@ -1,0 +1,35 @@
+name: Repository quality
+on:
+  push:
+    branches: [main, 'codex/**']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  lint:
+    name: Python and workflow lint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.11'
+      - run: python -m pip install 'ruff==0.15.1'
+      - name: Lint release scripts and acceptance tests
+        run: ruff check scripts tests
+      - name: Install verified actionlint 1.7.12
+        env:
+          ACTIONLINT_ARCHIVE: ${{ runner.temp }}/actionlint.tar.gz
+        run: |
+          curl --fail --silent --show-error --location --output "$ACTIONLINT_ARCHIVE" https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz
+          echo "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  $ACTIONLINT_ARCHIVE" | sha256sum --check
+          tar -xzf "$ACTIONLINT_ARCHIVE" -C "$RUNNER_TEMP" actionlint
+      - name: Validate workflow syntax, expressions and shell steps
+        run: '"$RUNNER_TEMP/actionlint" -color'
