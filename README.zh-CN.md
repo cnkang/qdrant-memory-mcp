@@ -110,7 +110,7 @@ CI 对 Linux/macOS/Windows、Python 3.11/3.14 的 wheel/sdist 安装运行真实
 使用临时目录、Embedded Qdrant、确定性本地 HTTP Embedding fixture，
 不访问私人 Qdrant、Hermes profile 或个人记忆。云服务兼容性参见 Runtime 的验证证据。
 
-Runtime 尚未上 PyPI 时，准备阶段 CI 使用 `runtime-source.json` 固定的候选 commit
+CI 优先使用正式 PyPI Runtime。Runtime 尚未上 PyPI 时，准备阶段 CI 使用 `runtime-source.json` 固定的候选 commit
 构建本地 wheel；正式包元数据始终依赖固定 PyPI 版本，发布流程禁止这种回退。
 详见 [英文说明](README.md)、[发布清单](docs/publishing.md) 与
 [Runtime 验证](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/validation.md)。

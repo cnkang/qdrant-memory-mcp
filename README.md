@@ -142,7 +142,8 @@ cover initialize, discovery, four tools, persistence, recovery, scope isolation,
 error redaction and protocol stdout. Provider/cloud compatibility evidence
 belongs to the [Runtime](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/validation.md).
 
-Before Runtime 0.2.0 reaches PyPI, CI builds a wheel from an immutable candidate
+CI prefers the immutable Runtime PyPI release. Before Runtime 0.2.0 reaches PyPI,
+CI builds a wheel from an immutable candidate
 commit recorded in `runtime-source.json`. This is only a preparation fixture:
 published dependency metadata always uses the exact PyPI version. Release
 workflow acceptance requires installation from PyPI and never uses that fallback.
