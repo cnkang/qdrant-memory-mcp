@@ -38,7 +38,8 @@ uvx --from qdrant-memory-mcp==0.1.1 qdrant-memory-mcp --home /path/to/profile mc
 ```
 
 省略 `--home` 时使用 `~/.qdrant-memory`，与 Hermes profile 独立。
-Registry 默认运行 `uvx qdrant-memory-mcp==0.1.1 mcp`，应先配置、初始化默认目录。
+Registry 默认运行 `uvx --from qdrant-memory-mcp==0.1.1 qdrant-memory-mcp mcp`，
+应先配置、初始化默认目录。
 客户端可通过 `mcp` 前面的可选 `--home` 参数选择自定义 profile。
 
 也可以使用虚拟环境：
