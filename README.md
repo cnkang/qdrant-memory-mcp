@@ -10,9 +10,9 @@ Its metadata-only wheel contains no Python business implementation. The console
 script points directly to `qdrant_memory.standalone:main` and depends on
 `hermes-plugin-qdrant-memory[mcp]==0.2.1`.
 
-**Candidate versions:** MCP distribution 0.1.1 pins Runtime 0.2.1; both await
+**Candidate versions:** MCP distribution 0.1.1 pins Runtime 0.2.1. Both await
 publication. Public baseline is MCP 0.1.0 / Runtime 0.2.0. Commands below are for
-after publication; preparation CI can build the immutable candidate. Release artifacts
+after publication. Preparation CI can build the immutable candidate. Release artifacts
 are available through the [distribution PyPI page](https://pypi.org/project/qdrant-memory-mcp/)
 and [Runtime PyPI page](https://pypi.org/project/hermes-plugin-qdrant-memory/).
 See [release checklist](docs/publishing.md) for the publishing sequence.
@@ -21,7 +21,7 @@ Runtime, [optional Agent Skill](https://github.com/cnkang/skills/tree/main/qdran
 and MCP distribution versions are independent. The Skill is usage guidance,
 not a runtime dependency. Hermes retains its native MemoryProvider, automatic
 extraction and prefetch. Ordinary MCP performs only explicitly requested memory
-operations; it does not automatically extract every conversation turn.
+operations. It does not automatically extract every conversation turn.
 
 ## Install and initialize
 
@@ -52,8 +52,8 @@ uvx --from qdrant-memory-mcp==0.1.1 qdrant-memory-mcp --home /path/to/profile mc
 
 The command without `--home` uses `~/.qdrant-memory`, independent of Hermes.
 Configure and initialize that directory before letting a Registry client launch
-`uvx qdrant-memory-mcp==0.1.1 mcp`. The executable name matches the package name;
-the Registry's positional `mcp` selects protocol mode. Its optional named
+`uvx qdrant-memory-mcp==0.1.1 mcp`. The executable name matches the package name.
+The Registry's positional `mcp` selects protocol mode. Its optional named
 `--home` precedes `mcp` when a client supplies a custom profile.
 
 Alternatively:
@@ -71,9 +71,9 @@ On Windows use `.venv\Scripts\python.exe` and
 Qdrant embedded, self-hosted server and Cloud, plus Ollama and OpenAI-compatible
 embeddings, are configured in the Runtime's [configuration reference](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/configuration.md).
 Keep credentials in operator environment variables (`QDRANT_API_KEY`,
-`EMBEDDING_API_KEY`, or configured names); never commit their values.
-Initialization against an existing collection requires explicit operator choice;
-do not use a production destination for a first test.
+`EMBEDDING_API_KEY`, or configured names). Never commit their values.
+Initialization against an existing collection requires explicit operator choice.
+Do not use a production destination for a first test.
 
 ## Connect a client
 
@@ -102,7 +102,7 @@ OpenCode `opencode.json` example:
 
 Pi needs a separately installed MCP client/extension. In that extension, use
 `command: uvx` and the same argument list. No built-in Pi MCP support or universal
-extension config format is claimed. These are configuration examples; this
+extension config format is claimed. These are configuration examples. This
 distribution's acceptance tests use the official Python MCP SDK, not live agent
 applications. See the Runtime's [client evidence and limits](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/mcp.md).
 
@@ -116,16 +116,16 @@ applications. See the Runtime's [client evidence and limits](https://github.com/
 | `qdrant_memory_delete` | exact `id` | Scoped deletion |
 
 Scope is fixed by the operator's profile (`user_id`, `agent_id`). Model inputs
-and MCP client identity cannot override it; knowing an ID does not grant access.
-Migration, export, reset and bulk deletion remain trusted operator CLI commands;
-see [standalone maintenance](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/standalone.md).
+and MCP client identity cannot override it. Knowing an ID does not grant access.
+Migration, export, reset and bulk deletion remain trusted operator CLI commands.
+See [standalone maintenance](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/standalone.md).
 No resources or prompts are advertised. This is a local subprocess, with no
 public HTTP/SSE listener or remote authentication service. Stdout is reserved
 for protocol messages, with sanitized diagnostics on stderr.
 
 Data flows from client → Runtime → embedding provider → Qdrant and the local
 SQLite ledger. With local Ollama and embedded Qdrant, memory processing stays
-local; cloud embedding receives memory/query text, and cloud Qdrant receives
+local. Cloud embedding receives memory/query text, and cloud Qdrant receives
 vectors and stored payloads. The client/model may also receive recalled text.
 The operator must authorize retention and access and protect the profile files.
 

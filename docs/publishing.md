@@ -24,15 +24,15 @@ explicit confirmation for the Runtime/PyPI/Registry publication.
 
 The distribution workflow has a tag-only manual `registry_only` retry mode.
 It downloads and verifies already-published PyPI artifacts and tests them,
-then reruns Registry validation/publication; no PyPI upload occurs. Normal retries
+then reruns Registry validation/publication. No PyPI upload occurs. Normal retries
 also reuse a verified existing PyPI version. A mismatching package dependency,
 entrypoint, ownership marker or Registry payload fails closed.
 
 Publishing requires protected GitHub environments with required reviewers
-and tag-only `v*` deployment policies: Runtime `pypi`; distribution `pypi`
-and `mcp-registry`. Verify these controls before publication; do not bypass them.
+and tag-only `v*` deployment policies: Runtime `pypi`, distribution `pypi`
+and `mcp-registry`. Verify these controls before publication. Do not bypass them.
 Both projects have published versions. Recheck the existing Trusted Publishers
-and required reviewers before this patch; do not create duplicate publishers.
+and required reviewers before this patch. Do not create duplicate publishers.
 
 Official references checked on 2026-10-13:
 
@@ -44,7 +44,7 @@ Official references checked on 2026-10-13:
 
 The current schema is 2025-12-11. PyPI ownership verification checks the package
 description for `mcp-name: io.github.cnkang/qdrant-memory`. The CLI name matches
-the PyPI identifier so uvx can run it directly; `mcp` remains a required positional
+the PyPI identifier so uvx can run it directly. `mcp` remains a required positional
 package argument and optional `--home` precedes it. Profile configuration carries
 model/dimensions/scope, so environment declarations alone cannot initialize a
 server. Secrets have no defaults or committed values.
@@ -53,4 +53,4 @@ Official publisher release v1.8.1 lists `validate` in help but reports
 `Unknown command: validate`. Build the official CLI at fixed source commit
 `11b7b0e274d518b6f449c5ee3518a6151d9848b9` instead. Do not accept the old
 binary's misleading zero exit status as validation. The official validator uses
-the Registry validation endpoint; local vendored schema validation complements it.
+the Registry validation endpoint. Local vendored schema validation complements it.
