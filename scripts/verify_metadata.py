@@ -14,14 +14,14 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def verify():
-    project = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]
-    server = json.loads((ROOT / "server.json").read_text())
-    schema = json.loads((ROOT / "schemas/server.schema.json").read_text())
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
+    server = json.loads((ROOT / "server.json").read_text(encoding="utf-8"))
+    schema = json.loads((ROOT / "schemas/server.schema.json").read_text(encoding="utf-8"))
     jsonschema.Draft7Validator(schema).validate(server)
     package = server["packages"][0]
     assert server["version"] == package["version"] == project["version"]
     assert package["identifier"] == project["name"] == "qdrant-memory-mcp"
-    source = json.loads((ROOT / "runtime-source.json").read_text())
+    source = json.loads((ROOT / "runtime-source.json").read_text(encoding="utf-8"))
     assert project["dependencies"] == [
         f"hermes-plugin-qdrant-memory[mcp]=={source['version']}"
     ]
@@ -29,14 +29,14 @@ def verify():
         c in "0123456789abcdef" for c in source["commit"]
     )
     for name in ("README.md", "README.zh-CN.md"):
-        active = (ROOT / name).read_text()
+        active = (ROOT / name).read_text(encoding="utf-8")
         assert f"qdrant-memory-mcp=={project['version']}" in active
         assert "qdrant-memory-mcp==0.1.0" not in active
     assert package["runtimeHint"] == "uvx" and package["transport"] == {"type": "stdio"}
     assert package["packageArguments"][-1] == {"type": "positional", "value": "mcp"}
     assert project["scripts"] == {"qdrant-memory-mcp": "qdrant_memory.standalone:main"}
     marker = f"<!-- mcp-name: {server['name']} -->"
-    assert marker in (ROOT / "README.md").read_text()
+    assert marker in (ROOT / "README.md").read_text(encoding="utf-8")
     assert not (ROOT / "qdrant_memory").exists() and not list(ROOT.rglob("SKILL.md"))
     wheels = list((ROOT / "dist").glob("*.whl"))
     sdists = list((ROOT / "dist").glob("*.tar.gz"))
