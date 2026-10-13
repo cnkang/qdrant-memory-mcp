@@ -4,9 +4,10 @@
 所有业务逻辑来自唯一的 [Python Runtime](https://github.com/cnkang/hermes-plugin-qdrant-memory)，
 本仓库不复制 Runtime 或 [Agent Skill](https://github.com/cnkang/skills/tree/main/qdrant-memory)。
 `qdrant-memory-mcp` 直接引用 `qdrant_memory.standalone:main`，固定依赖
-`hermes-plugin-qdrant-memory[mcp]==0.2.0`，不需要安装 Hermes。
+`hermes-plugin-qdrant-memory[mcp]==0.2.1`，不需要安装 Hermes。
 
-**版本：** 分发 0.1.0 固定依赖 Runtime 0.2.0，发行产物见
+**发布候选：** 分发 0.1.1 固定依赖 Runtime 0.2.1，均待正式发布。
+公网基线仍为 MCP 0.1.0 / Runtime 0.2.0，下文安装命令在新版发布后使用；CI 可测试不可变候选。发行产物见
 [分发 PyPI 页面](https://pypi.org/project/qdrant-memory-mcp/) 和
 [Runtime PyPI 页面](https://pypi.org/project/hermes-plugin-qdrant-memory/)。三个仓库的版本独立管理。
 Skill 仅提供可选指导，不是运行依赖。Hermes 的自动提取和 prefetch 仍属于
@@ -32,19 +33,19 @@ Skill 仅提供可选指导，不是运行依赖。Hermes 的自动提取和 pre
 示例要求自己启动 Ollama 并安装对应模型。将路径替换为自己的绝对路径：
 
 ```bash
-uvx --from qdrant-memory-mcp==0.1.0 qdrant-memory-mcp --home /path/to/profile init
-uvx --from qdrant-memory-mcp==0.1.0 qdrant-memory-mcp --home /path/to/profile mcp
+uvx --from qdrant-memory-mcp==0.1.1 qdrant-memory-mcp --home /path/to/profile init
+uvx --from qdrant-memory-mcp==0.1.1 qdrant-memory-mcp --home /path/to/profile mcp
 ```
 
 省略 `--home` 时使用 `~/.qdrant-memory`，与 Hermes profile 独立。
-Registry 默认运行 `uvx qdrant-memory-mcp==0.1.0 mcp`，应先配置、初始化默认目录。
+Registry 默认运行 `uvx qdrant-memory-mcp==0.1.1 mcp`，应先配置、初始化默认目录。
 客户端可通过 `mcp` 前面的可选 `--home` 参数选择自定义 profile。
 
 也可以使用虚拟环境：
 
 ```bash
 python3 -m venv .venv
-.venv/bin/python -m pip install qdrant-memory-mcp==0.1.0
+.venv/bin/python -m pip install qdrant-memory-mcp==0.1.1
 .venv/bin/qdrant-memory-mcp --home /path/to/profile init
 .venv/bin/qdrant-memory-mcp --home /path/to/profile mcp
 ```
@@ -62,7 +63,7 @@ Codex `config.toml`：
 ```toml
 [mcp_servers.qdrant_memory]
 command = "uvx"
-args = ["--from", "qdrant-memory-mcp==0.1.0", "qdrant-memory-mcp", "--home", "/path/to/profile", "mcp"]
+args = ["--from", "qdrant-memory-mcp==0.1.1", "qdrant-memory-mcp", "--home", "/path/to/profile", "mcp"]
 ```
 
 OpenCode `opencode.json`：
@@ -73,7 +74,7 @@ OpenCode `opencode.json`：
   "mcp": {
     "qdrant_memory": {
       "type": "local",
-      "command": ["uvx", "--from", "qdrant-memory-mcp==0.1.0", "qdrant-memory-mcp", "--home", "/path/to/profile", "mcp"],
+      "command": ["uvx", "--from", "qdrant-memory-mcp==0.1.1", "qdrant-memory-mcp", "--home", "/path/to/profile", "mcp"],
       "enabled": true
     }
   }

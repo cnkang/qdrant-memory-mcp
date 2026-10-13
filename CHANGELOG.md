@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.1 (release candidate)
+
+- Pin Runtime 0.2.1 to fix high-similarity explicit writes without Hermes or an LLM.
+- Keep the distribution metadata-only and preserve the Runtime console entrypoint.
+- Align Registry package/server versions and active installation/validation guidance.
+- Require Runtime PyPI publication before MCP PyPI and Registry publication;
+  immutable source wheels remain preparation-only fixtures.
+
 ## 0.1.0
 
 - Add metadata-only packaging with a direct upstream CLI entrypoint and exact
