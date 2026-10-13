@@ -148,5 +148,5 @@ commit recorded in `runtime-source.json`. This is only a preparation fixture:
 published dependency metadata always uses the exact PyPI version. Release
 workflow acceptance requires installation from PyPI and never uses that fallback.
 
-See [publishing](docs/publishing.md), [architecture](docs/architecture.md), and
+See [CI and dependency maintenance](docs/ci.md), [publishing](docs/publishing.md), [architecture](docs/architecture.md), and
 the optional [Skill](https://github.com/cnkang/skills/tree/main/qdrant-memory).

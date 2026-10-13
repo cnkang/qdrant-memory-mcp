@@ -7,7 +7,7 @@ import subprocess
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
-from test_protocol import sandbox  # noqa: F401
+pytest_plugins = ["test_protocol"]
 
 
 def test_registry_default_profile_launch(sandbox):
