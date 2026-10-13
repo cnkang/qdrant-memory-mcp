@@ -1,0 +1,103 @@
+name: Publish distribution
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      registry_only:
+        description: Retry Registry using already-published PyPI artifacts (select a version tag)
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  build:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    outputs:
+      exists: ${{ steps.existing.outputs.exists }}
+    steps:
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.11'
+      - name: Check version tag and protected main ancestry
+        run: |
+          git merge-base --is-ancestor HEAD origin/main
+          python -c 'import os,tomllib; from pathlib import Path; v=tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"]; assert os.environ["GITHUB_REF_NAME"] == "v"+v'
+      - run: python -m pip install 'build>=1.2,<2' 'twine>=6,<7' 'jsonschema>=4,<5'
+      - run: python -m build
+      - name: Reuse verified immutable PyPI release if present
+        id: existing
+        env:
+          REGISTRY_ONLY: ${{ inputs.registry_only }}
+        run: |
+          if [ "$REGISTRY_ONLY" = 'true' ]; then
+            python scripts/pypi_release.py --require --download
+          else
+            python scripts/pypi_release.py --download
+          fi
+      - run: python -m twine check --strict dist/*
+      - run: python scripts/verify_metadata.py
+      - name: Fresh wheel and sdist acceptance using public Runtime dependency only
+        run: |
+          python -m venv .wheel-env
+          .wheel-env/bin/python -m pip install dist/*.whl 'pytest>=8,<10'
+          .wheel-env/bin/python -m pytest -q tests
+          python -m venv .sdist-env
+          .sdist-env/bin/python -m pip install dist/*.tar.gz 'pytest>=8,<10'
+          .sdist-env/bin/python -m pytest -q tests
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: distributions
+          path: dist/*
+          if-no-files-found: error
+  pypi:
+    needs: build
+    runs-on: ubuntu-24.04
+    environment: pypi
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0
+        with:
+          name: distributions
+          path: dist
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33
+        if: needs.build.outputs.exists != 'true'
+      - run: python scripts/pypi_release.py --require
+  registry:
+    needs: [build, pypi]
+    runs-on: ubuntu-24.04
+    environment: mcp-registry
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: '1.26.0'
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+        with:
+          repository: modelcontextprotocol/registry
+          ref: 11b7b0e274d518b6f449c5ee3518a6151d9848b9
+          path: .publisher/source
+          persist-credentials: false
+      - working-directory: .publisher/source
+        run: go build -o ../mcp-publisher ./cmd/publisher
+      - run: .publisher/mcp-publisher validate
+      - run: python scripts/registry_publish.py

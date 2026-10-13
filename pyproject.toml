@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=77,<85"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qdrant-memory-mcp"
+version = "0.1.0"
+description = "Metadata-only stdio MCP distribution of the Qdrant Memory Runtime"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.11"
+dependencies = ["hermes-plugin-qdrant-memory[mcp]==0.2.0"]
+keywords = ["mcp", "memory", "qdrant", "agents"]
+classifiers = ["Programming Language :: Python :: 3", "Operating System :: OS Independent"]
+
+[project.scripts]
+qdrant-memory-mcp = "qdrant_memory.standalone:main"
+
+[project.urls]
+Homepage = "https://github.com/cnkang/qdrant-memory-mcp"
+Repository = "https://github.com/cnkang/qdrant-memory-mcp"
+Issues = "https://github.com/cnkang/qdrant-memory-mcp/issues"
+Changelog = "https://github.com/cnkang/qdrant-memory-mcp/blob/main/CHANGELOG.md"
+Runtime = "https://github.com/cnkang/hermes-plugin-qdrant-memory"
+Skill = "https://github.com/cnkang/skills/tree/main/qdrant-memory"
+
+[tool.setuptools]
+packages = []
+py-modules = []
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

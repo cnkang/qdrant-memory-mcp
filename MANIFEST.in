@@ -1,0 +1,5 @@
+include server.json runtime-source.json README.zh-CN.md
+recursive-include schemas *.json
+recursive-include scripts *.py
+recursive-include tests *.py
+recursive-include docs *.md

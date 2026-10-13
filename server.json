@@ -1,0 +1,36 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.cnkang/qdrant-memory",
+  "title": "Qdrant Memory",
+  "description": "Persistent scoped Qdrant memory for agents, through four explicit stdio MCP tools.",
+  "repository": {
+    "url": "https://github.com/cnkang/qdrant-memory-mcp",
+    "source": "github"
+  },
+  "version": "0.1.0",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "registryBaseUrl": "https://pypi.org",
+      "identifier": "qdrant-memory-mcp",
+      "version": "0.1.0",
+      "runtimeHint": "uvx",
+      "transport": {"type": "stdio"},
+      "packageArguments": [
+        {
+          "type": "named",
+          "name": "--home",
+          "description": "Optional absolute path to an operator-configured, initialized profile; omission uses ~/.qdrant-memory.",
+          "valueHint": "profile_path",
+          "isRequired": false
+        },
+        {"type": "positional", "value": "mcp"}
+      ],
+      "environmentVariables": [
+        {"name": "QDRANT_URL", "description": "Optional remote Qdrant endpoint when configured for server/cloud mode.", "isRequired": false},
+        {"name": "QDRANT_API_KEY", "description": "Optional Qdrant credential for configured remote storage.", "isSecret": true, "isRequired": false},
+        {"name": "EMBEDDING_API_KEY", "description": "Optional credential for the configured embedding provider.", "isSecret": true, "isRequired": false}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+.venv/
+dist/
+build/
+*.egg-info/
+__pycache__/
+.pytest_cache/
+.coverage
+.publisher/
+.runtime/
+.runtime-dist/
+.wheel-env/
+.sdist-env/
