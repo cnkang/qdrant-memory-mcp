@@ -8,9 +8,11 @@ Persistent, scoped memory for AI agents through four explicit **stdio MCP** tool
 This repository distributes the existing [Python Runtime](https://github.com/cnkang/hermes-plugin-qdrant-memory).
 Its metadata-only wheel contains no Python business implementation. The console
 script points directly to `qdrant_memory.standalone:main` and depends on
-`hermes-plugin-qdrant-memory[mcp]==0.2.0`.
+`hermes-plugin-qdrant-memory[mcp]==0.2.1`.
 
-**Versions:** MCP distribution 0.1.0 depends on Runtime 0.2.0. Release artifacts
+**Candidate versions:** MCP distribution 0.1.1 pins Runtime 0.2.1; both await
+publication. Public baseline is MCP 0.1.0 / Runtime 0.2.0. Commands below are for
+after publication; preparation CI can build the immutable candidate. Release artifacts
 are available through the [distribution PyPI page](https://pypi.org/project/qdrant-memory-mcp/)
 and [Runtime PyPI page](https://pypi.org/project/hermes-plugin-qdrant-memory/).
 See [release checklist](docs/publishing.md) for the publishing sequence.
@@ -44,13 +46,13 @@ Create an operator-owned profile directory and save `qdrant-memory.json` inside:
 Initialize, then launch (replace `/path/to/profile` with your absolute path):
 
 ```bash
-uvx --from qdrant-memory-mcp==0.1.0 qdrant-memory-mcp --home /path/to/profile init
-uvx --from qdrant-memory-mcp==0.1.0 qdrant-memory-mcp --home /path/to/profile mcp
+uvx --from qdrant-memory-mcp==0.1.1 qdrant-memory-mcp --home /path/to/profile init
+uvx --from qdrant-memory-mcp==0.1.1 qdrant-memory-mcp --home /path/to/profile mcp
 ```
 
 The command without `--home` uses `~/.qdrant-memory`, independent of Hermes.
 Configure and initialize that directory before letting a Registry client launch
-`uvx qdrant-memory-mcp==0.1.0 mcp`. The executable name matches the package name;
+`uvx qdrant-memory-mcp==0.1.1 mcp`. The executable name matches the package name;
 the Registry's positional `mcp` selects protocol mode. Its optional named
 `--home` precedes `mcp` when a client supplies a custom profile.
 
@@ -58,7 +60,7 @@ Alternatively:
 
 ```bash
 python3 -m venv .venv
-.venv/bin/python -m pip install qdrant-memory-mcp==0.1.0
+.venv/bin/python -m pip install qdrant-memory-mcp==0.1.1
 .venv/bin/qdrant-memory-mcp --home /path/to/profile init
 .venv/bin/qdrant-memory-mcp --home /path/to/profile mcp
 ```
@@ -80,7 +82,7 @@ Codex `config.toml` example:
 ```toml
 [mcp_servers.qdrant_memory]
 command = "uvx"
-args = ["--from", "qdrant-memory-mcp==0.1.0", "qdrant-memory-mcp", "--home", "/path/to/profile", "mcp"]
+args = ["--from", "qdrant-memory-mcp==0.1.1", "qdrant-memory-mcp", "--home", "/path/to/profile", "mcp"]
 ```
 
 OpenCode `opencode.json` example:
@@ -91,7 +93,7 @@ OpenCode `opencode.json` example:
   "mcp": {
     "qdrant_memory": {
       "type": "local",
-      "command": ["uvx", "--from", "qdrant-memory-mcp==0.1.0", "qdrant-memory-mcp", "--home", "/path/to/profile", "mcp"],
+      "command": ["uvx", "--from", "qdrant-memory-mcp==0.1.1", "qdrant-memory-mcp", "--home", "/path/to/profile", "mcp"],
       "enabled": true
     }
   }
@@ -143,7 +145,7 @@ cover initialize, discovery, four tools, persistence, recovery, scope isolation,
 error redaction and protocol stdout. Provider/cloud compatibility evidence
 belongs to the [Runtime](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/validation.md).
 
-CI prefers the immutable Runtime PyPI release. Before Runtime 0.2.0 reaches PyPI,
+CI prefers the immutable Runtime PyPI release. Before Runtime 0.2.1 reaches PyPI,
 CI builds a wheel from an immutable candidate
 commit recorded in `runtime-source.json`. This is only a preparation fixture:
 published dependency metadata always uses the exact PyPI version. Release

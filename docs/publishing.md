@@ -1,25 +1,25 @@
-# First publication checklist
+# 0.1.1 patch publication checklist
 
 No publishing tag or workflow dispatch is executed before the operator gives
-explicit confirmation for the first Runtime/PyPI/Registry public publication.
+explicit confirmation for the Runtime/PyPI/Registry publication.
 
-1. Merge the Runtime release PR after all checks pass. Create Runtime tag v0.2.0
+1. Merge the Runtime release PR after all checks pass. Create Runtime tag v0.2.1
    on the merged commit, only after publication confirmation.
-2. Configure PyPI pending Trusted Publishers (PyPI account step):
+2. Configure PyPI Trusted Publishers (PyPI account step):
    - `hermes-plugin-qdrant-memory`: owner `cnkang`, repository
      `hermes-plugin-qdrant-memory`, workflow `publish.yml`, environment `pypi`.
    - `qdrant-memory-mcp`: owner `cnkang`, repository `qdrant-memory-mcp`,
      workflow `publish.yml`, environment `pypi`.
 3. Approve protected GitHub environments when prompted. A version tag must point
    to a main-branch commit and match package metadata. Releases cannot overwrite
-   an existing version. First publish Runtime 0.2.0 and verify its PyPI artifacts.
+   an existing version. Publish Runtime 0.2.1 and verify its PyPI artifacts.
 4. Run distribution acceptance in public dependency mode. Build/test wheel and
    sdist from a new environment using only the exact Runtime PyPI release.
-5. Create distribution tag v0.1.0 after confirmation. Its workflow builds and
+5. Create distribution tag v0.1.1 after confirmation. Its workflow builds and
    tests before protected PyPI publication, verifies public metadata, validates
    with the official publisher, then uses `github-oidc` for Registry publication.
 6. Verify PyPI ownership marker and the public Registry entry
-   `io.github.cnkang/qdrant-memory` version 0.1.0. Remove candidate wording in
+   `io.github.cnkang/qdrant-memory` version 0.1.1. Remove candidate wording in
    documentation only when publication is confirmed by public endpoints.
 
 The distribution workflow has a tag-only manual `registry_only` retry mode.
@@ -31,8 +31,8 @@ entrypoint, ownership marker or Registry payload fails closed.
 GitHub environments have already been configured with required reviewer
 `cnkang` and tag-only `v*` deployment policies: Runtime `pypi`; distribution
 `pypi` and `mcp-registry`. These approvals are never bypassed automatically.
-The remaining external account step is registering both PyPI pending Trusted
-Publishers at https://pypi.org/manage/account/publishing/.
+Both projects have published versions. Recheck the existing Trusted Publishers
+and required reviewers before this patch; do not create duplicate publishers.
 
 Official references checked on 2026-10-13:
 
