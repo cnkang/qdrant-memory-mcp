@@ -136,7 +136,7 @@ from Hermes. It preserves the Runtime's ledger, IDs and recovery semantics.
 
 ## Verification and development
 
-CI builds wheel/sdist, checks metadata and ownership marker, and runs installed
+CI builds wheel/sdist, checks metadata and ownership marker. It runs installed
 protocol tests with temporary profiles, embedded Qdrant and a deterministic
 loopback embedding fixture on Linux/macOS/Windows, Python 3.11 and 3.14.
 No test connects to personal Qdrant, Hermes profiles or memory data. These tests
