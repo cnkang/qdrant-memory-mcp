@@ -51,7 +51,8 @@ uvx --from qdrant-memory-mcp==0.1.1 qdrant-memory-mcp --home /path/to/profile mc
 
 The command without `--home` uses `~/.qdrant-memory`, independent of Hermes.
 Configure and initialize that directory before letting a Registry client launch
-`uvx qdrant-memory-mcp==0.1.1 mcp`. The executable name matches the package name.
+`uvx --from qdrant-memory-mcp==0.1.1 qdrant-memory-mcp mcp`.
+The executable name matches the package name.
 The Registry's positional `mcp` selects protocol mode. Its optional named
 `--home` precedes `mcp` when a client supplies a custom profile.
 
