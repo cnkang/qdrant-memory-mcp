@@ -14,9 +14,14 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def verify():
-    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
+    """Validate release metadata, launch configuration and source-free artifacts."""
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))[
+        "project"
+    ]
     server = json.loads((ROOT / "server.json").read_text(encoding="utf-8"))
-    schema = json.loads((ROOT / "schemas/server.schema.json").read_text(encoding="utf-8"))
+    schema = json.loads(
+        (ROOT / "schemas/server.schema.json").read_text(encoding="utf-8")
+    )
     jsonschema.Draft7Validator(schema).validate(server)
     package = server["packages"][0]
     assert server["version"] == package["version"] == project["version"]

@@ -19,10 +19,15 @@ from mcp.client.stdio import stdio_client
 
 @pytest.fixture
 def sandbox(tmp_path):
+    """Provide disposable storage, synthetic embeddings and guarded installed launchers."""
+
     class Embeddings(BaseHTTPRequestHandler):
+        """Serve deterministic vectors and controlled failures over local HTTP."""
+
         failures = 0
 
         def do_POST(self):
+            """Return aligned vectors or an injected retryable embedding failure."""
             body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
             if (
                 any(text.startswith("doc:recover-fixture") for text in body["input"])
@@ -49,6 +54,7 @@ def sandbox(tmp_path):
             self.wfile.write(payload)
 
         def log_message(self, *args):
+            """Suppress fixture HTTP logs so tests never mix them into protocol output."""
             pass
 
     server = ThreadingHTTPServer(("127.0.0.1", 0), Embeddings)
@@ -107,6 +113,7 @@ def sandbox(tmp_path):
         env["UV_PYTHON"] = sys.executable
 
     def cli(*args, ok=True):
+        """Run the installed launcher in the synthetic profile and check JSON status."""
         result = subprocess.run(
             [*launch, "--home", str(profile), *args],
             cwd=tmp_path,
@@ -126,6 +133,7 @@ def sandbox(tmp_path):
 
 
 def test_real_stdio_crud_restart_scope_and_redaction(sandbox):
+    """Exercise real SDK CRUD, scope denial, writer exclusion and restart persistence."""
     profile, config_path, config, env, script, cli, _ = sandbox
     foreign = []
     for user, agent in [("other-user", "test-agent"), ("test-user", "other-agent")]:
@@ -136,6 +144,7 @@ def test_real_stdio_crud_restart_scope_and_redaction(sandbox):
     config_path.write_text(json.dumps(config), encoding="utf-8")
 
     async def connection(callback):
+        """Open a real stdio SDK session and execute one acceptance phase."""
         parameters = StdioServerParameters(
             command=script[0],
             args=[*script[1:], "--home", str(profile), "mcp"],
@@ -148,6 +157,7 @@ def test_real_stdio_crud_restart_scope_and_redaction(sandbox):
                 return await callback(session)
 
     async def call(session, tool, arguments, ok=True):
+        """Decode a scoped tool result and reject sensitive data in errors."""
         result = await session.call_tool("qdrant_memory_" + tool, arguments)
         assert result.isError is not ok
         encoded = result.content[0].text
@@ -164,6 +174,7 @@ def test_real_stdio_crud_restart_scope_and_redaction(sandbox):
         return json.loads(encoded)
 
     async def first(session):
+        """Check tool schemas, CRUD authorization and competing writer refusal."""
         tools = (await session.list_tools()).tools
         assert {t.name for t in tools} == {
             "qdrant_memory_search",
@@ -202,6 +213,7 @@ def test_real_stdio_crud_restart_scope_and_redaction(sandbox):
     memory_id = asyncio.run(connection(first))
 
     async def restarted(session):
+        """Verify the replacement survives restart before deleting its exact ID."""
         found = await call(session, "search", {"query": "updated durable fact"})
         matches = [m for m in found["memories"] if m["id"] == memory_id]
         assert len(matches) == 1 and matches[0]["text"] == "updated durable fact"
@@ -210,6 +222,7 @@ def test_real_stdio_crud_restart_scope_and_redaction(sandbox):
     asyncio.run(connection(restarted))
 
     async def deleted(session):
+        """Verify a deleted memory remains absent on a subsequent server restart."""
         found = await call(session, "search", {"query": "updated durable fact"})
         assert not found["memories"]
 
@@ -217,9 +230,11 @@ def test_real_stdio_crud_restart_scope_and_redaction(sandbox):
 
 
 def test_similar_explicit_facts_survive_sdk_calls_and_restart(sandbox):
+    """Retain distinct cosine-identical facts and deduplicate exact text across restart."""
     profile, _, _, env, script, cli, _ = sandbox
 
     async def check():
+        """Save both similar facts through the SDK and verify canonical duplicate handling."""
         params = StdioServerParameters(
             command=script[0],
             args=[*script[1:], "--home", str(profile), "mcp"],
@@ -258,6 +273,7 @@ def test_similar_explicit_facts_survive_sdk_calls_and_restart(sandbox):
 
 
 def test_stdout_is_jsonrpc_only(sandbox):
+    """Require stdout to contain only the expected JSON-RPC responses."""
     profile, _, _, env, script, _, _ = sandbox
     messages = [
         {
@@ -285,6 +301,7 @@ def test_stdout_is_jsonrpc_only(sandbox):
     received = queue.Queue()
 
     def read_stdout():
+        """Collect server protocol lines without blocking the parent test."""
         for line in process.stdout:
             received.put(line)
 
@@ -321,9 +338,11 @@ def test_stdout_is_jsonrpc_only(sandbox):
 
 
 def test_failed_write_recovers_through_mcp_after_restart(sandbox):
+    """Recover a terminal failed write through the supported operator retry flow."""
     profile, _, _, env, script, cli, embeddings = sandbox
 
     async def run(failing):
+        """Inject a tool write failure or verify its durable recovery after restart."""
         parameters = StdioServerParameters(
             command=script[0],
             args=[*script[1:], "--home", str(profile), "mcp"],

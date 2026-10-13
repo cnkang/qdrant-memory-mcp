@@ -9,6 +9,7 @@ from test_release_guards import load_script
 
 
 def test_public_runtime_avoids_clone(monkeypatch):
+    """Use the public pinned Runtime wheel without cloning a source fallback."""
     module = load_script("prepare_runtime")
     commands = []
     monkeypatch.setattr(
@@ -21,9 +22,11 @@ def test_public_runtime_avoids_clone(monkeypatch):
 
 
 def test_runtime_lookup_error_does_not_silently_fallback(monkeypatch):
+    """Keep non-404 index errors visible instead of switching installation source."""
     module = load_script("prepare_runtime")
 
     def forbidden(*args, **kwargs):
+        """Return a controlled index authorization failure without contacting PyPI."""
         raise urllib.error.HTTPError(
             "https://example.invalid", 403, "forbidden", {}, None
         )
