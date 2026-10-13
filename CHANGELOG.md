@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.1 (release candidate)
+## 0.1.1
 
 - Pin Runtime 0.2.1 to fix high-similarity explicit writes without Hermes or an LLM.
 - Keep the distribution metadata-only and preserve the Runtime console entrypoint.

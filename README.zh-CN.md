@@ -6,8 +6,8 @@
 `qdrant-memory-mcp` 直接引用 `qdrant_memory.standalone:main`，固定依赖
 `hermes-plugin-qdrant-memory[mcp]==0.2.1`，不需要安装 Hermes。
 
-**发布候选：** 分发 0.1.1 固定依赖 Runtime 0.2.1，均待正式发布。
-公网基线仍为 MCP 0.1.0 / Runtime 0.2.0，下文安装命令在新版发布后使用；CI 可测试不可变候选。发行产物见
+**版本：** 分发 0.1.1 固定依赖 Runtime 0.2.1。
+公网基线为 MCP 0.1.0 / Runtime 0.2.0，下文安装命令使用固定版本。发行产物见
 [分发 PyPI 页面](https://pypi.org/project/qdrant-memory-mcp/) 和
 [Runtime PyPI 页面](https://pypi.org/project/hermes-plugin-qdrant-memory/)。三个仓库的版本独立管理。
 Skill 仅提供可选指导，不是运行依赖。Hermes 的自动提取和 prefetch 仍属于
@@ -114,7 +114,7 @@ CI 对 Linux/macOS/Windows、Python 3.11/3.14 的 wheel/sdist 安装运行真实
 使用临时目录、Embedded Qdrant、确定性本地 HTTP Embedding fixture，
 不访问私人 Qdrant、Hermes profile 或个人记忆。云服务兼容性参见 Runtime 的验证证据。
 
-CI 优先使用正式 PyPI Runtime。Runtime 尚未上 PyPI 时，准备阶段 CI 使用 `runtime-source.json` 固定的候选 commit
+CI 优先使用正式 PyPI Runtime。新 Runtime 发布前，CI 使用 `runtime-source.json` 固定的不可变修订
 构建本地 wheel；正式包元数据始终依赖固定 PyPI 版本，发布流程禁止这种回退。
 详见 [英文说明](README.md)、[发布清单](docs/publishing.md) 与
 [Runtime 验证](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/validation.md)。

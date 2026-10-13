@@ -19,10 +19,8 @@ explicit confirmation for the Runtime/PyPI/Registry publication.
    tests before protected PyPI publication, verifies public metadata, validates
    with the official publisher, then uses `github-oidc` for Registry publication.
 6. Verify PyPI ownership marker and the public Registry entry
-   `io.github.cnkang/qdrant-memory` version 0.1.1. Remove candidate wording in
-   documentation only when publication is confirmed by public endpoints.
-
-The distribution workflow has a tag-only manual `registry_only` retry mode.
+   `io.github.cnkang/qdrant-memory` version 0.1.1. Update documentation version
+    references only after the public endpoints confirm the release.distribution workflow has a tag-only manual `registry_only` retry mode.
 It downloads and verifies already-published PyPI artifacts and tests them,
 then reruns Registry validation/publication. No PyPI upload occurs. Normal retries
 also reuse a verified existing PyPI version. A mismatching package dependency,
@@ -32,7 +30,7 @@ Publishing requires protected GitHub environments with required reviewers
 and tag-only `v*` deployment policies: Runtime `pypi`, distribution `pypi`
 and `mcp-registry`. Verify these controls before publication. Do not bypass them.
 Both projects have published versions. Recheck the existing Trusted Publishers
-and required reviewers before this patch. Do not create duplicate publishers.
+and required reviewers. Do not create duplicate publishers.
 
 Official references checked on 2026-10-13:
 
