@@ -50,6 +50,23 @@ def test_registry_retry_only_treats_404_as_absent(monkeypatch):
         module.published({"name": "io.github.cnkang/qdrant-memory", "version": "0.1.0"})
 
 
+def test_registry_metadata_survives_official_optional_boolean_omission(monkeypatch):
+    module = load_script("registry_publish")
+    server = json.loads((ROOT / "server.json").read_text())
+
+    def official_serialization(value):
+        if isinstance(value, dict):
+            return {key: official_serialization(item) for key, item in value.items()
+                    if not (key in {"isRequired", "isSecret", "isRepeated"} and item is False)}
+        if isinstance(value, list):
+            return [official_serialization(item) for item in value]
+        return value
+
+    remote = {"server": official_serialization(server), "_meta": {"io.modelcontextprotocol.registry/official": {"status": "active"}}}
+    monkeypatch.setattr(module.urllib.request, "urlopen", lambda *a, **k: io.BytesIO(json.dumps(remote).encode()))
+    assert module.published(server)
+
+
 def test_pypi_retry_rejects_wrong_runtime_before_download(monkeypatch, tmp_path):
     module = load_script("pypi_release")
     (tmp_path / "pyproject.toml").write_bytes((ROOT / "pyproject.toml").read_bytes())

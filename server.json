@@ -21,15 +21,14 @@
           "type": "named",
           "name": "--home",
           "description": "Optional absolute path to an operator-configured, initialized profile; omission uses ~/.qdrant-memory.",
-          "valueHint": "profile_path",
-          "isRequired": false
+          "valueHint": "profile_path"
         },
         {"type": "positional", "value": "mcp"}
       ],
       "environmentVariables": [
-        {"name": "QDRANT_URL", "description": "Optional remote Qdrant endpoint when configured for server/cloud mode.", "isRequired": false},
-        {"name": "QDRANT_API_KEY", "description": "Optional Qdrant credential for configured remote storage.", "isSecret": true, "isRequired": false},
-        {"name": "EMBEDDING_API_KEY", "description": "Optional credential for the configured embedding provider.", "isSecret": true, "isRequired": false}
+        {"name": "QDRANT_URL", "description": "Optional remote Qdrant endpoint when configured for server/cloud mode."},
+        {"name": "QDRANT_API_KEY", "description": "Optional Qdrant credential for configured remote storage.", "isSecret": true},
+        {"name": "EMBEDDING_API_KEY", "description": "Optional credential for the configured embedding provider.", "isSecret": true}
       ]
     }
   ]
