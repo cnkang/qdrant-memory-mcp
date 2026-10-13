@@ -10,9 +10,10 @@ Its metadata-only wheel contains no Python business implementation. The console
 script points directly to `qdrant_memory.standalone:main` and depends on
 `hermes-plugin-qdrant-memory[mcp]==0.2.0`.
 
-**Release status:** MCP 0.1.0 and Runtime 0.2.0 are release candidates, awaiting
-first-publication approval. The PyPI commands below become available after both
-packages are published. See [release checklist](docs/publishing.md).
+**Versions:** MCP distribution 0.1.0 depends on Runtime 0.2.0. Release artifacts
+are available through the [distribution PyPI page](https://pypi.org/project/qdrant-memory-mcp/)
+and [Runtime PyPI page](https://pypi.org/project/hermes-plugin-qdrant-memory/).
+See [release checklist](docs/publishing.md) for the publishing sequence.
 
 Runtime, [optional Agent Skill](https://github.com/cnkang/skills/tree/main/qdrant-memory)
 and MCP distribution versions are independent. The Skill is usage guidance,
