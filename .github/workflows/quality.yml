@@ -24,6 +24,11 @@ jobs:
       - run: python -m pip install 'ruff==0.15.1'
       - name: Lint release scripts and acceptance tests
         run: ruff check scripts tests
+      - name: Require matching immutable CodeQL action pins
+        run: >-
+          python -c "import re; from pathlib import Path;
+          pins=re.findall(r'uses: github/codeql-action/(?:init|analyze)@([0-9a-f]{40})', Path('.github/workflows/codeql.yml').read_text());
+          assert len(pins)==2 and len(set(pins))==1, 'CodeQL init/analyze pins must match'"
       - name: Install verified actionlint 1.7.12
         env:
           ACTIONLINT_ARCHIVE: ${{ runner.temp }}/actionlint.tar.gz
