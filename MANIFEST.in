@@ -3,4 +3,4 @@ recursive-include schemas *.json
 include schemas/LICENSE schemas/README.md
 recursive-include scripts *.py
 recursive-include tests *.py
-recursive-include docs *.md
+include docs/architecture.md docs/ci.md docs/publishing.md

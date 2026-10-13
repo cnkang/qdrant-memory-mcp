@@ -11,3 +11,6 @@ __pycache__/
 .wheel-env/
 .sdist-env/
 .public-env/
+docs/superpowers/
+docs/implementation-report-*.md
+reports/
