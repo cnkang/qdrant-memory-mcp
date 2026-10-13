@@ -107,6 +107,8 @@ stdout 只承载协议，错误经过脱敏。不支持无协调的多进程写�
 云 Qdrant 会接收向量和 payload，客户端或模型也会接收召回文本。
 操作者需要管理保留策略、权限与 profile 文件。
 
+## 验证与开发
+
 CI 对 Linux/macOS/Windows、Python 3.11/3.14 的 wheel/sdist 安装运行真实协议测试，
 覆盖初始化、工具发现、四项操作、重启持久化与恢复、scope 拒绝、错误脱敏、stdout。
 使用临时目录、Embedded Qdrant、确定性本地 HTTP Embedding fixture，

@@ -10,18 +10,18 @@
 - Dependency review blocks PRs that introduce high or critical dependency
   vulnerabilities. It uses read-only access and does not post PR comments.
 - Dependabot checks pip manifests and GitHub Actions each Monday at 09:00
-  Asia/Singapore, grouping updates by ecosystem. Updates remain reviewed PRs;
-  there is no automatic merge or publication.
+  Asia/Singapore, grouping updates by ecosystem. Updates remain reviewed PRs.
+  There is no automatic merge or publication.
 
 Actions use immutable commit pins. Dependabot updates both occurrences of the
 CodeQL action together. Repository Dependabot security updates, secret scanning
-and push protection are enabled; no additional service token is required.
+and push protection are enabled. No additional service token is required.
 
 The unpublished Runtime candidate remains the exact `0.2.1` dependency. Once
 Runtime is on PyPI, its updates must also adjust compatibility expectations and
-the preparation fixture deliberately; a dependency-only PR cannot bypass the
+the preparation fixture deliberately. A dependency-only PR cannot bypass the
 distribution's metadata/protocol checks. This repository scans distribution
-scripts and workflows; Runtime business-code scanning belongs to its upstream.
+scripts and workflows. Runtime business-code scanning belongs to its upstream.
 
 Publishing remains tag-only behind the existing protected environments and
 explicit publication confirmation. Adding checks does not trigger a release.

@@ -11,7 +11,7 @@ Skill source: https://github.com/cnkang/skills/tree/main/qdrant-memory
 
 Version lines are independent: Runtime 0.2.1, Skill's own metadata version,
 distribution 0.1.1. Runtime source and schema snapshots used for preparation
-are immutable; publication requires the Runtime version to exist on PyPI.
+are immutable. Publication requires the Runtime version to exist on PyPI.
 
 The only Python files in this repository are release/verification scripts and
 tests. They never implement Qdrant, embedding, ledger or MCP server behavior.
