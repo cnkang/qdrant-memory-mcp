@@ -4,6 +4,7 @@ import asyncio
 import hashlib
 import json
 import os
+import shutil
 import subprocess
 import sys
 import threading
@@ -61,14 +62,25 @@ def sandbox(tmp_path):
     env = {key: value for key, value in os.environ.items() if key in allowed}
     env.update(HOME=str(tmp_path), USERPROFILE=str(tmp_path), PYTHONPATH=str(guard), HERMES_HOME=str(tmp_path / "unused-hermes"))
     script = Path(sys.executable).parent / ("qdrant-memory-mcp.exe" if sys.platform == "win32" else "qdrant-memory-mcp")
+    launch = [str(script)]
+    runtime_wheels = os.environ.get("DIST_TEST_UVX_RUNTIME_WHEELS")
+    if runtime_wheels or os.environ.get("DIST_TEST_UVX"):
+        uvx = shutil.which("uvx")
+        assert uvx, "uvx acceptance was requested but uvx is unavailable"
+        launch = [uvx, "--from", "qdrant-memory-mcp==0.1.0"]
+        if runtime_wheels:
+            launch += ["--find-links", str(Path(__file__).resolve().parents[1] / "dist"), "--find-links", runtime_wheels]
+        launch += ["qdrant-memory-mcp"]
+        env["UV_CACHE_DIR"] = str(tmp_path / "uv-cache")
+        env["UV_PYTHON"] = sys.executable
 
     def cli(*args, ok=True):
-        result = subprocess.run([str(script), "--home", str(profile), *args], cwd=tmp_path, env=env, capture_output=True, text=True, timeout=30)
+        result = subprocess.run([*launch, "--home", str(profile), *args], cwd=tmp_path, env=env, capture_output=True, text=True, timeout=90)
         assert (result.returncode == 0) == ok, result.stderr
         return json.loads(result.stdout)
 
     cli("init")
-    yield profile, config_path, config, env, str(script), cli, Embeddings
+    yield profile, config_path, config, env, launch, cli, Embeddings
     server.shutdown()
     server.server_close()
     thread.join(timeout=5)
@@ -85,7 +97,7 @@ def test_real_stdio_crud_restart_scope_and_redaction(sandbox):
     config_path.write_text(json.dumps(config), encoding="utf-8")
 
     async def connection(callback):
-        parameters = StdioServerParameters(command=script, args=["--home", str(profile), "mcp"], env=env, cwd=str(profile.parent))
+        parameters = StdioServerParameters(command=script[0], args=[*script[1:], "--home", str(profile), "mcp"], env=env, cwd=str(profile.parent))
         async with stdio_client(parameters) as (read, write):
             async with ClientSession(read, write) as session:
                 await session.initialize()
@@ -142,7 +154,7 @@ def test_stdout_is_jsonrpc_only(sandbox):
         {"jsonrpc": "2.0", "method": "notifications/initialized"},
         {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}},
     ]
-    process = subprocess.run([script, "--home", str(profile), "mcp"], input="".join(json.dumps(m) + "\n" for m in messages), capture_output=True, text=True, env=env, cwd=profile.parent, timeout=30)
+    process = subprocess.run([*script, "--home", str(profile), "mcp"], input="".join(json.dumps(m) + "\n" for m in messages), capture_output=True, text=True, env=env, cwd=profile.parent, timeout=90)
     assert process.returncode == 0, process.stderr
     lines = [json.loads(line) for line in process.stdout.splitlines()]
     assert {line.get("id") for line in lines} == {1, 2}
@@ -153,7 +165,7 @@ def test_failed_write_recovers_through_mcp_after_restart(sandbox):
     profile, _, _, env, script, cli, embeddings = sandbox
 
     async def run(failing):
-        parameters = StdioServerParameters(command=script, args=["--home", str(profile), "mcp"], env=env)
+        parameters = StdioServerParameters(command=script[0], args=[*script[1:], "--home", str(profile), "mcp"], env=env)
         async with stdio_client(parameters) as (read, write):
             async with ClientSession(read, write) as session:
                 await session.initialize()

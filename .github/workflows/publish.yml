@@ -88,6 +88,14 @@ jobs:
       - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
         with:
           persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.11'
+      - name: Verify publicly installed package and uvx protocol
+        run: |
+          python -m venv .public-env
+          .public-env/bin/python -m pip install qdrant-memory-mcp==0.1.0 'pytest>=8,<10' 'uv==0.9.26'
+          PATH="$PWD/.public-env/bin:$PATH" DIST_TEST_UVX=1 .public-env/bin/python -m pytest -q tests/test_protocol.py
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
         with:
           go-version: '1.26.0'

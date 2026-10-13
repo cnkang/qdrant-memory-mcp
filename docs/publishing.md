@@ -28,6 +28,12 @@ then reruns Registry validation/publication; no PyPI upload occurs. Normal retri
 also reuse a verified existing PyPI version. A mismatching package dependency,
 entrypoint, ownership marker or Registry payload fails closed.
 
+GitHub environments have already been configured with required reviewer
+`cnkang` and tag-only `v*` deployment policies: Runtime `pypi`; distribution
+`pypi` and `mcp-registry`. These approvals are never bypassed automatically.
+The remaining external account step is registering both PyPI pending Trusted
+Publishers at https://pypi.org/manage/account/publishing/.
+
 Official references checked on 2026-10-13:
 
 - [Publishing quickstart](https://github.com/modelcontextprotocol/registry/blob/main/docs/modelcontextprotocol-io/quickstart.mdx)
