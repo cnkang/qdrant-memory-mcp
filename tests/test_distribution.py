@@ -14,6 +14,19 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def test_metadata_verification_is_independent_of_windows_codepage(monkeypatch):
+    from test_release_guards import load_script
+
+    read = Path.read_text
+
+    def legacy_windows_read(path, *args, **kwargs):
+        kwargs.setdefault("encoding", "cp1252")
+        return read(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", legacy_windows_read)
+    load_script("verify_metadata").verify()
+
+
 def test_metadata_contract():
     project = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]
     server = json.loads((ROOT / "server.json").read_text())
