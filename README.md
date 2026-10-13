@@ -10,10 +10,9 @@ Its metadata-only wheel contains no Python business implementation. The console
 script points directly to `qdrant_memory.standalone:main` and depends on
 `hermes-plugin-qdrant-memory[mcp]==0.2.1`.
 
-**Candidate versions:** MCP distribution 0.1.1 pins Runtime 0.2.1. Both await
-publication. Public baseline is MCP 0.1.0 / Runtime 0.2.0. Commands below are for
-after publication. Preparation CI can build the immutable candidate. Release artifacts
-are available through the [distribution PyPI page](https://pypi.org/project/qdrant-memory-mcp/)
+**Versions:** MCP distribution 0.1.1 pins Runtime 0.2.1. The public baseline is
+MCP 0.1.0 / Runtime 0.2.0. The commands below use the pinned versions. Release
+artifacts are available through the [distribution PyPI page](https://pypi.org/project/qdrant-memory-mcp/)
 and [Runtime PyPI page](https://pypi.org/project/hermes-plugin-qdrant-memory/).
 See [release checklist](docs/publishing.md) for the publishing sequence.
 
@@ -145,9 +144,8 @@ cover initialize, discovery, four tools, persistence, recovery, scope isolation,
 error redaction and protocol stdout. Provider/cloud compatibility evidence
 belongs to the [Runtime](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/validation.md).
 
-CI prefers the immutable Runtime PyPI release. Before Runtime 0.2.1 reaches PyPI,
-CI builds a wheel from an immutable candidate
-commit recorded in `runtime-source.json`. This is only a preparation fixture:
+CI prefers the immutable Runtime PyPI release. Before a Runtime release reaches
+PyPI, CI builds a wheel from the immutable revision recorded in `runtime-source.json`. This is only a preparation fixture:
 published dependency metadata always uses the exact PyPI version. Release
 workflow acceptance requires installation from PyPI and never uses that fallback.
 
