@@ -8,6 +8,9 @@
 
 SDK 兼容性和升级指引见 [0.1.2 发布说明](docs/releases/0.1.2.zh-CN.md)。
 
+使用固定版本安装命令前，请在 [PyPI 版本页面](https://pypi.org/project/qdrant-memory-mcp/0.1.2/)
+确认该版本已公开发布。
+
 **版本：** 分发 0.1.2 固定依赖 Runtime 0.2.2，支持 MCP Python SDK 1.x 和 2.x
 （`mcp>=1.30,<3`）；四个固定作用域工具和 stdio 启动参数保持一致。
 保留不同但高度相似文本的显式写入修复，

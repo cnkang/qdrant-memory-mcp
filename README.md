@@ -12,6 +12,9 @@ script points directly to `qdrant_memory.standalone:main` and depends on
 
 See [0.1.2 release notes](docs/releases/0.1.2.md) for SDK compatibility and upgrade guidance.
 
+Before using an exact-version installation command, confirm that version on
+the [PyPI release page](https://pypi.org/project/qdrant-memory-mcp/0.1.2/).
+
 **Versions:** MCP distribution 0.1.2 pins Runtime 0.2.2, which supports MCP
 Python SDK 1.x and 2.x (`mcp>=1.30,<3`). The four scoped tools and stdio
 launch arguments are the same for both SDK majors. It retains the fix for explicit
