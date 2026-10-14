@@ -60,9 +60,14 @@ def test_archive_determinism_and_safe_writes(tmp_path):
 
 
 @pytest.mark.parametrize("field,value", [("source", "Bad ID"), ("version", "01.0.0"), ("minWorkbuddyVersion", "4.23.0"), ("examples_en", ["one"]), ("type", "cli"), ("auth_mode", "token")])
-def test_invalid_metadata_fails_closed(tmp_path, field, value):
+def test_invalid_metadata_fails_closed(tmp_path, monkeypatch, field, value):
+    read = Path.read_text
+    def legacy_windows_read(path, *args, **kwargs):
+        kwargs.setdefault("encoding", "cp1252")
+        return read(path, *args, **kwargs)
+    monkeypatch.setattr(Path, "read_text", legacy_windows_read)
     module = builder()
-    meta = json.loads((ROOT / "integrations/workbuddy/connector-meta.json").read_text())
+    meta = json.loads((ROOT / "integrations/workbuddy/connector-meta.json").read_text(encoding="utf-8"))
     meta[field] = value
     with pytest.raises(ValueError):
         module.validate_metadata(meta)
