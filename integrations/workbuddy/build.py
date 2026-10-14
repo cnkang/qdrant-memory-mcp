@@ -156,9 +156,14 @@ def build(root, skill_root, output, release_tag=None):
     for filename, value in (("connector-meta.json", meta), ("mcp.json", mcp), ("provenance.json", provenance)):
         files[filename] = ((json.dumps(value, ensure_ascii=False, indent=2) + "\n").encode(), 0o644)
     icon = root / "integrations/workbuddy/icon.svg"
-    if icon.is_symlink() or b"<svg" not in icon.read_bytes() or b"<script" in icon.read_bytes():
+    if icon.is_symlink():
         raise ValueError("Invalid icon")
-    files["icon.svg"] = (icon.read_bytes(), 0o644)
+    # SVG is text; normalize Git checkout LF/CRLF translation just as JSON
+    # inputs are normalized during parsing. Skill resources use Git blobs.
+    icon_bytes = icon.read_text(encoding="utf-8").encode("utf-8")
+    if b"<svg" not in icon_bytes or b"<script" in icon_bytes:
+        raise ValueError("Invalid icon")
+    files["icon.svg"] = (icon_bytes, 0o644)
     files = {PREFIX + key: value for key, value in files.items()}
     data = archive_bytes(files)
     output = output.absolute()
