@@ -1,5 +1,7 @@
 .venv/
 dist/
+.workbuddy-skill/
+.workbuddy-env/
 build/
 *.egg-info/
 __pycache__/

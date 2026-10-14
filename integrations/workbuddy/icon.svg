@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <title>Qdrant Memory</title>
+  <g fill="none" stroke="#b52959" stroke-width="5" stroke-linejoin="round">
+    <path d="M32 7 55 20v25L32 58 9 45V20Z"/>
+    <path d="m9 20 23 13 23-13M32 33v25M20 14l24 14v24"/>
+  </g>
+</svg>

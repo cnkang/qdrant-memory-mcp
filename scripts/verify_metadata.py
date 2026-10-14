@@ -2,6 +2,7 @@
 
 import configparser
 import json
+import subprocess
 import tarfile
 import tomllib
 import zipfile
@@ -42,7 +43,8 @@ def verify():
     assert project["scripts"] == {"qdrant-memory-mcp": "qdrant_memory.standalone:main"}
     marker = f"<!-- mcp-name: {server['name']} -->"
     assert marker in (ROOT / "README.md").read_text(encoding="utf-8")
-    assert not (ROOT / "qdrant_memory").exists() and not list(ROOT.rglob("SKILL.md"))
+    tracked = subprocess.check_output(["git", "-C", str(ROOT), "ls-files", "--cached", "--others", "--exclude-standard", "-z"]).decode().split("\0")
+    assert not (ROOT / "qdrant_memory").exists() and not any(Path(p).name == "SKILL.md" for p in tracked)
     wheels = list((ROOT / "dist").glob("*.whl"))
     sdists = list((ROOT / "dist").glob("*.tar.gz"))
     assert len(wheels) == len(sdists) == 1
