@@ -182,23 +182,14 @@ Neither is WorkBuddy GUI acceptance.
 Record actual client version, OS, isolation path and observations before marking
 any GUI row passed. Do not use existing personal memory for acceptance.
 
-On 2026-10-14, local macOS WorkBuddy 5.8.2 launched the bare `uvx` command with
-the exact published 0.1.2 pin and an added private `--home` test path. An isolated
-embedded collection used the existing Ollama `qwen3-embedding:4b` model; its actual
-embedding response was 2560 dimensions. WorkBuddy called search/add/update,
-retrieved the updated record after disabling/re-enabling the MCP child, deleted
-the selected exact ID, and searched again with an empty result. An independent
-operator CLI search confirmed the stored update before deletion and the empty
-result afterward. A competing Runtime writer was refused with WriterBusyError
-while WorkBuddy remained connected. This does not claim native Hermes lifecycle
-or full WorkBuddy application restart acceptance.
-
-The test connection was removed afterward, restoring the original empty custom
-MCP config; the pre-existing plugin connector remained enabled. No existing
-Profile or personal collection was read or modified. Connector ZIP import,
-market metadata/icon rendering, generated Skill loading, GUI failure states and
-managed installation remain NOT VERIFIED, so readiness remains **B: Package
-ready, WorkBuddy acceptance pending**.
+Local macOS compatibility was verified with WorkBuddy 5.8.2, the published uvx
+pin, an isolated embedded Profile and Ollama `qwen3-embedding:4b` (2560 dimensions).
+The four tools and MCP child-process restart persistence worked. A competing
+Runtime writer was refused. Synthetic data and the temporary connection were
+removed afterward. Native Hermes lifecycle, full application restart, Connector
+ZIP import, market metadata/icon rendering, generated Skill loading, GUI failure
+states and managed installation remain NOT VERIFIED. Readiness remains
+**B: Package ready, WorkBuddy acceptance pending**.
 
 ## Future release and recovery
 
