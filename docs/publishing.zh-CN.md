@@ -24,6 +24,15 @@ Runtime、PyPI 和 MCP Registry 发布须获得操作员明确授权。发布前
    `io.github.cnkang/qdrant-memory` 的 0.1.2 版本和公开安装流程，再发布公告。
    Runtime 和 MCP 验证完成后，才更新依赖它们的 skill。
 
+## 发布顺序与 pin 时机
+
+本发行版跟随 Runtime 发布。Runtime tag 存在且其公开 PyPI 文件可用后，再启动
+本发行版流程。`runtime-source.json` 等 WorkBuddy 元数据 pin 只在对应上游 tag
+存在后写入，一次写对。本仓库没有自引用提交 pin；若将来新增，只能在打 tag 之后
+以单个 closeout 提交更新：提交无法包含自身 SHA，猜测值不会与 tag 目标一致。
+
+相关仓库的发布顺序：Runtime → 本发行版 → `cnkang/skills` 的技能更新。
+
 发布环境必须保留必要审核者及仅允许 `v*` tag 的规则：Runtime 的 `pypi`，
 MCP 的 `pypi` 和 `mcp-registry`。不绕过门禁。
 

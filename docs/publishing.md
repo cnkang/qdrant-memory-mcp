@@ -43,6 +43,20 @@ and `mcp-registry`. Verify these controls before publication. Do not bypass them
 Both projects have published versions. Recheck the existing Trusted Publishers
 and required reviewers. Do not create duplicate publishers.
 
+## Release order and pin timing
+
+The distribution release follows the Runtime release. Start it only after the
+Runtime tag exists and its public PyPI files are available. Pin
+`runtime-source.json` to the Runtime tag target only after that tag exists.
+Update the other WorkBuddy metadata pins the same way.
+
+This repository has no self-referential commit pins. If a future change adds
+one, update it only after tagging, in a single closeout commit. A commit
+cannot contain its own SHA, and a guessed value will not match the tag target.
+
+Release order across the related repositories: the Runtime, this distribution,
+then the skill update in `cnkang/skills`.
+
 ## WorkBuddy attachments for future versions
 
 The [WorkBuddy adapter](../integrations/workbuddy/README.md) adds a separate
