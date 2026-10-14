@@ -1,7 +1,9 @@
 # GitHub checks and dependency maintenance
 
 - Distribution CI builds metadata-only artifacts and verifies installed MCP
-  protocol behavior on Linux, macOS and Windows (Python 3.11/3.14).
+  protocol behavior on Linux, macOS and Windows (Python 3.11/3.14), independently
+  with MCP Python SDK 1.x and 2.x. Publication also tests both SDK majors against
+  wheel and sdist installations using the public Runtime release.
 - Repository quality runs Ruff on release scripts/tests and actionlint on every
   workflow, including shell steps. actionlint's archive is SHA256 verified.
 - CodeQL analyzes Python and GitHub Actions with `security-extended` queries
@@ -17,7 +19,7 @@ Actions use immutable commit pins. Dependabot updates both occurrences of the
 CodeQL action together. Repository Dependabot security updates, secret scanning
 and push protection are enabled. No additional service token is required.
 
-The Runtime dependency is exact at `0.2.1`. Runtime updates must also adjust
+The Runtime dependency is exact at `0.2.2`. Runtime updates must also adjust
 compatibility expectations and the preparation fixture deliberately. A dependency-only PR cannot bypass the
 distribution's metadata/protocol checks. This repository scans distribution
 scripts and workflows. Runtime business-code scanning belongs to its upstream.

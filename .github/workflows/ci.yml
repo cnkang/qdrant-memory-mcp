@@ -18,6 +18,11 @@ jobs:
       matrix:
         os: [ubuntu-24.04, macos-latest, windows-latest]
         python: ['3.11', '3.14']
+        mcp:
+          - name: '1.x'
+            requirement: 'mcp>=1.30,<2'
+          - name: '2.x'
+            requirement: 'mcp>=2,<3'
     steps:
       - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
         with:
@@ -36,14 +41,14 @@ jobs:
         run: |
           python -m venv .wheel-env
           if [ '${{ runner.os }}' = 'Windows' ]; then PY=.wheel-env/Scripts/python.exe; else PY=.wheel-env/bin/python; fi
-          "$PY" -m pip install --find-links .runtime-dist dist/*.whl 'pytest>=8,<10'
+          "$PY" -m pip install --find-links .runtime-dist dist/*.whl 'pytest>=8,<10' '${{ matrix.mcp.requirement }}'
           "$PY" -m pytest -q tests --junitxml=wheel-results.xml
       - name: Create fresh sdist environment and exercise protocol
         shell: bash
         run: |
           python -m venv .sdist-env
           if [ '${{ runner.os }}' = 'Windows' ]; then PY=.sdist-env/Scripts/python.exe; else PY=.sdist-env/bin/python; fi
-          "$PY" -m pip install --find-links .runtime-dist dist/*.tar.gz 'pytest>=8,<10'
+          "$PY" -m pip install --find-links .runtime-dist dist/*.tar.gz 'pytest>=8,<10' '${{ matrix.mcp.requirement }}'
           "$PY" -m pytest -q tests --junitxml=sdist-results.xml
       - name: Reject skipped acceptance
         run: >-
@@ -54,7 +59,7 @@ jobs:
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
-          name: acceptance-${{ matrix.os }}-${{ matrix.python }}
+          name: acceptance-${{ matrix.os }}-${{ matrix.python }}-mcp-${{ matrix.mcp.name }}
           path: '*-results.xml'
           if-no-files-found: error
   registry:

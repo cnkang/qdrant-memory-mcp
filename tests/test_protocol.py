@@ -100,7 +100,7 @@ def sandbox(tmp_path):
     if runtime_wheels or os.environ.get("DIST_TEST_UVX"):
         uvx = shutil.which("uvx")
         assert uvx, "uvx acceptance was requested but uvx is unavailable"
-        launch = [uvx, "--from", "qdrant-memory-mcp==0.1.1"]
+        launch = [uvx, "--from", "qdrant-memory-mcp==0.1.2"]
         if runtime_wheels:
             launch += [
                 "--find-links",
@@ -159,7 +159,7 @@ def test_real_stdio_crud_restart_scope_and_redaction(sandbox):
     async def call(session, tool, arguments, ok=True):
         """Decode a scoped tool result and reject sensitive data in errors."""
         result = await session.call_tool("qdrant_memory_" + tool, arguments)
-        assert result.isError is not ok
+        assert result.model_dump(by_alias=True)["isError"] is not ok
         encoded = result.content[0].text
         if not ok:
             assert all(
@@ -182,7 +182,7 @@ def test_real_stdio_crud_restart_scope_and_redaction(sandbox):
             "qdrant_memory_update",
             "qdrant_memory_delete",
         }
-        assert all(t.inputSchema["additionalProperties"] is False for t in tools)
+        assert all(t.model_dump(by_alias=True)["inputSchema"]["additionalProperties"] is False for t in tools)
         added = await call(session, "add", {"text": "distribution durable fact"})
         memory_id = added["id"]
         found = await call(session, "search", {"query": "distribution durable fact"})
@@ -251,7 +251,7 @@ def test_similar_explicit_facts_survive_sdk_calls_and_restart(sandbox):
                     result = await session.call_tool(
                         "qdrant_memory_add", {"text": text}
                     )
-                    assert not result.isError, result.content
+                    assert not result.model_dump(by_alias=True)["isError"], result.content
                     value = json.loads(result.content[0].text)
                     assert value["action"] == "ADD"
                     ids.append(value["id"])
@@ -356,13 +356,13 @@ def test_failed_write_recovers_through_mcp_after_restart(sandbox):
                     result = await session.call_tool(
                         "qdrant_memory_add", {"text": "recover-fixture durable fact"}
                     )
-                    assert result.isError
+                    assert result.model_dump(by_alias=True)["isError"]
                 else:
                     found = await session.call_tool(
                         "qdrant_memory_search",
                         {"query": "recover-fixture durable fact"},
                     )
-                    assert not found.isError
+                    assert not found.model_dump(by_alias=True)["isError"]
                     memories = json.loads(found.content[0].text)["memories"]
                     assert (
                         len(memories) == 1
