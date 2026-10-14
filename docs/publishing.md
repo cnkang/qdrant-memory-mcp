@@ -1,9 +1,18 @@
-# 0.1.1 patch publication checklist
+# 0.1.2 patch publication checklist
+
+[English](publishing.md) | [简体中文](publishing.zh-CN.md)
 
 No publishing tag or workflow dispatch is executed before the operator gives
 explicit confirmation for the Runtime/PyPI/Registry publication.
 
-1. Merge the Runtime release PR after all checks pass. Create Runtime tag v0.2.1
+Prepare versioned package/Registry metadata, README examples and release notes
+in the release PR before building. `verify_metadata.py` requires the README's
+install pin to match the distribution version, and PyPI artifacts are immutable.
+An example identifies the intended release; it does not prove public availability.
+Verify the exact public version before using its installation command. Announce
+the release as available only after the checks below confirm both public endpoints.
+
+1. Merge the Runtime release PR after all checks pass. Create Runtime tag v0.2.2
    on the merged commit, only after publication confirmation.
 2. Configure PyPI Trusted Publishers (PyPI account step):
    - `hermes-plugin-qdrant-memory`: owner `cnkang`, repository
@@ -12,15 +21,15 @@ explicit confirmation for the Runtime/PyPI/Registry publication.
      workflow `publish.yml`, environment `pypi`.
 3. Approve protected GitHub environments when prompted. A version tag must point
    to a main-branch commit and match package metadata. Releases cannot overwrite
-   an existing version. Publish Runtime 0.2.1 and verify its PyPI artifacts.
+   an existing version. Publish Runtime 0.2.2 and verify its PyPI artifacts.
 4. Run distribution acceptance in public dependency mode. Build/test wheel and
    sdist from a new environment using only the exact Runtime PyPI release.
-5. Create distribution tag v0.1.1 after confirmation. Its workflow builds and
+5. Create distribution tag v0.1.2 after confirmation. Its workflow builds and
    tests before protected PyPI publication, verifies public metadata, validates
    with the official publisher, then uses `github-oidc` for Registry publication.
 6. Verify PyPI ownership marker and the public Registry entry
-   `io.github.cnkang/qdrant-memory` version 0.1.1. Update documentation version
-    references only after the public endpoints confirm the release.
+   `io.github.cnkang/qdrant-memory` version 0.1.2. Publish the release announcement
+   only after the public endpoints and public-install acceptance confirm the release.
 
 The distribution workflow has a tag-only manual `registry_only` retry mode.
 It downloads and verifies already-published PyPI artifacts and tests them,

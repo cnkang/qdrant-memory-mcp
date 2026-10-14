@@ -24,9 +24,9 @@ def test_registry_default_profile_launch(sandbox):
                 await session.initialize()
                 assert len((await session.list_tools()).tools) == 4
                 added = await session.call_tool("qdrant_memory_add", {"text": "default profile fact"})
-                assert not added.isError
+                assert not added.model_dump(by_alias=True)["isError"]
                 memory_id = json.loads(added.content[0].text)["id"]
                 deleted = await session.call_tool("qdrant_memory_delete", {"id": memory_id})
-                assert not deleted.isError
+                assert not deleted.model_dump(by_alias=True)["isError"]
 
     asyncio.run(check())

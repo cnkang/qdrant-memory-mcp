@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/cnkang/hermes-plugin-qdrant-memory.git",
-  "commit": "8929693fcccd1efa91bfa062145e35d2369ca9cc",
-  "version": "0.2.1",
+  "commit": "c85d2bce788b117dddd854bb124971f7de8e564c",
+  "version": "0.2.2",
   "purpose": "Preparation-only CI wheel; publishing resolves the exact version from PyPI"
 }

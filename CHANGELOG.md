@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.2
+
+- Pin Runtime 0.2.2 for MCP Python SDK 1.x and 2.x support. Keep the package
+  metadata-only and preserve its executable, four scoped tools and stdio arguments.
+- Exercise installed wheel and sdist protocol acceptance under both SDK majors.
+- Synchronize English and Chinese versions, install examples and compatibility guidance.
+
 ## 0.1.1
 
 - Pin Runtime 0.2.1 to fix high-similarity explicit writes without Hermes or an LLM.
