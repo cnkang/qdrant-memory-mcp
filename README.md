@@ -2,6 +2,9 @@
 
 <!-- mcp-name: io.github.cnkang/qdrant-memory -->
 
+[WorkBuddy connector packaging](integrations/workbuddy/README.md) reuses this
+stdio MCP and the canonical Skill for preconfigured local environments.
+
 [简体中文](README.zh-CN.md)
 
 Persistent, scoped memory for AI agents through four explicit **stdio MCP** tools.
