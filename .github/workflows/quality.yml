@@ -23,7 +23,7 @@ jobs:
           python-version: '3.11'
       - run: python -m pip install 'ruff==0.15.1'
       - name: Lint release scripts and acceptance tests
-        run: ruff check scripts tests
+        run: ruff check scripts tests integrations/workbuddy
       - name: Require matching immutable CodeQL action pins
         run: >-
           python -c "import re; from pathlib import Path;
