@@ -35,10 +35,8 @@ jobs:
           python integrations/workbuddy/release.py --release-tag "$RELEASE_TAG" --check-source
           python integrations/workbuddy/build.py --release-tag "$RELEASE_TAG" --check
           python integrations/workbuddy/build.py --release-tag "$RELEASE_TAG"
-      - name: Package and real public-install protocol gates
-        env:
-          WORKBUDDY_TEST_UVX: '1'
-        run: python -m pytest -q tests/test_workbuddy_package.py tests/test_workbuddy_release.py tests/test_workbuddy_mcp.py
+      - name: Package and candidate protocol gates before protected PyPI publication
+        run: python -m pytest -q tests/test_workbuddy_package.py tests/test_workbuddy_release.py tests/test_workbuddy_public_install.py tests/test_workbuddy_mcp.py
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: workbuddy-release-assets

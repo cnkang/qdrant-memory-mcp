@@ -163,6 +163,10 @@ never bypass the lease or modify the ledger directly.
 SDK acceptance uses synthetic loopback embeddings and disposable embedded
 storage. Existing distribution CI covers macOS/Linux/Windows and SDK 1.x/2.x.
 The preview job additionally executes the actual pinned public uvx command.
+For an unpublished release candidate it records public uvx acceptance as
+NOT VERIFIED while still testing the candidate's installed console script.
+The protected publish workflow requires actual public uvx acceptance after
+PyPI approval/publication; a new version cannot exist publicly before that gate.
 Neither is WorkBuddy GUI acceptance.
 
 | WorkBuddy client acceptance | Status |
@@ -190,6 +194,10 @@ The existing protected `pypi`/`mcp-registry` environments and OIDC flow remain
 unchanged. Those jobs do not edit GitHub Releases, so they do not race this
 per-tag serialized Draft workflow. Maintainers must wait for both workflows and
 verify public-install/Registry acceptance and assets before publishing the Draft.
+The tag job tests the candidate console script while PyPI approval is pending;
+the existing publisher's mandatory public uvx gate runs after publication.
+This avoids a first-publication race without bypassing approvals or publishing
+the Draft before all release gates complete.
 Do not publish while attachment preparation is running. Immutable GitHub releases
 require all attachments before publication.
 

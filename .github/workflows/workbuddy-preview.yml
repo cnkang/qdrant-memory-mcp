@@ -30,10 +30,16 @@ jobs:
       - run: python -m pip install . 'pytest>=8,<10' 'requests>=2,<3' 'PyYAML==6.0.3' 'uv==0.9.26'
       - run: python integrations/workbuddy/build.py --check
       - run: python integrations/workbuddy/build.py
-      - name: Package, release guards and public uvx protocol acceptance
+      - name: Package, release guards and candidate stdio acceptance
+        run: python -m pytest -q tests/test_workbuddy_package.py tests/test_workbuddy_release.py tests/test_workbuddy_public_install.py tests/test_workbuddy_mcp.py
+      - name: Check exact public MCP version availability
+        id: public
+        run: python integrations/workbuddy/public_install.py
+      - name: Require public uvx acceptance for published versions
+        if: steps.public.outputs.exists == 'true'
         env:
           WORKBUDDY_TEST_UVX: '1'
-        run: python -m pytest -q tests/test_workbuddy_package.py tests/test_workbuddy_release.py tests/test_workbuddy_mcp.py
+        run: python -m pytest -q tests/test_workbuddy_mcp.py
       - name: Verify checksum
         working-directory: dist/workbuddy
         run: sha256sum --check ./*.sha256
