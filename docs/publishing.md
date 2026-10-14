@@ -1,30 +1,5 @@
 # 0.1.2 patch publication checklist
 
-## WorkBuddy attachments for future versions
-
-The [WorkBuddy adapter](../integrations/workbuddy/README.md) adds a separate
-tag-triggered read-only build and Draft Release attachment job. Update its
-checked-in `mcp.json` package pin with future version metadata. Its ZIP/checksum
-record independent Connector, MCP, Runtime and immutable Skill versions.
-
-Keep the existing protected PyPI/Registry environments, OIDC gates and public
-acceptance unchanged. The new workflow does not upload PyPI or Registry entries.
-No existing release is retrofitted. Wait for both publication and WorkBuddy
-preparation workflows before manually publishing the corresponding Draft;
-immutable releases require attachments before publication. Per-tag concurrency
-serializes attachment runs, and existing publish.yml never writes Releases.
-
-Reruns reuse matching bytes. Conflicting assets or a published release missing
-assets fail closed. Preserve tags/assets and use a new approved release rather
-than clobbering assets, moving tags or reuploading a PyPI version. Draft creation
-and attachment preparation never replace the maintainer's publication decision.
-
-The tag's WorkBuddy build tests the installed candidate, allowing Draft attachment
-preparation before PyPI approval. It does not require an unpublished version to
-already exist on PyPI. The protected publisher still requires public uvx
-acceptance after publication. Preview requires public uvx when the exact version
-is available; otherwise it explicitly records that acceptance as NOT VERIFIED.
-
 [English](publishing.md) | [简体中文](publishing.zh-CN.md)
 
 No publishing tag or workflow dispatch is executed before the operator gives
@@ -67,6 +42,31 @@ and tag-only `v*` deployment policies: Runtime `pypi`, distribution `pypi`
 and `mcp-registry`. Verify these controls before publication. Do not bypass them.
 Both projects have published versions. Recheck the existing Trusted Publishers
 and required reviewers. Do not create duplicate publishers.
+
+## WorkBuddy attachments for future versions
+
+The [WorkBuddy adapter](../integrations/workbuddy/README.md) adds a separate
+tag-triggered read-only build and Draft Release attachment job. Update its
+checked-in `mcp.json` package pin with future version metadata. Its ZIP/checksum
+record independent Connector, MCP, Runtime and immutable Skill versions.
+
+Keep the existing protected PyPI/Registry environments, OIDC gates and public
+acceptance unchanged. The new workflow does not upload PyPI or Registry entries.
+No existing release is retrofitted. Wait for both publication and WorkBuddy
+preparation workflows before manually publishing the corresponding Draft;
+immutable releases require attachments before publication. Per-tag concurrency
+serializes attachment runs, and existing publish.yml never writes Releases.
+
+Reruns reuse matching bytes. Conflicting assets or a published release missing
+assets fail closed. Preserve tags/assets and use a new approved release rather
+than clobbering assets, moving tags or reuploading a PyPI version. Draft creation
+and attachment preparation never replace the maintainer's publication decision.
+
+The tag's WorkBuddy build tests the installed candidate, allowing Draft attachment
+preparation before PyPI approval. It does not require an unpublished version to
+already exist on PyPI. The protected publisher still requires public uvx
+acceptance after publication. Preview requires public uvx when the exact version
+is available; otherwise it explicitly records that acceptance as NOT VERIFIED.
 
 Official references checked on 2026-10-13:
 
