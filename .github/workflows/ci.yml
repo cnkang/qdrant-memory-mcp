@@ -11,6 +11,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   distribution:
+    name: Distribution (${{ matrix.os }}, Python ${{ matrix.python }}, SDK ${{ matrix.mcp.name }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     strategy:

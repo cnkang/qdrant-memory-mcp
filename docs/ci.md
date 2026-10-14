@@ -4,6 +4,7 @@
   protocol behavior on Linux, macOS and Windows (Python 3.11/3.14), independently
   with MCP Python SDK 1.x and 2.x. Publication also tests both SDK majors against
   wheel and sdist installations using the public Runtime release.
+  All 12 OS/Python/SDK combinations are required checks on the protected branch.
 - Repository quality runs Ruff on release scripts/tests and actionlint on every
   workflow, including shell steps. actionlint's archive is SHA256 verified.
 - CodeQL analyzes Python and GitHub Actions with `security-extended` queries
