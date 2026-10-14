@@ -1,0 +1,45 @@
+name: WorkBuddy connector preview
+on:
+  push:
+    branches: ['codex/**']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: workbuddy-preview-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  connector:
+    name: WorkBuddy package and stdio acceptance
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+        with:
+          repository: cnkang/skills
+          ref: 405d5664a6b682adefbaef7513653607a420e757
+          path: .workbuddy-skill
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.11'
+      - run: python -m pip install . 'pytest>=8,<10' 'PyYAML==6.0.3' 'uv==0.9.26'
+      - run: python integrations/workbuddy/build.py --check
+      - run: python integrations/workbuddy/build.py
+      - name: Package, release guards and public uvx protocol acceptance
+        env:
+          WORKBUDDY_TEST_UVX: '1'
+        run: python -m pytest -q tests/test_workbuddy_package.py tests/test_workbuddy_release.py tests/test_workbuddy_mcp.py
+      - name: Verify checksum
+        working-directory: dist/workbuddy
+        run: sha256sum --check ./*.sha256
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: workbuddy-connector-preview
+          path: dist/workbuddy/*
+          retention-days: 14
+          if-no-files-found: error

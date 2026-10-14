@@ -1,5 +1,24 @@
 # 0.1.2 patch publication checklist
 
+## WorkBuddy attachments for future versions
+
+The [WorkBuddy adapter](../integrations/workbuddy/README.md) adds a separate
+tag-triggered read-only build and Draft Release attachment job. Update its
+checked-in `mcp.json` package pin with future version metadata. Its ZIP/checksum
+record independent Connector, MCP, Runtime and immutable Skill versions.
+
+Keep the existing protected PyPI/Registry environments, OIDC gates and public
+acceptance unchanged. The new workflow does not upload PyPI or Registry entries.
+No existing release is retrofitted. Wait for both publication and WorkBuddy
+preparation workflows before manually publishing the corresponding Draft;
+immutable releases require attachments before publication. Per-tag concurrency
+serializes attachment runs, and existing publish.yml never writes Releases.
+
+Reruns reuse matching bytes. Conflicting assets or a published release missing
+assets fail closed. Preserve tags/assets and use a new approved release rather
+than clobbering assets, moving tags or reuploading a PyPI version. Draft creation
+and attachment preparation never replace the maintainer's publication decision.
+
 [English](publishing.md) | [简体中文](publishing.zh-CN.md)
 
 No publishing tag or workflow dispatch is executed before the operator gives
