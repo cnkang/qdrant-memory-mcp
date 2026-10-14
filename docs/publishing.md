@@ -19,6 +19,12 @@ assets fail closed. Preserve tags/assets and use a new approved release rather
 than clobbering assets, moving tags or reuploading a PyPI version. Draft creation
 and attachment preparation never replace the maintainer's publication decision.
 
+The tag's WorkBuddy build tests the installed candidate, allowing Draft attachment
+preparation before PyPI approval. It does not require an unpublished version to
+already exist on PyPI. The protected publisher still requires public uvx
+acceptance after publication. Preview requires public uvx when the exact version
+is available; otherwise it explicitly records that acceptance as NOT VERIFIED.
+
 [English](publishing.md) | [简体中文](publishing.zh-CN.md)
 
 No publishing tag or workflow dispatch is executed before the operator gives
