@@ -160,3 +160,19 @@ def test_upstream_body_comparison_uses_git_blob_on_crlf_checkout(tmp_path, monke
     monkeypatch.setattr(module.subprocess, "run", upstream_builder)
     files = module.skill_files(tmp_path, {"version": "0.2.5"})
     assert files["skills/qdrant-memory/SKILL.md"][0] == generated
+
+
+def test_connector_bytes_ignore_checkout_line_ending_translation(tmp_path, monkeypatch):
+    module = builder()
+    monkeypatch.setattr(module, "skill_files", lambda *a: {"skills/qdrant-memory/SKILL.md": (b"generated\n", 0o644), "skills/qdrant-memory/LICENSE": (b"MIT\n", 0o644)})
+    roots = [tmp_path / "lf", tmp_path / "crlf"]
+    names = ["pyproject.toml", "runtime-source.json", "integrations/workbuddy/connector-meta.json", "integrations/workbuddy/mcp.json", "integrations/workbuddy/skill-source.json", "integrations/workbuddy/icon.svg"]
+    for index, root in enumerate(roots):
+        for name in names:
+            destination = root / name
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            data = (ROOT / name).read_bytes().replace(b"\r\n", b"\n")
+            destination.write_bytes(data if index == 0 else data.replace(b"\n", b"\r\n"))
+    one = module.build(roots[0], tmp_path, tmp_path / "one")[0]
+    two = module.build(roots[1], tmp_path, tmp_path / "two")[0]
+    assert one.read_bytes() == two.read_bytes()
