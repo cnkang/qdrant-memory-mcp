@@ -96,6 +96,8 @@ def test_skill_source_checkout_identity_and_dirty_tree(tmp_path):
     git("remote", "add", "origin", "https://github.com/cnkang/skills.git")
     source = {"repository": "https://github.com/cnkang/skills.git", "commit": git("rev-parse", "HEAD"), "version": "0.2.5"}
     module.validate_skill_source(tmp_path, source)
+    git("remote", "set-url", "origin", "https://github.com/cnkang/skills")
+    module.validate_skill_source(tmp_path, source)
     with pytest.raises(ValueError, match="pinned commit"):
         module.validate_skill_source(tmp_path, {**source, "commit": "0" * 40})
     git("remote", "set-url", "origin", "https://example.invalid/skills.git")

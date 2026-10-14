@@ -68,7 +68,7 @@ def git(root, *args):
 
 
 def validate_skill_source(skill_root, source):
-    if git(skill_root, "remote", "get-url", "origin") not in {source["repository"], "git@github.com:cnkang/skills.git"}:
+    if git(skill_root, "remote", "get-url", "origin") not in {source["repository"], "https://github.com/cnkang/skills", "git@github.com:cnkang/skills.git"}:
         raise ValueError("Skill origin differs from canonical repository")
     if git(skill_root, "rev-parse", "HEAD") != source["commit"]:
         raise ValueError("Skill checkout must match the full pinned commit")
@@ -196,5 +196,8 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-    except (ValueError, OSError, subprocess.CalledProcessError, zipfile.BadZipFile) as exc:
+    except ValueError as exc:
+        # Our validation messages are static and never contain user data.
+        raise SystemExit(f"WorkBuddy build failed: {exc}")
+    except (OSError, subprocess.CalledProcessError, zipfile.BadZipFile) as exc:
         raise SystemExit(f"WorkBuddy build failed ({type(exc).__name__}); inspect reviewed inputs, not user profiles")

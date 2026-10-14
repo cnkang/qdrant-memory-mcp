@@ -50,12 +50,12 @@ jobs:
         run: |
           python -m venv .wheel-env
           for SDK in 'mcp>=1.30,<2' 'mcp>=2,<3'; do
-            .wheel-env/bin/python -m pip install dist/*.whl 'pytest>=8,<10' "$SDK"
+            .wheel-env/bin/python -m pip install dist/*.whl 'pytest>=8,<10' 'requests>=2,<3' "$SDK"
             .wheel-env/bin/python -m pytest -q tests
           done
           python -m venv .sdist-env
           for SDK in 'mcp>=1.30,<2' 'mcp>=2,<3'; do
-            .sdist-env/bin/python -m pip install dist/*.tar.gz 'pytest>=8,<10' "$SDK"
+            .sdist-env/bin/python -m pip install dist/*.tar.gz 'pytest>=8,<10' 'requests>=2,<3' "$SDK"
             .sdist-env/bin/python -m pytest -q tests
           done
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
