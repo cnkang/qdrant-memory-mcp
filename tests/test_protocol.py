@@ -7,6 +7,7 @@ import os
 import queue
 import shutil
 import subprocess
+import sysconfig
 import sys
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -92,7 +93,9 @@ def sandbox(tmp_path):
         PYTHONPATH=str(guard),
         HERMES_HOME=str(tmp_path / "unused-hermes"),
     )
-    script = Path(sys.executable).parent / (
+    # Resolve the installed console script through sysconfig: on Windows the
+    # scripts live in a Scripts/ subdirectory, unlike POSIX prefixes.
+    script = Path(sysconfig.get_path("scripts")) / (
         "qdrant-memory-mcp.exe" if sys.platform == "win32" else "qdrant-memory-mcp"
     )
     launch = [str(script)]

@@ -4,6 +4,7 @@ import configparser
 import importlib.metadata
 import json
 import subprocess
+import sysconfig
 import sys
 import tarfile
 import tomllib
@@ -89,7 +90,9 @@ def test_installed_entrypoint():
     assert importlib.metadata.packages_distributions()["qdrant_memory"] == [
         "hermes-plugin-qdrant-memory"
     ]
-    script = Path(sys.executable).parent / (
+    # Resolve the installed console script through sysconfig: on Windows the
+    # scripts live in a Scripts/ subdirectory, unlike POSIX prefixes.
+    script = Path(sysconfig.get_path("scripts")) / (
         "qdrant-memory-mcp.exe" if sys.platform == "win32" else "qdrant-memory-mcp"
     )
     result = subprocess.run(
