@@ -1,7 +1,22 @@
 # WorkBuddy managed installation design
 
-Status: proposed. The current connector requires an existing Python/uvx
+Status: managed connector architecture proposed; shared prerequisites implemented
+in source. The current connector requires an existing Python/uvx
 environment and an initialized profile. It is not a zero-configuration product.
+
+## Implementation boundary
+
+The [shared Runtime change](https://github.com/cnkang/hermes-plugin-qdrant-memory/pull/48)
+adds optional CPU embedding, explicit model preparation and guided new-profile
+setup. These additions require a future Runtime release before published MCP
+packages can depend on them. Ollama remains the existing default; setup requires
+an explicit provider choice, and Ollama/cloud choices never download CPU models.
+
+The [managed Python prerequisite probe](../integrations/managed/README.md)
+prepares a verified Python environment from Node without system Python/uvx.
+It has separate native-platform CI. This establishes a bootstrap prerequisite,
+not a complete WorkBuddy installation or a production launcher. The current
+marketplace connector configuration remains on the published Python stdio path.
 
 ## Compatibility objective
 
@@ -86,8 +101,9 @@ user action; do not silently install Ollama or switch to a cloud provider.
 Keep these diagnostics generic so other agents can use the same setup path.
 
 The current manual steps are documented in the [Ollama quickstart](quickstart.md)
-and [Chinese quickstart](quickstart.zh-CN.md). Guided setup is proposed, not
-implemented. Requiring Ollama remains a guided configuration path, not local
+and [Chinese quickstart](quickstart.zh-CN.md). Guided setup is implemented in
+the shared Runtime source, pending release. Requiring Ollama remains a guided
+configuration path, not local
 zero-configuration acceptance. The optional CPU provider remains a separate
 way to remove that prerequisite after its own validation.
 
@@ -144,7 +160,8 @@ Do not delete another version's model cache. Warm startup should work offline
 after preparation. Local text must not be sent to remote embedding services.
 
 Package wheel availability is only a prerequisite. Check macOS Apple Silicon,
-macOS Intel, Windows x64, Linux x64 and any advertised ARM64 variant separately;
+Windows x64, Linux x64 and any advertised ARM64 variant separately. macOS Intel
+is best-effort compatibility, not formal support or a required release gate;
 do not claim a platform merely because Python itself runs there.
 
 [uv](https://docs.astral.sh/uv/guides/install-python/) can prepare managed Python

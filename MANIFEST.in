@@ -4,6 +4,8 @@ include schemas/LICENSE schemas/README.md
 recursive-include scripts *.py
 recursive-include tests *.py
 recursive-include integrations/workbuddy *.py *.json *.svg *.md
+recursive-include integrations/managed *.mjs *.md
+include tests/test_managed_bootstrap.mjs
 include docs/architecture.md docs/ci.md docs/publishing.md
 include docs/quickstart.md docs/quickstart.zh-CN.md
 include docs/workbuddy-one-click-architecture.md docs/workbuddy-one-click-validation.md
