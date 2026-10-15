@@ -1,4 +1,4 @@
-# Keep Python MCP; add Node installation where the host benefits
+# Keep Python MCP and add Node installation where the host benefits
 
 Status: accepted for this integration.
 
@@ -18,12 +18,12 @@ engine or removing the existing Python package.
 | Option | Benefit | Cost and risk | Decision |
 | --- | --- | --- | --- |
 | Python MCP with existing uvx | One implementation, mature scope/ledger/lease semantics, simple stdio lifecycle | Requires separately prepared Python/uvx and embedding backend | Retain for generic clients and DSH |
-| Node launcher around Python MCP | WorkBuddy can manage Node; private Python/model setup; prompt cold handshake | Two processes, readiness and cancellation boundary, verified provisioning required | Add as opt-in adapter |
-| Node MCP over a Python worker/CLI | Familiar npm distribution | Python still required; extra RPC/CLI boundary, duplicate schema/error/lifecycle work | No wholesale migration benefit |
-| Pure Node memory implementation | Could remove Python installation | Reimplement Qdrant/embedding/fingerprint, scope, ledger, recovery and leases; existing-data and Hermes compatibility become a new project | Reject for this release |
+| Node launcher around Python MCP | WorkBuddy can manage Node. It provides a private Python/model setup and a prompt cold handshake | Two processes, readiness and cancellation boundary, verified provisioning required | Add as opt-in adapter |
+| Node MCP over a Python worker/CLI | Familiar npm distribution | Python is still required. An extra RPC/CLI boundary duplicates schema, error and lifecycle work | No wholesale migration benefit |
+| Pure Node memory implementation | Could remove Python installation | Reimplement Qdrant/embedding/fingerprint, scope, ledger, recovery and leases. Existing-data and Hermes compatibility become a new project. | Reject for this release |
 
 The current PyPI distribution is metadata-only and invokes the Runtime's
-existing `qdrant_memory.standalone:main`; there is no independent Python memory
+existing `qdrant_memory.standalone:main`. There is no independent Python memory
 engine to remove from this repository. The four schemas come from the Runtime.
 The Node readiness catalogue is checked against them in tests and again against
 the running server, failing closed on drift.

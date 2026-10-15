@@ -7,7 +7,7 @@
 - Pin the connector launcher and Registry/PyPI metadata to MCP 0.1.3. Keep
   Runtime 0.2.2, MCP SDK 1.x/2.x support, four scoped tools and stdio arguments.
 - Preserve the metadata-only wheel and protected PyPI/Registry publishing.
-  Verify Draft assets before publication; existing releases remain immutable.
+  Verify Draft assets before publication. Existing releases remain immutable.
 - WorkBuddy requires uvx/Python, an initialized profile and an embedding service.
   ZIP import and marketplace acceptance remain separate manual checks.
 
