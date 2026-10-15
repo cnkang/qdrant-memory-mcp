@@ -21,7 +21,7 @@ jobs:
       - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
         with:
           repository: cnkang/skills
-          ref: 405d5664a6b682adefbaef7513653607a420e757
+          ref: c88eadceac2a7b33e5047d65d966d2e8c83c5f24
           path: .workbuddy-skill
           persist-credentials: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97

@@ -1,0 +1,19 @@
+# Enable for this launch only: dsh web --patch /absolute/path/to/this-file
+# Prepare this dedicated profile first; no setup/download occurs during probing.
+- insert:
+    - id: cnkang-qdrant-memory-mcp
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: qdrant-memory
+        transport: stdio
+        command: uvx
+        args:
+          - --from
+          - qdrant-memory-mcp==0.1.3
+          - qdrant-memory-mcp
+          - --home
+          - !!js process.env.QDRANT_MEMORY_DSH_PROFILE || require('node:path').join(require('node:os').homedir(), '.qdrant-memory-dsh')
+          - mcp
+        env:
+          QDRANT_API_KEY: !!js process.env.QDRANT_API_KEY || ''
+          EMBEDDING_API_KEY: !!js process.env.EMBEDDING_API_KEY || ''

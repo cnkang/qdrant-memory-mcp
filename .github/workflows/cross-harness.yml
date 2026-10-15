@@ -1,0 +1,150 @@
+name: Cross-harness integration
+
+on:
+  push:
+    branches: [main, 'codex/**']
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      cold_setup:
+        description: Prepare fresh managed Python, Runtime and real CPU model
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cross-harness-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  integration:
+    name: MCP adapters (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-14, windows-2022]
+    steps:
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.11'
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+        with:
+          repository: cnkang/skills
+          ref: c88eadceac2a7b33e5047d65d966d2e8c83c5f24
+          path: .scratch/canonical-skills
+          persist-credentials: false
+      - name: Install published Python MCP and test dependencies
+        run: python -m pip install . 'pytest>=8,<10' 'requests>=2,<3' 'jsonschema>=4,<5'
+      - name: Install exact official DSH client and Skill provider
+        working-directory: integrations/dsh
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Artifact, cold handshake, host isolation and secret boundaries
+        run: node --test tests/test_managed_bootstrap.mjs tests/test_managed_launcher.mjs
+      - name: WorkBuddy connector and shared bridge integration
+        run: python -m pytest -q tests/test_workbuddy_mcp.py tests/test_workbuddy_package.py tests/test_managed_bridge.py tests/test_cross_harness.py --junitxml=workbuddy-results.xml
+      - name: Official DSH client probe, unload, CRUD and fresh-process persistence
+        env:
+          DSH_TEST_MODULES: ${{ github.workspace }}/integrations/dsh/node_modules
+          QDRANT_TEST_SKILL_ROOT: ${{ github.workspace }}/.scratch/canonical-skills
+        run: python -m pytest -q tests/dsh_acceptance.py --junitxml=dsh-results.xml
+      - name: Reject skipped integration acceptance
+        run: >-
+          python -c "import xml.etree.ElementTree as E;
+          suites=[s for p in ['workbuddy-results.xml','dsh-results.xml'] for s in E.parse(p).findall('.//testsuite')];
+          assert sum(int(s.get('tests',0)) for s in suites)>=10;
+          assert sum(int(s.get('skipped',0)) for s in suites)==0"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: cross-harness-${{ matrix.os }}
+          path: '*-results.xml'
+          if-no-files-found: error
+
+  cold-setup:
+    if: github.event_name != 'workflow_dispatch' || inputs.cold_setup
+    name: Managed CPU setup (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-14, windows-2022]
+    steps:
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+      - name: Fresh shared program and isolated host profiles
+        env:
+          QDRANT_MEMORY_MANAGED_ROOT: ${{ runner.temp }}/qdrant-managed-acceptance
+        run: node tests/managed-cold-acceptance.mjs
+
+  existing-hosts:
+    name: OpenCode and Pi compatibility
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.11'
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+        with:
+          repository: cnkang/skills
+          ref: c88eadceac2a7b33e5047d65d966d2e8c83c5f24
+          path: .scratch/canonical-skills
+          persist-credentials: false
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+        with:
+          repository: cnkang/hermes-plugin-qdrant-memory
+          ref: b568e0d5bfe23f10e4b1ea912405c1054730f3b5
+          path: .scratch/runtime
+          persist-credentials: false
+      - name: Install standalone Runtime and existing-host test dependencies
+        run: python -m pip install . './.scratch/runtime[mcp]' 'pytest>=8,<10' 'PyYAML>=6,<7' 'requests>=2,<3'
+      - name: Install exact OpenCode and Pi CLIs
+        working-directory: integrations/agent-hosts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Existing host registration, discovery and shared/private scope
+        env:
+          QDRANT_LOCAL_AGENTS: '1'
+          QDRANT_STANDALONE_E2E: '1'
+          QDRANT_STANDALONE_ROOT: ${{ github.workspace }}/.scratch/runtime
+          PI_ACCEPTANCE_CLI: ${{ github.workspace }}/integrations/agent-hosts/node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js
+        run: |
+          export PATH="$GITHUB_WORKSPACE/integrations/agent-hosts/node_modules/.bin:$PATH"
+          python -m pytest -q \
+            .scratch/canonical-skills/tests/test_local_agent_mcp.py::test_installed_opencode_connects_scoped_mcp \
+            .scratch/canonical-skills/tests/test_local_agent_mcp.py::test_installed_pi_discovers_scoped_mcp \
+            .scratch/canonical-skills/tests/test_shared_memory_mcp.py --junitxml=existing-hosts-results.xml
+      - name: Reject skipped existing-host acceptance
+        run: python .scratch/canonical-skills/scripts/check_test_report.py existing-hosts-results.xml --minimum-tests 3
+      - name: Install locked Pi SDK Skill acceptance
+        run: npm ci --prefix .scratch/canonical-skills/tests/agent-hosts/pi --ignore-scripts --no-audit --no-fund
+      - name: Pi Skill discovery, reference loading and actual tool loop
+        run: npm test --prefix .scratch/canonical-skills/tests/agent-hosts/pi
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: existing-hosts
+          path: |
+            existing-hosts-results.xml
+            .scratch/canonical-skills/reports/pi-host.xml
+          if-no-files-found: error

@@ -1,0 +1,12 @@
+# Opt-in source candidate. Run launcher.mjs prepare dsh first.
+- insert:
+    - id: cnkang-qdrant-memory-mcp
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: qdrant-memory
+        transport: stdio
+        command: !!js process.execPath
+        args:
+          - !!js require('node:path').resolve(process.env.QDRANT_MEMORY_LAUNCHER)
+          - mcp
+          - dsh

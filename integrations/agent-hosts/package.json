@@ -1,0 +1,8 @@
+{
+  "name": "qdrant-memory-existing-host-acceptance",
+  "private": true,
+  "devDependencies": {
+    "@opencode/cli": "2.0.24",
+    "@earendil-works/pi-coding-agent": "1.1.0"
+  }
+}
