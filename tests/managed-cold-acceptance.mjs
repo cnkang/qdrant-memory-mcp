@@ -5,7 +5,7 @@ import { createInterface } from 'node:readline';
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { locations, prepare, installed } from '../integrations/managed/provision.mjs';
+import { locations, prepare, installed, runtime, dependencyDigest } from '../integrations/managed/provision.mjs';
 const root = process.env.QDRANT_MEMORY_MANAGED_ROOT;
 assert.ok(root, 'Choose an explicit disposable managed root');
 const start = performance.now();
@@ -22,7 +22,18 @@ await assert.rejects(installed(dsh));
 // replace them instead of failing on their presence.
 await writeFile(join(dsh.program, process.platform === 'win32' ? 'uv.exe.pending' : 'uv.pending'), 'stale', { flag: 'w' });
 await writeFile(join(dsh.program, 'runtime.tar.gz.pending'), 'stale', { flag: 'w' });
+// Simulate legacy writes interrupted before atomic snapshot publication existed.
+// Retrying must revalidate the installation, not trust a partial success marker.
+const lockfile = join(dsh.program, 'requirements.lock');
+const requirements = await readFile(lockfile, 'utf8');
+await writeFile(lockfile, requirements.slice(0, Math.floor(requirements.length / 2)));
+await writeFile(lockfile + '.pending', 'stale');
+const marker = join(dsh.program, 'installed.json');
+await writeFile(marker, JSON.stringify({ revision: runtime.revision, dependencies: dependencyDigest }).slice(0, 20));
+await writeFile(marker + '.pending', 'stale');
+await assert.rejects(installed(dsh));
 await prepare(dsh, 'dsh');
+assert.equal(await readFile(lockfile, 'utf8'), requirements);
 await prepare(wb, 'workbuddy');
 const launcher = fileURLToPath(new URL('../integrations/managed/launcher.mjs', import.meta.url));
 
@@ -93,4 +104,4 @@ for (const host of ['dsh', 'workbuddy']) {
 assert.equal(await installed(dsh), await installed(wb));
 const cfg = JSON.parse(await readFile(wb.profile + '/qdrant-memory.json', 'utf8'));
 assert.equal(cfg.scope.agent_id, 'workbuddy');
-console.log(JSON.stringify({ passed: true, hosts: 2, interrupted_install_resumed: true, fresh_process_persistence: true, elapsed_seconds: Math.round((performance.now() - start) / 1000) }));
+console.log(JSON.stringify({ passed: true, hosts: 2, interrupted_install_resumed: true, partial_snapshots_recovered: true, fresh_process_persistence: true, elapsed_seconds: Math.round((performance.now() - start) / 1000) }));

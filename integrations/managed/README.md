@@ -38,6 +38,9 @@ provisioning. It never resets storage, overwrites another host's settings or
 steals a WriterLease. Normal failed preparation releases its provisioning lock.
 An orderly client probe interruption can resume the same partial Python
 environment on the next preparation attempt. Its files are retained and checked.
+If an older installer left incomplete installation metadata, retry preparation.
+It validates the packages again before starting the backend and writes complete
+metadata atomically. Unexpected or incompatible metadata still requires investigation.
 If a force-killed installer leaves `.provision.lock`, first confirm that its
 process tree is gone. Then inspect or remove only that installation transaction's
 stale lock. The next preparation replaces stale temporary files by itself. Do not remove Runtime data locks or profile
