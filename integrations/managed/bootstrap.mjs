@@ -102,9 +102,20 @@ export function extractExecutable(bytes, expectedName) {
   return executable;
 }
 
+export function anySignal(signals) {
+  // Node 20.0-20.2 lack AbortSignal.any; this keeps the declared >=20 floor valid.
+  if (signals.length === 1) return signals[0];
+  const controller = new AbortController();
+  for (const source of signals) {
+    if (source.aborted) { controller.abort(source.reason); return controller.signal; }
+    source.addEventListener('abort', () => controller.abort(source.reason), { once: true });
+  }
+  return controller.signal;
+}
+
 export async function download(spec, signal) {
-  const response = await fetch(spec.url, { redirect: 'error', signal: signal
-    ? AbortSignal.any([signal, AbortSignal.timeout(120000)]) : AbortSignal.timeout(120000) });
+  const timeout = AbortSignal.timeout(120000);
+  const response = await fetch(spec.url, { redirect: 'error', signal: signal ? anySignal([signal, timeout]) : timeout });
   if (!response.ok) throw new Error('Bootstrap download failed');
   const blocks = [];
   let length = 0;

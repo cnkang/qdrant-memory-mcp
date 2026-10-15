@@ -115,6 +115,8 @@ export async function prepare(paths, host, signal, onStage = () => {}) {
       // Publish only a fully verified regular executable, never an archive path.
       const bytes = extractExecutable(await download(spec, signal), `uv-${UV_VERSION}.data/scripts/${process.platform === 'win32' ? 'uv.exe' : 'uv'}`);
       const temporary = uv + '.pending';
+      // A stopped probe can leave a stale temporary file; the held lock makes removal safe.
+      await rm(temporary, { force: true });
       await writeFile(temporary, bytes, { flag: 'wx', mode: 0o700 });
       if (await lstat(uv).catch(error => { if (error.code !== 'ENOENT') throw error; })) await regularFile(uv);
       await rename(temporary, uv);
@@ -131,7 +133,12 @@ export async function prepare(paths, host, signal, onStage = () => {}) {
       try { await regularFile(archive); verifyArtifact(await readFile(archive), runtime); }
       catch (error) {
         if (error.code !== 'ENOENT') throw error;
-        await writeFile(archive, await download(runtime, signal), { flag: 'wx', mode: 0o600 });
+        // Publish the archive only after the full download is on disk, so an
+        // interrupted write can never leave a partial archive that blocks retries.
+        const temporaryArchive = archive + '.pending';
+        await rm(temporaryArchive, { force: true });
+        await writeFile(temporaryArchive, await download(runtime, signal), { mode: 0o600 });
+        await rename(temporaryArchive, archive);
       }
       const environmentPython = join(paths.program, 'env', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python');
       // Install locked wheel-only build tools, then build the one verified Runtime

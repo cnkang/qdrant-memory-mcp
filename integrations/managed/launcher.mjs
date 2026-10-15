@@ -5,7 +5,7 @@ import { locations, installed, prepare } from './provision.mjs';
 
 export async function main(args) {
   const [mode, host, ...rest] = args;
-  if (!['prepare', 'mcp'].includes(mode) || rest.some(x => x !== '--auto-setup')
+  if (!['prepare', 'mcp'].includes(mode) || !host || rest.some(x => x !== '--auto-setup')
       || (rest.length && (mode !== 'mcp' || host !== 'workbuddy')) || rest.length > 1) {
     throw new Error('Usage: launcher.mjs prepare|mcp workbuddy|dsh [--auto-setup (WorkBuddy only)]');
   }
@@ -28,8 +28,10 @@ export async function main(args) {
 }
 
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
-  main(process.argv.slice(2)).catch(() => {
-    console.error('Qdrant Memory launcher failed. Check command, preparation, network, disk space and profile ownership. No profile was reset.');
+  main(process.argv.slice(2)).catch(error => {
+    // Keep the message bounded: only the internal stage label may be added.
+    const stage = error && typeof error.stage === 'string' && /^[a-z][a-z-]*$/.test(error.stage) ? ` Failed stage: ${error.stage}.` : '';
+    console.error(`Qdrant Memory launcher failed. Check command, preparation, network, disk space and profile ownership. No profile was reset.${stage}`);
     process.exitCode = 1;
   });
 }
