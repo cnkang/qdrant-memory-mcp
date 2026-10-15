@@ -5,6 +5,14 @@ Skill. It does not implement memory, change Runtime, or add Python modules to
 the metadata-only PyPI wheel. Explicit search/add/update/delete remain the four
 MCP tools. Hermes automatic extraction and prefetch remain Hermes features.
 
+## Start using memory
+
+Follow the [local Ollama quickstart](../../docs/quickstart.md)
+([中文步骤](../../docs/quickstart.zh-CN.md)) before connecting. If Ollama and the
+embedding model are already installed, reuse them explicitly; no model download
+or replacement is necessary. The guide includes missing-dependency recovery and
+the exact custom MCP settings for a separate WorkBuddy profile.
+
 ## Requirements and installation behavior
 
 WorkBuddy 4.24.0 or newer is required for bilingual names and examples.
@@ -17,7 +25,9 @@ large embedding requests depend on the configured service.
 This is a **preconfigured environment** connector. No fully managed or one-click
 installation has been verified. The official MCP schema currently manages only
 Node.js. A Node wrapper still needs a trustworthy Python/uv installer, secure
-platform binary verification and profile setup; it adds no useful MVP capability.
+platform binary verification and profile setup; declaring Node alone does not
+complete installation. A managed route is being evaluated in the
+[installation design](../../docs/workbuddy-one-click-architecture.md).
 No other documented MCP installation hook solves those steps. `preAuth: cli` is
 an authentication flow, not a generic installation workaround. We do not add it,
 a CLI connector, an npm package, or a remote gateway.
