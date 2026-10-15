@@ -1,7 +1,7 @@
 /** Host-neutral provisioning. All data operations use the supported Runtime CLI. */
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdir, lstat, readFile, writeFile, rename, rm, realpath } from 'node:fs/promises';
+import { mkdir, lstat, readFile, writeFile, rename, rm, realpath, open } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join, dirname, parse, resolve, relative, isAbsolute } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -12,6 +12,7 @@ export const hosts = new Set(['workbuddy', 'dsh']);
 const requirements = await readFile(new URL('./requirements.lock', import.meta.url), 'utf8');
 const buildRequirements = await readFile(new URL('./build-requirements.lock', import.meta.url), 'utf8');
 export const dependencyDigest = createHash('sha256').update(requirements).update(buildRequirements).digest('hex');
+const installedSnapshot = JSON.stringify({ revision: runtime.revision, dependencies: dependencyDigest });
 
 export function locations(host, env = process.env, home = homedir(), platform = process.platform) {
   if (!hosts.has(host)) throw new Error('Choose workbuddy or dsh');
@@ -82,6 +83,25 @@ async function regularFile(path) {
   return path;
 }
 
+// Caller must hold the program's provisioning lock. Only a prefix of the exact
+// expected snapshot can be left by an interrupted legacy write; other changes
+// remain errors. Publish on the same filesystem only after writing and flushing.
+export async function publishSnapshot(path, content) {
+  let existing;
+  try { await regularFile(path); existing = await readFile(path, 'utf8'); }
+  catch (error) { if (error.code !== 'ENOENT') throw error; }
+  if (existing !== undefined && !content.startsWith(existing)) throw new Error('Managed snapshot changed');
+  const temporary = path + '.pending';
+  await rm(temporary, { force: true });
+  if (existing === content) return;
+  try {
+    const file = await open(temporary, 'wx', 0o600);
+    try { await file.writeFile(content); await file.sync(); }
+    finally { await file.close(); }
+    await rename(temporary, path);
+  } finally { await rm(temporary, { force: true }); }
+}
+
 export async function installed(paths) {
   // A marker is committed only after package installation completes. Missing or
   // partial installs are never executable; retries use the same provisioning lock.
@@ -105,7 +125,16 @@ export async function prepare(paths, host, signal, onStage = () => {}) {
   const enter = value => { stage = value; onStage(value); };
   try {
     let executable;
-    try { executable = await installed(paths); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+    try { executable = await installed(paths); } catch (error) {
+      if (error instanceof SyntaxError) {
+        const marker = join(paths.program, 'installed.json');
+        // A truncated legacy marker is not installation success. Retry package
+        // validation/installation before committing a new marker; never run it.
+        const partial = await readFile(marker, 'utf8');
+        if (!installedSnapshot.startsWith(partial)) throw error;
+        await rm(marker);
+      } else if (error.code !== 'ENOENT') throw error;
+    }
     const env = installEnvironment(paths.program);
     if (!executable) {
       const spec = BOOTSTRAPS[`${process.platform}-${process.arch}`];
@@ -150,19 +179,13 @@ export async function prepare(paths, host, signal, onStage = () => {}) {
       if (!requirements.includes(sourceURL) || !requirements.includes(runtime.sha256)) throw new Error('Runtime dependency lock mismatch');
       const resolvedRequirements = requirements.replace(sourceURL, pathToFileURL(archive).href);
       const lockfile = join(paths.program, 'requirements.lock');
-      try {
-        await regularFile(lockfile);
-        if (await readFile(lockfile, 'utf8') !== resolvedRequirements) throw new Error('Managed requirement snapshot changed');
-      } catch (error) {
-        if (error.code !== 'ENOENT') throw error;
-        await writeFile(lockfile, resolvedRequirements, { flag: 'wx', mode: 0o600 });
-      }
+      await publishSnapshot(lockfile, resolvedRequirements);
       enter('install-runtime');
       await run(uv, ['pip', 'install', '--python', environmentPython, '--no-deps', '--no-build-isolation', '--require-hashes',
         '-r', lockfile], { env, signal });
       await run(uv, ['pip', 'check', '--python', environmentPython], { env, signal });
       await rm(archive);
-      await writeFile(join(paths.program, 'installed.json'), JSON.stringify({ revision: runtime.revision, dependencies: dependencyDigest }), { flag: 'wx', mode: 0o600 });
+      await publishSnapshot(join(paths.program, 'installed.json'), installedSnapshot);
       executable = await installed(paths);
     }
     await privateDirectory(dirname(paths.profile));

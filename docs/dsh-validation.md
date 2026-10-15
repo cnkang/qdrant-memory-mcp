@@ -42,6 +42,10 @@ The real cold-install CI also aborts preparation immediately before Runtime
 installation, then resumes the same partial environment. A completion marker is
 required before any MCP backend can execute. Interrupted preparation cannot be
 mistaken for an installed Runtime.
+The same CI test leaves truncated legacy installation metadata and stale temporary
+files, then verifies that preparation restores the exact dependency snapshot and
+completes installation before backend startup. Unit tests also inject a partial
+write followed by a disk-full error and verify that a later retry succeeds.
 
 The extension contracts were checked against official DSH master
 `571902028a75c64c1d767f4ae5fd099485f0ddf0` and the published `next` packages
