@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "qdrant-memory-mcp"
-version = "0.1.2"
+version = "0.1.3"
 description = "Metadata-only stdio MCP distribution of the Qdrant Memory Runtime"
 readme = "README.md"
 license = "MIT"

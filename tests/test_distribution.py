@@ -83,7 +83,7 @@ def test_artifacts_are_metadata_only():
 def test_installed_entrypoint():
     """Verify installed distribution provenance and the delegated console command."""
     dist = importlib.metadata.distribution("qdrant-memory-mcp")
-    assert dist.version == "0.1.2"
+    assert dist.version == "0.1.3"
     runtime = importlib.metadata.distribution("hermes-plugin-qdrant-memory")
     assert runtime.version == "0.2.2"
     assert importlib.metadata.packages_distributions()["qdrant_memory"] == [
