@@ -26,7 +26,8 @@ The four tools appear immediately. During preparation they return an error
 stating no operation occurred. Wait for preparation before asking the agent to
 save a fact; writes are never queued. Backend confirmation is the only evidence
 of a successful operation. Install failures return a bounded, sanitized error.
-Use `prepare workbuddy` or `prepare dsh` to retry explicitly. For an interrupted
+Use `prepare workbuddy` or `prepare dsh` to retry explicitly, then reconnect a
+connection that has already reported preparation failure. For an interrupted
 write, search before repeating it.
 
 Program versions and model files are shared read-only after preparation; each
@@ -34,6 +35,8 @@ host owns a separate profile. See [paths and versions](../../docs/cross-harness-
 The installer refuses symlink paths, changed/unowned profiles and concurrent
 provisioning. It never resets storage, overwrites another host's settings or
 steals a WriterLease. Normal failed preparation releases its provisioning lock.
+An orderly client probe interruption can resume the same partial Python
+environment on the next preparation attempt; its files are retained and checked.
 If a force-killed installer leaves `.provision.lock` or `uv.pending`, first
 confirm that its process tree is gone, then inspect/remove only that installation
 transaction's stale file/directory. Do not remove Runtime data locks or profile

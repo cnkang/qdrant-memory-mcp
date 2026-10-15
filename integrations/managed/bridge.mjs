@@ -104,8 +104,10 @@ export async function bridge(startBackend, input = process.stdin, output = proce
       });
       backend.once('spawn', () => wire({ id: 'init', method: 'initialize', params: {
         protocolVersion: '2025-11-25', capabilities: {}, clientInfo: { name: 'managed-launcher', version: '0.1.0' } } }));
-    } catch {
-      state = 'Memory preparation failed. No operation was performed. Run the launcher prepare command to retry; inspect network and disk access.';
+    } catch (error) {
+      const stage = ['inspect-installation', 'download-bootstrap', 'install-python', 'download-runtime', 'install-build-tools', 'install-runtime', 'setup-profile'].includes(error.stage)
+        ? ` (${error.stage})` : '';
+      state = `Memory preparation failed${stage}. No operation was performed. Run the launcher prepare command to retry; inspect network and disk access.`;
     }
   })();
   await done;

@@ -10,6 +10,13 @@ assert.ok(root, 'Choose an explicit disposable managed root');
 const start = performance.now();
 const dsh = locations('dsh'), wb = locations('workbuddy');
 assert.notEqual(dsh.profile, wb.profile);
+// Reproduce a host probe stopping after discovery while installation is partial.
+// Then retry the same owned environment without deleting it or the user's data.
+const interrupted = new AbortController();
+await assert.rejects(prepare(dsh, 'dsh', interrupted.signal, stage => {
+  if (stage === 'install-runtime') interrupted.abort();
+}));
+await assert.rejects(installed(dsh));
 await prepare(dsh, 'dsh');
 await prepare(wb, 'workbuddy');
 const launcher = fileURLToPath(new URL('../integrations/managed/launcher.mjs', import.meta.url));
@@ -76,4 +83,4 @@ for (const host of ['dsh', 'workbuddy']) {
 assert.equal(await installed(dsh), await installed(wb));
 const cfg = JSON.parse(await readFile(wb.profile + '/qdrant-memory.json', 'utf8'));
 assert.equal(cfg.scope.agent_id, 'workbuddy');
-console.log(JSON.stringify({ passed: true, hosts: 2, fresh_process_persistence: true, elapsed_seconds: Math.round((performance.now() - start) / 1000) }));
+console.log(JSON.stringify({ passed: true, hosts: 2, interrupted_install_resumed: true, fresh_process_persistence: true, elapsed_seconds: Math.round((performance.now() - start) / 1000) }));
