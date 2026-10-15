@@ -32,6 +32,9 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - run: python -m pip install 'build>=1.2,<2' 'twine>=6,<7' 'pytest>=8,<10' 'jsonschema>=4,<5'
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '20'
       - name: Use public Runtime or immutable preparation fixture
         run: python scripts/prepare_runtime.py
       - run: python -m build

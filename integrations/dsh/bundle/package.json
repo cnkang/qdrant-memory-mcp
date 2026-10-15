@@ -1,0 +1,11 @@
+{
+  "name": "dsh-qdrant-memory",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Connect a separately prepared Qdrant Memory profile through the official DSH MCP client",
+  "license": "MIT",
+  "files": ["cordis.patch.yml"],
+  "dsh": {"bundle": {"patch": "./cordis.patch.yml"}},
+  "peerDependencies": {"@deepseek-ai/dsh-mcp-client": ">=0.2.0-rc.2 <0.3.0"}
+}
