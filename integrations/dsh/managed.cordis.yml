@@ -1,4 +1,5 @@
-# Opt-in source candidate. Run launcher.mjs prepare dsh first.
+# Opt-in source candidate. Run launcher.mjs prepare dsh first, then set
+# QDRANT_MEMORY_LAUNCHER to that launcher's absolute path.
 - insert:
     - id: cnkang-qdrant-memory-mcp
       name: '@deepseek-ai/dsh-mcp-client'
@@ -7,6 +8,6 @@
         transport: stdio
         command: !!js process.execPath
         args:
-          - !!js require('node:path').resolve(process.env.QDRANT_MEMORY_LAUNCHER)
+          - !!js (() => { const launcher = process.env.QDRANT_MEMORY_LAUNCHER; if (!launcher) throw new Error('Set QDRANT_MEMORY_LAUNCHER to the prepared launcher path before enabling this overlay'); return require('node:path').resolve(launcher); })()
           - mcp
           - dsh
