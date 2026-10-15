@@ -31,5 +31,8 @@ jobs:
           node-version: '20'
       - name: Require artifact and archive safety tests
         run: node --test tests/test_managed_bootstrap.mjs
+      - name: Require native Apple Silicon for macOS acceptance
+        if: runner.os == 'macOS'
+        run: node --eval "if (process.platform !== 'darwin' || process.arch !== 'arm64') throw new Error('macOS acceptance requires native arm64 Node.js');"
       - name: Prepare a fresh managed Python with no system tools on PATH
         run: node integrations/managed/bootstrap.mjs --probe

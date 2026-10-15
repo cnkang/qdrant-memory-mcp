@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
 
-import { extractExecutable, verifyArtifact } from '../integrations/managed/bootstrap.mjs';
+import { command, extractExecutable, verifyArtifact } from '../integrations/managed/bootstrap.mjs';
 
 function wheel(name = 'uv-0.13.1.data/scripts/uv', type = 0o100755) {
   const data = Buffer.from('synthetic executable');
@@ -38,6 +38,39 @@ test('verify the whole artifact before reading an executable', () => {
 test('extract one exact regular file without following archive paths', () => {
   assert.equal(extractExecutable(wheel(), 'uv-0.13.1.data/scripts/uv').toString(), 'synthetic executable');
   assert.throws(() => extractExecutable(wheel('other'), 'uv-0.13.1.data/scripts/uv'));
+  assert.throws(() => extractExecutable(wheel('other/uv'), 'uv-0.13.1.data/scripts/uv'));
+  assert.throws(() => extractExecutable(wheel('other/uv'), 'uv'));
+});
+
+for (const [stderr, category] of [
+  ['invalid peer certificate: UnknownIssuer', 'certificate'],
+  ['Permission denied (os error 13)', 'permission'],
+  ['No download found for request on unsupported platform', 'platform'],
+  ['Failed to lookup address: DNS error', 'network'],
+  ['connection timed out', 'timeout'],
+  ['unexpected failure', 'subprocess'],
+]) {
+  test(`report safe ${category} command diagnostics`, () => {
+    const secret = 'https://user:synthetic-password@example.invalid/?token=synthetic-token';
+    assert.throws(() => command(process.execPath,
+      ['-e', 'process.stderr.write(process.argv[1]); process.exit(1)', `${stderr} ${secret}`],
+      process.env, 10000), error => {
+      assert.equal(error.category, category);
+      assert.equal(error.stage, 'python-execute');
+      assert.equal(error.exitCode, 1);
+      assert.doesNotMatch(JSON.stringify(error) + error.message, /synthetic-|example\.invalid/);
+      return true;
+    });
+  });
+}
+
+test('classify a subprocess timeout without exposing the spawn error', () => {
+  assert.throws(() => command(process.execPath, ['-e', 'setInterval(() => {}, 1000)'],
+    process.env, 50), error => {
+    assert.equal(error.category, 'timeout');
+    assert.equal(error.exitCode, null);
+    return true;
+  });
 });
 
 for (const name of ['../uv', '/uv', 'C:\\uv', 'safe/../../uv']) {

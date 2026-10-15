@@ -115,12 +115,25 @@ async function download(spec) {
   return verifyArtifact(Buffer.concat(blocks), spec);
 }
 
-function command(executable, args, env, timeout) {
+function failureCategory(result) {
+  // Inspect subprocess details only in memory; expose allowlisted labels, never stderr.
+  const diagnostic = `${result.error?.code ?? ''}\n${result.stderr ?? ''}`;
+  return [
+    ['timeout', /ETIMEDOUT|timed? out/i],
+    ['certificate', /certificate|UnknownIssuer|\bTLS\b|\bSSL\b/i],
+    ['permission', /EACCES|EPERM|permission denied|access is denied/i],
+    ['platform', /ENOEXEC|ENOENT|exec format|unsupported platform|no download found/i],
+    ['network', /ENOTFOUND|ECONN|EAI_AGAIN|network|connection|DNS|lookup address/i],
+  ].find(([, pattern]) => pattern.test(diagnostic))?.[0] ?? 'subprocess';
+}
+
+export function command(executable, args, env, timeout) {
   const result = spawnSync(executable, args, { env, timeout, encoding: 'utf8', windowsHide: true });
   if (result.status !== 0 || result.error) {
     const error = new Error('Managed Python bootstrap command failed');
     error.stage = args[0] === 'python' ? `python-${args[1]}` : 'python-execute';
     error.exitCode = result.status;
+    error.category = failureCategory(result);
     throw error;
   }
   return result.stdout.trim();
@@ -145,7 +158,7 @@ export async function probeManagedPython() {
     if (process.env[key]) env[key] = process.env[key];
   }
   command(uv, ['python', 'install', PYTHON_VERSION, '--no-bin'], env, 180000);
-  const python = command(uv, ['python', 'find', PYTHON_VERSION], env, 10000);
+  const python = command(uv, ['python', 'find', '--system', PYTHON_VERSION], env, 10000);
   const inside = relative(root, python);
   if (!inside || inside.startsWith('..') || isAbsolute(inside)) throw new Error('Python escaped the fresh managed root');
   const version = command(python, ['-I', '-c', 'import sys; print(sys.version.split()[0])'], env, 10000);
@@ -163,7 +176,8 @@ if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) 
     try { console.log(JSON.stringify(await probeManagedPython())); }
     catch (error) {
       console.error(JSON.stringify({ error: 'Managed Python probe failed; no memory profile was modified.',
-        stage: error.stage || 'download-or-verification', exit_code: error.exitCode ?? null }));
+        stage: error.stage || 'download-or-verification', exit_code: error.exitCode ?? null,
+        category: error.category || 'bootstrap' }));
       process.exitCode = 1;
     }
   }
