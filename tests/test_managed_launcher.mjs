@@ -27,6 +27,7 @@ test('installation snapshots replace interrupted writes but reject changed conte
     await rm(path);
     await symlink(join(root, 'target'), path, process.platform === 'win32' ? 'junction' : 'file');
     await assert.rejects(publishSnapshot(path, expected), /Unsafe/);
+    assert.ok((await lstat(path)).isSymbolicLink(), 'the symlink remains in place');
     await assert.rejects(lstat(join(root, 'target')), { code: 'ENOENT' });
     await rm(path);
     await mkdir(path);
