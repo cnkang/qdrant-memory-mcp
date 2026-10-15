@@ -1,0 +1,35 @@
+name: Managed Python prerequisite
+
+on:
+  push:
+    branches: [main, 'codex/**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: managed-bootstrap-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  bootstrap:
+    name: Managed Python (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-14, windows-2022]
+    steps:
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '20'
+      - name: Require artifact and archive safety tests
+        run: node --test tests/test_managed_bootstrap.mjs
+      - name: Prepare a fresh managed Python with no system tools on PATH
+        run: node integrations/managed/bootstrap.mjs --probe

@@ -6,11 +6,17 @@ uvx connector is not evidence of a zero-environment installation.
 
 ## Current verification boundary
 
-The existing MCP distribution suite passes 89 tests. The shared Runtime's
-standalone suite passes 30 tests with its CLI and MCP dependencies installed.
-Dependency compatibility checks pass in those environments. These results
-verify existing behavior, not the proposed installer or real WorkBuddy GUI.
-The complete Hermes host integration suite has not been rerun for this design.
+The existing MCP distribution suite passes 89 tests. The shared Runtime source
+adds optional CPU embedding and explicit profile setup. Its full host-backed
+local regression run passes 407 tests with five explicit skips for separate
+real-model/external-service acceptance. Real-model acceptance is run separately,
+with no model download during ordinary test collection. Dependency compatibility,
+Ruff and wheel/sdist builds pass locally. These results do not establish real
+WorkBuddy GUI installation or a production managed launcher.
+
+The [Runtime PR](https://github.com/cnkang/hermes-plugin-qdrant-memory/pull/48)
+tracks native model/CLI/MCP acceptance. Final platform claims require terminal
+CI results for the reviewed source; pending or superseded runs do not count.
 
 Reproducible baseline commands, after installing the relevant development/test
 dependencies and entry points in a virtual environment:
@@ -19,6 +25,10 @@ dependencies and entry points in a virtual environment:
 # In qdrant-memory-mcp
 python -m pytest -q
 uv pip check
+
+# Optional managed-Python prerequisite, with Node.js 20+
+node --test tests/test_managed_bootstrap.mjs
+node integrations/managed/bootstrap.mjs --probe
 
 # In hermes-plugin-qdrant-memory, installed with its mcp extra
 python -m pytest -q tests/standalone
@@ -34,10 +44,18 @@ permitted. Hiding PATH alone does not establish a clean environment.
 | Platform | Managed bootstrap | Local model | WorkBuddy GUI lifecycle |
 | --- | --- | --- | --- |
 | macOS Apple Silicon | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED |
-| macOS Intel | NOT VERIFIED | NOT VERIFIED; compatible ONNX wheel required | NOT VERIFIED |
+| macOS Intel (best effort, not a release gate) | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED |
 | Windows x64 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED |
 | Linux x64 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED |
 | Windows/Linux ARM64 | NOT VERIFIED; no support claim | NOT VERIFIED | NOT VERIFIED |
+
+The macOS Apple Silicon command-line prerequisite probe verifies a fresh managed
+Python with no system tools on PATH and managed-only interpreter selection.
+Its observed runtime preparation was about 26 seconds on one run. A separate
+fixed-artifact model experiment took about 175 seconds to prepare roughly
+252 MB, then about 0.27 seconds to load offline. Ten synthetic bilingual query/
+memory pairs ranked their corresponding record first in that small experiment.
+These are measurements of distinct stages, not an end-to-end installation SLA.
 
 For each supported platform, record OS and WorkBuddy versions, pinned package
 and model versions, test command or GUI action, elapsed time, result and any
