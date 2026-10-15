@@ -42,7 +42,7 @@ market review remain separate from generic MCP SDK acceptance.
 ## Immutable Skill and versions
 
 `skill-source.json` pins `cnkang/skills` commit
-`60f7abc5e6ca94763e7e891ebf8dd4b57538abea`, Skill 0.2.6. Its reviewed WorkBuddy
+`083250c64ce11d7cc7813f93fc50ea6f8a627619`, Skill 0.2.6. Its reviewed WorkBuddy
 builder performs frontmatter conversion, license/resource selection and local
 link checks. This adapter verifies origin, exact clean checkout, version and
 unchanged Markdown body. No second canonical `SKILL.md` is maintained here.
@@ -60,7 +60,7 @@ environment (the Skill builder needs PyYAML):
 
 ```sh
 git clone --no-checkout https://github.com/cnkang/skills.git .workbuddy-skill
-git -C .workbuddy-skill checkout --detach 60f7abc5e6ca94763e7e891ebf8dd4b57538abea
+git -C .workbuddy-skill checkout --detach 083250c64ce11d7cc7813f93fc50ea6f8a627619
 python3 -m venv .workbuddy-env
 .workbuddy-env/bin/python -m pip install 'PyYAML==6.0.3'
 .workbuddy-env/bin/python integrations/workbuddy/build.py --check
@@ -120,7 +120,7 @@ authorized target. Check service readiness before connecting.
 
 For self-hosted or Cloud storage use Runtime's documented server/cloud profile
 configuration and the actual collection/scope/embedding pipeline. See the
-[canonical setup reference](https://github.com/cnkang/skills/blob/60f7abc5e6ca94763e7e891ebf8dd4b57538abea/qdrant-memory/references/runtime.md)
+[canonical setup reference](https://github.com/cnkang/skills/blob/083250c64ce11d7cc7813f93fc50ea6f8a627619/qdrant-memory/references/runtime.md)
 and [Runtime configuration](https://github.com/cnkang/hermes-plugin-qdrant-memory).
 Supply `QDRANT_API_KEY` and `EMBEDDING_API_KEY` through a private process environment
 or secret manager. Never put credentials in this package, command arguments,
