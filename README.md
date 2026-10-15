@@ -35,6 +35,13 @@ operations. It does not automatically extract every conversation turn.
 
 ## Install and initialize
 
+For the shortest currently supported local setup, follow the
+[Ollama quickstart](docs/quickstart.md) ([中文](docs/quickstart.zh-CN.md)).
+It covers an existing model, installing a missing model, a separate WorkBuddy
+profile, connection settings and a first save/search check. No Qdrant server,
+Docker, cloud account or embedding API key is needed for that local path.
+Python/uv and one-time profile configuration are still required today.
+
 Requires Python 3.11+ and either [uv](https://docs.astral.sh/uv/) or a Python
 virtual environment. You must configure storage and an embedding service.
 For the example below, run Ollama and install `qwen3-embedding:4b` yourself.

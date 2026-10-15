@@ -22,6 +22,11 @@ Skill 仅提供可选指导，不是运行依赖。Hermes 的自动提取和 pre
 
 ## 安装与配置
 
+最少步骤见 [本地 Ollama 快速开始](docs/quickstart.zh-CN.md)，包括复用已有模型、
+缺少模型时的安装指引、独立 WorkBuddy profile、连接配置和首次保存/搜索验证。
+这条本地路径不需要 Qdrant Server、Docker、云账号或 Embedding API Key；
+当前仍需要准备 Python/uv，并完成一次 profile 配置，尚不是零环境一键安装。
+
 需要 Python 3.11+。用户必须自行配置 Qdrant 与 Embedding。
 在可信 profile 目录内创建 `qdrant-memory.json`：
 

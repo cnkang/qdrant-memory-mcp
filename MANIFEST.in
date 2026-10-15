@@ -5,3 +5,5 @@ recursive-include scripts *.py
 recursive-include tests *.py
 recursive-include integrations/workbuddy *.py *.json *.svg *.md
 include docs/architecture.md docs/ci.md docs/publishing.md
+include docs/quickstart.md docs/quickstart.zh-CN.md
+include docs/workbuddy-one-click-architecture.md docs/workbuddy-one-click-validation.md
