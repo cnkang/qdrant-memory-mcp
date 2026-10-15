@@ -8,7 +8,7 @@ explicit confirmation for the Runtime/PyPI/Registry publication.
 Prepare versioned package/Registry metadata, README examples and release notes
 in the release PR before building. `verify_metadata.py` requires the README's
 install pin to match the distribution version, and PyPI artifacts are immutable.
-An example identifies the intended release; it does not prove public availability.
+An example identifies the intended release. It does not prove public availability.
 Verify the exact public version before using its installation command. Announce
 the release as available only after the checks below confirm both public endpoints.
 
@@ -53,8 +53,8 @@ record independent Connector, MCP, Runtime and immutable Skill versions.
 Keep the existing protected PyPI/Registry environments, OIDC gates and public
 acceptance unchanged. The new workflow does not upload PyPI or Registry entries.
 No existing release is retrofitted. Wait for both publication and WorkBuddy
-preparation workflows before manually publishing the corresponding Draft;
-immutable releases require attachments before publication. Per-tag concurrency
+preparation workflows before manually publishing the corresponding Draft.
+Immutable releases require attachments before publication. Per-tag concurrency
 serializes attachment runs, and existing publish.yml never writes Releases.
 
 Reruns reuse matching bytes. Conflicting assets or a published release missing
@@ -66,7 +66,7 @@ The tag's WorkBuddy build tests the installed candidate, allowing Draft attachme
 preparation before PyPI approval. It does not require an unpublished version to
 already exist on PyPI. The protected publisher still requires public uvx
 acceptance after publication. Preview requires public uvx when the exact version
-is available; otherwise it explicitly records that acceptance as NOT VERIFIED.
+is available. Otherwise it explicitly records that acceptance as NOT VERIFIED.
 
 Official references checked on 2026-10-13:
 

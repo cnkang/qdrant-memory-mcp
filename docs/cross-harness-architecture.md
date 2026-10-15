@@ -25,12 +25,12 @@ and read-only model files between WorkBuddy and DSH, with separate data profiles
 Its tool catalogue is checked against the Runtime before enabling operations.
 
 See the [Python-versus-Node decision](adr/0001-python-runtime-and-node-launcher.md):
-Node improves installation on supported hosts; it does not replace the shared
+Node improves installation on supported hosts. It does not replace the shared
 Python memory engine or require existing Python users to migrate.
 
 WorkBuddy owns its connector metadata, managed Node declaration, connection
 timeout and credential form. Its source preview may prepare the backend after
-the MCP handshake; tools report preparation errors until ready. Writes are never
+the MCP handshake. Tools report preparation errors until ready. Writes are never
 queued during installation. DSH uses a separate preparation step, so its
 temporary probe, reconnect and plugin unload do not run installers. Its overlay
 uses the official MCP client and preserves the host's tool permissions,
@@ -40,8 +40,8 @@ cancellation and reconnect policy. Hermes lifecycle remains native.
 
 | Interface | Default memory location |
 | --- | --- |
-| Hermes | Existing Hermes profile; unchanged |
-| Published standalone MCP | `~/.qdrant-memory`; unchanged |
+| Hermes | Existing Hermes profile. Unchanged |
+| Published standalone MCP | `~/.qdrant-memory`. Unchanged |
 | DSH Python overlay | `~/.qdrant-memory-dsh` |
 | Managed WorkBuddy | `<managed-root>/profiles/workbuddy/local` |
 | Managed DSH | `<managed-root>/profiles/dsh/local` |
@@ -53,8 +53,8 @@ macOS, `%LOCALAPPDATA%/qdrant-memory-managed` on Windows, and
 testing. It never redirects Hermes or the published standalone default.
 
 Cross-host sharing is an explicit operator operation. Do not open an embedded
-directory concurrently, even for reads. Local WriterLease protects one profile;
-it does not coordinate separate ledgers on different machines. Remote Qdrant
+directory concurrently, even for reads. Local WriterLease protects one profile.
+It does not coordinate separate ledgers on different machines. Remote Qdrant
 also requires compatible collection identity, scope, embedding fingerprint and
 one supported ledger owner. Multi-writer cloud sharing is not certified here.
 Never remove locks or change fingerprints to force compatibility.
@@ -65,16 +65,16 @@ Never remove locks or change fingerprints to force compatibility.
 | --- | --- | --- |
 | Published MCP | 0.1.3 | Existing Python/uvx path |
 | Published Runtime dependency | 0.2.2 | Existing Hermes/standalone behavior |
-| Managed Runtime candidate | `b568e0d5bfe23f10e4b1ea912405c1054730f3b5` | Verified source archive; optional CPU setup |
-| Node launcher | 0.1.0 source candidate | Private package; no npm/marketplace release |
+| Managed Runtime candidate | `b568e0d5bfe23f10e4b1ea912405c1054730f3b5` | Verified source archive. Optional CPU setup |
+| Node launcher | 0.1.0 source candidate | Private package. No npm/marketplace release. |
 | Bootstrap | uv 0.13.1 / Python 3.11.15 | Fixed platform artifacts, verified uv hash |
 | Canonical Skill | 0.2.6 | See connector `skill-source.json` for exact commit |
 | DSH contract-test packages | 0.2.0-rc.2 | Exact npm test pins and lockfile |
 
 The managed installer verifies its uv executable and Runtime source archive
-before execution. uv verifies its managed Python artifacts; Runtime verifies
+before execution. uv verifies its managed Python artifacts. Runtime verifies
 the CPU model files. Python dependencies and build tools are version and hash
-locked; the Runtime is built without an unpinned build environment. Program
+locked. The Runtime is built without an unpinned build environment. Program
 directories include the lock digest, so dependency changes cannot silently reuse
 another environment. Production release still requires a published Runtime with
 setup APIs, native platform gates and marketplace/real-host acceptance.
@@ -89,5 +89,5 @@ already supports explicit durable memory without duplicating the storage engine.
 Automatic extraction, prefetch and per-session injection would require separate
 user controls and tested Cordis lifecycle integration. They are future work,
 not features supplied by this MCP connection. A future plugin must use supported
-Runtime interfaces, effect-scoped cleanup and host authorization; it must not
+Runtime interfaces, effect-scoped cleanup and host authorization. It must not
 replace AgentLoop or alter Hermes `sync_turn()` / `prefetch()`.

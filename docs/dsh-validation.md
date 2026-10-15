@@ -13,7 +13,7 @@ wheel/sdist build, metadata checks, Ruff and workflow lint also passed.
 | Layer | Verified behavior |
 | --- | --- |
 | Existing Python MCP | Four schemas, CRUD, fixed scope, WriterLease, redaction, restart/recovery and protocol-only stdout |
-| Node bridge | Exact Runtime schema parity; cold handshake while preparation is pending; no queued writes; installed-Python CRUD/restart and writer exclusion |
+| Node bridge | Exact Runtime schema parity. Cold handshake while preparation is pending. No queued writes. Installed-Python CRUD/restart and writer exclusion |
 | Provisioning | Verified bootstrap/archive, hash-locked Python dependencies/build tools, private paths, credential isolation and independent host profiles |
 | Real CPU preparation | Fresh private Python and Runtime installation, verified CPU model, both host profiles, real inference, fresh-process save/search/update/delete |
 | DSH 0.2.0-rc.2 official client | Real Cordis plugin activation/disposal, temporary probe, four tool registration/schema/rendering, error propagation, pre-cancelled request, child crash/reconnect and fresh-process persistence |
@@ -22,7 +22,7 @@ wheel/sdist build, metadata checks, Ruff and workflow lint also passed.
 | WorkBuddy packaging | Canonical Skill 0.2.6 at exact commit, deterministic ZIP/checksum and existing publication guards |
 | Hermes native source | 431 passed, 6 skipped: native lifecycle/defaults/models, scope, ownership, ledger/recovery and standalone MCP. External-service/real-model skips remain separate gates |
 | OpenCode 2.0.24 | Real isolated CLI registration, API connection and connected status |
-| Pi 1.1.0 | Real isolated CLI four-tool discovery; 14 SDK Skill discovery/reference/read-loop tests using a scripted local model transport |
+| Pi 1.1.0 | Real isolated CLI four-tool discovery. 14 SDK Skill discovery/reference/read-loop tests use a scripted local model transport |
 
 The first managed CPU run completed both-host acceptance in 276 seconds. The
 hash-locked rerun, using a fresh program environment and retained verified model
@@ -32,19 +32,20 @@ The subsequent fresh-root run that interrupted/resumed installation completed in
 268 seconds and passed both-host persistence.
 
 DSH client tests use the official package and real stdio processes. A fixture
-tool registry provides an observation seam; those tests do not exercise the
-whole AgentLoop or every permission policy. Pre-cancellation is tested;
-cancellation of a dispatched durable write can have an uncertain outcome, so
-the caller must search before retrying. No write replay is added by the adapter.
+tool registry provides an observation seam. Those tests do not exercise the
+whole AgentLoop or every permission policy. Pre-cancellation is tested.
+Cancellation of a dispatched durable write can have an uncertain outcome. The
+caller must check the exact operation and its ID before any repeat. Do not
+repeat an uncertain write unless a repeat is safe for that operation. No write replay is added by the adapter.
 
 The real cold-install CI also aborts preparation immediately before Runtime
 installation, then resumes the same partial environment. A completion marker is
-required before any MCP backend can execute; interrupted preparation cannot be
+required before any MCP backend can execute. Interrupted preparation cannot be
 mistaken for an installed Runtime.
 
 The extension contracts were checked against official DSH master
 `571902028a75c64c1d767f4ae5fd099485f0ddf0` and the published `next` packages
-0.2.0-rc.2; master already declares 0.2.1-alpha.3. No stable GitHub Release was
+0.2.0-rc.2. Master already declares 0.2.1-alpha.3. No stable GitHub Release was
 available at inspection. Tests pin the actual desktop-compatible npm version,
 not the moving master branch or a misleading npm `latest` tag.
 
@@ -56,16 +57,16 @@ model saved and searched Chinese/English synthetic facts. A fresh conversation,
 without the earlier transcript, retrieved the facts and used them to answer the
 requested weekdays. Full WorkBuddy quit released the launcher process. After
 relaunch, preparation was explicitly repaired/reconnected during a dependency
-environment change; actual GUI searches confirmed the same records and IDs.
+environment change. Actual GUI searches confirmed the same records and IDs.
 Exact-ID update/delete and subsequent searches then passed. This is a
 restart/recovery result, not an uninterrupted cold-install UX certification.
 The GUI used an explicitly selected existing Node executable
-and shared pre-provisioned program/model files; this is not marketplace ZIP
+and shared pre-provisioned program/model files. This is not marketplace ZIP
 import, managed-Node provisioning or a clean-machine one-click certification.
 
 DeepSeek Harness Desktop 0.2.0-rc.2 installed a local configuration-only Bundle
 through its Plugin Manager and activated the official MCP client. The actual
-model saved/searched two synthetic facts; a fresh session retrieved and used
+model saved/searched two synthetic facts. A fresh session retrieved and used
 them without the previous transcript. Exact-ID update preserved the first ID,
 and exact-ID deletion removed the second from subsequent search. After a verified
 full desktop exit, backend diagnostics could reopen storage successfully. After
@@ -76,9 +77,9 @@ the prepared CPU Runtime and a dedicated DSH profile. No DSH core changes were
 needed. Remaining desktop lifecycle and platform cases are separate release gates.
 
 Both temporary desktop connections were disabled after acceptance. Independent
-CLI diagnostics and searches then reopened each profile, confirmed one remaining
-synthetic record with the expected original ID and updated text, and confirmed
-normal ownership release. Private configuration, raw transcripts and test data
+CLI diagnostics and searches then reopened each profile and confirmed one
+remaining synthetic record with the expected original ID and updated text. They
+also confirmed normal ownership release. Private configuration, raw transcripts and test data
 are excluded from Git and distribution archives.
 
 ## Continuous integration
@@ -91,8 +92,8 @@ are excluded from Git and distribution archives.
 - Linux OpenCode/Pi CLI compatibility, shared/private scope and canonical Pi SDK Skill tests.
 
 The integration jobs reject skipped or empty acceptance reports. Native cold
-setup runs on push/PR; manual dispatch can opt into it with `cold_setup`.
-CI is reproducible evidence only after the exact commit's jobs finish; a queued
+setup runs on push/PR. Manual dispatch can opt into it with `cold_setup`.
+CI is reproducible evidence only after the exact commit's jobs finish. A queued
 or pending workflow is not a passing result. Ordinary protocol tests use a
 synthetic embedding HTTP fixture, with no cloud keys or user profiles.
 
@@ -100,7 +101,7 @@ synthetic embedding HTTP fixture, with no cloud keys or user profiles.
 
 The source candidate and configuration Bundle are private packages, not new
 public npm/PyPI/marketplace releases. The published Python MCP remains 0.1.3.
-Managed Runtime setup APIs are pinned to an immutable candidate; a production
+Managed Runtime setup APIs are pinned to an immutable candidate. A production
 launcher must pin their released artifact. Marketplace installation, managed
 Node GUI preparation, all supported desktop platforms, forced installer-crash
 recovery, dispatch-time cancellation, every HMR/profile-switch case, and

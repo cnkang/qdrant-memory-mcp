@@ -3,9 +3,9 @@
 See the [English guide](../../docs/dsh-integration.md) or
 [中文指南](../../docs/dsh-integration.zh-CN.md).
 
-- `qdrant-memory.cordis.yml`: published Python/uvx overlay; prepare a separate profile first.
+- `qdrant-memory.cordis.yml`: published Python/uvx overlay. Prepare a separate profile first.
 - `managed.cordis.yml`: prepared shared managed-launcher source candidate.
-- `bundle/`: configuration-only package using the official `dsh.bundle.patch` contract; no native memory engine.
+- `bundle/`: configuration-only package using the official `dsh.bundle.patch` contract. It has no native memory engine.
 - `package.json` / `package-lock.json`: exact official DSH packages for reproducible integration tests, not a second server.
 
 For a profile-specific bundle installation after preparing the Python backend:

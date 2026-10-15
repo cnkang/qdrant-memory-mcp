@@ -19,24 +19,25 @@ For WorkBuddy, adapt the absolute launcher path in
 custom MCP connection. Installing this explicit auto-setup connection authorizes
 downloads and creation of its new private profile. The preview requests the
 host's managed Node runtime but is **not a marketplace one-click release**.
-No npm package has been published; `package.json` is deliberately private.
+No npm package has been published. `package.json` is deliberately private.
 The original published Python connector remains available separately.
 
 The four tools appear immediately. During preparation they return an error
 stating no operation occurred. Wait for preparation before asking the agent to
-save a fact; writes are never queued. Backend confirmation is the only evidence
+save a fact. Writes are never queued. Backend confirmation is the only evidence
 of a successful operation. Install failures return a bounded, sanitized error.
 Use `prepare workbuddy` or `prepare dsh` to retry explicitly, then reconnect a
 connection that has already reported preparation failure. For an interrupted
-write, search before repeating it.
+write, check the exact operation and its ID before any repeat. Do not repeat an
+uncertain write unless a repeat is safe for that operation.
 
-Program versions and model files are shared read-only after preparation; each
+Program versions and model files are shared read-only after preparation. Each
 host owns a separate profile. See [paths and versions](../../docs/cross-harness-architecture.md).
 The installer refuses symlink paths, changed/unowned profiles and concurrent
 provisioning. It never resets storage, overwrites another host's settings or
 steals a WriterLease. Normal failed preparation releases its provisioning lock.
 An orderly client probe interruption can resume the same partial Python
-environment on the next preparation attempt; its files are retained and checked.
+environment on the next preparation attempt. Its files are retained and checked.
 If a force-killed installer leaves `.provision.lock` or `uv.pending`, first
 confirm that its process tree is gone, then inspect/remove only that installation
 transaction's stale file/directory. Do not remove Runtime data locks or profile
@@ -46,14 +47,14 @@ The candidate verifies bootstrap and Runtime archive bytes before execution.
 Runtime verifies model artifacts. Python dependencies and build tools are pinned
 with artifact hashes. Production publication and platform/host acceptance remain gated.
 Installer subprocesses receive a restricted environment without service keys.
-The server receives configured host credentials only through its environment;
-raw child stderr is never copied to MCP stdout or install diagnostics.
+The server receives configured host credentials only through its environment.
+Raw child stderr is never copied to MCP stdout or install diagnostics.
 
 On disconnect the launcher aborts preparation and closes the backend's stdin,
 allowing normal storage/lease cleanup before timed termination. A backend exit
 closes the bridge so host reconnect policy can act. No write is automatically
 replayed. Disable the connection before upgrades or CLI maintenance. Program
-versions live beside each other; data is never erased on upgrade, disconnect or
+versions live beside each other. Data is never erased on upgrade, disconnect or
 uninstall. Rollback compatibility is enforced by Runtime and must be validated
 before a production upgrade is offered.
 
@@ -78,9 +79,9 @@ node --test tests/test_managed_bootstrap.mjs
 node integrations/managed/bootstrap.mjs --probe
 ```
 
-The explicit `--probe` downloads a fixed official uv wheel, checks its exact
-byte length and SHA-256, extracts only the exact regular executable into a fresh
-private directory, and asks uv to prepare Python 3.11.15. It does not execute a
+The explicit `--probe` downloads a fixed official uv wheel and checks its
+exact byte length and SHA-256. It extracts only the exact regular executable
+into a fresh private directory, then asks uv to prepare Python 3.11.15. It does not execute a
 remote installer script, invoke an archive utility or require a system Python,
 uv/uvx installation, administrator rights or service credentials. uv's managed
 Python mechanism uses its pinned python-build-standalone metadata.
@@ -92,13 +93,13 @@ directory. This remains a command-line prerequisite test on an existing OS,
 not a clean WorkBuddy GUI marketplace installation.
 
 Only a fully verified bootstrap executable can run. ZIP paths are never used as
-filesystem destinations; symlink, encrypted and unsafe path entries are refused.
+filesystem destinations. Symlink, encrypted and unsafe path entries are refused.
 Temporary probe files are retained for explicit inspection/removal and are
 separate from all memory data. Service credentials are not passed to uv/Python.
 The probe needs access to PyPI and Python distribution download endpoints.
 
 CI exercises Linux x64, Windows x64 and macOS Apple Silicon. A macOS Intel
-artifact is included for best-effort experiments only; Intel is not a formal
+artifact is included for best-effort experiments only. Intel is not a formal
 support or release gate. Other architectures have no support claim here.
 
 Passing this probe establishes only the runtime prerequisite. Python package

@@ -177,7 +177,7 @@ Use the [WorkBuddy connector](integrations/workbuddy/README.md) or
 [DSH installation guide](docs/dsh-integration.md) for explicit durable memory.
 Both reuse the Python Runtime, four MCP tools and canonical Skill. An optional
 [managed CPU launcher source candidate](integrations/managed/README.md) prepares
-private Python/model dependencies with Node.js; production one-click marketplace
+private Python/model dependencies with Node.js. Production one-click marketplace
 installation is still gated. Existing Hermes profiles and defaults are unchanged.
 See [architecture and version matrix](docs/cross-harness-architecture.md) and
 [validation limits](docs/dsh-validation.md).
