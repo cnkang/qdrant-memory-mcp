@@ -95,12 +95,14 @@ export async function installed(paths) {
   return regularFile(executable);
 }
 
-export async function prepare(paths, host, signal) {
+export async function prepare(paths, host, signal, onStage = () => {}) {
   if (!hosts.has(host)) throw new Error('Unknown host');
   await privateDirectory(paths.program);
   const lock = join(paths.program, '.provision.lock');
   // Never steal an old lock: a concurrent installer may still own Python children.
   await mkdir(lock, { mode: 0o700 }).catch(() => { throw new Error('Preparation is already running or interrupted; inspect the provisioning lock'); });
+  let stage = 'inspect-installation';
+  const enter = value => { stage = value; onStage(value); };
   try {
     let executable;
     try { executable = await installed(paths); } catch (error) { if (error.code !== 'ENOENT') throw error; }
@@ -109,17 +111,22 @@ export async function prepare(paths, host, signal) {
       const spec = BOOTSTRAPS[`${process.platform}-${process.arch}`];
       if (!spec) throw new Error('Unsupported managed platform');
       const uv = join(paths.program, process.platform === 'win32' ? 'uv.exe' : 'uv');
+      enter('download-bootstrap');
       // Publish only a fully verified regular executable, never an archive path.
       const bytes = extractExecutable(await download(spec, signal), `uv-${UV_VERSION}.data/scripts/${process.platform === 'win32' ? 'uv.exe' : 'uv'}`);
       const temporary = uv + '.pending';
       await writeFile(temporary, bytes, { flag: 'wx', mode: 0o700 });
       if (await lstat(uv).catch(error => { if (error.code !== 'ENOENT') throw error; })) await regularFile(uv);
       await rename(temporary, uv);
+      enter('install-python');
       await run(uv, ['python', 'install', PYTHON_VERSION, '--no-bin'], { env, signal });
       const python = await run(uv, ['python', 'find', '--system', PYTHON_VERSION], { env, signal });
       const inside = relative(await realpath(paths.program), await realpath(python));
       if (!inside || inside.startsWith('..') || isAbsolute(inside)) throw new Error('Python escaped managed root');
-      await run(uv, ['venv', '--python', python, join(paths.program, 'env')], { env, signal });
+      // A client may stop a probe after discovery, interrupting preparation.
+      // Resume only this revision-owned environment; never clear its contents.
+      await run(uv, ['venv', '--allow-existing', '--python', python, join(paths.program, 'env')], { env, signal });
+      enter('download-runtime');
       const archive = join(paths.program, 'runtime.tar.gz');
       try { await regularFile(archive); verifyArtifact(await readFile(archive), runtime); }
       catch (error) {
@@ -129,6 +136,7 @@ export async function prepare(paths, host, signal) {
       const environmentPython = join(paths.program, 'env', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python');
       // Install locked wheel-only build tools, then build the one verified Runtime
       // archive without an unpinned PEP 517 build environment.
+      enter('install-build-tools');
       await run(uv, ['pip', 'install', '--python', environmentPython, '--no-deps', '--require-hashes', '--only-binary=:all:',
         '-r', fileURLToPath(new URL('./build-requirements.lock', import.meta.url))], { env, signal });
       const sourceURL = `https://github.com/cnkang/hermes-plugin-qdrant-memory/archive/${runtime.revision}.tar.gz`;
@@ -142,6 +150,7 @@ export async function prepare(paths, host, signal) {
         if (error.code !== 'ENOENT') throw error;
         await writeFile(lockfile, resolvedRequirements, { flag: 'wx', mode: 0o600 });
       }
+      enter('install-runtime');
       await run(uv, ['pip', 'install', '--python', environmentPython, '--no-deps', '--no-build-isolation', '--require-hashes',
         '-r', lockfile], { env, signal });
       await run(uv, ['pip', 'check', '--python', environmentPython], { env, signal });
@@ -151,8 +160,12 @@ export async function prepare(paths, host, signal) {
     }
     await privateDirectory(dirname(paths.profile));
     await privateDirectory(paths.models);
+    enter('setup-profile');
     await run(executable, ['setup', '--profile', paths.profile, '--embedding-provider', 'fastembed',
       '--model-cache-dir', paths.models, '--agent-id', host], { env, signal });
     return executable;
+  } catch (error) {
+    error.stage = stage;
+    throw error;
   } finally { await rm(lock, { recursive: true }); }
 }
