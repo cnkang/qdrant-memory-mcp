@@ -41,7 +41,7 @@ Run the entire lifecycle on a clean OS account or image without system Python,
 uv/uvx, Node.js, Ollama or Qdrant Server. WorkBuddy-provisioned runtimes are
 permitted. Hiding PATH alone does not establish a clean environment.
 
-| Platform | Managed bootstrap | Local model | WorkBuddy GUI lifecycle |
+| Platform | Production managed bootstrap | Local model | WorkBuddy GUI lifecycle |
 | --- | --- | --- | --- |
 | macOS Apple Silicon | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED |
 | macOS Intel (best effort, not a release gate) | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED |
