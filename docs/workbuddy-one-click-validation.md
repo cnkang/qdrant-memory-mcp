@@ -24,6 +24,14 @@ The managed-Python prerequisite jobs passed on the same platforms for MCP commit
 `23aa071229bedbcb957c3e2037aa06c4d3f99f92`. These are source-candidate results;
 neither feature is available in the current published connector.
 
+The macOS prerequisite log reports `macos-14-arm64` and probe architecture
+`arm64`. The workflow also requires native arm64 Node.js for macOS acceptance;
+an Intel execution cannot satisfy this gate. GitHub currently documents
+[`macos-14` as an arm64 runner](https://docs.github.com/en/actions/reference/runners/github-hosted-runners).
+Failed prerequisite subprocesses report a stage, exit code and safe diagnostic
+category (certificate, network, permission, platform, timeout or subprocess).
+Raw subprocess output is not printed or saved to logs.
+
 Reproducible baseline commands, after installing the relevant development/test
 dependencies and entry points in a virtual environment:
 
