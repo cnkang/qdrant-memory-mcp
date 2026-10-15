@@ -1,0 +1,11 @@
+{
+  "name": "@cnkang/qdrant-memory-launcher",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Shared, opt-in managed Qdrant Memory launcher",
+  "engines": {"node": ">=20"},
+  "bin": {"qdrant-memory-launcher": "launcher.mjs"},
+  "files": ["launcher.mjs", "provision.mjs", "bridge.mjs", "bootstrap.mjs", "tools.json", "runtime.json", "requirements.in", "requirements.lock", "build-requirements.lock", "README.md"],
+  "license": "MIT"
+}

@@ -9,10 +9,10 @@ import { join, relative, isAbsolute } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { inflateRawSync } from 'node:zlib';
 
-const UV_VERSION = '0.13.1';
-const PYTHON_VERSION = '3.11.15';
+export const UV_VERSION = '0.13.1';
+export const PYTHON_VERSION = '3.11.15';
 // Official PyPI uv wheels. The entire artifact is checked before ZIP parsing.
-const BOOTSTRAPS = {
+export const BOOTSTRAPS = {
   'darwin-arm64': {
     url: 'https://files.pythonhosted.org/packages/3b/31/fad7fd2ac81954d02d33765bf8535eb320fcc2d71f2603a5c1ba0b13b8ef/uv-0.13.1-py3-none-macosx_11_0_arm64.whl',
     sha256: 'cfa719fbbd23f26713394dea2692b7f146aa1b5713ce5e776e878701214ea52c', size: 14391237,
@@ -102,8 +102,9 @@ export function extractExecutable(bytes, expectedName) {
   return executable;
 }
 
-async function download(spec) {
-  const response = await fetch(spec.url, { redirect: 'error', signal: AbortSignal.timeout(120000) });
+export async function download(spec, signal) {
+  const response = await fetch(spec.url, { redirect: 'error', signal: signal
+    ? AbortSignal.any([signal, AbortSignal.timeout(120000)]) : AbortSignal.timeout(120000) });
   if (!response.ok) throw new Error('Bootstrap download failed');
   const blocks = [];
   let length = 0;

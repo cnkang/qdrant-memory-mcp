@@ -1,4 +1,67 @@
-# Managed Python prerequisite probe
+# Managed Qdrant Memory launcher (source candidate)
+
+The shared launcher prepares Python, installs the pinned Runtime candidate and
+prepares a verified CPU model. WorkBuddy and DSH use separate memory profiles.
+Existing Hermes and standalone installations are unchanged. Node.js 20+ is the
+only preinstalled language runtime needed for this candidate.
+
+```sh
+# DSH: complete preparation before enabling its MCP overlay.
+node integrations/managed/launcher.mjs prepare dsh
+node integrations/managed/launcher.mjs mcp dsh
+
+# WorkBuddy: the source preview can prepare after a prompt MCP handshake.
+node integrations/managed/launcher.mjs mcp workbuddy --auto-setup
+```
+
+For WorkBuddy, adapt the absolute launcher path in
+[`mcp.managed-preview.json`](../workbuddy/mcp.managed-preview.json) and use a
+custom MCP connection. Installing this explicit auto-setup connection authorizes
+downloads and creation of its new private profile. The preview requests the
+host's managed Node runtime but is **not a marketplace one-click release**.
+No npm package has been published; `package.json` is deliberately private.
+The original published Python connector remains available separately.
+
+The four tools appear immediately. During preparation they return an error
+stating no operation occurred. Wait for preparation before asking the agent to
+save a fact; writes are never queued. Backend confirmation is the only evidence
+of a successful operation. Install failures return a bounded, sanitized error.
+Use `prepare workbuddy` or `prepare dsh` to retry explicitly. For an interrupted
+write, search before repeating it.
+
+Program versions and model files are shared read-only after preparation; each
+host owns a separate profile. See [paths and versions](../../docs/cross-harness-architecture.md).
+The installer refuses symlink paths, changed/unowned profiles and concurrent
+provisioning. It never resets storage, overwrites another host's settings or
+steals a WriterLease. Normal failed preparation releases its provisioning lock.
+If a force-killed installer leaves `.provision.lock` or `uv.pending`, first
+confirm that its process tree is gone, then inspect/remove only that installation
+transaction's stale file/directory. Do not remove Runtime data locks or profile
+files. This crash-recovery procedure is operator-only, not automatic lock theft.
+
+The candidate verifies bootstrap and Runtime archive bytes before execution.
+Runtime verifies model artifacts. Python dependencies and build tools are pinned
+with artifact hashes. Production publication and platform/host acceptance remain gated.
+Installer subprocesses receive a restricted environment without service keys.
+The server receives configured host credentials only through its environment;
+raw child stderr is never copied to MCP stdout or install diagnostics.
+
+On disconnect the launcher aborts preparation and closes the backend's stdin,
+allowing normal storage/lease cleanup before timed termination. A backend exit
+closes the bridge so host reconnect policy can act. No write is automatically
+replayed. Disable the connection before upgrades or CLI maintenance. Program
+versions live beside each other; data is never erased on upgrade, disconnect or
+uninstall. Rollback compatibility is enforced by Runtime and must be validated
+before a production upgrade is offered.
+
+Run local safety and lifecycle tests:
+
+```sh
+node --test tests/test_managed_bootstrap.mjs tests/test_managed_launcher.mjs
+python3 -m pytest -q tests/test_managed_bridge.py tests/test_cross_harness.py
+```
+
+## Independent Python prerequisite probe
 
 This is a reproducible installation experiment for Node-based clients. It is
 **not a production WorkBuddy launcher** and is not referenced by the marketplace
