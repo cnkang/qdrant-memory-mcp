@@ -8,7 +8,7 @@ uvx connector is not evidence of a zero-environment installation.
 
 The existing MCP distribution suite passes 89 tests. The shared Runtime source
 adds optional CPU embedding and explicit profile setup. Its full host-backed
-local regression run passes 407 tests with five explicit skips for separate
+local regression baseline passed 407 tests with five explicit skips for separate
 real-model/external-service acceptance. Real-model acceptance is run separately,
 with no model download during ordinary test collection. Dependency compatibility,
 Ruff and wheel/sdist builds pass locally. These results do not establish real
@@ -17,6 +17,11 @@ WorkBuddy GUI installation or a production managed launcher.
 The [Runtime PR](https://github.com/cnkang/hermes-plugin-qdrant-memory/pull/48)
 tracks native model/CLI/MCP acceptance. Final platform claims require terminal
 CI results for the reviewed source; pending or superseded runs do not count.
+The optional CPU-model jobs passed on Linux x64, Windows x64 and macOS Apple
+Silicon for Runtime commit `09ba437b79274f4f31e554a8dbc2dc3eb1ee484e`.
+The managed-Python prerequisite jobs passed on the same platforms for MCP commit
+`66eeb2326b4b3aa4e88d8be62088cbd7b8cdcf55`. These are source-candidate results;
+neither feature is available in the current published connector.
 
 Reproducible baseline commands, after installing the relevant development/test
 dependencies and entry points in a virtual environment:
@@ -41,13 +46,13 @@ Run the entire lifecycle on a clean OS account or image without system Python,
 uv/uvx, Node.js, Ollama or Qdrant Server. WorkBuddy-provisioned runtimes are
 permitted. Hiding PATH alone does not establish a clean environment.
 
-| Platform | Production managed bootstrap | Local model | WorkBuddy GUI lifecycle |
+| Platform | Node prerequisite probe | Optional CPU Runtime acceptance | Production managed connector / GUI |
 | --- | --- | --- | --- |
-| macOS Apple Silicon | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED |
-| macOS Intel (best effort, not a release gate) | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED |
-| Windows x64 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED |
-| Linux x64 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED |
-| Windows/Linux ARM64 | NOT VERIFIED; no support claim | NOT VERIFIED | NOT VERIFIED |
+| macOS Apple Silicon | PASS in native CI | PASS in native CI | NOT IMPLEMENTED / NOT VERIFIED |
+| macOS Intel (best effort, not a release gate) | NOT VERIFIED | NOT VERIFIED | NOT IMPLEMENTED / NOT VERIFIED |
+| Windows x64 | PASS in native CI | PASS in native CI | NOT IMPLEMENTED / NOT VERIFIED |
+| Linux x64 | PASS in native CI | PASS in native CI | NOT IMPLEMENTED / NOT VERIFIED |
+| Windows/Linux ARM64 | NOT VERIFIED; no support claim | NOT VERIFIED | NOT IMPLEMENTED / NOT VERIFIED |
 
 The macOS Apple Silicon command-line prerequisite probe verifies a fresh managed
 Python with no system tools on PATH and managed-only interpreter selection.
@@ -56,6 +61,16 @@ fixed-artifact model experiment took about 175 seconds to prepare roughly
 252 MB, then about 0.27 seconds to load offline. Ten synthetic bilingual query/
 memory pairs ranked their corresponding record first in that small experiment.
 These are measurements of distinct stages, not an end-to-end installation SLA.
+
+A separate command-line cold-chain experiment on Apple Silicon used a newly
+provisioned managed Python, a fresh dependency environment and an empty model
+cache, with system tools removed from PATH and managed-only Python selection.
+Runtime preparation took about 87 seconds, dependency installation 116 seconds,
+explicit CPU setup/model preparation 258 seconds, and offline real-MCP acceptance
+11 seconds. This proves the components can run together without Ollama, but is
+not a WorkBuddy installation test or a clean-OS certification. The cold chain
+exceeds both a normal MCP connection timeout and a five-minute installation
+budget; a production connector still needs a verified staged preparation flow.
 
 For each supported platform, record OS and WorkBuddy versions, pinned package
 and model versions, test command or GUI action, elapsed time, result and any
@@ -95,7 +110,7 @@ behavior for asynchronous backend preparation, connection recovery, process
 termination, CLI no-auth installation, update/rollback and credential removal.
 There is no verified generic MCP provisioning hook in this design.
 
-Production architecture selection remains **BLOCKED on cold-start and platform
-validation**. Marketplace submission readiness and the complete one-click P0
+Production architecture selection remains **BLOCKED on staged cold-start and
+WorkBuddy lifecycle validation**. Marketplace submission readiness and the complete one-click P0
 acceptance remain **NOT VERIFIED**. Do not publish either claim from passing
 baseline tests alone.
