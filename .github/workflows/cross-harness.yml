@@ -142,7 +142,9 @@ jobs:
       - name: Install locked Pi SDK Skill acceptance
         run: npm ci --prefix .scratch/canonical-skills/tests/agent-hosts/pi --ignore-scripts --no-audit --no-fund
       - name: Pi Skill discovery, reference loading and actual tool loop
-        run: npm test --prefix .scratch/canonical-skills/tests/agent-hosts/pi
+        run: |
+          mkdir -p .scratch/canonical-skills/reports
+          npm test --prefix .scratch/canonical-skills/tests/agent-hosts/pi
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
