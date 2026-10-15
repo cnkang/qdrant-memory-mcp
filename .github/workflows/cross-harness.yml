@@ -26,7 +26,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, macos-14, windows-2022]
+        os: [ubuntu-24.04, macos-latest, windows-2022]
     steps:
       - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
         with:
@@ -40,7 +40,7 @@ jobs:
       - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
         with:
           repository: cnkang/skills
-          ref: c88eadceac2a7b33e5047d65d966d2e8c83c5f24
+          ref: 60f7abc5e6ca94763e7e891ebf8dd4b57538abea
           path: .scratch/canonical-skills
           persist-credentials: false
       - name: Install published Python MCP and test dependencies
@@ -78,7 +78,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, macos-14, windows-2022]
+        os: [ubuntu-24.04, macos-latest, windows-2022]
     steps:
       - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
         with:
@@ -108,7 +108,7 @@ jobs:
       - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
         with:
           repository: cnkang/skills
-          ref: c88eadceac2a7b33e5047d65d966d2e8c83c5f24
+          ref: 60f7abc5e6ca94763e7e891ebf8dd4b57538abea
           path: .scratch/canonical-skills
           persist-credentials: false
       - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
@@ -121,7 +121,10 @@ jobs:
         run: python -m pip install . './.scratch/runtime[mcp]' 'pytest>=8,<10' 'PyYAML>=6,<7' 'requests>=2,<3'
       - name: Install exact OpenCode and Pi CLIs
         working-directory: integrations/agent-hosts
-        run: npm ci --ignore-scripts --no-audit --no-fund
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          node node_modules/@opencode/cli/postinstall.mjs
+          ./node_modules/.bin/opencode --version
       - name: Existing host registration, discovery and shared/private scope
         env:
           QDRANT_LOCAL_AGENTS: '1'
