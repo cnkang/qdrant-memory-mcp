@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.3
+
+- Distribute WorkBuddy MCP + Skill Connector ZIP/checksum assets with the new
+  release. Connector 0.1.0 embeds canonical Skill 0.2.5 from immutable source.
+- Pin the connector launcher and Registry/PyPI metadata to MCP 0.1.3. Keep
+  Runtime 0.2.2, MCP SDK 1.x/2.x support, four scoped tools and stdio arguments.
+- Preserve the metadata-only wheel and protected PyPI/Registry publishing.
+  Verify Draft assets before publication; existing releases remain immutable.
+- WorkBuddy requires uvx/Python, an initialized profile and an embedding service.
+  ZIP import and marketplace acceptance remain separate manual checks.
+
 ## 0.1.2
 
 - Pin Runtime 0.2.2 for MCP Python SDK 1.x and 2.x support. Keep the package

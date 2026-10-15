@@ -3,7 +3,7 @@
     "qdrant-memory": {
       "type": "stdio",
       "command": "uvx",
-      "args": ["--from", "qdrant-memory-mcp==0.1.2", "qdrant-memory-mcp", "mcp"],
+      "args": ["--from", "qdrant-memory-mcp==0.1.3", "qdrant-memory-mcp", "mcp"],
       "timeout": 30000
     }
   }
