@@ -41,3 +41,17 @@ Thumbs.db
 __pyprobe__/
 .scratch/
 scratch/
+.scratch-*/
+.delivery/
+.codebase-memory/
+node_modules/
+.dsh/
+.env
+.env.*
+!.env.example
+*-results.xml
+.release-env/
+.wheel-env-*/
+.sdist-env-*/
+.public-env-*/
+.public-sdist-env-*/

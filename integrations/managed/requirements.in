@@ -1,0 +1,4 @@
+# Reviewed source candidate; no Hermes host package is installed.
+hermes-plugin-qdrant-memory[local,mcp] @ https://github.com/cnkang/hermes-plugin-qdrant-memory/archive/b568e0d5bfe23f10e4b1ea912405c1054730f3b5.tar.gz
+setuptools==84.0.0
+wheel==0.48.0

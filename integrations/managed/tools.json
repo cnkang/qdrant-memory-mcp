@@ -1,0 +1,6 @@
+[
+  {"name":"qdrant_memory_search","description":"Recall scoped durable memories.","inputSchema":{"type":"object","properties":{"query":{"type":"string"},"category":{"type":"string"}},"required":["query"],"additionalProperties":false}},
+  {"name":"qdrant_memory_add","description":"Save an explicit durable fact or preference.","inputSchema":{"type":"object","properties":{"text":{"type":"string"}},"required":["text"],"additionalProperties":false}},
+  {"name":"qdrant_memory_update","description":"Replace a scoped memory by its exact ID.","inputSchema":{"type":"object","properties":{"id":{"type":"string"},"text":{"type":"string"}},"required":["id","text"],"additionalProperties":false}},
+  {"name":"qdrant_memory_delete","description":"Delete a scoped memory by its exact ID.","inputSchema":{"type":"object","properties":{"id":{"type":"string"}},"required":["id"],"additionalProperties":false}}
+]
