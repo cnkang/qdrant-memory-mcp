@@ -3,7 +3,7 @@ import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdir, lstat, readFile, writeFile, rename, rm, realpath, open } from 'node:fs/promises';
 import { homedir } from 'node:os';
-import { join, dirname, parse, resolve, relative, isAbsolute } from 'node:path';
+import { join, dirname, parse, resolve, relative, isAbsolute, basename } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { BOOTSTRAPS, UV_VERSION, PYTHON_VERSION, download, extractExecutable, verifyArtifact } from './bootstrap.mjs';
 
@@ -90,8 +90,9 @@ export async function publishSnapshot(path, content) {
   let existing;
   try { await regularFile(path); existing = await readFile(path, 'utf8'); }
   catch (error) { if (error.code !== 'ENOENT') throw error; }
-  if (existing !== undefined && !content.startsWith(existing)) throw new Error('Managed snapshot changed');
+  if (existing !== undefined && !content.startsWith(existing)) throw new Error(`Managed snapshot changed: ${basename(path)}`);
   const temporary = path + '.pending';
+  try { await regularFile(temporary); } catch (error) { if (error.code !== 'ENOENT') throw error; }
   await rm(temporary, { force: true });
   if (existing === content) return;
   try {
