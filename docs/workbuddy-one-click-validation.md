@@ -8,7 +8,7 @@ uvx connector is not evidence of a zero-environment installation.
 
 The existing MCP distribution suite passes 89 tests. The shared Runtime source
 adds optional CPU embedding and explicit profile setup. Its full host-backed
-local regression passes 428 tests with six explicit skips for separate
+local regression passes 431 tests with six explicit skips for separate
 real-model/external-service acceptance. Real-model acceptance is run separately,
 with no model download during ordinary test collection. Dependency compatibility,
 Ruff and wheel/sdist builds pass locally. These results do not establish real
@@ -80,7 +80,8 @@ budget; a production connector still needs a verified staged preparation flow.
 WorkBuddy 5.8.2 on macOS Apple Silicon was tested with a pre-provisioned source
 candidate, a verified CPU-model cache and a newly initialized, isolated embedded
 profile. Its packaged Runtime code matches commit
-`09ba437b79274f4f31e554a8dbc2dc3eb1ee484e`. Python provisioning and profile setup happened outside WorkBuddy;
+`09ba437b79274f4f31e554a8dbc2dc3eb1ee484e`. Python provisioning and profile setup
+happened outside WorkBuddy;
 the custom MCP configuration was entered manually. This is not marketplace
 installation, an automatic setup test or a clean-OS certification.
 
@@ -93,9 +94,15 @@ stored records and twelve committed operations (ten adds, one update, one
 delete). After relaunch, three real GUI searches confirmed the updated record,
 an unchanged English record and continued absence of the deleted ID.
 
+With the test connection disabled, its wheel was then replaced by a build whose
+Runtime code matches `b568e0d5bfe23f10e4b1ea912405c1054730f3b5`. The same profile
+and model cache were retained. After reconnecting, two real GUI searches again
+confirmed the updated and unchanged records and absence of the deleted ID.
+The temporary test connection was disabled afterward; synthetic data was retained.
+
 The tested source candidate uses the shared Python Runtime's optional CPU
 provider. This result does not validate a Node bridge, connector ZIP import,
-automatic provisioning, Cloud credentials, upgrade/rollback or other platforms'
+automatic provisioning, Cloud credentials, released-connector upgrade/rollback or other platforms'
 GUI lifecycle. No screenshots, account data, private paths or raw logs are part
 of this report.
 
