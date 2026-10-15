@@ -1,4 +1,4 @@
-include server.json runtime-source.json README.zh-CN.md
+include server.json runtime-source.json README.zh-CN.md THIRD_PARTY_NOTICES.md
 recursive-include schemas *.json
 include schemas/LICENSE schemas/README.md
 recursive-include scripts *.py
