@@ -2,7 +2,8 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { locations, prepare, installed } from '../integrations/managed/provision.mjs';
 const root = process.env.QDRANT_MEMORY_MANAGED_ROOT;
@@ -17,6 +18,10 @@ await assert.rejects(prepare(dsh, 'dsh', interrupted.signal, stage => {
   if (stage === 'install-runtime') interrupted.abort();
 }));
 await assert.rejects(installed(dsh));
+// A stopped probe can leave stale temporary files; the next preparation must
+// replace them instead of failing on their presence.
+await writeFile(join(dsh.program, process.platform === 'win32' ? 'uv.exe.pending' : 'uv.pending'), 'stale', { flag: 'w' });
+await writeFile(join(dsh.program, 'runtime.tar.gz.pending'), 'stale', { flag: 'w' });
 await prepare(dsh, 'dsh');
 await prepare(wb, 'workbuddy');
 const launcher = fileURLToPath(new URL('../integrations/managed/launcher.mjs', import.meta.url));
@@ -25,7 +30,12 @@ async function session(host, action) {
   const child = spawn(process.execPath, [launcher, 'mcp', host], { env: process.env, stdio: ['pipe', 'pipe', 'pipe'] });
   const responses = new Map();
   const lines = createInterface({ input: child.stdout });
-  lines.on('line', line => { const message = JSON.parse(line); responses.get(message.id)?.(message); });
+  lines.on('line', line => {
+    let message;
+    try { message = JSON.parse(line); }
+    catch { throw new Error(`Launcher stdout is not protocol-only JSON: ${line.slice(0, 200)}`); }
+    responses.get(message.id)?.(message);
+  });
   child.stderr.resume();
   let id = 0;
   async function request(method, params) {

@@ -38,9 +38,9 @@ provisioning. It never resets storage, overwrites another host's settings or
 steals a WriterLease. Normal failed preparation releases its provisioning lock.
 An orderly client probe interruption can resume the same partial Python
 environment on the next preparation attempt. Its files are retained and checked.
-If a force-killed installer leaves `.provision.lock` or `uv.pending`, first
-confirm that its process tree is gone, then inspect/remove only that installation
-transaction's stale file/directory. Do not remove Runtime data locks or profile
+If a force-killed installer leaves `.provision.lock`, first confirm that its
+process tree is gone. Then inspect or remove only that installation transaction's
+stale lock. The next preparation replaces stale temporary files by itself. Do not remove Runtime data locks or profile
 files. This crash-recovery procedure is operator-only, not automatic lock theft.
 
 The candidate verifies bootstrap and Runtime archive bytes before execution.

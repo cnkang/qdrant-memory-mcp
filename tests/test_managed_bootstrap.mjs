@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
 
-import { command, extractExecutable, verifyArtifact } from '../integrations/managed/bootstrap.mjs';
+import { anySignal, command, extractExecutable, verifyArtifact } from '../integrations/managed/bootstrap.mjs';
 
 function wheel(name = 'uv-0.13.1.data/scripts/uv', type = 0o100755) {
   const data = Buffer.from('synthetic executable');
@@ -108,4 +108,18 @@ test('reject mismatched local file names and truncated archives', () => {
   bytes[30] = 'X'.charCodeAt(0);
   assert.throws(() => extractExecutable(bytes, 'uv-0.13.1.data/scripts/uv'));
   assert.throws(() => extractExecutable(bytes.subarray(0, 50), 'uv-0.13.1.data/scripts/uv'));
+});
+
+test('combined abort signals work without AbortSignal.any', () => {
+  const source = new AbortController();
+  const combined = anySignal([source.signal, AbortSignal.timeout(10000)]);
+  assert.equal(combined.aborted, false);
+  source.abort('stopped');
+  assert.equal(combined.aborted, true);
+  assert.equal(combined.reason, 'stopped');
+  const early = new AbortController();
+  early.abort('early');
+  const already = anySignal([early.signal, AbortSignal.timeout(10000)]);
+  assert.equal(already.aborted, true);
+  assert.equal(already.reason, 'early');
 });
