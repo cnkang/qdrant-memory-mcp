@@ -170,3 +170,14 @@ workflow acceptance requires installation from PyPI and never uses that fallback
 
 See [CI and dependency maintenance](docs/ci.md), [publishing](docs/publishing.md), [architecture](docs/architecture.md), and
 the optional [Skill](https://github.com/cnkang/skills/tree/main/qdrant-memory).
+
+## WorkBuddy and DeepSeek Harness
+
+Use the [WorkBuddy connector](integrations/workbuddy/README.md) or
+[DSH installation guide](docs/dsh-integration.md) for explicit durable memory.
+Both reuse the Python Runtime, four MCP tools and canonical Skill. An optional
+[managed CPU launcher source candidate](integrations/managed/README.md) prepares
+private Python/model dependencies with Node.js; production one-click marketplace
+installation is still gated. Existing Hermes profiles and defaults are unchanged.
+See [architecture and version matrix](docs/cross-harness-architecture.md) and
+[validation limits](docs/dsh-validation.md).

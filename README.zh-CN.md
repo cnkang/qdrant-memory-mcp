@@ -131,3 +131,12 @@ CI 优先使用正式 PyPI Runtime。新 Runtime 发布前，CI 使用 `runtime-
 构建本地 wheel；正式包元数据始终依赖固定 PyPI 版本，发布流程禁止这种回退。
 详见 [英文说明](README.md)、[发布清单](docs/publishing.md) 与
 [Runtime 验证](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/validation.md)。
+
+## WorkBuddy 与 DeepSeek Harness
+
+WorkBuddy 请使用[连接器说明](integrations/workbuddy/README.md)，DSH 请使用
+[中文接入指南](docs/dsh-integration.zh-CN.md)。两者复用同一套 Runtime、四个 MCP
+工具和权威 Skill，提供明确的记忆操作。[托管 CPU 启动器源码候选版](integrations/managed/README.md)
+可通过 Node.js 准备私有 Python 环境和模型；生产级市场一键安装仍有发布与验收门禁。
+Hermes 原有 profile 和默认配置保持不变。详见[架构与版本矩阵](docs/cross-harness-architecture.md)
+和[验证范围](docs/dsh-validation.md)。

@@ -4,8 +4,15 @@ include schemas/LICENSE schemas/README.md
 recursive-include scripts *.py
 recursive-include tests *.py
 recursive-include integrations/workbuddy *.py *.json *.svg *.md
-recursive-include integrations/managed *.mjs *.md
+recursive-include integrations/managed *.mjs *.md *.json
+include integrations/managed/requirements.in integrations/managed/requirements.lock integrations/managed/build-requirements.lock
+recursive-include integrations/dsh *.yml *.md *.json
+prune integrations/dsh/node_modules
+recursive-include tests *.mjs
 include tests/test_managed_bootstrap.mjs
 include docs/architecture.md docs/ci.md docs/publishing.md
 include docs/quickstart.md docs/quickstart.zh-CN.md
 include docs/workbuddy-one-click-architecture.md docs/workbuddy-one-click-validation.md
+include docs/cross-harness-architecture.md docs/hermes-compatibility.md
+include docs/dsh-integration.md docs/dsh-integration.zh-CN.md docs/dsh-validation.md
+recursive-include docs/adr *.md

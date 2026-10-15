@@ -226,3 +226,14 @@ drift, preserve old assets/tags, and prepare a new approved release if necessary
 Rollback means selecting the previous reviewed connector/package/profile backup;
 never republish an existing PyPI version or rewrite a release tag. Existing 0.1.2
 is not retrofitted. Release preparation does not publish the Draft.
+
+## Managed source preview
+
+The optional [shared launcher](../managed/README.md) can prepare a private Python
+environment and CPU model from Node.js. Use `mcp.managed-preview.json` with an
+absolute launcher path for a custom connection. It keeps WorkBuddy's profile
+separate from DSH and Hermes. During preparation the four tools report that no
+operation succeeded; wait before saving. This source preview is not part of the
+published connector ZIP and has no marketplace one-click acceptance claim.
+
+For DSH use its [own overlay and guide](../../docs/dsh-integration.md).
