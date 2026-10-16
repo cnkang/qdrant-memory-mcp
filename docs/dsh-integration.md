@@ -14,8 +14,8 @@ at `~/.qdrant-memory-dsh` instead of `~/.qdrant-memory`. Put your chosen scope a
 embedding settings in that profile's `qdrant-memory.json`, then initialize it:
 
 ```sh
-uvx --from qdrant-memory-mcp==0.1.3 qdrant-memory-mcp --home "$HOME/.qdrant-memory-dsh" init
-uvx --from qdrant-memory-mcp==0.1.3 qdrant-memory-mcp --home "$HOME/.qdrant-memory-dsh" doctor
+uvx --from qdrant-memory-mcp==0.1.4 qdrant-memory-mcp --home "$HOME/.qdrant-memory-dsh" init
+uvx --from qdrant-memory-mcp==0.1.4 qdrant-memory-mcp --home "$HOME/.qdrant-memory-dsh" doctor
 dsh web --patch /absolute/path/to/qdrant-memory-mcp/integrations/dsh/qdrant-memory.cordis.yml
 ```
 

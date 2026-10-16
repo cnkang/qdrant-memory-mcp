@@ -10,9 +10,19 @@ import { BOOTSTRAPS, UV_VERSION, PYTHON_VERSION, download, extractExecutable, ve
 export const runtime = JSON.parse(await readFile(new URL('./runtime.json', import.meta.url), 'utf8'));
 export const hosts = new Set(['workbuddy', 'dsh']);
 const requirements = await readFile(new URL('./requirements.lock', import.meta.url), 'utf8');
-const buildRequirements = await readFile(new URL('./build-requirements.lock', import.meta.url), 'utf8');
-export const dependencyDigest = createHash('sha256').update(requirements).update(buildRequirements).digest('hex');
+export const dependencyDigest = createHash('sha256').update(requirements).update(JSON.stringify(runtime)).digest('hex');
 const installedSnapshot = JSON.stringify({ revision: runtime.revision, dependencies: dependencyDigest });
+
+export function runtimeRequirement(artifact, metadata = runtime, lock = requirements) {
+  if (metadata.status !== 'released-wheel') throw new Error('Unknown Runtime distribution');
+  const requirement = `hermes-plugin-qdrant-memory==${metadata.version}`;
+  const matches = [...lock.matchAll(/^hermes-plugin-qdrant-memory[^\n]*\n(?:[ \t]+--hash=sha256:[0-9a-f]+(?: \\)?\n)+/gm)];
+  if (matches.length !== 1 || !matches[0][0].startsWith(requirement + ' \\\n')
+      || !matches[0][0].includes(`--hash=sha256:${metadata.sha256}`)) throw new Error('Runtime dependency lock mismatch');
+  // A local wheel has one accepted artifact. Do not retain the registry sdist
+  // alternative when installing the downloaded and independently verified wheel.
+  return lock.replace(matches[0][0], `hermes-plugin-qdrant-memory @ ${pathToFileURL(artifact).href} \\\n    --hash=sha256:${metadata.sha256}\n`);
+}
 
 export function locations(host, env = process.env, home = homedir(), platform = process.platform) {
   if (!hosts.has(host)) throw new Error('Choose workbuddy or dsh');
@@ -23,7 +33,24 @@ export function locations(host, env = process.env, home = homedir(), platform = 
   const root = env.QDRANT_MEMORY_MANAGED_ROOT || join(data, 'qdrant-memory-managed');
   if (!isAbsolute(root)) throw new Error('Managed root must be absolute');
   return { root, program: join(root, 'programs', runtime.revision, dependencyDigest.slice(0, 12), `${platform}-${process.arch}`),
-    profile: join(root, 'profiles', host, 'local'), models: join(root, 'models', runtime.revision) };
+    profile: join(root, 'profiles', host, 'local'), models: join(root, 'models', runtime.model_revision || runtime.revision) };
+}
+
+export async function modelCache(paths) {
+  // Keep the cache chosen by an existing profile across program upgrades.
+  // Runtime setup still verifies the complete profile ownership/configuration.
+  const config = join(paths.profile, 'qdrant-memory.json');
+  try {
+    const info = await lstat(config);
+    if (!info.isFile() || info.isSymbolicLink() || info.size > 65536) throw new Error('Unsafe profile configuration');
+    const value = JSON.parse(await readFile(config, 'utf8'));
+    const cache = value.embedding?.model_cache_dir;
+    if (typeof cache !== 'string' || !isAbsolute(cache)) throw new Error('Invalid managed model cache');
+    const inside = relative(join(paths.root, 'models'), cache);
+    if (!inside || inside.startsWith('..') || isAbsolute(inside)) throw new Error('Model cache escaped managed root');
+    return cache;
+  } catch (error) { if (error.code !== 'ENOENT') throw error; }
+  return paths.models;
 }
 
 export async function privateDirectory(path) {
@@ -159,7 +186,10 @@ export async function prepare(paths, host, signal, onStage = () => {}) {
       // Resume only this revision-owned environment; never clear its contents.
       await run(uv, ['venv', '--allow-existing', '--python', python, join(paths.program, 'env')], { env, signal });
       enter('download-runtime');
-      const archive = join(paths.program, 'runtime.tar.gz');
+      const archive = join(paths.program, `hermes_plugin_qdrant_memory-${runtime.version}-py3-none-any.whl`);
+      // Clear an interrupted temporary download even if the verified artifact
+      // survived. The provisioning lock owns only this program transaction.
+      await rm(archive + '.pending', { force: true });
       try { await regularFile(archive); verifyArtifact(await readFile(archive), runtime); }
       catch (error) {
         if (error.code !== 'ENOENT') throw error;
@@ -171,18 +201,13 @@ export async function prepare(paths, host, signal, onStage = () => {}) {
         await rename(temporaryArchive, archive);
       }
       const environmentPython = join(paths.program, 'env', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python');
-      // Install locked wheel-only build tools, then build the one verified Runtime
-      // archive without an unpinned PEP 517 build environment.
-      enter('install-build-tools');
-      await run(uv, ['pip', 'install', '--python', environmentPython, '--no-deps', '--require-hashes', '--only-binary=:all:',
-        '-r', fileURLToPath(new URL('./build-requirements.lock', import.meta.url))], { env, signal });
-      const sourceURL = `https://github.com/cnkang/hermes-plugin-qdrant-memory/archive/${runtime.revision}.tar.gz`;
-      if (!requirements.includes(sourceURL) || !requirements.includes(runtime.sha256)) throw new Error('Runtime dependency lock mismatch');
-      const resolvedRequirements = requirements.replace(sourceURL, pathToFileURL(archive).href);
+      // Install only published wheels. No source builds or build environment.
+      const resolvedRequirements = runtimeRequirement(archive);
       const lockfile = join(paths.program, 'requirements.lock');
       await publishSnapshot(lockfile, resolvedRequirements);
       enter('install-runtime');
       await run(uv, ['pip', 'install', '--python', environmentPython, '--no-deps', '--no-build-isolation', '--require-hashes',
+        '--only-binary=:all:',
         '-r', lockfile], { env, signal });
       await run(uv, ['pip', 'check', '--python', environmentPython], { env, signal });
       await rm(archive);
@@ -190,10 +215,11 @@ export async function prepare(paths, host, signal, onStage = () => {}) {
       executable = await installed(paths);
     }
     await privateDirectory(dirname(paths.profile));
-    await privateDirectory(paths.models);
+    const models = await modelCache(paths);
+    await privateDirectory(models);
     enter('setup-profile');
     await run(executable, ['setup', '--profile', paths.profile, '--embedding-provider', 'fastembed',
-      '--model-cache-dir', paths.models, '--agent-id', host], { env, signal });
+      '--model-cache-dir', models, '--agent-id', host], { env, signal });
     return executable;
   } catch (error) {
     error.stage = stage;

@@ -25,10 +25,11 @@ def test_dsh_overlay_is_additive_and_explicit_about_credentials():
     assert 'permission' not in text
 
 
-def test_managed_candidate_is_not_advertised_as_published():
+def test_managed_launcher_uses_a_published_runtime_wheel():
     package = json.loads((ROOT / 'integrations/managed/package.json').read_text())
     runtime = json.loads((ROOT / 'integrations/managed/runtime.json').read_text())
-    assert package['private'] is True
-    assert runtime['status'] == 'source-candidate'
-    assert runtime['revision'] in runtime['url']
+    assert package['private'] is False
+    assert runtime['status'] == 'released-wheel'
+    assert runtime['url'].startswith('https://files.pythonhosted.org/')
+    assert runtime['url'].endswith(f"hermes_plugin_qdrant_memory-{runtime['version']}-py3-none-any.whl")
     assert len(runtime['sha256']) == 64

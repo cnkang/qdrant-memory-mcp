@@ -27,7 +27,7 @@ def test_connector_metadata_and_generated_pin():
     assert len(meta["examples_en"]) == len(meta["examples_zh"]) == 4
     server, = mcp["mcpServers"].values()
     assert server == {"type": "stdio", "command": "uvx", "args": ["--from", f"qdrant-memory-mcp=={project['version']}", "qdrant-memory-mcp", "mcp"], "timeout": 30000}
-    assert runtime["version"] == "0.2.2"
+    assert runtime["version"] == "0.3.0"
     assert len(source["commit"]) == 40
 
 
@@ -76,7 +76,7 @@ def test_invalid_metadata_fails_closed(tmp_path, monkeypatch, field, value):
 def test_release_tag_must_match_current_package():
     module = builder()
     with pytest.raises(ValueError, match="tag"):
-        module.package_name("0.1.0", "0.1.2", "v0.1.3")
+        module.package_name("0.1.0", "0.1.2", "v0.1.4")
     assert module.package_name("0.1.0", "0.1.2", None).endswith("-preview.zip")
 
 

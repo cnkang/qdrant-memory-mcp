@@ -1,8 +1,9 @@
 {
-  "revision": "b568e0d5bfe23f10e4b1ea912405c1054730f3b5",
-  "version": "0.2.2",
-  "status": "source-candidate",
-  "url": "https://codeload.github.com/cnkang/hermes-plugin-qdrant-memory/tar.gz/b568e0d5bfe23f10e4b1ea912405c1054730f3b5",
-  "sha256": "658fe73a43f8a05bd97c39a941981c9e08e18e67238aa3ffc4bccfa65acfc265",
-  "size": 1199787
+  "revision": "534562f1df43541dbf906d248bb11cd085b211ee",
+  "version": "0.3.0",
+  "status": "released-wheel",
+  "url": "https://files.pythonhosted.org/packages/c2/00/97f5b8f2d772ba4f87dee1e137a56f527bd388569338d530a7a328562d56/hermes_plugin_qdrant_memory-0.3.0-py3-none-any.whl",
+  "sha256": "233b214ccc14b35754f8d0f02f50284287ff3aaa284caec57df7ff0226229aae",
+  "size": 85873,
+  "model_revision": "faf4aa4225822f3bc6376869cb1164e8e3feedd0"
 }

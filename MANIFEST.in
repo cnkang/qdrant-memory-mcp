@@ -5,7 +5,7 @@ recursive-include scripts *.py
 recursive-include tests *.py
 recursive-include integrations/workbuddy *.py *.json *.svg *.md
 recursive-include integrations/managed *.mjs *.md *.json
-include integrations/managed/requirements.in integrations/managed/requirements.lock integrations/managed/build-requirements.lock
+include integrations/managed/requirements.in integrations/managed/requirements.lock integrations/managed/LICENSE
 recursive-include integrations/dsh *.yml *.md *.json
 prune integrations/dsh/node_modules
 recursive-include tests *.mjs

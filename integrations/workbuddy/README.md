@@ -16,7 +16,7 @@ the exact custom MCP settings for a separate WorkBuddy profile.
 ## Requirements and installation behavior
 
 WorkBuddy 4.24.0 or newer is required for bilingual names and examples.
-The shipped command is `uvx --from qdrant-memory-mcp==0.1.3 qdrant-memory-mcp mcp`.
+The shipped command is `uvx --from qdrant-memory-mcp==0.1.4 qdrant-memory-mcp mcp`.
 Install uv/uvx and Python 3.11+ beforehand, ensure uvx is on the desktop app's
 PATH, and warm the pinned package before connecting. Network installation can
 exceed the 30-second connection timeout. Tools should respond within 30 seconds.
@@ -47,7 +47,7 @@ builder performs frontmatter conversion, license/resource selection and local
 link checks. This adapter verifies origin, exact clean checkout, version and
 unchanged Markdown body. No second canonical `SKILL.md` is maintained here.
 
-Connector 0.1.0, MCP 0.1.3, Runtime 0.2.2 and Skill 0.2.6 are independent.
+Connector 0.1.0, MCP 0.1.4, Runtime 0.3.0 and Skill 0.2.6 are independent.
 `provenance.json` records all versions and source SHA. For a future MCP release,
 update the checked-in `mcp.json` pin alongside normal package/Registry metadata.
 The builder rejects drift. Updating the Skill pin also requires updating both

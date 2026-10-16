@@ -51,7 +51,7 @@ redistribute them.
 | --- | --- | --- |
 | uv | 0.13.1 | Apache-2.0 OR MIT |
 | Python (python-build-standalone) | 3.11.15 | PSF-2.0 |
-| Qdrant Memory Runtime | pinned source archive revision | MIT |
+| Qdrant Memory Runtime | 0.3.0, verified public PyPI wheel | MIT |
 | Embedding model `Qdrant/paraphrase-multilingual-MiniLM-L12-v2-onnx-Q` | revision `faf4aa4225822f3bc6376869cb1164e8e3feedd0` | Apache-2.0 (upstream model card) |
 
 Model and archive downloads are size- and SHA-256-verified before use.

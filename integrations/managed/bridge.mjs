@@ -5,6 +5,8 @@ import { readFile } from 'node:fs/promises';
 import { isDeepStrictEqual } from 'node:util';
 
 export const tools = JSON.parse(await readFile(new URL('./tools.json', import.meta.url), 'utf8'));
+const { version } = JSON.parse(await readFile(new URL('./package.json', import.meta.url), 'utf8'));
+const launcherVersion = version;
 const failure = text => ({ content: [{ type: 'text', text }], isError: true });
 
 export async function bridge(startBackend, input = process.stdin, output = process.stdout) {
@@ -50,11 +52,16 @@ export async function bridge(startBackend, input = process.stdin, output = proce
       return;
     }
     const { id, method } = message;
+    if ((typeof id !== 'string' && (typeof id !== 'number' || !Number.isFinite(id)))
+        || typeof method !== 'string') {
+      send({ id: null, error: { code: -32600, message: 'Invalid request' } });
+      return;
+    }
     if (method === 'initialize') {
       initialized = true;
       const version = message.params?.protocolVersion;
       send({ id, result: { protocolVersion: ['2024-11-05', '2025-03-26', '2025-06-18', '2025-11-25'].includes(version) ? version : '2025-11-25',
-        capabilities: { tools: {} }, serverInfo: { name: 'qdrant-memory-managed', version: '0.1.0' } } });
+        capabilities: { tools: {} }, serverInfo: { name: 'qdrant-memory-managed', version: launcherVersion } } });
     } else if (method === 'ping') send({ id, result: {} });
     else if (!initialized) send({ id, error: { code: -32000, message: 'Initialize first' } });
     else if (method === 'tools/list') send({ id, result: { tools } });
@@ -89,6 +96,14 @@ export async function bridge(startBackend, input = process.stdin, output = proce
       responses.on('line', line => {
         let message;
         try { message = JSON.parse(line); } catch { failed(); backend.kill(); return; }
+        if (!message || typeof message !== 'object' || Array.isArray(message)
+            || message.jsonrpc !== '2.0') { failed(); return; }
+        // Runtime notifications have no response ID. Only a valid response may
+        // complete an initialization or a dispatched operation.
+        if (!Object.hasOwn(message, 'id')) return;
+        if (Object.hasOwn(message, 'result') === Object.hasOwn(message, 'error')) {
+          failed(); return;
+        }
         if (message.id === 'init') {
           if (!message.result) { failed(); return; }
           wire({ method: 'notifications/initialized' });
@@ -103,11 +118,11 @@ export async function bridge(startBackend, input = process.stdin, output = proce
         }
       });
       backend.once('spawn', () => wire({ id: 'init', method: 'initialize', params: {
-        protocolVersion: '2025-11-25', capabilities: {}, clientInfo: { name: 'managed-launcher', version: '0.1.0' } } }));
+        protocolVersion: '2025-11-25', capabilities: {}, clientInfo: { name: 'managed-launcher', version } } }));
     } catch (error) {
       const stage = ['inspect-installation', 'download-bootstrap', 'install-python', 'download-runtime', 'install-build-tools', 'install-runtime', 'setup-profile'].includes(error.stage)
         ? ` (${error.stage})` : '';
-      state = `Memory preparation failed${stage}. No operation was performed. Run the launcher prepare command to retry; inspect network and disk access.`;
+      state = `Memory preparation failed${stage}. No operation was performed. Check network and disk access, then disconnect and reconnect to retry preparation. DSH requires its prepare step before reconnecting.`;
     }
   })();
   await done;
