@@ -52,7 +52,7 @@ export async function bridge(startBackend, input = process.stdin, output = proce
       return;
     }
     const { id, method } = message;
-    if ((typeof id !== 'string' && (typeof id !== 'number' || !Number.isFinite(id)))
+    if ((typeof id !== 'string' && (typeof id !== 'number' || !Number.isSafeInteger(id)))
         || typeof method !== 'string') {
       send({ id: null, error: { code: -32600, message: 'Invalid request' } });
       return;
@@ -100,7 +100,10 @@ export async function bridge(startBackend, input = process.stdin, output = proce
             || message.jsonrpc !== '2.0') { failed(); return; }
         // Runtime notifications have no response ID. Only a valid response may
         // complete an initialization or a dispatched operation.
-        if (!Object.hasOwn(message, 'id')) return;
+        if (!Object.hasOwn(message, 'id')) {
+          if (typeof message.method !== 'string' || Object.hasOwn(message, 'result') || Object.hasOwn(message, 'error')) failed();
+          return;
+        }
         if (Object.hasOwn(message, 'result') === Object.hasOwn(message, 'error')) {
           failed(); return;
         }
@@ -115,7 +118,7 @@ export async function bridge(startBackend, input = process.stdin, output = proce
           const id = pending.get(message.id);
           pending.delete(message.id);
           send({ ...message, id });
-        }
+        } else failed();
       });
       backend.once('spawn', () => wire({ id: 'init', method: 'initialize', params: {
         protocolVersion: '2025-11-25', capabilities: {}, clientInfo: { name: 'managed-launcher', version } } }));

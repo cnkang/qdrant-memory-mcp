@@ -26,6 +26,14 @@ test('upgrades retain the existing owned cache location without changing profile
       await writeFile(config, JSON.stringify({ embedding: { model_cache_dir: cache } }));
       await assert.rejects(modelCache(paths), /cache/);
     }
+    const outside = join(root, 'outside');
+    await mkdir(outside);
+    const link = join(root, 'models', 'linked');
+    try { await symlink(outside, link, process.platform === 'win32' ? 'junction' : 'dir'); }
+    catch (error) { if (process.platform === 'win32' && error.code === 'EPERM') return; throw error; }
+    await writeFile(config, JSON.stringify({ embedding: { model_cache_dir: join(link, 'cache') } }));
+    await assert.rejects(modelCache(paths), /Unsafe/);
+    await assert.rejects(lstat(join(outside, 'cache')), { code: 'ENOENT' });
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
@@ -202,20 +210,21 @@ test('invalid request IDs and response-shaped messages never reach the backend',
   const done = bridge(signal => new Promise((_, reject) => signal.addEventListener('abort', () => reject(new Error('stopped')))), input, output);
   for (const message of [
     { id: {}, method: 'initialize' }, { id: null, method: 'initialize' },
-    { id: 1, result: {} }, { id: 2, method: 3 },
+    { id: 1, result: {} }, { id: 2, method: 3 }, { id: 1.5, method: 'tools/call' },
   ]) input.write(JSON.stringify({ jsonrpc: '2.0', ...message }) + '\n');
   await new Promise(resolve => setImmediate(resolve));
-  assert.equal(received.length, 4);
+  assert.equal(received.length, 5);
   assert.ok(received.every(message => message.id === null && message.error.code === -32600));
   input.end(); await done;
 });
 
-for (const response of [null, [], { jsonrpc: '2.0', id: 'init' },
+for (const response of [null, [], { jsonrpc: '2.0', result: {} }, { jsonrpc: '2.0', id: 'unknown', result: {} }, { jsonrpc: '2.0', id: 'init' },
   { jsonrpc: '2.0', id: 'init', result: {}, error: {} }, { id: 'init', result: {} }]) {
   test(`malformed backend response closes transport safely: ${JSON.stringify(response)}`, async () => {
     const input = new PassThrough(), output = new PassThrough();
     const done = bridge(async () => ({ command: process.execPath, args: ['-e',
-      `process.stdin.once('data', () => process.stdout.write(${JSON.stringify(JSON.stringify(response) + '\n')}));`], env: process.env }), input, output);
+      "process.stdin.once('data', () => process.stdout.write(process.env.QDRANT_TEST_RESPONSE));"],
+      env: { ...process.env, QDRANT_TEST_RESPONSE: JSON.stringify(response) + '\n' } }), input, output);
     await Promise.race([done, new Promise((_, reject) => {
       const timer = setTimeout(() => reject(new Error('Malformed backend did not close')), 3000);
       done.finally(() => clearTimeout(timer));

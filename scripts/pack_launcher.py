@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+import os
 import stat
 import subprocess
 import tarfile
@@ -52,8 +53,13 @@ def main():
     filename = meta["name"].removeprefix("@").replace("/", "-") + "-" + meta["version"] + ".tgz"
     if (output / filename).exists():
         raise ValueError("Package already exists; choose a fresh output directory")
-    command = ["npm.cmd" if __import__("os").name == "nt" else "npm", "pack", "--json", "--ignore-scripts", "--pack-destination", str(output)]
-    packed, = json.loads(subprocess.check_output(command, cwd=source, text=True))
+    # Keep user paths out of command arguments, including Windows .cmd parsing.
+    env = {**os.environ, "npm_config_pack_destination": str(output)}
+    if os.name == "nt":
+        raw = subprocess.check_output(["npm.cmd", "pack", "--json", "--ignore-scripts"], cwd=source, env=env, text=True, timeout=120)
+    else:
+        raw = subprocess.check_output(["npm", "pack", "--json", "--ignore-scripts"], cwd=source, env=env, text=True, timeout=120)
+    packed, = json.loads(raw)
     if packed["filename"] != filename:
         raise ValueError("Unexpected npm package identity")
     archive = output / filename

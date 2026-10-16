@@ -1,6 +1,7 @@
 /** Host-neutral provisioning. All data operations use the supported Runtime CLI. */
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { constants } from 'node:fs';
 import { mkdir, lstat, readFile, writeFile, rename, rm, realpath, open } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join, dirname, parse, resolve, relative, isAbsolute, basename } from 'node:path';
@@ -41,14 +42,22 @@ export async function modelCache(paths) {
   // Keep the cache chosen by an existing profile across program upgrades.
   // Runtime setup still verifies the complete profile ownership/configuration.
   const config = join(paths.profile, 'qdrant-memory.json');
+  await privateDirectory(paths.profile);
   try {
-    const info = await lstat(config);
-    if (!info.isFile() || info.isSymbolicLink() || info.size > 65536) throw new Error('Unsafe profile configuration');
-    const value = JSON.parse(await readFile(config, 'utf8'));
+    const file = await open(config, constants.O_RDONLY | (constants.O_NOFOLLOW || 0));
+    let value;
+    try {
+      const info = await file.stat();
+      const entry = await lstat(config);
+      if (!info.isFile() || info.size > 65536 || entry.isSymbolicLink()
+          || info.ino !== entry.ino || info.dev !== entry.dev) throw new Error('Unsafe profile configuration');
+      value = JSON.parse(await file.readFile('utf8'));
+    } finally { await file.close(); }
     const cache = value.embedding?.model_cache_dir;
     if (typeof cache !== 'string' || !isAbsolute(cache)) throw new Error('Invalid managed model cache');
     const inside = relative(join(paths.root, 'models'), cache);
     if (!inside || inside.startsWith('..') || isAbsolute(inside)) throw new Error('Model cache escaped managed root');
+    await privateDirectory(cache);
     return cache;
   } catch (error) { if (error.code !== 'ENOENT') throw error; }
   return paths.models;
