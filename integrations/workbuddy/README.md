@@ -17,7 +17,7 @@ WorkBuddy's managed Node.js runtime. `mcp.json` declares:
     "qdrant-memory": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "@cnkang/qdrant-memory-launcher@0.1.0-rc.1", "mcp", "workbuddy", "--auto-setup"],
+      "args": ["-y", "@cnkang/qdrant-memory-launcher@0.1.0-rc.2", "mcp", "workbuddy", "--auto-setup"],
       "runtime": {"type": "node", "version": "20"},
       "npmRegistries": ["https://registry.npmjs.org", "https://registry.npmmirror.com"],
       "timeout": 30000
@@ -97,7 +97,7 @@ program's `.provision.lock`. Never remove profile files or Runtime data locks.
 
 ## Update and versioning
 
-Connector 0.2.0, MCP 0.1.4, Runtime 0.3.0, launcher 0.1.0-rc.1 and Skill 0.2.6
+Connector 0.2.0, MCP 0.1.4, Runtime 0.3.0, launcher 0.1.0-rc.2 and Skill 0.2.6
 are independent versions. `provenance.json` inside the ZIP records all
 versions, the launcher integrity and the Skill source commit. The builder
 rejects drift from the checked-in pins:

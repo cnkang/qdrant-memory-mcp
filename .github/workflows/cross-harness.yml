@@ -121,12 +121,19 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '20'
+      - name: Check whether the pinned launcher is already public
+        id: pin
+        run: python integrations/workbuddy/public_install.py
       - name: "Exact public npx commands: handshake, preparation, CRUD and persistence"
+        if: steps.pin.outputs.launcher == 'true'
         env:
           QDRANT_MEMORY_MANAGED_ROOT: ${{ runner.temp }}/qdrant-public-acceptance
           NPM_CONFIG_CACHE: ${{ runner.temp }}/npm-cache
           QDRANT_PUBLIC_ACCEPTANCE_REPORT: ${{ runner.temp }}/public-launcher-report.json
         run: node tests/public-launcher-acceptance.mjs
+      - name: Record an unpublished pin as NOT VERIFIED
+        if: steps.pin.outputs.launcher != 'true'
+        run: 'echo "Public npm acceptance: NOT VERIFIED (pinned launcher version is not yet public; rerun after publication)"'
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:

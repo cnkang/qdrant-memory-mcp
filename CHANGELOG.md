@@ -9,6 +9,10 @@
   connector pins the exact npm version and its integrity and declares
   WorkBuddy 5.0.0. The Python/uvx route remains a documented custom-MCP
   alternative.
+- Harden launcher preparation for Windows: bounded retries replace the direct
+  rename when a freshly written executable is briefly locked (real-time scan
+  or a terminating child after a stopped probe). The interrupted-preparation
+  acceptance exercises this path on every platform.
 - Prepare the configuration-only DSH Bundle
   (`@cnkang/qdrant-memory-dsh-bundle`) for installation through the official
   plugin manager, with an explicit preparation step that keeps the temporary

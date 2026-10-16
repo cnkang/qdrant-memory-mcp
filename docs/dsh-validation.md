@@ -106,14 +106,17 @@ synthetic embedding HTTP fixture, with no cloud keys or user profiles.
 
 ## Remaining release gates
 
-The launcher `0.1.0-rc.1` is public on npm and the Runtime wheel is public on
-PyPI. The MCP distribution 0.1.4 and the DSH Bundle 0.1.0 are prepared for
-publication with this round; the published Python MCP remains 0.1.3 until its
-tag exists. Marketplace listing review, managed Node GUI import in WorkBuddy,
-full application restart on a clean machine, forced installer-crash recovery,
-dispatch-time cancellation, every HMR/profile-switch case, and production
-upgrade/rollback remain separate release gates. Cloud multi-writer sharing and
-automatic DSH extraction/prefetch are not implemented.
+Launcher `0.1.0-rc.1` is public on npm. Launcher `0.1.0-rc.2` — a Windows
+rename-retry hardening for interrupted preparation — is pinned by the
+connector and the Bundle and must be published before release assets are
+prepared; the release workflow refuses unpublished pins. The Runtime wheel is
+public on PyPI. The MCP distribution 0.1.4 and the DSH Bundle 0.1.0 are
+prepared for publication with this round; the published Python MCP remains
+0.1.3 until its tag exists. Marketplace listing review, managed Node GUI
+import in WorkBuddy, full application restart on a clean machine, forced
+installer-crash recovery, dispatch-time cancellation, every HMR/profile-switch
+case, and production upgrade/rollback remain separate release gates. Cloud
+multi-writer sharing and automatic DSH extraction/prefetch are not implemented.
 
 Keep one active owner for embedded storage. Do not bypass locks or reuse Hermes
 profiles implicitly. See [Hermes compatibility](hermes-compatibility.md),

@@ -13,7 +13,7 @@ WorkBuddy documents a managed Node runtime for stdio connectors from version
 
 ```json
 "command": "npx",
-"args": ["-y", "@cnkang/qdrant-memory-launcher@0.1.0-rc.1", "mcp", "workbuddy", "--auto-setup"],
+"args": ["-y", "@cnkang/qdrant-memory-launcher@0.1.0-rc.2", "mcp", "workbuddy", "--auto-setup"],
 "runtime": {"type": "node", "version": "20"},
 "npmRegistries": ["https://registry.npmjs.org", "https://registry.npmmirror.com"]
 ```
