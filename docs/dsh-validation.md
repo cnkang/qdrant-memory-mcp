@@ -106,13 +106,11 @@ synthetic embedding HTTP fixture, with no cloud keys or user profiles.
 
 ## Remaining release gates
 
-Launcher `0.1.0-rc.1` is public on npm. Launcher `0.1.0-rc.2` — a Windows
-rename-retry hardening for interrupted preparation — is pinned by the
-connector and the Bundle and must be published before release assets are
-prepared. The release workflow refuses unpublished pins. The Runtime wheel is
-public on PyPI. The MCP distribution 0.1.4 and the DSH Bundle 0.1.0 are
-prepared for publication with this round. The published Python MCP remains
-0.1.3 until its tag exists. Marketplace listing review, managed Node GUI
+Launcher `0.1.0-rc.1` and the pinned `0.1.0-rc.2` (a Windows rename-retry
+hardening for interrupted preparation) are public on npm. The release
+workflow refuses unpublished pins. The Runtime wheel is public on PyPI. The
+MCP distribution 0.1.4 and the DSH Bundle 0.1.0 are prepared for publication
+with this round. The published Python MCP remains 0.1.3 until its tag exists. Marketplace listing review, managed Node GUI
 import in WorkBuddy, full application restart on a clean machine, forced
 installer-crash recovery, dispatch-time cancellation, every HMR/profile-switch
 case, and production upgrade/rollback remain separate release gates. Cloud
