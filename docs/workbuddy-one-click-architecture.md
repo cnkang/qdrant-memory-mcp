@@ -30,7 +30,12 @@ with matching integrity. Additional registries are best-effort cross-checked:
 a mirror that serves a conflicting or extra payload fails the release gate,
 and an absent or unreachable mirror is informational. At user runtime the npm
 client verifies each fetched tarball against the serving registry's published
-integrity metadata. The handshake budget is the connector's 30-second timeout.
+integrity metadata. This fallback is a deliberate availability trade-off for
+networks where the canonical registry is unreachable; the repository pin is
+enforced at release time, not by the managed `npx` invocation itself.
+Enforcing the pin before execution would require a host-side bootstrap step,
+which remains future work if that residual boundary must be closed. The
+handshake budget is the connector's 30-second timeout.
 Measured cold handshakes against `0.1.0-rc.1` stay within it on every platform
 (worst observed cold npx: Windows, 15.5 seconds); `0.1.0-rc.2` re-runs the
 same measurement after publication.
