@@ -35,8 +35,8 @@ const handshakeBudgetMs = 30000;
 const start = performance.now();
 
 // Node refuses to spawn .bat/.cmd files directly (CVE-2024-27980 fix). On
-// Windows, run npm's npx CLI through the current node binary instead; that is
-// exactly what the npx shim starts. Fall back to a quoted cmd.exe line.
+// Windows, run npm's npx CLI through the current node binary instead: that is
+// exactly what the npx shim starts, and no shell is involved on any platform.
 function npxCommand(args) {
   if (process.platform !== 'win32') return { command: 'npx', args };
   const nodeRoot = dirname(process.execPath);
@@ -44,9 +44,8 @@ function npxCommand(args) {
     join(nodeRoot, 'node_modules', 'npm', 'bin', 'npx-cli.js'),
     join(nodeRoot, 'lib', 'node_modules', 'npm', 'bin', 'npx-cli.js'),
   ].find(candidate => existsSync(candidate));
-  if (cli) return { command: process.execPath, args: [cli, ...args] };
-  const line = ['npx', ...args].map(argument => `"${argument.replaceAll('"', '""')}"`).join(' ');
-  return { command: process.env.ComSpec || 'cmd.exe', args: ['/d', '/s', '/c', line] };
+  assert.ok(cli, 'npx-cli.js was not found next to the Node.js installation; use a standard Node.js 20+ installation');
+  return { command: process.execPath, args: [cli, ...args] };
 }
 
 function spawnNpx(args, options) {
