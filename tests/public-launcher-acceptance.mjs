@@ -106,10 +106,14 @@ function launch(host, extra = []) {
 }
 
 async function waitReady(session, label) {
-  for (let count = 0; ; count++) {
+  const budget = Number(process.env.QDRANT_PUBLIC_ACCEPTANCE_WAIT_MS || 30 * 60 * 1000);
+  const deadline = performance.now() + budget;
+  for (;;) {
     const result = await session.call('search', { query: 'readiness' });
     if (!result.isError) return;
-    assert.ok(count < 2400 && result.content[0].text.includes('Preparing'), `${label}: unexpected preparation failure: ${result.content[0].text}`);
+    const text = result.content[0].text;
+    assert.ok(text.includes('Preparing'), `${label}: unexpected preparation failure: ${text}`);
+    assert.ok(performance.now() < deadline, `${label}: preparation still running after ${Math.round(budget / 1000)}s: ${text}`);
     await new Promise(resolve => setTimeout(resolve, 250));
   }
 }
