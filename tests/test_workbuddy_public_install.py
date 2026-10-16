@@ -2,6 +2,8 @@
 
 import importlib.util
 import tomllib
+import urllib.error
+import urllib.parse
 from pathlib import Path
 
 import pytest
@@ -100,14 +102,16 @@ def test_launcher_mirror_conflict_fails_closed(monkeypatch):
     monkeypatch.setattr(check.urllib.request, "urlopen", lambda *a, **k: Response(good))
     assert check.launcher(ROOT) is True
 
-    monkeypatch.setattr(check.urllib.request, "urlopen", lambda url, *a, **k: Response(bad if "npmmirror" in url else good))
+    def conflicting(url, *a, **k):
+        return Response(bad if urllib.parse.urlparse(url).hostname == "registry.npmmirror.com" else good)
+
+    monkeypatch.setattr(check.urllib.request, "urlopen", conflicting)
     with pytest.raises(ValueError, match="npmmirror"):
         check.launcher(ROOT)
 
 
 def test_launcher_mirror_absence_is_informational(monkeypatch, capsys):
     import json as jsonlib
-    import urllib.error
     check = module()
     pin = jsonlib.loads((ROOT / "launcher-source.json").read_text(encoding="utf-8"))
     payload = {"name": pin["name"], "version": pin["version"], "dist": {"integrity": pin["integrity"]}}
@@ -121,7 +125,7 @@ def test_launcher_mirror_absence_is_informational(monkeypatch, capsys):
             return jsonlib.dumps(payload).encode()
 
     def selective(url, *args, **kwargs):
-        if "npmmirror" in url:
+        if urllib.parse.urlparse(url).hostname == "registry.npmmirror.com":
             raise urllib.error.HTTPError(url, 404, "Not Found", None, None)
         return Response()
 
@@ -146,7 +150,6 @@ def test_launcher_first_registry_must_be_canonical(tmp_path):
 
 def test_launcher_mirror_version_without_canonical_fails_closed(monkeypatch):
     import json as jsonlib
-    import urllib.error
     check = module()
     pin = jsonlib.loads((ROOT / "launcher-source.json").read_text(encoding="utf-8"))
     payload = {"name": pin["name"], "version": pin["version"], "dist": {"integrity": pin["integrity"]}}
@@ -160,7 +163,7 @@ def test_launcher_mirror_version_without_canonical_fails_closed(monkeypatch):
             return jsonlib.dumps(payload).encode()
 
     def selective(url, *args, **kwargs):
-        if "registry.npmjs.org" in url:
+        if urllib.parse.urlparse(url).hostname == "registry.npmjs.org":
             raise urllib.error.HTTPError(url, 404, "Not Found", None, None)
         return Response()
 
@@ -171,7 +174,6 @@ def test_launcher_mirror_version_without_canonical_fails_closed(monkeypatch):
 
 def test_launcher_unreachable_mirror_is_informational(monkeypatch, capsys):
     import json as jsonlib
-    import urllib.error
     check = module()
     pin = jsonlib.loads((ROOT / "launcher-source.json").read_text(encoding="utf-8"))
     payload = {"name": pin["name"], "version": pin["version"], "dist": {"integrity": pin["integrity"]}}
@@ -185,7 +187,7 @@ def test_launcher_unreachable_mirror_is_informational(monkeypatch, capsys):
             return jsonlib.dumps(payload).encode()
 
     def selective(url, *args, **kwargs):
-        if "npmmirror" in url:
+        if urllib.parse.urlparse(url).hostname == "registry.npmmirror.com":
             raise urllib.error.HTTPError(url, 503, "Service Unavailable", None, None)
         return Response()
 
