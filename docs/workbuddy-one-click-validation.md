@@ -29,12 +29,12 @@ results do not certify a different platform or a marketplace installation flow.
 
 ## Current evidence
 
-- Launcher `0.1.0-rc.1` is public on the npm registry with an integrity that
-  matches its `launcher-source.json` pin, and a clean `npm pack` of
-  `integrations/managed/` reproduces the same integrity. The connector now
-  pins `0.1.0-rc.2` (Windows rename-retry fix): the release workflow refuses
-  to prepare assets until that exact version is public with matching
-  integrity.
+- Launcher `0.1.0-rc.1` is public on the npm registry. At its release, a
+  clean `npm pack` of `integrations/managed/` reproduced the published
+  tarball integrity. The connector now pins `0.1.0-rc.2` (Windows rename-retry
+  fix), and the same reproducibility check re-runs for that pin after its
+  publication; the release workflow refuses to prepare assets until the
+  pinned version is public with matching integrity.
 - The connector ZIP is deterministic: byte-identical rebuilds, exact
   provenance (connector, MCP, Runtime, launcher integrity, Skill commit) and a
   verifiable SHA-256 checksum.
