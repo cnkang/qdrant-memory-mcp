@@ -2,8 +2,9 @@
 
 <!-- mcp-name: io.github.cnkang/qdrant-memory -->
 
-[WorkBuddy connector packaging](integrations/workbuddy/README.md) reuses this
-stdio MCP and the canonical Skill for preconfigured local environments.
+A [WorkBuddy connector](integrations/workbuddy/README.md) and a
+[DeepSeek Harness bundle](integrations/dsh/bundle/README.md) reuse this stdio
+MCP, the managed launcher and the canonical Skill.
 
 [简体中文](README.zh-CN.md)
 
@@ -40,7 +41,9 @@ For the shortest currently supported local setup, follow the
 It covers an existing model, installing a missing model, a separate WorkBuddy
 profile, connection settings and a first save/search check. No Qdrant server,
 Docker, cloud account or embedding API key is needed for that local path.
-Python/uv and one-time profile configuration are still required today.
+Python/uv and one-time profile configuration are still required for this
+direct route. The managed WorkBuddy connector and DSH bundle prepare those
+dependencies from Node.js instead.
 
 Requires Python 3.11+ and either [uv](https://docs.astral.sh/uv/) or a Python
 virtual environment. You must configure storage and an embedding service.
@@ -173,11 +176,12 @@ the optional [Skill](https://github.com/cnkang/skills/tree/main/qdrant-memory).
 
 ## WorkBuddy and DeepSeek Harness
 
-Use the [WorkBuddy connector](integrations/workbuddy/README.md) or
+Use the [WorkBuddy connector](integrations/workbuddy/README.md) or the
 [DSH installation guide](docs/dsh-integration.md) for explicit durable memory.
-Both reuse the Python Runtime, four MCP tools and canonical Skill. An optional
-[managed CPU launcher source candidate](integrations/managed/README.md) prepares
-private Python/model dependencies with Node.js. Production one-click marketplace
-installation is still gated. Existing Hermes profiles and defaults are unchanged.
-See [architecture and version matrix](docs/cross-harness-architecture.md) and
-[validation limits](docs/dsh-validation.md).
+Both reuse the Python Runtime, the four MCP tools and the canonical Skill. The
+published [managed launcher](integrations/managed/README.md) prepares private
+Python and CPU-model dependencies with Node.js, so the managed routes do not
+require a system Python, uvx or Ollama installation. The DSH Bundle is
+distributed as `@cnkang/qdrant-memory-dsh-bundle`. Existing Hermes profiles
+and defaults are unchanged. See [architecture and version matrix](docs/cross-harness-architecture.md)
+and [validation limits](docs/dsh-validation.md).

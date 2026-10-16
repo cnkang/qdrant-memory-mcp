@@ -16,8 +16,11 @@ wheel/sdist build, metadata checks, Ruff and workflow lint also passed.
 | Node bridge | Exact Runtime schema parity. Cold handshake while preparation is pending. No queued writes. Installed-Python CRUD/restart and writer exclusion |
 | Provisioning | Verified bootstrap/archive, hash-locked Python dependencies/build tools, private paths, credential isolation and independent host profiles |
 | Real CPU preparation | Fresh private Python and Runtime installation, verified CPU model, both host profiles, real inference, fresh-process save/search/update/delete |
+| Public npm launcher | The exact connector command and the exact DSH command run through `npx` with the pinned public package: cold handshake within the connector timeout, a clean unprepared probe (no downloads, no lock, no fake success), background preparation, refused-but-not-replayed writes, CRUD and fresh-process persistence on Linux, macOS and Windows |
+| Launcher distribution | Clean `npm pack` of `integrations/managed/` reproduces the published tarball integrity; the release workflow refuses unpublished pins |
 | DSH 0.2.0-rc.2 official client | Real Cordis plugin activation/disposal, temporary probe, four tool registration/schema/rendering, error propagation, pre-cancelled request, child crash/reconnect and fresh-process persistence |
 | DSH official CLI | Overlay composition preserves the selected user's patch and unrelated profile patch |
+| DSH Bundle install | Real `dsh plugin` install of the packed Bundle tarball into a disposable profile; the layer composes and removes cleanly |
 | DSH Skill provider | Canonical Skill discovery/loading by the actual filesystem provider |
 | WorkBuddy packaging | Canonical Skill 0.2.6 at exact commit, deterministic ZIP/checksum and existing publication guards |
 | Hermes native source | 431 passed, 6 skipped: native lifecycle/defaults/models, scope, ownership, ledger/recovery and standalone MCP. External-service/real-model skips remain separate gates |
@@ -48,8 +51,8 @@ and completes installation before backend startup. Unit tests also inject a part
 write followed by a disk-full error and verify that a later retry succeeds.
 
 The extension contracts were checked against official DSH master
-`571902028a75c64c1d767f4ae5fd099485f0ddf0` and the published `next` packages
-0.2.0-rc.2. Master already declares 0.2.1-alpha.3. No stable GitHub Release was
+`86a402200d95fecef4529d969836f1fe13c6cb0d` and the published `next` packages
+0.2.0-rc.2. Master declares the 0.2.1 alpha line. No stable GitHub Release was
 available at inspection. Tests pin the actual desktop-compatible npm version,
 not the moving master branch or a misleading npm `latest` tag.
 
@@ -103,14 +106,14 @@ synthetic embedding HTTP fixture, with no cloud keys or user profiles.
 
 ## Remaining release gates
 
-The source candidate and configuration Bundle are private packages, not new
-public npm/PyPI/marketplace releases. The published Python MCP remains 0.1.3.
-Managed Runtime setup APIs are pinned to an immutable candidate. A production
-launcher must pin their released artifact. Marketplace installation, managed
-Node GUI preparation, all supported desktop platforms, forced installer-crash
-recovery, dispatch-time cancellation, every HMR/profile-switch case, and
-production upgrade/rollback remain separate release gates. Cloud multi-writer
-sharing and automatic DSH extraction/prefetch are not implemented.
+The launcher `0.1.0-rc.1` is public on npm and the Runtime wheel is public on
+PyPI. The MCP distribution 0.1.4 and the DSH Bundle 0.1.0 are prepared for
+publication with this round; the published Python MCP remains 0.1.3 until its
+tag exists. Marketplace listing review, managed Node GUI import in WorkBuddy,
+full application restart on a clean machine, forced installer-crash recovery,
+dispatch-time cancellation, every HMR/profile-switch case, and production
+upgrade/rollback remain separate release gates. Cloud multi-writer sharing and
+automatic DSH extraction/prefetch are not implemented.
 
 Keep one active owner for embedded storage. Do not bypass locks or reuse Hermes
 profiles implicitly. See [Hermes compatibility](hermes-compatibility.md),

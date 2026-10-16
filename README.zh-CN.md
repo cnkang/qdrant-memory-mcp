@@ -25,7 +25,7 @@ Skill 仅提供可选指导，不是运行依赖。Hermes 的自动提取和 pre
 最少步骤见 [本地 Ollama 快速开始](docs/quickstart.zh-CN.md)，包括复用已有模型、
 缺少模型时的安装指引、独立 WorkBuddy profile、连接配置和首次保存/搜索验证。
 这条本地路径不需要 Qdrant Server、Docker、云账号或 Embedding API Key；
-当前仍需要准备 Python/uv，并完成一次 profile 配置，尚不是零环境一键安装。
+本直接路径仍需要准备 Python/uv，并完成一次 profile 配置。
 
 需要 Python 3.11+。用户必须自行配置 Qdrant 与 Embedding。
 在可信 profile 目录内创建 `qdrant-memory.json`：
@@ -136,7 +136,8 @@ CI 优先使用正式 PyPI Runtime。新 Runtime 发布前，CI 使用 `runtime-
 
 WorkBuddy 请使用[连接器说明](integrations/workbuddy/README.md)，DSH 请使用
 [中文接入指南](docs/dsh-integration.zh-CN.md)。两者复用同一套 Runtime、四个 MCP
-工具和权威 Skill，提供明确的记忆操作。[托管 CPU 启动器源码候选版](integrations/managed/README.md)
-可通过 Node.js 准备私有 Python 环境和模型；生产级市场一键安装仍有发布与验收门禁。
+工具和权威 Skill，提供明确的记忆操作。已发布的[托管启动器](integrations/managed/README.md)
+可通过 Node.js 准备私有 Python 环境、Runtime 与 CPU 模型，托管路线不需要系统
+Python、uvx 或 Ollama。DSH Bundle 以 `@cnkang/qdrant-memory-dsh-bundle` 分发。
 Hermes 原有 profile 和默认配置保持不变。详见[架构与版本矩阵](docs/cross-harness-architecture.md)
 和[验证范围](docs/dsh-validation.md)。

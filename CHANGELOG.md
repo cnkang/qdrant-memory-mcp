@@ -4,11 +4,21 @@
 
 - Pin the public Runtime 0.3.0 while preserving the metadata-only Python MCP,
   existing four tools and MCP SDK 1.x/2.x compatibility.
-- Prepare an independently versioned managed launcher release candidate using
-  verified PyPI wheels and locked CPU dependencies, without source builds.
+- Ship the WorkBuddy connector through the published managed launcher and the
+  managed Node runtime: no system Python, uvx or Ollama requirement. The
+  connector pins the exact npm version and its integrity and declares
+  WorkBuddy 5.0.0. The Python/uvx route remains a documented custom-MCP
+  alternative.
+- Prepare the configuration-only DSH Bundle
+  (`@cnkang/qdrant-memory-dsh-bundle`) for installation through the official
+  plugin manager, with an explicit preparation step that keeps the temporary
+  probe download-free.
+- Verify the exact public `npx` commands end to end on Linux, macOS and
+  Windows: cold handshake within the connector timeout, a clean unprepared
+  probe, refused-but-not-queued writes, CRUD and fresh-process persistence.
 - Preserve profile cache settings across upgrades and reject malformed bridge
-  responses safely. Test cold setup against the packed npm distribution.
-- Include launcher licensing and strict package-content checks.
+  responses safely. Reproduce the published launcher integrity from a clean
+  source pack and include strict package-content checks.
 
 ## 0.1.3
 

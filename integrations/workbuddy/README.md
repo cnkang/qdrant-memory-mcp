@@ -1,105 +1,138 @@
 # WorkBuddy MCP + Skill connector
 
-This adapter packages the existing Python stdio MCP and an upstream-generated
-Skill. It does not implement memory, change Runtime, or add Python modules to
-the metadata-only PyPI wheel. Explicit search/add/update/delete remain the four
-MCP tools. Hermes automatic extraction and prefetch remain Hermes features.
+This adapter packages the shared Python memory runtime and the canonical Skill
+as a WorkBuddy connector. It implements no memory engine, changes no Runtime
+code and adds no Python modules to the metadata-only MCP wheel. Explicit
+search/add/update/delete remain the four MCP tools. Hermes automatic
+extraction and prefetch remain Hermes features.
 
-## Start using memory
+## How installation works
 
-Follow the [local Ollama quickstart](../../docs/quickstart.md)
-([中文步骤](../../docs/quickstart.zh-CN.md)) before connecting. If Ollama and the
-embedding model are already installed, reuse them explicitly. No model download
-or replacement is necessary. The guide includes missing-dependency recovery and
-the exact custom MCP settings for a separate WorkBuddy profile.
+The shipped connector starts the published managed launcher through
+WorkBuddy's managed Node.js runtime. `mcp.json` declares:
 
-## Requirements and installation behavior
+```json
+{
+  "mcpServers": {
+    "qdrant-memory": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@cnkang/qdrant-memory-launcher@0.1.0-rc.1", "mcp", "workbuddy", "--auto-setup"],
+      "runtime": {"type": "node", "version": "20"},
+      "npmRegistries": ["https://registry.npmjs.org", "https://registry.npmmirror.com"],
+      "timeout": 30000
+    }
+  }
+}
+```
 
-WorkBuddy 4.24.0 or newer is required for bilingual names and examples.
-The shipped command is `uvx --from qdrant-memory-mcp==0.1.4 qdrant-memory-mcp mcp`.
-Install uv/uvx and Python 3.11+ beforehand, ensure uvx is on the desktop app's
-PATH, and warm the pinned package before connecting. Network installation can
-exceed the 30-second connection timeout. Tools should respond within 30 seconds.
-Large embedding requests depend on the configured service.
+1. The user installs the connector in WorkBuddy.
+2. WorkBuddy prepares managed Node.js 20 and its isolated npm environment.
+3. `npx` fetches the exact pinned launcher version. The pin is exact, never
+   `latest`. The npm registry list is an ordered fallback; the canonical
+   registry is always first.
+4. The launcher completes the MCP handshake promptly and exposes the four
+   tools. In the background it prepares a private Python environment, the
+   pinned Runtime wheel and a verified CPU embedding model.
+5. Until preparation finishes, every tool call reports that no operation
+   occurred. No write is queued and no write is replayed later.
+6. Search, save, update and delete then work against a WorkBuddy-specific
+   managed profile. Restarts reuse the same profile and data.
 
-This is a **preconfigured environment** connector. No fully managed or one-click
-installation has been verified. The official MCP schema currently manages only
-Node.js. A Node wrapper still needs a trustworthy Python/uv installer, secure
-platform binary verification and profile setup. Declaring Node alone does not
-complete installation. A managed route is being evaluated in the
-[installation design](../../docs/workbuddy-one-click-architecture.md).
-No other documented MCP installation hook solves those steps. `preAuth: cli` is
-an authentication flow, not a generic installation workaround. We do not add it,
-a CLI connector, an npm package, or a remote gateway.
+No system Python, uv/uvx, Ollama, or Qdrant Server installation is required.
+The launcher verifies bootstrap and Runtime wheel bytes and installs only
+hash-locked wheels. The local preset needs no API keys.
 
-Official references checked on 2026-10-14:
-[connector (Chinese)](https://open.workbuddy.cn/docs/connector),
-[connector (English)](https://open.workbuddy.cn/en/docs/connector),
-[Skill](https://open.workbuddy.cn/docs/skill).
-The documented connector folder is preserved as one ZIP root. ZIP import and
-market review remain separate from generic MCP SDK acceptance.
+## Requirements
 
-## Immutable Skill and versions
+- WorkBuddy 5.0.0 or newer. The managed Node runtime and npm registry fields
+  require that client line.
+- Network access for the first launcher download and for backend preparation.
+- About 300 MB of disk space for the private programs and the CPU model.
+- First preparation can take several minutes. Later connections start warm.
 
-`skill-source.json` pins `cnkang/skills` commit
-`691313f2b05a23742dc7eaa06cc98dc26d7e5fd5`, Skill 0.2.6. Its reviewed WorkBuddy
-builder performs frontmatter conversion, license/resource selection and local
-link checks. This adapter verifies origin, exact clean checkout, version and
-unchanged Markdown body. No second canonical `SKILL.md` is maintained here.
+## First connection and readiness
 
-Connector 0.1.0, MCP 0.1.4, Runtime 0.3.0 and Skill 0.2.6 are independent.
-`provenance.json` records all versions and source SHA. For a future MCP release,
-update the checked-in `mcp.json` pin alongside normal package/Registry metadata.
-The builder rejects drift. Updating the Skill pin also requires updating both
-WorkBuddy workflow checkout SHAs and reviewing upstream code/resources.
+- The connector declaration and a connected status only mean the MCP
+  transport is available. They do not mean the memory backend is ready. Wait
+  before asking the agent to save a fact.
+- During preparation, tool calls return an explicit "no operation performed"
+  error. Retry after preparation. Never queue a write. Do not repeat an
+  uncertain write unless a repeat is safe for that operation.
+- If an operation was interrupted after dispatch, search for the affected
+  memory and check its exact ID before repeating it.
+- A busy-profile error means another process owns that profile. Close that
+  connection normally. Never remove data locks to bypass ownership.
 
-## Build a preview
+## Storage, updates and recovery
 
-From this repository, use a fresh canonical source checkout and private build
-environment (the Skill builder needs PyYAML):
+The default managed root is `qdrant-memory-managed` under the platform data
+directory:
+
+| System | Data directory |
+| --- | --- |
+| macOS | `~/Library/Application Support` |
+| Windows | `%LOCALAPPDATA%` |
+| Linux | `$XDG_DATA_HOME` or `~/.local/share` |
+
+Program environments live under `programs/`, models under `models/`, and the
+host profile under `profiles/workbuddy/local/`. Set an absolute
+`QDRANT_MEMORY_MANAGED_ROOT` for a custom location. Program versions and
+dependency locks select separate installation directories. Existing profiles
+keep their own model-cache settings during an upgrade.
+
+Disconnect the connector before upgrading. Uninstalling the connector removes
+the launcher processes it started; it does not remove profiles, models or
+memory data. Back up the profile before a rollback and retain the same
+embedding pipeline. Do not copy a running embedded store or migrate it
+automatically.
+
+After an ordinary network interruption, check the connection and free disk
+space, then disconnect and reconnect to retry preparation. A failed
+preparation never resets memory data. The launcher does not retry downloads
+indefinitely. After an unexpected OS shutdown or a force-killed installation,
+a provisioning lock may require operator inspection. Confirm that the
+installer and its child processes stopped before inspecting only that
+program's `.provision.lock`. Never remove profile files or Runtime data locks.
+
+## Update and versioning
+
+Connector 0.2.0, MCP 0.1.4, Runtime 0.3.0, launcher 0.1.0-rc.1 and Skill 0.2.6
+are independent versions. `provenance.json` inside the ZIP records all
+versions, the launcher integrity and the Skill source commit. The builder
+rejects drift from the checked-in pins:
+
+- The launcher pin lives in `launcher-source.json` at the repository root and
+  must be public on the npm registry with matching integrity before release
+  assets are prepared.
+- The Skill pin lives in `integrations/workbuddy/skill-source.json` and must
+  match a clean canonical checkout at the exact commit.
+- For a future MCP release, update the checked-in uvx alternative's version
+  alongside normal package and Registry metadata.
+
+## Alternative: custom MCP with Python/uvx
+
+`mcp.uvx.json` documents the advanced custom-MCP route for users who run
+their own Python backend instead of the managed launcher:
 
 ```sh
-git clone --no-checkout https://github.com/cnkang/skills.git .workbuddy-skill
-git -C .workbuddy-skill checkout --detach 691313f2b05a23742dc7eaa06cc98dc26d7e5fd5
-python3 -m venv .workbuddy-env
-.workbuddy-env/bin/python -m pip install 'PyYAML==6.0.3'
-.workbuddy-env/bin/python integrations/workbuddy/build.py --check
-.workbuddy-env/bin/python integrations/workbuddy/build.py
-unzip -l dist/workbuddy/*-preview.zip
-cd dist/workbuddy && shasum -a 256 -c *.sha256
+uvx --from qdrant-memory-mcp==0.1.4 qdrant-memory-mcp --home /private/path/profile mcp
 ```
 
-Windows uses `.workbuddy-env/Scripts/python.exe`. Python 3.11+ is required.
-`--skill-root /path/to/fresh/checkout` selects an existing pinned checkout.
-The builder needs no Qdrant, profile or credentials. It emits only ZIP/checksum
-under `dist/workbuddy`, rejects symlinks/unsafe resources, uses sorted STORE ZIP
-members with fixed dates/modes, and refuses differing existing output bytes.
-`--check` builds twice in disposable directories and compares exact bytes.
+That route requires Python 3.11+, uv/uvx, a separately prepared profile and an
+embedding service such as Ollama. Warm the pinned package before connecting;
+network installation can exceed the 30-second connection timeout. Never use a
+personal Hermes profile for WorkBuddy. Never initialize an existing
+collection without the owner's authorization.
 
-```text
-qdrant-memory-workbuddy/
-  connector-meta.json
-  mcp.json
-  icon.svg
-  provenance.json
-  skills/qdrant-memory/
-    SKILL.md
-    LICENSE
-    references/...
-    scripts/...
-```
+Keep credentials out of this package, command arguments, examples and logs.
+Supply `QDRANT_API_KEY` and `EMBEDDING_API_KEY` through a private process
+environment or secret manager. `QDRANT_URL` alone is not profile
+initialization. Cloud's database URL is not an MCP endpoint. A future Cloud
+connector must verify the whole form-to-profile configuration path before
+declaring managed support. Cloud storage remains operator-configured.
 
-No generated Skill, ZIP, database or profile is committed. The preview workflow
-uses read-only permissions and retains `workbuddy-connector-preview` for 14 days.
-
-## Configure storage before MCP connection
-
-Dependency installation, profile configuration, embedding service readiness,
-storage initialization and MCP connection are separate steps. Without `--home`,
-Runtime uses `~/.qdrant-memory`. Never overwrite an existing profile or initialize
-an existing collection without the owner's authorization. For an isolated test,
-choose a new private profile and add `--home /private/test/profile` before `mcp`
-in a local custom MCP configuration. Do not ship that absolute path.
+## Configure a private profile (alternative route)
 
 For a new authorized local profile, create `qdrant-memory.json` privately:
 
@@ -114,126 +147,137 @@ For a new authorized local profile, create `qdrant-memory.json` privately:
 }
 ```
 
-Use the actual installed model and its dimensions. Install/start Ollama separately.
-Run the pinned launcher with `init`, then `doctor`, in place of `mcp` only for the
-authorized target. Check service readiness before connecting.
-
-For self-hosted or Cloud storage use Runtime's documented server/cloud profile
-configuration and the actual collection/scope/embedding pipeline. See the
-[canonical setup reference](https://github.com/cnkang/skills/blob/691313f2b05a23742dc7eaa06cc98dc26d7e5fd5/qdrant-memory/references/runtime.md)
+Use the actual installed model and its dimensions. Install and start Ollama
+separately. Run the pinned launcher with `init`, then `doctor`, in place of
+`mcp` only for the authorized target. Check service readiness before
+connecting. For self-hosted or Cloud storage, follow the Runtime's documented
+server/cloud profile configuration. See the
+[canonical setup reference](https://github.com/cnkang/skills/blob/c2d755cd6df3f9af069d9faff10fbcfa5b29806e/qdrant-memory/references/runtime.md)
 and [Runtime configuration](https://github.com/cnkang/hermes-plugin-qdrant-memory).
-Supply `QDRANT_API_KEY` and `EMBEDDING_API_KEY` through a private process environment
-or secret manager. Never put credentials in this package, command arguments,
-examples or logs. `QDRANT_URL` alone is not profile initialization. Cloud's
-database URL is not an MCP endpoint.
 
-The official Token form can inject `${VAR}` into stdio env, with password fields
-and exact schema keys. It cannot create/configure a Runtime profile. This MVP
-has no placeholders, `auth_mode`, or `token-schema.json`, so local no-auth use
-is not blocked by remote credentials. Cloud is operator-configured, not a
-verified WorkBuddy Token form experience. A future Cloud connector must verify
-the whole form-to-profile configuration path before declaring managed support.
+Scope is operator-configured. Client names and tool arguments cannot switch
+identity. Separate users need separate profiles and process credentials.
+Embedded storage and WriterLease require exclusive profile access. Close
+Hermes's writer before opening the same profile through WorkBuddy. Independent
+profiles do not provide a distributed lease for the same remote collection.
 
-In a new, authorized Cloud profile the storage section is, for example:
+## The managed profile
 
-```json
-{"qdrant": {"mode": "cloud", "collection": "authorized_collection",
-            "url_env": "QDRANT_URL", "api_key_env": "QDRANT_API_KEY"}}
-```
-
-Keep the scope and embedding sections as well. Set `QDRANT_URL` to the cluster's
-HTTPS database URL and inject `QDRANT_API_KEY` privately into the launched process.
-Use `mode: server` for self-hosted Qdrant instead. Runtime validates the URL and
-requires a Cloud API key. A custom WorkBuddy MCP config can inherit or inject
-private env values. Do not put that private config in the distribution ZIP.
-
-Scope is operator-configured. Client names/tool arguments cannot switch identity.
-Separate users need separate profiles/process credentials. Embedded storage and
-WriterLease require exclusive profile access. Close Hermes's writer before
-opening the same profile through WorkBuddy. Independent profiles do not provide
-a distributed lease for the same remote collection.
+The managed preset writes `profiles/workbuddy/local/qdrant-memory.json` with
+the `workbuddy` agent identity and a FastEmbed CPU embedding provider. The
+model revision and all wheel hashes are pinned in the launcher package. The
+profile is created privately (owner-only permissions). It never imports
+Hermes or DSH configuration and never writes into their data directories.
 
 ## Connection and troubleshooting
 
-Use WorkBuddy's reviewed connector import path when available, or use custom MCP
-to test the generated `mcp.json` configuration in an isolated profile. Verify all
-four tools before using synthetic data. Skill installation does not initialize
-storage or authorize memory writes. Ask WorkBuddy's platform team for the
-submission/import mechanism if the client exposes only custom MCP configuration.
+Use WorkBuddy's connector import or marketplace path when available. Verify
+all four tools with synthetic data before real use. Skill installation does
+not initialize storage or authorize memory writes.
 
-If uvx is unavailable, install it and restart WorkBuddy so it inherits PATH. Warm
-dependencies before reconnecting. Embedding failures can prevent startup and
-return a sanitized error type. Run `doctor` privately to diagnose configuration.
-Invalid credentials must fail safely. Do not debug by publishing profile files.
-If WriterBusyError occurs, stop the competing authorized writer and retry.
-Never bypass the lease or modify the ledger directly.
+- If the first connection reports preparation failures, check network and
+  disk space, then disconnect and reconnect.
+- Embedding failures return sanitized error types. Run `doctor` privately to
+  diagnose a custom profile.
+- Invalid credentials fail safely. Never debug by publishing profile files.
+- If `WriterBusyError` occurs, stop the competing authorized writer and
+  retry. Never bypass the lease or modify the ledger directly.
 
-## Acceptance matrix
+## Build a preview
 
-SDK acceptance uses synthetic loopback embeddings and disposable embedded
-storage. Existing distribution CI covers macOS/Linux/Windows and SDK 1.x/2.x.
-The preview job additionally executes the actual pinned public uvx command.
-For an unpublished release candidate it records public uvx acceptance as
-NOT VERIFIED while still testing the candidate's installed console script.
-The protected publish workflow requires actual public uvx acceptance after
-PyPI approval/publication. A new version cannot exist publicly before that gate.
-Neither is WorkBuddy GUI acceptance.
+From this repository, use a fresh canonical source checkout and a private
+build environment (the Skill builder needs PyYAML):
+
+```sh
+git clone --no-checkout https://github.com/cnkang/skills.git .workbuddy-skill
+git -C .workbuddy-skill checkout --detach c2d755cd6df3f9af069d9faff10fbcfa5b29806e
+python3 -m venv .workbuddy-env
+.workbuddy-env/bin/python -m pip install 'PyYAML==6.0.3'
+.workbuddy-env/bin/python integrations/workbuddy/build.py --check
+.workbuddy-env/bin/python integrations/workbuddy/build.py
+unzip -l dist/workbuddy/*-preview.zip
+cd dist/workbuddy && shasum -a 256 -c *.sha256
+```
+
+Windows uses `.workbuddy-env/Scripts/python.exe`. Python 3.11+ is required.
+`--skill-root /path/to/fresh/checkout` selects an existing pinned checkout.
+The builder needs no Qdrant, profile or credentials. It emits only ZIP and
+checksum under `dist/workbuddy`, rejects symlinks and unsafe resources, uses
+sorted STORE ZIP members with fixed dates and modes, and refuses differing
+existing output bytes. `--check` builds twice in disposable directories and
+compares exact bytes.
+
+```text
+qdrant-memory-workbuddy/
+  connector-meta.json
+  mcp.json
+  icon.svg
+  provenance.json
+  skills/qdrant-memory/
+    SKILL.md
+    LICENSE
+    references/...
+    scripts/...
+```
+
+No generated Skill, ZIP, database or profile is committed. The preview
+workflow uses read-only permissions and retains the
+`workbuddy-connector-preview` artifact for 14 days.
+
+## Verification and acceptance
+
+Automated acceptance in this repository:
+
+- Deterministic connector build, manifest/provenance checks and exact-pin
+  guards run in `workbuddy-preview.yml` on every change.
+- `public_install.py` verifies that the pinned launcher version is public on
+  the npm registry with matching integrity. The release workflow refuses to
+  prepare assets while this check fails.
+- `tests/public-launcher-acceptance.mjs` runs the exact connector command and
+  the exact DSH command through `npx` with the pinned public package:
+  cold handshake budget, a clean unprepared probe, background preparation,
+  refused-but-not-queued writes, CRUD and fresh-process persistence. It runs
+  on Linux, macOS and Windows.
+- The uvx alternative is exercised with the actual public PyPI pin once a
+  release is published.
+
+The table below records client-level acceptance. Record the actual client
+version, OS, isolation path and observations before marking any GUI row
+passed. Do not use existing personal memory for acceptance.
 
 | WorkBuddy client acceptance | Status |
 |---|---|
 | Import ZIP. Bilingual metadata/icon/Skill resources | NOT VERIFIED |
-| Install dependencies and configure isolated profile | Manual prerequisite |
-| Connect. Discover exactly four tools | PASS: macOS, WorkBuddy 5.8.2 custom MCP |
-| Search/save/update/delete selected synthetic records | PASS: local Ollama qwen3-embedding:4b |
-| Restart MCP child. Retrieve persisted synthetic records | PASS: disable/re-enable and repeat search |
+| Managed Node preparation and first connection, no developer tools | NOT VERIFIED |
+| Connect via custom managed entry. Discover exactly four tools | PASS: macOS, WorkBuddy 5.8.2 |
+| Cold preparation of Python, dependencies and CPU model | PASS: measured via the public npx command (macOS) |
+| First handshake within the connector timeout | PASS: single-digit seconds cold (macOS); CI on three platforms |
+| Search/save/update/delete with synthetic records | PASS: protocol level via the public npx command; GUI partially verified on macOS |
+| Restart MCP child. Retrieve persisted synthetic records | PASS: protocol level (fresh process); full app restart NOT VERIFIED |
 | Missing embedding and invalid API key fail safely | SDK tested. GUI NOT VERIFIED |
 | Same-profile Hermes WriterLease refusal | SDK tested. GUI NOT VERIFIED |
 
-Record actual client version, OS, isolation path and observations before marking
-any GUI row passed. Do not use existing personal memory for acceptance.
+The managed connector was additionally exercised end to end on macOS through
+the exact public npx command with an isolated managed root: cold handshake,
+background preparation, refusal semantics, CRUD, fresh-process persistence and
+aborted-preparation resume. GUI-level marketplace ZIP import, managed-Node
+provisioning and a full application restart on a clean machine remain
+maintainer gates before marketplace submission.
 
-Local macOS compatibility was verified with WorkBuddy 5.8.2, the published uvx
-pin, an isolated embedded Profile and Ollama `qwen3-embedding:4b` (2560 dimensions).
-The four tools and MCP child-process restart persistence worked. A competing
-Runtime writer was refused. Synthetic data and the temporary connection were
-removed afterward. Native Hermes lifecycle, full application restart, Connector
-ZIP import, market metadata/icon rendering, generated Skill loading, GUI failure
-states and managed installation remain NOT VERIFIED. Readiness remains
-**B: Package ready, WorkBuddy acceptance pending**.
+## Release and recovery
 
-## Future release and recovery
+Only an approved MCP version tag matching package metadata and merged main can
+trigger release preparation. `workbuddy-release.yml` builds and tests with
+`contents: read`. A dependent minimal `contents: write` job validates the
+downloaded ZIP, checksum and provenance, then attaches assets to a Draft. It
+never executes upstream Skill code, publishes the Draft, touches
+PyPI/Registry, or moves tags.
 
-Only an approved next MCP version tag matching package metadata and merged main
-can trigger release preparation. `workbuddy-release.yml` builds/tests with
-`contents: read`. A dependent minimal `contents: write` job validates downloaded
-ZIP/checksum/provenance and attaches assets to Draft. It never executes upstream
-Skill code, publishes the Draft, touches PyPI/Registry, or moves tags.
+Reruns compare bytes and reuse matching assets. A conflict, or a published
+release missing attachments, fails without replacement. Investigate
+toolchain/source drift, preserve old assets and tags, and prepare a new
+approved release if necessary. Rollback means selecting the previous reviewed
+connector, package and profile backup. Never republish an existing PyPI
+version or rewrite a release tag.
 
-The existing protected `pypi`/`mcp-registry` environments and OIDC flow remain
-unchanged. Those jobs do not edit GitHub Releases, so they do not race this
-per-tag serialized Draft workflow. Maintainers must wait for both workflows and
-verify public-install/Registry acceptance and assets before publishing the Draft.
-The tag job tests the candidate console script while PyPI approval is pending.
-The existing publisher's mandatory public uvx gate runs after publication.
-This avoids a first-publication race without bypassing approvals or publishing
-the Draft before all release gates complete.
-Do not publish while attachment preparation is running. Immutable GitHub releases
-require all attachments before publication.
-
-Reruns compare bytes and reuse matching assets. A conflict, or published release
-missing attachments, fails without replacement. Investigate toolchain/source
-drift, preserve old assets/tags, and prepare a new approved release if necessary.
-Rollback means selecting the previous reviewed connector/package/profile backup.
-Never republish an existing PyPI version or rewrite a release tag. Existing 0.1.2
-is not retrofitted. Release preparation does not publish the Draft.
-
-## Managed source preview
-
-The optional [shared launcher](../managed/README.md) can prepare a private Python
-environment and CPU model from Node.js. Use `mcp.managed-preview.json` with an
-absolute launcher path for a custom connection. It keeps WorkBuddy's profile
-separate from DSH and Hermes. During preparation the four tools report that no
-operation succeeded. Wait before saving. This source preview is not part of the
-published connector ZIP and has no marketplace one-click acceptance claim.
-
-For DSH use its [own overlay and guide](../../docs/dsh-integration.md).
+For DSH use its [own bundle and guide](../../docs/dsh-integration.md).

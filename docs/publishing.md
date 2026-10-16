@@ -43,16 +43,25 @@ and `mcp-registry`. Verify these controls before publication. Do not bypass them
 Both projects have published versions. Recheck the existing Trusted Publishers
 and required reviewers. Do not create duplicate publishers.
 
-## WorkBuddy attachments for future versions
+## Adapter attachments for future versions
 
 The [WorkBuddy adapter](../integrations/workbuddy/README.md) adds a separate
-tag-triggered read-only build and Draft Release attachment job. Update its
-checked-in `mcp.json` package pin with future version metadata. Its ZIP/checksum
-record independent Connector, MCP, Runtime and immutable Skill versions.
+tag-triggered read-only build and Draft Release attachment job. The tag build
+refuses to prepare assets while the pinned launcher version is not public on
+the npm registry with matching integrity. Its ZIP and checksum record
+independent Connector, MCP, Runtime, launcher-integrity and immutable Skill
+versions.
+
+The [DSH bundle](../integrations/dsh/bundle/README.md) has its own
+`dsh-bundle-v*` tag flow in `dsh-bundle-release.yml`. It packs the
+configuration-only bundle, verifies the payload against the reviewed source,
+prepares the tarball checksum and attaches both files to a Draft Release.
+Publishing the npm package `@cnkang/qdrant-memory-dsh-bundle` is a maintainer
+step after a successful pack and test run.
 
 Keep the existing protected PyPI/Registry environments, OIDC gates and public
-acceptance unchanged. The new workflow does not upload PyPI or Registry entries.
-No existing release is retrofitted. Wait for both publication and WorkBuddy
+acceptance unchanged. The adapter workflows do not upload PyPI or Registry
+entries. No existing release is retrofitted. Wait for publication and adapter
 preparation workflows before manually publishing the corresponding Draft.
 Immutable releases require attachments before publication. Per-tag concurrency
 serializes attachment runs, and existing publish.yml never writes Releases.
