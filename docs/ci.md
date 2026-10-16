@@ -5,6 +5,10 @@
   with MCP Python SDK 1.x and 2.x. Publication also tests both SDK majors against
   wheel and sdist installations using the public Runtime release.
   All 12 OS/Python/SDK combinations are required checks on the protected branch.
+- Cross-harness integration runs the official DSH client against a disposable
+  profile, installs the packed Bundle through the real `dsh plugin` command,
+  and runs the exact public `npx` launcher commands (cold handshake,
+  preparation, CRUD, persistence) on Linux, macOS and Windows.
 - Repository quality runs Ruff on release scripts/tests and actionlint on every
   workflow, including shell steps. actionlint's archive is SHA256 verified.
 - CodeQL analyzes Python and GitHub Actions with `security-extended` queries
