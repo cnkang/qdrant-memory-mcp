@@ -43,3 +43,44 @@ def test_tag_build_leaves_public_acceptance_to_protected_publisher():
     publisher = (ROOT / ".github/workflows/publish.yml").read_text(encoding="utf-8")
     assert "DIST_TEST_UVX=1" in publisher
     assert "environment: pypi" in publisher and "environment: mcp-registry" in publisher
+
+
+def test_launcher_pin_reports_unverified_when_unpublished(monkeypatch):
+    import urllib.error
+    check = module()
+    def missing(*args, **kwargs):
+        raise urllib.error.HTTPError("https://registry.npmjs.org/x", 404, "Not Found", None, None)
+    monkeypatch.setattr(check.urllib.request, "urlopen", missing)
+    assert check.launcher(ROOT) is False
+
+
+def test_launcher_pin_requires_matching_published_integrity(monkeypatch):
+    import json as jsonlib
+    check = module()
+    pin = jsonlib.loads((ROOT / "launcher-source.json").read_text(encoding="utf-8"))
+    payload = {"name": pin["name"], "version": pin["version"], "dist": {"integrity": pin["integrity"]}}
+
+    class Response:
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            return False
+        def read(self):
+            return jsonlib.dumps(payload).encode()
+
+    monkeypatch.setattr(check.urllib.request, "urlopen", lambda *args, **kwargs: Response())
+    assert check.launcher(ROOT) is True
+    payload["dist"]["integrity"] = "sha512-" + "B" * 86 + "=="
+    with pytest.raises(ValueError, match="integrity"):
+        check.launcher(ROOT)
+    payload["dist"]["integrity"] = pin["integrity"]
+    payload["version"] = "9.9.9"
+    with pytest.raises(ValueError, match="identity"):
+        check.launcher(ROOT)
+
+
+def test_release_workflow_requires_the_public_launcher_pin():
+    workflow = (ROOT / ".github/workflows/workbuddy-release.yml").read_text(encoding="utf-8")
+    assert "public_install.py --require-launcher" in workflow
+    preview = (ROOT / ".github/workflows/workbuddy-preview.yml").read_text(encoding="utf-8")
+    assert "public-launcher-acceptance.mjs" in preview

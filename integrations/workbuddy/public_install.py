@@ -1,8 +1,12 @@
-"""Report whether this candidate can be tested through its exact public uvx pin."""
+"""Report whether this candidate can be tested through its exact public pins."""
 
+import argparse
 import importlib.util
+import json
 import os
 import tomllib
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -23,12 +27,38 @@ def available(root):
     return True
 
 
+def launcher(root):
+    """Check the exact pinned npm launcher identity and published integrity."""
+    pin = json.loads((root / "launcher-source.json").read_text(encoding="utf-8"))
+    url = f"https://registry.npmjs.org/{pin['name']}/{pin['version']}"
+    try:
+        with urllib.request.urlopen(url, timeout=30) as response:
+            data = json.load(response)
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            return False
+        raise
+    if data.get("name") != pin["name"] or data.get("version") != pin["version"]:
+        raise ValueError("Conflicting public launcher identity")
+    if data.get("dist", {}).get("integrity") != pin["integrity"]:
+        raise ValueError("Public launcher integrity differs from the checked-in pin")
+    return True
+
+
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--require-launcher", action="store_true")
+    args = parser.parse_args()
     exists = available(ROOT)
+    launcher_ok = launcher(ROOT)
     if output := os.environ.get("GITHUB_OUTPUT"):
         with open(output, "a", encoding="utf-8") as stream:
             stream.write(f"exists={str(exists).lower()}\n")
+            stream.write(f"launcher={str(launcher_ok).lower()}\n")
     print("Exact public uvx acceptance required" if exists else "Public uvx acceptance: NOT VERIFIED (candidate not yet published; protected publish workflow must verify after PyPI approval)")
+    print("Pinned public launcher verified" if launcher_ok else "Public launcher pin: NOT VERIFIED (the release must not ship before this pin is published)")
+    if args.require_launcher and not launcher_ok:
+        raise SystemExit("Pinned public launcher is not published; release assets must not be prepared")
 
 
 if __name__ == "__main__":

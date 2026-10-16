@@ -20,15 +20,19 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def connector_launch(sandbox):
     profile, config_path, config, env, installed, cli, embeddings = sandbox
-    mcp = json.loads((ROOT / "integrations/workbuddy/mcp.json").read_text(encoding="utf-8"))
-    server, = mcp["mcpServers"].values()
-    assert server["timeout"] == 30000
+    managed = json.loads((ROOT / "integrations/workbuddy/mcp.json").read_text(encoding="utf-8"))
+    server, = managed["mcpServers"].values()
+    assert server["timeout"] == 30000 and server["command"] == "npx"
+    alternative = json.loads((ROOT / "integrations/workbuddy/mcp.uvx.json").read_text(encoding="utf-8"))
+    uvx_server, = alternative["mcpServers"].values()
+    assert uvx_server["timeout"] == 30000 and uvx_server["command"] == "uvx"
     if os.environ.get("WORKBUDDY_TEST_UVX") == "1":
-        uvx = shutil.which(server["command"])
+        # The uvx distribution stays the documented alternative custom MCP
+        # route. It launches the exact public PyPI pin with no personal
+        # profile or credentials.
+        uvx = shutil.which(uvx_server["command"])
         assert uvx, "Connector launch requested but uvx is not installed"
-        # Actual PyPI launch and exact shipped arguments. Warm dependencies
-        # before timed MCP initialize; no personal profile or credentials.
-        launch = [uvx, *server["args"][:-1]]
+        launch = [uvx, *uvx_server["args"][:-1]]
         env["UV_PYTHON"] = str(Path(installed[0]).parent / ("python.exe" if os.name == "nt" else "python"))
         result = subprocess.run([*launch, "--help"], env=env, capture_output=True, timeout=180)
         assert result.returncode == 0

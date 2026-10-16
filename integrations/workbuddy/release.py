@@ -48,6 +48,10 @@ def validate_assets(root: Path, directory: Path, tag: str) -> list[Path]:
     config = root / 'integrations/workbuddy'
     meta = json.loads((config / 'connector-meta.json').read_text(encoding='utf-8'))
     skill = json.loads((config / 'skill-source.json').read_text(encoding='utf-8'))
+    launcher = json.loads((root / 'launcher-source.json').read_text(encoding='utf-8'))
+    if set(launcher) != {'name', 'version', 'integrity'} or launcher['name'] != '@cnkang/qdrant-memory-launcher' \
+            or not re.fullmatch(r'[0-9A-Za-z.+-]+', launcher['version']) or not re.fullmatch(r'sha512-[A-Za-z0-9+/]+={0,2}', launcher['integrity']):
+        raise ValueError('Launcher source pin is malformed')
     version = project['version']
     connector = meta['version']
     if tag != 'v' + version or not re.fullmatch(SEMVER, connector):
@@ -72,9 +76,11 @@ def validate_assets(root: Path, directory: Path, tag: str) -> list[Path]:
     if paths[1].read_text(encoding='utf-8') != f'{digest}  {name}\n':
         raise ValueError('Asset checksum or checksum filename does not match')
     expected = {'connector_version': connector, 'mcp_version': version,
-                'runtime_version': runtime[0], 'skill_version': skill['version'],
-                'skill_repository': skill['repository'], 'skill_commit': skill['commit'],
-                'release_tag': tag}
+                'runtime_version': runtime[0],
+                'launcher': {'name': launcher['name'], 'version': launcher['version'],
+                             'integrity': launcher['integrity']},
+                'skill_version': skill['version'], 'skill_repository': skill['repository'],
+                'skill_commit': skill['commit'], 'release_tag': tag}
     try:
         with zipfile.ZipFile(paths[0]) as archive:
             members = archive.infolist()
