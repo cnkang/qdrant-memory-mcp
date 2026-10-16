@@ -151,8 +151,9 @@ For a new authorized local profile, create `qdrant-memory.json` privately:
 ```
 
 Use the actual installed model and its dimensions. Install and start Ollama
-separately. Run the pinned launcher with `init`, then `doctor`, in place of
-`mcp` only for the authorized target. Check service readiness before
+separately. For the uvx route, run the pinned `qdrant-memory-mcp` command with `init`,
+then `doctor`, in place of `mcp`, and pass `--home <private-profile-path>`
+for the authorized target. Check service readiness before
 connecting. For self-hosted or Cloud storage, follow the Runtime's documented
 server/cloud profile configuration. See the
 [canonical setup reference](https://github.com/cnkang/skills/blob/c2d755cd6df3f9af069d9faff10fbcfa5b29806e/qdrant-memory/references/runtime.md)
@@ -253,17 +254,19 @@ passed. Do not use existing personal memory for acceptance.
 | Import ZIP. Bilingual metadata/icon/Skill resources | NOT VERIFIED |
 | Managed Node preparation and first connection, no developer tools | NOT VERIFIED |
 | Connect via custom managed entry. Discover exactly four tools | PASS: macOS, WorkBuddy 5.8.2 (custom entry, earlier round) |
-| Cold preparation of Python, dependencies and CPU model | PASS: public npx command, local macOS run and three-platform CI |
-| First handshake within the connector timeout | PASS: worst measured cold npx 15.5 seconds (Windows CI). Budget 30 seconds |
-| Search/save/update/delete with synthetic records | PASS: protocol level through the public npx command, three platforms. Marketplace GUI NOT VERIFIED |
-| Restart MCP child. Retrieve persisted synthetic records | PASS: fresh-process persistence, three platforms. Full application restart NOT VERIFIED |
+| Cold preparation of Python, dependencies and CPU model | PASS: public npx command (`0.1.0-rc.1`), local macOS run and three-platform CI |
+| First handshake within the connector timeout | PASS (`0.1.0-rc.1`): worst measured cold npx 15.5 seconds (Windows CI). Budget 30 seconds |
+| Search/save/update/delete with synthetic records | PASS (`0.1.0-rc.1`): protocol level through the public npx command, three platforms. Marketplace GUI NOT VERIFIED |
+| Restart MCP child. Retrieve persisted synthetic records | PASS (`0.1.0-rc.1`): fresh-process persistence, three platforms. Full application restart NOT VERIFIED |
 | Missing embedding and invalid API key fail safely | SDK tested. GUI NOT VERIFIED |
 | Same-profile Hermes WriterLease refusal | SDK tested. GUI NOT VERIFIED |
 
 The managed connector was additionally exercised end to end on macOS through
 the exact public npx command with an isolated managed root: cold handshake,
 background preparation, refusal semantics, CRUD, fresh-process persistence and
-aborted-preparation resume. GUI-level marketplace ZIP import, managed-Node
+aborted-preparation resume. These acceptance runs measured the published
+`0.1.0-rc.1` tarball. The pinned `0.1.0-rc.2` re-runs the same acceptance
+after its publication. GUI-level marketplace ZIP import, managed-Node
 provisioning and a full application restart on a clean machine remain
 maintainer gates before marketplace submission.
 

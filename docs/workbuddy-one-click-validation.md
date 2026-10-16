@@ -29,17 +29,22 @@ results do not certify a different platform or a marketplace installation flow.
 
 ## Current evidence
 
-- The pinned launcher version is public on the npm registry. The published
-  tarball integrity matches `launcher-source.json`, and a clean `npm pack` of
-  `integrations/managed/` reproduces the same integrity.
+- Launcher `0.1.0-rc.1` is public on the npm registry with an integrity that
+  matches its `launcher-source.json` pin, and a clean `npm pack` of
+  `integrations/managed/` reproduces the same integrity. The connector now
+  pins `0.1.0-rc.2` (Windows rename-retry fix): the release workflow refuses
+  to prepare assets until that exact version is public with matching
+  integrity.
 - The connector ZIP is deterministic: byte-identical rebuilds, exact
   provenance (connector, MCP, Runtime, launcher integrity, Skill commit) and a
   verifiable SHA-256 checksum.
-- The exact public `npx` connector command passes an automated acceptance on
-  Linux, macOS and Windows: cold handshake within budget, unprepared DSH probe
-  stays clean (no downloads, no lock, no fake success), background
-  preparation, refused-but-not-replayed writes, CRUD, fresh-process
-  persistence and resume after an aborted preparation.
+- The exact public `npx` connector command against the published `0.1.0-rc.1`
+  tarball passes an automated acceptance on Linux, macOS and Windows: cold
+  handshake within budget, unprepared DSH probe stays clean (no downloads, no
+  lock, no fake success), background preparation, refused-but-not-replayed
+  writes, CRUD, fresh-process persistence and resume after an aborted
+  preparation. The `0.1.0-rc.2` pin re-runs the same acceptance after its
+  publication; that evidence is recorded then, not here.
 - The uvx alternative is exercised against the actual public PyPI pin once a
   release is published. Unpublished candidates record `NOT VERIFIED` for that
   check instead.

@@ -15,6 +15,8 @@ connection never captures conversation turns automatically.
 - DeepSeek Harness with the official MCP client (`@deepseek-ai/dsh-mcp-client`).
   The tested client line is `>=0.2.0-rc.2 <0.3.0`.
 - Node.js 20 or newer for `npx`. DSH already runs on Node.js.
+- `pnpm` on `PATH` for `dsh plugin --profile <name> add`: the official DSH
+  plugin manager forwards installation to pnpm.
 - Network access for the first launcher download and for backend preparation
   (private Python, Runtime wheel and CPU model artifacts, about 250 MB).
 - Free disk space for the managed root: programs, models and host profiles.
@@ -46,7 +48,7 @@ dsh plugin --profile <name> add @cnkang/qdrant-memory-dsh-bundle
 ```
 
 If the npm registry has not served this package yet, install the release
-tarball instead. Download `@cnkang-qdrant-memory-dsh-bundle-0.1.0.tgz` from
+tarball instead. Download `cnkang-qdrant-memory-dsh-bundle-0.1.0.tgz` from
 the repository release and run:
 
 ```sh
@@ -87,10 +89,11 @@ closed.
 dsh plugin --profile <name> remove @cnkang/qdrant-memory-dsh-bundle
 ```
 
-Removing the Bundle removes the MCP entry. It does not delete the managed
-root, the prepared profile or any memory. Closing the profile releases the
-storage writer lease. Never delete a `.provision.lock` file or Runtime data
-locks while a process may still own them.
+Removal edits the profile manifest. A running profile keeps its loaded
+Bundle set: stop or restart the profile to close the active MCP connection
+and release the storage writer lease. Removal does not delete the managed
+root, the prepared profile or any memory. Never delete a `.provision.lock`
+file or Runtime data locks while a process may still own them.
 
 ## Recovery
 

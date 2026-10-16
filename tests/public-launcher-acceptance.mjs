@@ -143,8 +143,8 @@ async function writeReport() {
   const began = performance.now();
   const session = launch('dsh');
   await session.initialize();
-  report.handshake_dsh_ms = Math.round(performance.now() - began);
   await session.tools();
+  report.handshake_dsh_ms = Math.round(performance.now() - began);
   const attempted = await session.call('add', { text: 'Synthetic unprepared probe text' });
   assert.equal(attempted.isError, true, 'unprepared probe must not report success');
   assert.match(attempted.content[0].text, /preparation failed|Preparing|No operation/i);
@@ -168,8 +168,8 @@ async function writeReport() {
   const began = performance.now();
   const session = launch('workbuddy', ['--auto-setup']);
   await session.initialize();
-  report.handshake_workbuddy_ms = Math.round(performance.now() - began);
   await session.tools();
+  report.handshake_workbuddy_ms = Math.round(performance.now() - began);
   const pending = await session.call('add', { text: 'Synthetic queued write must never appear' });
   assert.equal(pending.isError, true, 'auto-setup add must not report success before readiness');
   await session.close();
@@ -237,7 +237,10 @@ async function writeReport() {
   await waitReady(second, 'dsh');
   const found = JSON.parse((await second.call('search', { query: text })).content[0].text);
   assert.ok(found.memories.some(m => m.id === created.id));
-  await second.call('delete', { id: created.id });
+  const removed = await second.call('delete', { id: created.id });
+  assert.equal(removed.isError ?? false, false, 'delete must not report an error');
+  const after = JSON.parse((await second.call('search', { query: text })).content[0].text);
+  assert.ok(!after.memories.some(m => m.id === created.id), 'deleted memory must be absent');
   await second.close();
   report.dsh = true;
   console.log(JSON.stringify({ phase: 'dsh', persistence: true }));

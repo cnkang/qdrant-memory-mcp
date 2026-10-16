@@ -101,8 +101,10 @@ operation. A busy-profile error means another process owns storage. Close that
 connection normally.
 Never remove a data lock, reset storage or change a fingerprint to force startup.
 
-To disconnect, remove the Bundle or this launch's overlay. DSH closes the MCP
-process. Data stays on disk. Verify persistence by saving a synthetic fact and
+To disconnect, remove the Bundle or this launch's overlay, then stop or
+restart the profile: a running profile keeps its loaded Bundle set, and only
+the stop or restart closes the active MCP process and releases the storage
+writer lease. Data stays on disk. Verify persistence by saving a synthetic fact and
 recalling it in a new session without the old transcript. Then update or delete
 the returned ID and fully restart DSH.
 Real model/GUI acceptance is separate from the automated official-client suite.
