@@ -3,12 +3,26 @@ import assert from 'node:assert/strict';
 import { PassThrough } from 'node:stream';
 import filesystem from 'node:fs/promises';
 import { syncBuiltinESMExports } from 'node:module';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { mkdtemp, mkdir, symlink, rm, realpath, writeFile, readFile, lstat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { bridge, tools } from '../integrations/managed/bridge.mjs';
 import { locations, installEnvironment, privateDirectory, run, installed, prepare,
   publishSnapshot, runtime, dependencyDigest, runtimeRequirement, modelCache } from '../integrations/managed/provision.mjs';
+
+test('npm-style symlink entry actually executes the launcher CLI', async () => {
+  const root = await mkdtemp(join(await realpath(tmpdir()), 'memory-npm-bin-'));
+  try {
+    const bin = join(root, 'qdrant-memory-launcher');
+    await symlink(fileURLToPath(new URL('../integrations/managed/launcher.mjs', import.meta.url)), bin);
+    const result = spawnSync(process.execPath, [bin, 'invalid', 'dsh'], { encoding: 'utf8' });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /Qdrant Memory launcher failed/);
+    assert.equal(result.stdout, '');
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
 
 test('upgrades retain the existing owned cache location without changing profile configuration', async () => {
   const root = await mkdtemp(join(await realpath(tmpdir()), 'memory-cache-upgrade-'));

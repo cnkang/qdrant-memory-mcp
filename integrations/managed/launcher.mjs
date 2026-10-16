@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { pathToFileURL } from 'node:url';
+import { realpath } from 'node:fs/promises';
 import { bridge } from './bridge.mjs';
 import { locations, installed, prepare } from './provision.mjs';
 
@@ -27,7 +28,7 @@ export async function main(args) {
   }
 }
 
-if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
+if (process.argv[1] && pathToFileURL(await realpath(process.argv[1])).href === import.meta.url) {
   main(process.argv.slice(2)).catch(error => {
     // Keep the message bounded: only the internal stage label may be added.
     const stage = error && typeof error.stage === 'string' && /^[a-z][a-z-]*$/.test(error.stage) ? ` Failed stage: ${error.stage}.` : '';
