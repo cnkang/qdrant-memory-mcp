@@ -35,7 +35,7 @@ dsh --profile <name> --dump-config
 ```
 
 DSH starts a temporary probe before the persistent connection. The probe never
-runs installation or model downloads; preparation is always the explicit step
+runs installation or model downloads. Preparation is always the explicit step
 above. Until the backend is ready, tools report that no operation occurred.
 Writes are never queued. The DSH profile
 (`<managed-root>/profiles/dsh/local`) is separate from WorkBuddy and Hermes

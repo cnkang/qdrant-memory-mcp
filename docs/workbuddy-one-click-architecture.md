@@ -27,7 +27,7 @@ pinned and verified. Setup uses only the Runtime's supported CLI.
 The npm registry list is an ordered fallback. The canonical registry is first.
 A release cannot ship while the pinned launcher version is unavailable there
 with matching integrity. The handshake budget is the connector's 30-second
-timeout; measured cold handshakes stay within it on every platform (worst
+timeout. Measured cold handshakes stay within it on every platform (worst
 observed cold npx: Windows, 15.5 seconds).
 
 The same program installer serves DSH, but DSH preparation is explicit and
@@ -55,10 +55,10 @@ and collection files remain in place. Incompatible data must fail closed.
 
 The Runtime wheel and the canonical Skill pins are public artifacts. The
 launcher pin (`0.1.0-rc.2`) must be published before release assets are
-prepared; the release workflow refuses unpublished pins, and the public
+prepared. The release workflow refuses unpublished pins. The public
 acceptance records `NOT VERIFIED` until the version is available. The
 connector pins each artifact exactly. Marketplace ZIP import and managed-Node
-GUI acceptance remain maintainer gates before marketplace submission; the
+GUI acceptance remain maintainer gates before marketplace submission. The
 repository records only measured, reproducible acceptance. Do not advertise
 marketplace one-click support before those gates pass. Do not replace published
 tags.

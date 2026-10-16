@@ -21,8 +21,8 @@ qdrant-memory-launcher mcp dsh
 Preparation needs network access and may take several minutes. It downloads
 private Python dependencies and about 252 MB of model artifacts. No system
 Python, uv/uvx, Ollama or Qdrant Server is required. The local preset needs no
-API keys. DSH must finish preparation before enabling the MCP connection;
-its temporary MCP probe never runs installation.
+API keys. DSH must finish preparation before you enable the MCP connection.
+Its temporary MCP probe never runs installation.
 
 WorkBuddy's managed Connector declares Node.js 20 and requires WorkBuddy
 5.0.0 or newer. It runs `mcp workbuddy --auto-setup`. Installing that connection
@@ -31,7 +31,7 @@ authorizes downloads and creation of its private profile.
 ## First connection and recovery
 
 The four tools appear while preparation runs. A connection indicator means the
-MCP transport is available; it does not mean the memory backend is ready.
+MCP transport is available. It does not mean the memory backend is ready.
 During preparation, tool calls report that no operation occurred. Wait before
 asking the agent to save a fact. Writes are never queued.
 
@@ -64,7 +64,7 @@ Program versions and dependency locks select separate installation directories.
 Existing profiles retain their model-cache settings during an upgrade.
 
 Disconnect the client before upgrading or using maintenance commands.
-Uninstalling the npm package removes the launcher; it does not remove profiles
+Uninstalling the npm package removes the launcher. It does not remove profiles
 or models. Back up the profile before a rollback and retain the same embedding
 pipeline. Do not copy a running embedded store or automatically migrate it.
 

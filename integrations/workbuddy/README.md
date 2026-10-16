@@ -29,7 +29,7 @@ WorkBuddy's managed Node.js runtime. `mcp.json` declares:
 1. The user installs the connector in WorkBuddy.
 2. WorkBuddy prepares managed Node.js 20 and its isolated npm environment.
 3. `npx` fetches the exact pinned launcher version. The pin is exact, never
-   `latest`. The npm registry list is an ordered fallback; the canonical
+   `latest`. The npm registry list is an ordered fallback. The canonical
    registry is always first.
 4. The launcher completes the MCP handshake promptly and exposes the four
    tools. In the background it prepares a private Python environment, the
@@ -82,7 +82,7 @@ dependency locks select separate installation directories. Existing profiles
 keep their own model-cache settings during an upgrade.
 
 Disconnect the connector before upgrading. Uninstalling the connector removes
-the launcher processes it started; it does not remove profiles, models or
+the launcher processes it started. It does not remove profiles, models or
 memory data. Back up the profile before a rollback and retain the same
 embedding pipeline. Do not copy a running embedded store or migrate it
 automatically.
@@ -120,8 +120,8 @@ uvx --from qdrant-memory-mcp==0.1.4 qdrant-memory-mcp --home /private/path/profi
 ```
 
 That route requires Python 3.11+, uv/uvx, a separately prepared profile and an
-embedding service such as Ollama. Warm the pinned package before connecting;
-network installation can exceed the 30-second connection timeout. Never use a
+embedding service such as Ollama. Warm the pinned package before connecting.
+Network installation can exceed the 30-second connection timeout. Never use a
 personal Hermes profile for WorkBuddy. Never initialize an existing
 collection without the owner's authorization.
 
@@ -249,11 +249,11 @@ passed. Do not use existing personal memory for acceptance.
 |---|---|
 | Import ZIP. Bilingual metadata/icon/Skill resources | NOT VERIFIED |
 | Managed Node preparation and first connection, no developer tools | NOT VERIFIED |
-| Connect via custom managed entry. Discover exactly four tools | PASS: macOS, WorkBuddy 5.8.2 |
-| Cold preparation of Python, dependencies and CPU model | PASS: measured via the public npx command (macOS) |
-| First handshake within the connector timeout | PASS: single-digit seconds cold (macOS); CI on three platforms |
-| Search/save/update/delete with synthetic records | PASS: protocol level via the public npx command; GUI partially verified on macOS |
-| Restart MCP child. Retrieve persisted synthetic records | PASS: protocol level (fresh process); full app restart NOT VERIFIED |
+| Connect via custom managed entry. Discover exactly four tools | PASS: macOS, WorkBuddy 5.8.2 (custom entry, earlier round) |
+| Cold preparation of Python, dependencies and CPU model | PASS: public npx command, local macOS run and three-platform CI |
+| First handshake within the connector timeout | PASS: worst measured cold npx 15.5 seconds (Windows CI). Budget 30 seconds |
+| Search/save/update/delete with synthetic records | PASS: protocol level through the public npx command, three platforms. Marketplace GUI NOT VERIFIED |
+| Restart MCP child. Retrieve persisted synthetic records | PASS: fresh-process persistence, three platforms. Full application restart NOT VERIFIED |
 | Missing embedding and invalid API key fail safely | SDK tested. GUI NOT VERIFIED |
 | Same-profile Hermes WriterLease refusal | SDK tested. GUI NOT VERIFIED |
 

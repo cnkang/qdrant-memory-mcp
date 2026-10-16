@@ -78,7 +78,7 @@ installed as wheels without source builds. Program
 directories include the lock digest, so dependency changes cannot silently reuse
 another environment. Existing profiles retain their model-cache settings across
 program upgrades. Native platform automation and Marketplace/real-host acceptance
-are separate gates; a release candidate is not a Marketplace acceptance claim.
+are separate gates. A release candidate is not a Marketplace acceptance claim.
 
 Publish compatible shared components first, then pin adapters independently.
 No existing Hermes user needs to upgrade for these opt-in adapters.
