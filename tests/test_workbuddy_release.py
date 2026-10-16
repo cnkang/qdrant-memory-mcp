@@ -178,7 +178,10 @@ def asset_source(source):
     config = source / 'integrations/workbuddy'
     config.mkdir(parents=True)
     (config / 'connector-meta.json').write_text(json.dumps({'version': '0.1.0'}))
-    (config / 'mcp.json').write_text(json.dumps({'mcpServers': {'qdrant-memory': {'command': 'uvx', 'args': ['--from', 'qdrant-memory-mcp==1.2.3', 'qdrant-memory-mcp', 'mcp']}}}))
+    launcher = {'name': '@cnkang/qdrant-memory-launcher', 'version': '0.1.0-rc.2', 'integrity': 'sha512-' + 'A' * 86 + '=='}
+    (source / 'launcher-source.json').write_text(json.dumps(launcher))
+    mcp = {'mcpServers': {'qdrant-memory': {'type': 'stdio', 'command': 'npx', 'args': ['-y', '@cnkang/qdrant-memory-launcher@0.1.0-rc.2', 'mcp', 'workbuddy', '--auto-setup'], 'runtime': {'type': 'node', 'version': '20'}, 'npmRegistries': ['https://registry.npmjs.org', 'https://registry.npmmirror.com'], 'timeout': 30000}}}
+    (config / 'mcp.json').write_text(json.dumps(mcp))
     skill = {'version': '0.2.5', 'repository': 'https://github.com/cnkang/skills.git', 'commit': 'a' * 40}
     (config / 'skill-source.json').write_text(json.dumps(skill))
     # Dependency entry is the authoritative runtime pin.
@@ -186,14 +189,14 @@ def asset_source(source):
     directory = source / 'assets'
     directory.mkdir()
     archive = directory / 'qdrant-memory-workbuddy-connector-v0.1.0-mcp-v1.2.3.zip'
-    provenance = {'connector_version': '0.1.0', 'mcp_version': '1.2.3', 'runtime_version': '0.2.2', 'skill_version': skill['version'], 'skill_repository': skill['repository'], 'skill_commit': skill['commit'], 'release_tag': 'v1.2.3'}
+    provenance = {'connector_version': '0.1.0', 'mcp_version': '1.2.3', 'runtime_version': '0.2.2', 'launcher': launcher, 'skill_version': skill['version'], 'skill_repository': skill['repository'], 'skill_commit': skill['commit'], 'release_tag': 'v1.2.3'}
     with zipfile.ZipFile(archive, 'w') as output:
         output.writestr('qdrant-memory-workbuddy/icon.svg', '<svg/>')
         output.writestr('qdrant-memory-workbuddy/skills/qdrant-memory/LICENSE', 'MIT')
         output.writestr('qdrant-memory-workbuddy/skills/qdrant-memory/SKILL.md', '# Skill')
         output.writestr('qdrant-memory-workbuddy/provenance.json', json.dumps(provenance))
         output.writestr('qdrant-memory-workbuddy/connector-meta.json', json.dumps({'version': '0.1.0'}))
-        output.writestr('qdrant-memory-workbuddy/mcp.json', json.dumps({'mcpServers': {'qdrant-memory': {'command': 'uvx', 'args': ['--from', 'qdrant-memory-mcp==1.2.3', 'qdrant-memory-mcp', 'mcp']}}}))
+        output.writestr('qdrant-memory-workbuddy/mcp.json', json.dumps(mcp))
     checksum = archive.with_suffix('.zip.sha256')
     checksum.write_text(hashlib.sha256(archive.read_bytes()).hexdigest() + '  ' + archive.name + '\n')
     return source, directory, archive, checksum

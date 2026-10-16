@@ -1,26 +1,44 @@
-# WorkBuddy installation options
+# WorkBuddy installation
 
-The published connector uses Python/uvx and a separately initialized memory
-profile. For that path, follow the [connector guide](../integrations/workbuddy/README.md).
+The published connector uses the managed launcher and WorkBuddy's managed
+Node.js runtime. It removes the need to install Python/uvx or Ollama manually.
+The connector ZIP ships one `mcp.json` that pins the exact public launcher
+version. `mcp.uvx.json` documents the older Python/uvx custom-MCP route for
+advanced users and is not part of the ZIP.
 
-An optional [managed source candidate](../integrations/managed/README.md) uses
-Node.js to prepare a private Python environment, the shared Runtime and a
-verified CPU embedding model. This removes the need to install Python/uvx or
-Ollama manually. The candidate is available for custom-connection testing.
-Marketplace one-click installation is not yet released or certified.
-
-## How the managed candidate works
+## How the managed connector works
 
 WorkBuddy documents a managed Node runtime for stdio connectors from version
-5.0.0. The source preview's configuration uses this declaration. Native GUI
-acceptance also distinguishes a user-supplied Node executable from WorkBuddy's
-managed Node installation. See the [official connector specification](https://open.workbuddy.cn/docs/connector).
+5.0.0. The connector declares:
+
+```json
+"command": "npx",
+"args": ["-y", "@cnkang/qdrant-memory-launcher@0.1.0-rc.2", "mcp", "workbuddy", "--auto-setup"],
+"runtime": {"type": "node", "version": "20"},
+"npmRegistries": ["https://registry.npmjs.org", "https://registry.npmmirror.com"]
+```
 
 The Node front end promptly completes MCP initialization and exposes the four
 fixed memory schemas. It then prepares dependencies in the background. Until
-the Python backend is ready, tools return an explicit error. No memory write is
-queued or reported successful. Dependencies, bootstrap and model files are pinned
-and verified. Setup uses only the Runtime's supported CLI.
+the Python backend is ready, tools return an explicit error. No memory write
+is queued or reported successful. Dependencies, bootstrap and model files are
+pinned and verified. Setup uses only the Runtime's supported CLI.
+
+The npm registry list is an ordered fallback. The canonical registry is first.
+A release cannot ship while the pinned launcher version is unavailable there
+with matching integrity. Additional registries are best-effort cross-checked:
+a mirror that serves a conflicting or extra payload fails the release gate,
+and an absent or unreachable mirror is informational. At user runtime the npm
+client verifies each fetched tarball against the serving registry's published
+integrity metadata. This fallback is a deliberate availability trade-off for
+networks where the canonical registry is unreachable; the repository pin is
+enforced at release time, not by the managed `npx` invocation itself.
+Enforcing the pin before execution would require a host-side bootstrap step,
+which remains future work if that residual boundary must be closed. The
+handshake budget is the connector's 30-second timeout.
+Measured cold handshakes against `0.1.0-rc.1` stay within it on every platform
+(worst observed cold npx: Windows, 15.5 seconds); `0.1.0-rc.2` re-runs the
+same measurement after publication.
 
 The same program installer serves DSH, but DSH preparation is explicit and
 separate from its temporary MCP probe. Shared installation does not mean shared
@@ -29,10 +47,10 @@ See [cross-harness architecture](cross-harness-architecture.md).
 
 ## Credentials and lifecycle
 
-The local CPU candidate needs no service account or API key. Download/install
+The local CPU preset needs no service account or API key. Download/install
 processes receive no service credentials. Optional Cloud configuration remains
-on the existing Python path. The managed source candidate does not provide a
-Cloud credential-form preset or certify multi-writer sharing.
+on the existing Python path. The managed connector does not provide a Cloud
+credential-form preset or certify multi-writer sharing.
 
 Disconnect closes Python stdin, then escalates termination if necessary. A
 backend crash closes the bridge so WorkBuddy can reconnect. No write is
@@ -42,12 +60,15 @@ Never remove Runtime data locks or reset a profile to bypass ownership.
 
 Program/dependency changes install alongside earlier versions. Profile, ledger
 and collection files remain in place. Incompatible data must fail closed.
-Upgrade/rollback acceptance is still required before a production release.
 
 ## Release boundary
 
-Retain the published connector until the [release checklist](workbuddy-one-click-validation.md)
-passes. Publish shared Runtime/setup APIs first, then the launcher, then a
-connector pinned to those released artifacts and the canonical Skill commit.
-Do not replace published tags or advertise marketplace one-click support based
-on custom-connection GUI acceptance.
+The Runtime wheel and the canonical Skill pins are public artifacts. The
+launcher pin (`0.1.0-rc.2`) must be published before release assets are
+prepared. The release workflow refuses unpublished pins. The public
+acceptance records `NOT VERIFIED` until the version is available. The
+connector pins each artifact exactly. Marketplace ZIP import and managed-Node
+GUI acceptance remain maintainer gates before marketplace submission. The
+repository records only measured, reproducible acceptance. Do not advertise
+marketplace one-click support before those gates pass. Do not replace published
+tags.

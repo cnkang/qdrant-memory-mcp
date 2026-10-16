@@ -27,7 +27,9 @@ def validate_metadata(meta):
         raise ValueError("Metadata text must be nonempty strings")
     if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", meta["source"]) or meta["type"] != "mcp":
         raise ValueError("Invalid connector source or type")
-    if not re.fullmatch(SEMVER, meta["version"]) or meta["minWorkbuddyVersion"] != "4.24.0":
+    # Runtime and npm registry fields require WorkBuddy 5.0.0; declare the
+    # maximum version of every used field.
+    if not re.fullmatch(SEMVER, meta["version"]) or meta["minWorkbuddyVersion"] != "5.0.0":
         raise ValueError("Invalid connector version or minimum client version")
     for key in ("examples_zh", "examples_en"):
         if not isinstance(meta[key], list) or not 2 <= len(meta[key]) <= 5 or not all(isinstance(x, str) and x.strip() for x in meta[key]):
@@ -36,10 +38,43 @@ def validate_metadata(meta):
         raise ValueError("Chinese metadata required")
 
 
-def validate_mcp(mcp, version):
-    expected = {"mcpServers": {"qdrant-memory": {"type": "stdio", "command": "uvx", "args": ["--from", f"qdrant-memory-mcp=={version}", "qdrant-memory-mcp", "mcp"], "timeout": 30000}}}
+def validate_launcher(launcher):
+    if not isinstance(launcher, dict) or set(launcher) != {"name", "version", "integrity"}:
+        raise ValueError("Launcher source fields differ from reviewed schema")
+    if launcher["name"] != "@cnkang/qdrant-memory-launcher":
+        raise ValueError("Launcher package name mismatch")
+    if not re.fullmatch(SEMVER + r"(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?", launcher["version"]):
+        raise ValueError("Launcher version must be a pinned semver")
+    if not re.fullmatch(r"sha512-[A-Za-z0-9+/]+={0,2}", launcher["integrity"]):
+        raise ValueError("Launcher integrity must be a sha512 digest")
+
+
+def expected_mcp(launcher):
+    """The single reviewed managed connector launch: exact npm pin, no floats."""
+    return {"mcpServers": {"qdrant-memory": {
+        "type": "stdio",
+        "command": "npx",
+        "args": ["-y", f"{launcher['name']}@{launcher['version']}", "mcp", "workbuddy", "--auto-setup"],
+        "runtime": {"type": "node", "version": "20"},
+        "npmRegistries": ["https://registry.npmjs.org", "https://registry.npmmirror.com"],
+        "timeout": 30000,
+    }}}
+
+
+def validate_mcp(mcp, launcher):
+    if mcp != expected_mcp(launcher):
+        raise ValueError("MCP must use the single reviewed managed npx launcher with the exact public pin")
+
+
+def validate_uvx_alternative(mcp, version):
+    expected = {"mcpServers": {"qdrant-memory": {
+        "type": "stdio",
+        "command": "uvx",
+        "args": ["--from", f"qdrant-memory-mcp=={version}", "qdrant-memory-mcp", "mcp"],
+        "timeout": 30000,
+    }}}
     if mcp != expected:
-        raise ValueError("MCP must use the single reviewed uvx stdio server; no token/runtime claims")
+        raise ValueError("Alternative config must use the single reviewed uvx stdio server")
 
 
 def inputs(root):
@@ -50,17 +85,20 @@ def inputs(root):
             raise ValueError("Adapter input symlink forbidden")
         return json.loads(path.read_text(encoding="utf-8"))
     meta, mcp, source = (read(name) for name in ("connector-meta.json", "mcp.json", "skill-source.json"))
+    launcher = json.loads((root / "launcher-source.json").read_text(encoding="utf-8"))
     project = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))["project"]
     runtime = json.loads((root / "runtime-source.json").read_text(encoding="utf-8"))
     validate_metadata(meta)
+    validate_launcher(launcher)
     # Version is generated from the package for future tags. The checked-in
     # example pin must match the current project as well.
-    validate_mcp(mcp, project["version"])
+    validate_mcp(mcp, launcher)
+    validate_uvx_alternative(read("mcp.uvx.json"), project["version"])
     if project["dependencies"] != [f"hermes-plugin-qdrant-memory[mcp]=={runtime['version']}"]:
         raise ValueError("Runtime dependency and provenance mismatch")
     if set(source) != {"repository", "commit", "version"} or source["repository"] != "https://github.com/cnkang/skills.git" or not re.fullmatch(r"[0-9a-f]{40}", source["commit"]) or not re.fullmatch(SEMVER, source["version"]):
         raise ValueError("Skill must come from immutable canonical repository")
-    return meta, mcp, source, project, runtime
+    return meta, mcp, source, project, runtime, launcher
 
 
 def git(root, *args):
@@ -149,10 +187,10 @@ def package_name(connector, mcp, release_tag):
 
 
 def build(root, skill_root, output, release_tag=None):
-    meta, mcp, source, project, runtime = inputs(root)
+    meta, mcp, source, project, runtime, launcher = inputs(root)
     name = package_name(meta["version"], project["version"], release_tag)
     files = skill_files(skill_root, source)
-    provenance = {"connector_version": meta["version"], "mcp_version": project["version"], "runtime_version": runtime["version"], "skill_version": source["version"], "skill_repository": source["repository"], "skill_commit": source["commit"], "release_tag": release_tag}
+    provenance = {"connector_version": meta["version"], "mcp_version": project["version"], "runtime_version": runtime["version"], "launcher": {"name": launcher["name"], "version": launcher["version"], "integrity": launcher["integrity"]}, "skill_version": source["version"], "skill_repository": source["repository"], "skill_commit": source["commit"], "release_tag": release_tag}
     for filename, value in (("connector-meta.json", meta), ("mcp.json", mcp), ("provenance.json", provenance)):
         files[filename] = ((json.dumps(value, ensure_ascii=False, indent=2) + "\n").encode(), 0o644)
     icon = root / "integrations/workbuddy/icon.svg"

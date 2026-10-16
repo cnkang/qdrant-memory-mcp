@@ -6,7 +6,43 @@ memory: the connection does not automatically save every conversation.
 
 [中文](dsh-integration.zh-CN.md) · [Validation and limitations](dsh-validation.md)
 
-## Use the published Python server
+## Install the Bundle (managed CPU)
+
+The configuration-only Bundle connects the public launcher through the
+official `@deepseek-ai/dsh-mcp-client`. It needs Node.js (which DSH already
+uses) and no system Python, uvx, Ollama or Qdrant Server. Prepare the shared
+backend first:
+
+```sh
+npx -y @cnkang/qdrant-memory-launcher@0.1.0-rc.2 prepare dsh
+```
+
+Wait for `{"ready":true,"host":"dsh"}`. Preparation downloads the private
+Python environment, the pinned Runtime wheel and a verified CPU embedding
+model. It can take several minutes and needs network access. Then install the
+Bundle into one profile:
+
+```sh
+dsh plugin --profile <name> add @cnkang/qdrant-memory-dsh-bundle
+```
+
+If your registry has not served the package yet, download
+`cnkang-qdrant-memory-dsh-bundle-0.1.0.tgz` from the repository release and
+install the file path instead. Verify the layer without booting:
+
+```sh
+dsh --profile <name> --dump-config
+```
+
+DSH starts a temporary probe before the persistent connection. The probe never
+runs installation or model downloads. Preparation is always the explicit step
+above. Until the backend is ready, tools report that no operation occurred.
+Writes are never queued. The DSH profile
+(`<managed-root>/profiles/dsh/local`) is separate from WorkBuddy and Hermes
+profiles. See the [Bundle README](../integrations/dsh/bundle/README.md) for
+update, uninstall and recovery details.
+
+## Alternative: the published Python/uvx overlay
 
 This path requires Python 3.11+, uv/uvx, and a working embedding service, such
 as Ollama. Follow the [quickstart](quickstart.md), using a new dedicated profile
@@ -28,13 +64,8 @@ initialize third-party servers.
 The overlay adds one uniquely identified plugin for this launch. It does not
 overwrite any `cordis.patch.yml` or modify the default Profile. To retain it,
 keep passing `--patch`, or carefully merge its single `insert` entry into the
-chosen profile's patch file. Do not enable the Python and managed overlays
-together. Other profiles remain unchanged.
-
-Alternatively, install the [configuration-only Bundle](../integrations/dsh/README.md)
-into one chosen profile using DSH's official plugin installation command. Its
-`dsh.bundle.patch` declares the same single MCP row. Backend preparation remains
-a separate explicit step. Do not install both routes in the same profile.
+chosen profile's patch file. Do not enable the Python overlay and the Bundle
+together in one profile. Other profiles remain unchanged.
 
 DSH prefixes tools as `mcp__qdrant-memory__qdrant_memory_search`, `...add`,
 `...update` and `...delete`. If you change `serverName`, use the names actually
@@ -51,24 +82,6 @@ For example, symlink a reviewed checkout's `qdrant-memory` directory to
 `customSkillDirs` setting to scan that checkout. DSH's filesystem provider
 discovers `qdrant-memory/SKILL.md`. No separately maintained DSH Skill is needed.
 Select one canonical version if other roots already contain the same Skill.
-
-## Optional managed CPU candidate
-
-This source candidate downloads private Python dependencies and a verified CPU
-embedding model. It needs Node.js 20+ and network access. No Python/uvx or Ollama
-installation is required. It is not yet an npm or marketplace release. Prepare
-it explicitly before connecting DSH:
-
-```sh
-node /absolute/path/to/integrations/managed/launcher.mjs prepare dsh
-export QDRANT_MEMORY_LAUNCHER=/absolute/path/to/integrations/managed/launcher.mjs
-dsh web --patch /absolute/path/to/integrations/dsh/managed.cordis.yml
-```
-
-Wait for `{"ready":true,"host":"dsh"}`. Downloads can take several minutes.
-The DSH MCP probe only starts the prepared server. It does not run setup or
-download models. The managed profile is separate from the Python overlay's
-profile. See [managed launcher](../integrations/managed/README.md) before use.
 
 ## Credentials and troubleshooting
 
@@ -88,10 +101,12 @@ operation. A busy-profile error means another process owns storage. Close that
 connection normally.
 Never remove a data lock, reset storage or change a fingerprint to force startup.
 
-To disconnect, remove this launch's overlay or disable its plugin in the selected
-profile. DSH closes the MCP process. Data stays on disk. Verify persistence by
-saving a synthetic fact and recalling it in a new session without the old
-transcript. Then update or delete the returned ID and fully restart DSH.
+To disconnect, remove the Bundle or this launch's overlay, then stop or
+restart the profile: a running profile keeps its loaded Bundle set, and only
+the stop or restart closes the active MCP process and releases the storage
+writer lease. Data stays on disk. Verify persistence by saving a synthetic fact and
+recalling it in a new session without the old transcript. Then update or delete
+the returned ID and fully restart DSH.
 Real model/GUI acceptance is separate from the automated official-client suite.
 
 The adapter follows the official

@@ -13,7 +13,7 @@ jobs:
   connector:
     name: WorkBuddy package and stdio acceptance
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
         with:
@@ -21,18 +21,21 @@ jobs:
       - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
         with:
           repository: cnkang/skills
-          ref: 691313f2b05a23742dc7eaa06cc98dc26d7e5fd5
+          ref: c2d755cd6df3f9af069d9faff10fbcfa5b29806e
           path: .workbuddy-skill
           persist-credentials: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
         with:
           python-version: '3.11'
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '20'
       - run: python -m pip install . 'pytest>=8,<10' 'requests>=2,<3' 'PyYAML==6.0.3' 'uv==0.9.26'
       - run: python integrations/workbuddy/build.py --check
       - run: python integrations/workbuddy/build.py
       - name: Package, release guards and candidate stdio acceptance
-        run: python -m pytest -q tests/test_workbuddy_package.py tests/test_workbuddy_release.py tests/test_workbuddy_public_install.py tests/test_workbuddy_mcp.py
-      - name: Check exact public MCP version availability
+        run: python -m pytest -q tests/test_workbuddy_package.py tests/test_workbuddy_release.py tests/test_workbuddy_public_install.py tests/test_workbuddy_mcp.py tests/test_dsh_bundle.py
+      - name: Check exact public MCP and launcher pins
         id: public
         run: python integrations/workbuddy/public_install.py
       - name: Require public uvx acceptance for published versions
@@ -40,6 +43,12 @@ jobs:
         env:
           WORKBUDDY_TEST_UVX: '1'
         run: python -m pytest -q tests/test_workbuddy_mcp.py
+      - name: Handshake through the exact public npm launcher pin
+        if: steps.public.outputs.launcher == 'true'
+        env:
+          QDRANT_MEMORY_MANAGED_ROOT: ${{ runner.temp }}/qdrant-preview-handshake
+          NPM_CONFIG_CACHE: ${{ runner.temp }}/npm-cache
+        run: node tests/public-launcher-acceptance.mjs --handshake-only
       - name: Verify checksum
         working-directory: dist/workbuddy
         run: sha256sum --check ./*.sha256

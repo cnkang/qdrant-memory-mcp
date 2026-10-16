@@ -1,11 +1,12 @@
 {
-  "name": "dsh-qdrant-memory",
+  "name": "@cnkang/qdrant-memory-dsh-bundle",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
-  "description": "Connect a separately prepared Qdrant Memory profile through the official DSH MCP client",
+  "description": "DSH configuration bundle: connect a prepared Qdrant Memory profile through the official MCP client",
   "license": "MIT",
-  "files": ["cordis.patch.yml"],
+  "repository": {"type": "git", "url": "git+https://github.com/cnkang/qdrant-memory-mcp.git", "directory": "integrations/dsh/bundle"},
+  "homepage": "https://github.com/cnkang/qdrant-memory-mcp/tree/main/integrations/dsh",
+  "files": ["cordis.patch.yml", "README.md", "LICENSE"],
   "dsh": {"bundle": {"patch": "./cordis.patch.yml"}},
   "peerDependencies": {"@deepseek-ai/dsh-mcp-client": ">=0.2.0-rc.2 <0.3.0"}
 }

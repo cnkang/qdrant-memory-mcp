@@ -18,7 +18,7 @@ flowchart TD
   S --> D
 ```
 
-The optional Node launcher provisions a private Python environment and verified
+The published Node launcher provisions a private Python environment and verified
 CPU embedding model, then forwards requests to the Python server. It does not
 implement memory operations or write directly to storage. It shares program
 and read-only model files between WorkBuddy and DSH, with separate data profiles.
@@ -65,7 +65,8 @@ Never remove locks or change fingerprints to force compatibility.
 | --- | --- | --- |
 | Python MCP | 0.1.4 | Python/uvx distribution; confirm the exact version on PyPI |
 | Runtime | 0.3.0 | Public PyPI wheel; optional CPU provider |
-| Node launcher | 0.1.0-rc.1 | Independently versioned release candidate |
+| Node launcher | 0.1.0-rc.2 | Release candidate pinned by the connector and Bundle; `0.1.0-rc.1` already public on npm |
+| DSH bundle | 0.1.0 | Configuration-only npm bundle; installs the launcher through the official MCP client |
 | Bootstrap | uv 0.13.1 / Python 3.11.15 | Fixed platform artifacts, verified uv hash |
 | Canonical Skill | 0.2.6 | See connector `skill-source.json` for exact commit |
 | DSH contract-test packages | 0.2.0-rc.2 | Exact npm test pins and lockfile |
@@ -77,7 +78,7 @@ installed as wheels without source builds. Program
 directories include the lock digest, so dependency changes cannot silently reuse
 another environment. Existing profiles retain their model-cache settings across
 program upgrades. Native platform automation and Marketplace/real-host acceptance
-are separate gates; a release candidate is not a Marketplace acceptance claim.
+are separate gates. A release candidate is not a Marketplace acceptance claim.
 
 Publish compatible shared components first, then pin adapters independently.
 No existing Hermes user needs to upgrade for these opt-in adapters.

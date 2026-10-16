@@ -1,0 +1,66 @@
+name: Prepare DSH bundle draft release assets
+on:
+  push:
+    tags: ['dsh-bundle-v*']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: dsh-bundle-release-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  build:
+    if: startsWith(github.ref, 'refs/tags/dsh-bundle-v')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '20'
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.11'
+      - run: python -m pip install 'pytest>=8,<10' 'requests>=2,<3'
+      - name: Require the pinned public launcher before preparing release assets
+        run: python integrations/workbuddy/public_install.py --require-launcher
+      - name: Verify source and pack the reviewed bundle
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          python scripts/dsh_bundle_release.py --release-tag "$RELEASE_TAG" --check-source
+          python scripts/pack_dsh_bundle.py --output-dir dist/dsh-bundle
+          python -c "import hashlib, pathlib; directory = pathlib.Path('dist/dsh-bundle'); archive = next(directory.glob('*.tgz')); (directory / (archive.name + '.sha256')).write_text(hashlib.sha256(archive.read_bytes()).hexdigest() + '  ' + archive.name + '\n')"
+          python -m pytest -q tests/test_dsh_bundle.py tests/test_dsh_bundle_release.py
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: dsh-bundle-release-assets
+          path: dist/dsh-bundle/*
+          if-no-files-found: error
+  attach:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.11'
+      - run: python -m pip install 'requests>=2,<3'
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          name: dsh-bundle-release-assets
+          path: dist/dsh-bundle
+      - name: Validate inputs and attach only to Draft
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: python scripts/dsh_bundle_release.py --release-tag "$RELEASE_TAG" --asset-dir dist/dsh-bundle

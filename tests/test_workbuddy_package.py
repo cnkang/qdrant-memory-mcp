@@ -21,14 +21,50 @@ def builder():
 
 def test_connector_metadata_and_generated_pin():
     module = builder()
-    meta, mcp, source, project, runtime = module.inputs(ROOT)
-    assert meta["minWorkbuddyVersion"] == "4.24.0"
+    meta, mcp, source, project, runtime, launcher = module.inputs(ROOT)
+    assert meta["minWorkbuddyVersion"] == "5.0.0"
     assert meta["type"] == "mcp"
     assert len(meta["examples_en"]) == len(meta["examples_zh"]) == 4
     server, = mcp["mcpServers"].values()
-    assert server == {"type": "stdio", "command": "uvx", "args": ["--from", f"qdrant-memory-mcp=={project['version']}", "qdrant-memory-mcp", "mcp"], "timeout": 30000}
+    assert server == {
+        "type": "stdio",
+        "command": "npx",
+        "args": ["-y", "@cnkang/qdrant-memory-launcher@0.1.0-rc.2", "mcp", "workbuddy", "--auto-setup"],
+        "runtime": {"type": "node", "version": "20"},
+        "npmRegistries": ["https://registry.npmjs.org", "https://registry.npmmirror.com"],
+        "timeout": 30000,
+    }
+    assert launcher["name"] == "@cnkang/qdrant-memory-launcher"
+    assert server["args"][1] == f"{launcher['name']}@{launcher['version']}"
     assert runtime["version"] == "0.3.0"
     assert len(source["commit"]) == 40
+
+
+def test_uvx_alternative_config_pinned_to_project_version():
+    module = builder()
+    project = module.inputs(ROOT)[3]
+    alternative = json.loads((ROOT / "integrations/workbuddy/mcp.uvx.json").read_text(encoding="utf-8"))
+    module.validate_uvx_alternative(alternative, project["version"])
+    with pytest.raises(ValueError):
+        module.validate_uvx_alternative(alternative, "9.9.9")
+
+
+@pytest.mark.parametrize("field,value", [("name", "other-package"), ("version", "latest"), ("version", "0.1"), ("integrity", "sha256-abc"), ("integrity", "sha512-")])
+def test_launcher_pin_fails_closed(field, value):
+    module = builder()
+    launcher = json.loads((ROOT / "launcher-source.json").read_text(encoding="utf-8"))
+    launcher[field] = value
+    with pytest.raises(ValueError):
+        module.validate_launcher(launcher)
+
+
+def test_managed_mcp_must_match_launcher_source_pin():
+    module = builder()
+    launcher = json.loads((ROOT / "launcher-source.json").read_text(encoding="utf-8"))
+    floating = module.expected_mcp(launcher)
+    floating["mcpServers"]["qdrant-memory"]["args"][1] = "@cnkang/qdrant-memory-launcher@latest"
+    with pytest.raises(ValueError, match="managed npx"):
+        module.validate_mcp(floating, launcher)
 
 
 @pytest.mark.parametrize("name", ["/etc/passwd", "../secret", "qdrant-memory/../secret", "qdrant-memory/.env", "qdrant-memory/data.db", "qdrant-memory/scripts/secret.py", "qdrant-memory\\SKILL.md"])
@@ -59,7 +95,7 @@ def test_archive_determinism_and_safe_writes(tmp_path):
             module.write_once(link, data)
 
 
-@pytest.mark.parametrize("field,value", [("source", "Bad ID"), ("version", "01.0.0"), ("minWorkbuddyVersion", "4.23.0"), ("examples_en", ["one"]), ("type", "cli"), ("auth_mode", "token")])
+@pytest.mark.parametrize("field,value", [("source", "Bad ID"), ("version", "01.0.0"), ("version", "0.2.0-rc.1"), ("minWorkbuddyVersion", "4.24.0"), ("examples_en", ["one"]), ("type", "cli"), ("auth_mode", "token")])
 def test_invalid_metadata_fails_closed(tmp_path, monkeypatch, field, value):
     read = Path.read_text
     def legacy_windows_read(path, *args, **kwargs):
@@ -80,12 +116,18 @@ def test_release_tag_must_match_current_package():
     assert module.package_name("0.1.0", "0.1.2", None).endswith("-preview.zip")
 
 
-def test_multiple_servers_and_python_runtime_rejected():
+def test_multiple_servers_and_unreviewed_launch_fields_rejected():
     module = builder()
+    launcher = module.inputs(ROOT)[5]
     valid = module.inputs(ROOT)[1]
-    valid["mcpServers"]["extra"] = next(iter(valid["mcpServers"].values()))
+    valid["mcpServers"]["extra"] = dict(next(iter(valid["mcpServers"].values())))
     with pytest.raises(ValueError):
-        module.validate_mcp(valid, "0.1.2")
+        module.validate_mcp(valid, launcher)
+    # Adding token placeholders or env injection to the single server is rejected.
+    injected = module.expected_mcp(launcher)
+    injected["mcpServers"]["qdrant-memory"]["env"] = {"API_KEY": "${API_KEY}"}
+    with pytest.raises(ValueError):
+        module.validate_mcp(injected, launcher)
 
 
 def test_skill_source_checkout_identity_and_dirty_tree(tmp_path):
@@ -125,6 +167,8 @@ def test_package_manifest_provenance_and_output_guard(tmp_path, monkeypatch):
         provenance = json.loads(archive.read("qdrant-memory-workbuddy/provenance.json"))
         assert provenance["skill_commit"] == module.inputs(ROOT)[2]["commit"]
         assert provenance["release_tag"] is None
+        assert provenance["launcher"]["name"] == "@cnkang/qdrant-memory-launcher"
+        assert provenance["launcher"]["version"] == json.loads((ROOT / "launcher-source.json").read_text(encoding="utf-8"))["version"]
         assert len(json.loads(archive.read("qdrant-memory-workbuddy/mcp.json"))["mcpServers"]) == 1
     with pytest.raises(ValueError, match="dist/workbuddy"):
         module.build(ROOT, tmp_path, ROOT / "unapproved-generated-skill")
@@ -166,7 +210,7 @@ def test_connector_bytes_ignore_checkout_line_ending_translation(tmp_path, monke
     module = builder()
     monkeypatch.setattr(module, "skill_files", lambda *a: {"skills/qdrant-memory/SKILL.md": (b"generated\n", 0o644), "skills/qdrant-memory/LICENSE": (b"MIT\n", 0o644)})
     roots = [tmp_path / "lf", tmp_path / "crlf"]
-    names = ["pyproject.toml", "runtime-source.json", "integrations/workbuddy/connector-meta.json", "integrations/workbuddy/mcp.json", "integrations/workbuddy/skill-source.json", "integrations/workbuddy/icon.svg"]
+    names = ["pyproject.toml", "runtime-source.json", "integrations/workbuddy/connector-meta.json", "integrations/workbuddy/mcp.json", "integrations/workbuddy/mcp.uvx.json", "launcher-source.json", "integrations/workbuddy/skill-source.json", "integrations/workbuddy/icon.svg"]
     for index, root in enumerate(roots):
         for name in names:
             destination = root / name

@@ -8,8 +8,9 @@ profile, change its embedding defaults or call its lifecycle callbacks.
 The shared Runtime remains in
 [`hermes-plugin-qdrant-memory`](https://github.com/cnkang/hermes-plugin-qdrant-memory).
 This repository adds process/configuration adapters only. The published MCP
-dependency remains unchanged. Optional managed CPU setup uses an immutable
-source candidate separately from existing Python environments.
+dependency remains unchanged. The managed CPU setup uses the published
+launcher and the released Runtime wheel, separately from existing Python
+environments.
 
 Hermes still owns automatic turn extraction and prefetch. The four MCP tools
 provide explicit operations. Do not enable both the native plugin and a second

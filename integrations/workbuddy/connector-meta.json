@@ -7,8 +7,8 @@
   "description_en": "Persistent, scoped memory for AI agents. Search, save, update and delete memories using Qdrant through an MCP server.",
   "source": "cnkang-qdrant-memory",
   "type": "mcp",
-  "version": "0.1.0",
-  "minWorkbuddyVersion": "4.24.0",
+  "version": "0.2.0",
+  "minWorkbuddyVersion": "5.0.0",
   "examples_zh": ["查找之前对这个项目做出的技术决策", "记住我在这个项目中偏好使用 Python", "把这条已选中的记忆更新为新的技术偏好", "删除这条我明确选中的记忆"],
   "examples_en": ["Search previous project decisions", "Remember my preference for Python in this project", "Update this selected memory with my new technical preference", "Delete this explicitly selected memory"]
 }

@@ -10,7 +10,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { bridge, tools } from '../integrations/managed/bridge.mjs';
 import { locations, installEnvironment, privateDirectory, run, installed, prepare,
-  publishSnapshot, runtime, dependencyDigest, runtimeRequirement, modelCache } from '../integrations/managed/provision.mjs';
+  publishSnapshot, runtime, dependencyDigest, runtimeRequirement, modelCache, publishRename } from '../integrations/managed/provision.mjs';
 
 test('npm-style symlink entry actually executes the launcher CLI', async () => {
   const root = await mkdtemp(join(await realpath(tmpdir()), 'memory-npm-bin-'));
@@ -114,6 +114,52 @@ test('a failed snapshot write never publishes partial contents and can be retrie
     await assert.rejects(lstat(path + '.pending'), { code: 'ENOENT' });
     await publishSnapshot(path, expected);
     assert.equal(await readFile(path, 'utf8'), expected);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('transient Windows rename locks are retried within bounds and other errors are not', async () => {
+  const root = await mkdtemp(join(await realpath(tmpdir()), 'memory-rename-retry-'));
+  const from = join(root, 'uv.exe.pending');
+  const to = join(root, 'uv.exe');
+  try {
+    await writeFile(from, 'binary');
+    const original = filesystem.rename;
+    let attempts = 0;
+    const mocked = mock.method(filesystem, 'rename', async (source, target) => {
+      attempts += 1;
+      if (attempts < 3) throw Object.assign(new Error('synthetic lock'), { code: 'EPERM' });
+      return original(source, target);
+    });
+    syncBuiltinESMExports();
+    try {
+      await publishRename(from, to);
+      assert.equal(attempts, 3);
+      assert.equal(await readFile(to, 'utf8'), 'binary');
+    } finally { mocked.mock.restore(); syncBuiltinESMExports(); }
+    await rm(to);
+    await writeFile(from, 'binary');
+    let permanent = 0;
+    const missing = mock.method(filesystem, 'rename', async () => {
+      permanent += 1;
+      throw Object.assign(new Error('synthetic missing'), { code: 'ENOENT' });
+    });
+    syncBuiltinESMExports();
+    try {
+      await assert.rejects(publishRename(from, to), { code: 'ENOENT' });
+      assert.equal(permanent, 1);
+    } finally { missing.mock.restore(); syncBuiltinESMExports(); }
+    const controller = new AbortController();
+    controller.abort();
+    let abortedAttempts = 0;
+    const aborted = mock.method(filesystem, 'rename', async () => {
+      abortedAttempts += 1;
+      throw Object.assign(new Error('synthetic lock'), { code: 'EBUSY' });
+    });
+    syncBuiltinESMExports();
+    try {
+      await assert.rejects(publishRename(from, to, controller.signal), { code: 'EBUSY' });
+      assert.equal(abortedAttempts, 1);
+    } finally { aborted.mock.restore(); syncBuiltinESMExports(); }
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 

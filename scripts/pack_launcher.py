@@ -37,6 +37,17 @@ def inspect(archive, source):
     return hashlib.sha256(archive.read_bytes()).hexdigest()
 
 
+def normalize(report):
+    """Accept both npm pack --json shapes: one array item or one keyed entry."""
+    if isinstance(report, dict):
+        values = list(report.values())
+        if len(values) != 1 or not isinstance(values[0], dict):
+            raise ValueError("Unexpected npm pack report")
+        return values[0]
+    packed, = report
+    return packed
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output-dir", required=True, type=Path)
@@ -59,7 +70,7 @@ def main():
         raw = subprocess.check_output(["npm.cmd", "pack", "--json", "--ignore-scripts"], cwd=source, env=env, text=True, timeout=120)
     else:
         raw = subprocess.check_output(["npm", "pack", "--json", "--ignore-scripts"], cwd=source, env=env, text=True, timeout=120)
-    packed, = json.loads(raw)
+    packed = normalize(json.loads(raw))
     if packed["filename"] != filename:
         raise ValueError("Unexpected npm package identity")
     archive = output / filename
