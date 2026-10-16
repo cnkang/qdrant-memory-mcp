@@ -48,7 +48,9 @@ results do not certify a different platform or a marketplace installation flow.
   was 21.5 seconds on Windows, inside the 30-second budget.
 - The uvx alternative is exercised against the actual public PyPI pin once a
   release is published. Unpublished candidates record `NOT VERIFIED` for that
-  check instead.
+  check instead. The MCP `0.1.4` release completed that check in its
+  publication pipeline: `Public PyPI release verified: True`, and the uvx
+  protocol test ran against the public package.
 - The release workflow refuses to prepare assets while the launcher pin is not
   public with matching integrity.
 
