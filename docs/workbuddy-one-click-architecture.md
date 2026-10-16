@@ -31,14 +31,14 @@ a mirror that serves a conflicting or extra payload fails the release gate,
 and an absent or unreachable mirror is informational. At user runtime the npm
 client verifies each fetched tarball against the serving registry's published
 integrity metadata. This fallback is a deliberate availability trade-off for
-networks where the canonical registry is unreachable; the repository pin is
+networks where the canonical registry is unreachable. The repository pin is
 enforced at release time, not by the managed `npx` invocation itself.
 Enforcing the pin before execution would require a host-side bootstrap step,
 which remains future work if that residual boundary must be closed. The
 handshake budget is the connector's 30-second timeout.
-Measured cold handshakes against `0.1.0-rc.1` stay within it on every platform
-(worst observed cold npx: Windows, 15.5 seconds); `0.1.0-rc.2` re-runs the
-same measurement after publication.
+Measured cold handshakes stay within it on every platform (worst observed
+cold npx: Windows, 15.5 seconds for `0.1.0-rc.1` and 21.5 seconds for
+`0.1.0-rc.2`).
 
 The same program installer serves DSH, but DSH preparation is explicit and
 separate from its temporary MCP probe. Shared installation does not mean shared
@@ -64,9 +64,9 @@ and collection files remain in place. Incompatible data must fail closed.
 ## Release boundary
 
 The Runtime wheel and the canonical Skill pins are public artifacts. The
-launcher pin (`0.1.0-rc.2`) must be published before release assets are
-prepared. The release workflow refuses unpublished pins. The public
-acceptance records `NOT VERIFIED` until the version is available. The
+launcher pin (`0.1.0-rc.2`) is published with matching integrity
+(2026-10-16). The release workflow refuses unpublished pins. The public
+acceptance records `NOT VERIFIED` until a pinned version is available. The
 connector pins each artifact exactly. Marketplace ZIP import and managed-Node
 GUI acceptance remain maintainer gates before marketplace submission. The
 repository records only measured, reproducible acceptance. Do not advertise
