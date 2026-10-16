@@ -120,6 +120,22 @@ async function regularFile(path) {
   return path;
 }
 
+// Windows can briefly hold a freshly written file open: a real-time scan of a
+// new executable, or a terminating child that still maps it after a client
+// stopped its probe. Retry only transient lock errors, within bounds.
+export async function publishRename(from, to, signal) {
+  const delays = [50, 100, 200, 400, 800, 1500, 1500, 1500, 1500, 1500];
+  for (let attempt = 0; ; attempt++) {
+    try {
+      await rename(from, to);
+      return;
+    } catch (error) {
+      if (!['EPERM', 'EACCES', 'EBUSY'].includes(error.code) || attempt >= delays.length || signal?.aborted) throw error;
+      await new Promise(resolve => setTimeout(resolve, delays[attempt]));
+    }
+  }
+}
+
 // Caller must hold the program's provisioning lock. Only a prefix of the exact
 // expected snapshot can be left by an interrupted legacy write; other changes
 // remain errors. Publish on the same filesystem only after writing and flushing.
@@ -136,7 +152,7 @@ export async function publishSnapshot(path, content) {
     const file = await open(temporary, 'wx', 0o600);
     try { await file.writeFile(content); await file.sync(); }
     finally { await file.close(); }
-    await rename(temporary, path);
+    await publishRename(temporary, path);
   } finally { await rm(temporary, { force: true }); }
 }
 
@@ -186,7 +202,7 @@ export async function prepare(paths, host, signal, onStage = () => {}) {
       await rm(temporary, { force: true });
       await writeFile(temporary, bytes, { flag: 'wx', mode: 0o700 });
       if (await lstat(uv).catch(error => { if (error.code !== 'ENOENT') throw error; })) await regularFile(uv);
-      await rename(temporary, uv);
+      await publishRename(temporary, uv, signal);
       enter('install-python');
       await run(uv, ['python', 'install', PYTHON_VERSION, '--no-bin'], { env, signal });
       const python = await run(uv, ['python', 'find', '--system', PYTHON_VERSION], { env, signal });
@@ -208,7 +224,7 @@ export async function prepare(paths, host, signal, onStage = () => {}) {
         const temporaryArchive = archive + '.pending';
         await rm(temporaryArchive, { force: true });
         await writeFile(temporaryArchive, await download(runtime, signal), { mode: 0o600 });
-        await rename(temporaryArchive, archive);
+        await publishRename(temporaryArchive, archive, signal);
       }
       const environmentPython = join(paths.program, 'env', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python');
       // Install only published wheels. No source builds or build environment.

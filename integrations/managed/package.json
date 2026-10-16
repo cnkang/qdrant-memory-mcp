@@ -1,6 +1,6 @@
 {
   "name": "@cnkang/qdrant-memory-launcher",
-  "version": "0.1.0-rc.1",
+  "version": "0.1.0-rc.2",
   "private": false,
   "type": "module",
   "description": "Private Python and CPU memory runtime for MCP clients",
