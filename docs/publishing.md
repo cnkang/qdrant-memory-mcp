@@ -1,4 +1,4 @@
-# 0.1.3 patch publication checklist
+# 0.1.4 patch publication checklist
 
 [English](publishing.md) | [简体中文](publishing.zh-CN.md)
 
@@ -12,7 +12,7 @@ An example identifies the intended release. It does not prove public availabilit
 Verify the exact public version before using its installation command. Announce
 the release as available only after the checks below confirm both public endpoints.
 
-1. Verify the existing public Runtime 0.2.2 release and exact dependency.
+1. Verify the existing public Runtime 0.3.0 release and exact dependency.
    Do not recreate its tag or publish it again for this distribution patch.
 2. Recheck existing PyPI Trusted Publishers (PyPI account step):
    - `hermes-plugin-qdrant-memory`: owner `cnkang`, repository
@@ -21,14 +21,14 @@ the release as available only after the checks below confirm both public endpoin
      workflow `publish.yml`, environment `pypi`.
 3. Approve protected GitHub environments when prompted. A version tag must point
    to a main-branch commit and match package metadata. Releases cannot overwrite
-   an existing version. Reuse the verified public Runtime 0.2.2 artifacts.
+   an existing version. Reuse the verified public Runtime 0.3.0 artifacts.
 4. Run distribution acceptance in public dependency mode. Build/test wheel and
    sdist from a new environment using only the exact Runtime PyPI release.
-5. Create distribution tag v0.1.3 after confirmation. Its workflow builds and
+5. Create distribution tag v0.1.4 after confirmation. Its workflow builds and
    tests before protected PyPI publication, verifies public metadata, validates
    with the official publisher, then uses `github-oidc` for Registry publication.
 6. Verify PyPI ownership marker and the public Registry entry
-   `io.github.cnkang/qdrant-memory` version 0.1.3. Publish the release announcement
+   `io.github.cnkang/qdrant-memory` version 0.1.4. Publish the release announcement
    only after the public endpoints and public-install acceptance confirm the release.
 
 The distribution workflow has a tag-only manual `registry_only` retry mode.

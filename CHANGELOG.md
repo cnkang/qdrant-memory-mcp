@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.4
+
+- Pin the public Runtime 0.3.0 while preserving the metadata-only Python MCP,
+  existing four tools and MCP SDK 1.x/2.x compatibility.
+- Prepare an independently versioned managed launcher release candidate using
+  verified PyPI wheels and locked CPU dependencies, without source builds.
+- Preserve profile cache settings across upgrades and reject malformed bridge
+  responses safely. Test cold setup against the packed npm distribution.
+- Include launcher licensing and strict package-content checks.
+
 ## 0.1.3
 
 - Distribute WorkBuddy MCP + Skill Connector ZIP/checksum assets with the new

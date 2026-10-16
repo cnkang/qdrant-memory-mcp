@@ -61,8 +61,8 @@ ollama pull qwen3-embedding:4b
 Windows 也填写实际的绝对路径，JSON 中反斜杠写成 `\\`，或使用 `/`。
 
 ```sh
-uvx --from qdrant-memory-mcp==0.1.3 qdrant-memory-mcp --home "/path/to/workbuddy-profile" init
-uvx --from qdrant-memory-mcp==0.1.3 qdrant-memory-mcp --home "/path/to/workbuddy-profile" doctor
+uvx --from qdrant-memory-mcp==0.1.4 qdrant-memory-mcp --home "/path/to/workbuddy-profile" init
+uvx --from qdrant-memory-mcp==0.1.4 qdrant-memory-mcp --home "/path/to/workbuddy-profile" doctor
 ```
 
 初始化会调用本地模型、创建本地 collection，并检查模型维度和存储兼容性。
@@ -81,7 +81,7 @@ WorkBuddy 中添加自定义 stdio MCP，使用以下配置；将路径替换为
     "qdrant-memory": {
       "type": "stdio",
       "command": "uvx",
-      "args": ["--from", "qdrant-memory-mcp==0.1.3", "qdrant-memory-mcp", "--home", "/path/to/workbuddy-profile", "mcp"],
+      "args": ["--from", "qdrant-memory-mcp==0.1.4", "qdrant-memory-mcp", "--home", "/path/to/workbuddy-profile", "mcp"],
       "timeout": 30000
     }
   }

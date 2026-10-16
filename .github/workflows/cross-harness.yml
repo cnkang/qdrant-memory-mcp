@@ -50,6 +50,8 @@ jobs:
         run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Artifact, cold handshake, host isolation and secret boundaries
         run: node --test tests/test_managed_bootstrap.mjs tests/test_managed_launcher.mjs
+      - name: Require a complete and clean npm payload
+        run: python scripts/pack_launcher.py --output-dir dist/launcher
       - name: WorkBuddy connector and shared bridge integration
         run: python -m pytest -q tests/test_workbuddy_mcp.py tests/test_workbuddy_package.py tests/test_managed_bridge.py tests/test_cross_harness.py --junitxml=workbuddy-results.xml
       - name: Official DSH client probe, unload, CRUD and fresh-process persistence
@@ -86,9 +88,19 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '24'
+      - name: Pack and install the actual launcher distribution
+        shell: bash
+        env:
+          LAUNCHER_TEST_ROOT: ${{ runner.temp }}/launcher-test
+        run: |
+          mkdir -p "$LAUNCHER_TEST_ROOT"
+          cd integrations/managed
+          npm pack --ignore-scripts --pack-destination "$LAUNCHER_TEST_ROOT"
+          npm install --prefix "$LAUNCHER_TEST_ROOT" --ignore-scripts --no-audit --no-fund "$LAUNCHER_TEST_ROOT"/*.tgz
       - name: Fresh shared program and isolated host profiles
         env:
           QDRANT_MEMORY_MANAGED_ROOT: ${{ runner.temp }}/qdrant-managed-acceptance
+          QDRANT_TEST_LAUNCHER_ROOT: ${{ runner.temp }}/launcher-test/node_modules/@cnkang/qdrant-memory-launcher
         run: node tests/managed-cold-acceptance.mjs
 
   existing-hosts:
@@ -114,7 +126,7 @@ jobs:
       - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
         with:
           repository: cnkang/hermes-plugin-qdrant-memory
-          ref: b568e0d5bfe23f10e4b1ea912405c1054730f3b5
+          ref: 534562f1df43541dbf906d248bb11cd085b211ee
           path: .scratch/runtime
           persist-credentials: false
       - name: Install standalone Runtime and existing-host test dependencies

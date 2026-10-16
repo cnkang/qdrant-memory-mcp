@@ -18,7 +18,7 @@ def test_public_runtime_avoids_clone(monkeypatch):
     monkeypatch.setattr(module.subprocess, "run", lambda cmd, **k: commands.append(cmd))
     module.main()
     assert len(commands) == 1 and "download" in commands[0]
-    assert commands[0][-1] == "hermes-plugin-qdrant-memory==0.2.2"
+    assert commands[0][-1] == "hermes-plugin-qdrant-memory==0.3.0"
 
 
 def test_runtime_lookup_error_does_not_silently_fallback(monkeypatch):

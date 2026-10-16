@@ -2,10 +2,11 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile, writeFile, lstat } from 'node:fs/promises';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { locations, prepare, installed, runtime, dependencyDigest } from '../integrations/managed/provision.mjs';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+const packageRoot = process.env.QDRANT_TEST_LAUNCHER_ROOT || fileURLToPath(new URL('../integrations/managed/', import.meta.url));
+const { locations, prepare, installed, runtime, dependencyDigest } = await import(pathToFileURL(join(packageRoot, 'provision.mjs')));
 const root = process.env.QDRANT_MEMORY_MANAGED_ROOT;
 assert.ok(root, 'Choose an explicit disposable managed root');
 const start = performance.now();
@@ -16,12 +17,12 @@ assert.notEqual(dsh.profile, wb.profile);
 const interrupted = new AbortController();
 await assert.rejects(prepare(dsh, 'dsh', interrupted.signal, stage => {
   if (stage === 'install-runtime') interrupted.abort();
-}));
+}), error => interrupted.signal.aborted && error.stage === 'install-runtime');
 await assert.rejects(installed(dsh));
 // A stopped probe can leave stale temporary files; the next preparation must
 // replace them instead of failing on their presence.
 await writeFile(join(dsh.program, process.platform === 'win32' ? 'uv.exe.pending' : 'uv.pending'), 'stale', { flag: 'w' });
-await writeFile(join(dsh.program, 'runtime.tar.gz.pending'), 'stale', { flag: 'w' });
+await writeFile(join(dsh.program, `hermes_plugin_qdrant_memory-${runtime.version}-py3-none-any.whl.pending`), 'stale', { flag: 'w' });
 // Simulate legacy writes interrupted before atomic snapshot publication existed.
 // Retrying must revalidate the installation, not trust a partial success marker.
 const lockfile = join(dsh.program, 'requirements.lock');
@@ -33,9 +34,10 @@ await writeFile(marker, JSON.stringify({ revision: runtime.revision, dependencie
 await writeFile(marker + '.pending', 'stale');
 await assert.rejects(installed(dsh));
 await prepare(dsh, 'dsh');
+await assert.rejects(lstat(join(dsh.program, `hermes_plugin_qdrant_memory-${runtime.version}-py3-none-any.whl.pending`)), { code: 'ENOENT' });
 assert.equal(await readFile(lockfile, 'utf8'), requirements);
 await prepare(wb, 'workbuddy');
-const launcher = fileURLToPath(new URL('../integrations/managed/launcher.mjs', import.meta.url));
+const launcher = join(packageRoot, 'launcher.mjs');
 
 async function session(host, action) {
   const child = spawn(process.execPath, [launcher, 'mcp', host], { env: process.env, stdio: ['pipe', 'pipe', 'pipe'] });

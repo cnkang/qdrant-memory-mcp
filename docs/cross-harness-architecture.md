@@ -29,7 +29,7 @@ Node improves installation on supported hosts. It does not replace the shared
 Python memory engine or require existing Python users to migrate.
 
 WorkBuddy owns its connector metadata, managed Node declaration, connection
-timeout and credential form. Its source preview may prepare the backend after
+timeout and credential form. Its managed connection prepares the backend after
 the MCP handshake. Tools report preparation errors until ready. Writes are never
 queued during installation. DSH uses a separate preparation step, so its
 temporary probe, reconnect and plugin unload do not run installers. Its overlay
@@ -63,21 +63,21 @@ Never remove locks or change fingerprints to force compatibility.
 
 | Component | Pin | Availability |
 | --- | --- | --- |
-| Published MCP | 0.1.3 | Existing Python/uvx path |
-| Published Runtime dependency | 0.2.2 | Existing Hermes/standalone behavior |
-| Managed Runtime candidate | `b568e0d5bfe23f10e4b1ea912405c1054730f3b5` | Verified source archive. Optional CPU setup |
-| Node launcher | 0.1.0 source candidate | Private package. No npm/marketplace release. |
+| Python MCP | 0.1.4 | Python/uvx distribution; confirm the exact version on PyPI |
+| Runtime | 0.3.0 | Public PyPI wheel; optional CPU provider |
+| Node launcher | 0.1.0-rc.1 | Independently versioned release candidate |
 | Bootstrap | uv 0.13.1 / Python 3.11.15 | Fixed platform artifacts, verified uv hash |
 | Canonical Skill | 0.2.6 | See connector `skill-source.json` for exact commit |
 | DSH contract-test packages | 0.2.0-rc.2 | Exact npm test pins and lockfile |
 
-The managed installer verifies its uv executable and Runtime source archive
+The managed installer verifies its uv executable and public Runtime wheel
 before execution. uv verifies its managed Python artifacts. Runtime verifies
-the CPU model files. Python dependencies and build tools are version and hash
-locked. The Runtime is built without an unpinned build environment. Program
+the CPU model files. Python dependencies are version and hash locked, and
+installed as wheels without source builds. Program
 directories include the lock digest, so dependency changes cannot silently reuse
-another environment. Production release still requires a published Runtime with
-setup APIs, native platform gates and marketplace/real-host acceptance.
+another environment. Existing profiles retain their model-cache settings across
+program upgrades. Native platform automation and Marketplace/real-host acceptance
+are separate gates; a release candidate is not a Marketplace acceptance claim.
 
 Publish compatible shared components first, then pin adapters independently.
 No existing Hermes user needs to upgrade for these opt-in adapters.

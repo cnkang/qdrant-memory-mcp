@@ -3,12 +3,67 @@ import assert from 'node:assert/strict';
 import { PassThrough } from 'node:stream';
 import filesystem from 'node:fs/promises';
 import { syncBuiltinESMExports } from 'node:module';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { mkdtemp, mkdir, symlink, rm, realpath, writeFile, readFile, lstat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { bridge, tools } from '../integrations/managed/bridge.mjs';
 import { locations, installEnvironment, privateDirectory, run, installed, prepare,
-  publishSnapshot, runtime, dependencyDigest } from '../integrations/managed/provision.mjs';
+  publishSnapshot, runtime, dependencyDigest, runtimeRequirement, modelCache } from '../integrations/managed/provision.mjs';
+
+test('npm-style symlink entry actually executes the launcher CLI', async () => {
+  const root = await mkdtemp(join(await realpath(tmpdir()), 'memory-npm-bin-'));
+  try {
+    const bin = join(root, 'qdrant-memory-launcher');
+    await symlink(fileURLToPath(new URL('../integrations/managed/launcher.mjs', import.meta.url)), bin);
+    const result = spawnSync(process.execPath, [bin, 'invalid', 'dsh'], { encoding: 'utf8' });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /Qdrant Memory launcher failed/);
+    assert.equal(result.stdout, '');
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('upgrades retain the existing owned cache location without changing profile configuration', async () => {
+  const root = await mkdtemp(join(await realpath(tmpdir()), 'memory-cache-upgrade-'));
+  const paths = { root, profile: join(root, 'profiles', 'dsh', 'local'), models: join(root, 'models', 'new-model') };
+  try {
+    assert.equal(await modelCache(paths), paths.models);
+    await mkdir(paths.profile, { recursive: true });
+    const config = join(paths.profile, 'qdrant-memory.json');
+    const old = join(root, 'models', 'previous-program');
+    const content = JSON.stringify({ embedding: { model_cache_dir: old } });
+    await writeFile(config, content);
+    assert.equal(await modelCache(paths), old);
+    assert.equal(await readFile(config, 'utf8'), content);
+    for (const cache of ['relative', join(root, 'profiles'), join(root, 'models')]) {
+      await writeFile(config, JSON.stringify({ embedding: { model_cache_dir: cache } }));
+      await assert.rejects(modelCache(paths), /cache/);
+    }
+    const outside = join(root, 'outside');
+    await mkdir(outside);
+    const link = join(root, 'models', 'linked');
+    try { await symlink(outside, link, process.platform === 'win32' ? 'junction' : 'dir'); }
+    catch (error) { if (process.platform === 'win32' && error.code === 'EPERM') return; throw error; }
+    await writeFile(config, JSON.stringify({ embedding: { model_cache_dir: join(link, 'cache') } }));
+    await assert.rejects(modelCache(paths), /Unsafe/);
+    await assert.rejects(lstat(join(outside, 'cache')), { code: 'ENOENT' });
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('released wheels require the exact pinned requirement and artifact hash', () => {
+  const metadata = { status: 'released-wheel', version: '0.3.0', sha256: 'a'.repeat(64) };
+  const lock = `hermes-plugin-qdrant-memory==0.3.0 \\\n    --hash=sha256:${metadata.sha256}\n`;
+  const path = join(tmpdir(), 'hermes_plugin_qdrant_memory-0.3.0-py3-none-any.whl');
+  const resolved = runtimeRequirement(path, metadata, lock);
+  assert.match(resolved, /hermes-plugin-qdrant-memory @ file:/);
+  assert.ok(resolved.includes('--hash=sha256:' + metadata.sha256));
+  assert.equal(runtimeRequirement(path, metadata, lock.replaceAll('\n', '\r\n')), resolved);
+  for (const invalid of [lock.replace('==0.3.0', '>=0.3.0'), lock.replace(metadata.sha256, 'b'.repeat(64)), lock + lock]) {
+    assert.throws(() => runtimeRequirement(path, metadata, invalid), /lock mismatch/);
+  }
+  assert.throws(() => runtimeRequirement(path, { ...metadata, status: 'unknown' }, lock), /Unknown/);
+});
 
 test('installation snapshots replace interrupted writes but reject changed contents and unsafe paths', async () => {
   const root = await mkdtemp(join(await realpath(tmpdir()), 'memory-snapshot-'));
@@ -161,3 +216,33 @@ test('preparation errors remain bounded and redact raw subprocess details', asyn
   await assert.rejects(run(process.execPath, ['-e', 'process.stderr.write("private-token"); process.exit(1)']),
     error => !error.message.includes('private-token'));
 });
+
+test('invalid request IDs and response-shaped messages never reach the backend', async () => {
+  const input = new PassThrough(), output = new PassThrough();
+  const received = [];
+  output.on('data', bytes => received.push(...bytes.toString().trim().split('\n').map(JSON.parse)));
+  const done = bridge(signal => new Promise((_, reject) => signal.addEventListener('abort', () => reject(new Error('stopped')))), input, output);
+  for (const message of [
+    { id: {}, method: 'initialize' }, { id: null, method: 'initialize' },
+    { id: 1, result: {} }, { id: 2, method: 3 }, { id: 1.5, method: 'tools/call' },
+  ]) input.write(JSON.stringify({ jsonrpc: '2.0', ...message }) + '\n');
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(received.length, 5);
+  assert.ok(received.every(message => message.id === null && message.error.code === -32600));
+  input.end(); await done;
+});
+
+for (const response of [null, [], { jsonrpc: '2.0', result: {} }, { jsonrpc: '2.0', id: 'unknown', result: {} }, { jsonrpc: '2.0', id: 'init' },
+  { jsonrpc: '2.0', id: 'init', result: {}, error: {} }, { id: 'init', result: {} }]) {
+  test(`malformed backend response closes transport safely: ${JSON.stringify(response)}`, async () => {
+    const input = new PassThrough(), output = new PassThrough();
+    const done = bridge(async () => ({ command: process.execPath, args: ['-e',
+      "process.stdin.once('data', () => process.stdout.write(process.env.QDRANT_TEST_RESPONSE));"],
+      env: { ...process.env, QDRANT_TEST_RESPONSE: JSON.stringify(response) + '\n' } }), input, output);
+    await Promise.race([done, new Promise((_, reject) => {
+      const timer = setTimeout(() => reject(new Error('Malformed backend did not close')), 3000);
+      done.finally(() => clearTimeout(timer));
+    })]);
+    input.end();
+  });
+}
