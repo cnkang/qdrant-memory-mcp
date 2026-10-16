@@ -1,17 +1,16 @@
+# Qdrant Memory Bundle: connect a prepared shared-memory profile through the
+# official DSH MCP client. Prepare the backend before enabling this bundle:
+#   npx -y @cnkang/qdrant-memory-launcher@0.1.0-rc.1 prepare dsh
+# The probe never runs installation or model downloads.
 - insert:
     - id: cnkang-qdrant-memory-mcp
       name: '@deepseek-ai/dsh-mcp-client'
       config:
         serverName: qdrant-memory
         transport: stdio
-        command: uvx
+        command: npx
         args:
-          - --from
-          - qdrant-memory-mcp==0.1.4
-          - qdrant-memory-mcp
-          - --home
-          - !!js process.env.QDRANT_MEMORY_DSH_PROFILE || require('node:path').join(require('node:os').homedir(), '.qdrant-memory-dsh')
+          - -y
+          - '@cnkang/qdrant-memory-launcher@0.1.0-rc.1'
           - mcp
-        env:
-          QDRANT_API_KEY: !!js process.env.QDRANT_API_KEY || ''
-          EMBEDDING_API_KEY: !!js process.env.EMBEDDING_API_KEY || ''
+          - dsh
