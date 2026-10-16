@@ -23,20 +23,39 @@ import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import { existsSync } from 'node:fs';
 import { readFile, readdir, rm, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 const handshakeOnly = process.argv.includes('--handshake-only');
 const launcher = JSON.parse(await readFile(new URL('../launcher-source.json', import.meta.url), 'utf8'));
 const spec = `${launcher.name}@${launcher.version}`;
-const npx = process.platform === 'win32' ? 'npx.cmd' : 'npx';
 const root = process.env.QDRANT_MEMORY_MANAGED_ROOT;
 assert.ok(root, 'Set QDRANT_MEMORY_MANAGED_ROOT to a disposable managed root');
 assert.ok(root.startsWith('/') || /^[A-Za-z]:[\\/]/.test(root), 'Managed root must be absolute');
 const handshakeBudgetMs = 30000;
 const start = performance.now();
 
+// Node refuses to spawn .bat/.cmd files directly (CVE-2024-27980 fix). On
+// Windows, run npm's npx CLI through the current node binary instead; that is
+// exactly what the npx shim starts. Fall back to a quoted cmd.exe line.
+function npxCommand(args) {
+  if (process.platform !== 'win32') return { command: 'npx', args };
+  const nodeRoot = dirname(process.execPath);
+  const cli = [
+    join(nodeRoot, 'node_modules', 'npm', 'bin', 'npx-cli.js'),
+    join(nodeRoot, 'lib', 'node_modules', 'npm', 'bin', 'npx-cli.js'),
+  ].find(candidate => existsSync(candidate));
+  if (cli) return { command: process.execPath, args: [cli, ...args] };
+  const line = ['npx', ...args].map(argument => `"${argument.replaceAll('"', '""')}"`).join(' ');
+  return { command: process.env.ComSpec || 'cmd.exe', args: ['/d', '/s', '/c', line] };
+}
+
+function spawnNpx(args, options) {
+  const resolved = npxCommand(args);
+  return spawn(resolved.command, resolved.args, options);
+}
+
 function launch(host, extra = []) {
-  const child = spawn(npx, ['-y', spec, 'mcp', host, ...extra], {
+  const child = spawnNpx(['-y', spec, 'mcp', host, ...extra], {
     env: { ...process.env, QDRANT_MEMORY_MANAGED_ROOT: root },
     stdio: ['pipe', 'pipe', 'pipe'],
     windowsHide: true,
@@ -96,7 +115,7 @@ async function waitReady(session, label) {
 }
 
 async function prepareDsh() {
-  const prepare = spawn(npx, ['-y', spec, 'prepare', 'dsh'], { env: { ...process.env, QDRANT_MEMORY_MANAGED_ROOT: root }, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+  const prepare = spawnNpx(['-y', spec, 'prepare', 'dsh'], { env: { ...process.env, QDRANT_MEMORY_MANAGED_ROOT: root }, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
   let out = '';
   prepare.stdout.on('data', bytes => { out += bytes; });
   prepare.stderr.resume();
