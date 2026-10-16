@@ -27,21 +27,39 @@ def available(root):
     return True
 
 
-def launcher(root):
-    """Check the exact pinned npm launcher identity and published integrity."""
-    pin = json.loads((root / "launcher-source.json").read_text(encoding="utf-8"))
-    url = f"https://registry.npmjs.org/{pin['name']}/{pin['version']}"
+def registry_entry(base, pin):
+    """Fetch one registry document for the exact pinned version; None when absent."""
+    url = f"{base}/{pin['name']}/{pin['version']}"
     try:
         with urllib.request.urlopen(url, timeout=30) as response:
-            data = json.load(response)
+            return json.load(response)
     except urllib.error.HTTPError as exc:
         if exc.code == 404:
-            return False
+            return None
         raise
+
+
+def launcher(root):
+    """Check the pinned npm launcher identity, published integrity and mirror agreement."""
+    pin = json.loads((root / "launcher-source.json").read_text(encoding="utf-8"))
+    mcp = json.loads((root / "integrations/workbuddy/mcp.json").read_text(encoding="utf-8"))
+    canonical, *mirrors = mcp["mcpServers"]["qdrant-memory"]["npmRegistries"]
+    if canonical != "https://registry.npmjs.org":
+        raise ValueError("The first npm registry must be the canonical registry")
+    data = registry_entry(canonical, pin)
+    if data is None:
+        return False
     if data.get("name") != pin["name"] or data.get("version") != pin["version"]:
         raise ValueError("Conflicting public launcher identity")
     if data.get("dist", {}).get("integrity") != pin["integrity"]:
         raise ValueError("Public launcher integrity differs from the checked-in pin")
+    for base in mirrors:
+        mirror = registry_entry(base, pin)
+        if mirror is None:
+            print(f"Registry {base} does not serve the pinned version; its fallback entry is inert")
+        elif mirror.get("name") != pin["name"] or mirror.get("version") != pin["version"] \
+                or mirror.get("dist", {}).get("integrity") != pin["integrity"]:
+            raise ValueError(f"Registry {base} serves a conflicting launcher payload")
     return True
 
 

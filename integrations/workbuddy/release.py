@@ -50,7 +50,7 @@ def validate_assets(root: Path, directory: Path, tag: str) -> list[Path]:
     skill = json.loads((config / 'skill-source.json').read_text(encoding='utf-8'))
     launcher = json.loads((root / 'launcher-source.json').read_text(encoding='utf-8'))
     if set(launcher) != {'name', 'version', 'integrity'} or launcher['name'] != '@cnkang/qdrant-memory-launcher' \
-            or not re.fullmatch(r'[0-9A-Za-z.+-]+', launcher['version']) or not re.fullmatch(r'sha512-[A-Za-z0-9+/]+={0,2}', launcher['integrity']):
+            or not re.fullmatch(SEMVER, launcher['version']) or not re.fullmatch(r'sha512-[A-Za-z0-9+/]+={0,2}', launcher['integrity']):
         raise ValueError('Launcher source pin is malformed')
     version = project['version']
     connector = meta['version']
@@ -196,7 +196,7 @@ class GitHubAPI:
             self.request('POST', url, data=stream, headers={'Content-Type': 'application/octet-stream'})
 
 
-def attach_assets(api, tag: str, sha: str, notes: str, paths: list[Path]) -> None:
+def attach_assets(api, tag: str, sha: str, notes: str, paths: list[Path], label: str = 'WorkBuddy assets') -> None:
     api.verify_tag(tag, sha)
     release = api.find_release(tag)
     if release is None:
@@ -216,7 +216,7 @@ def attach_assets(api, tag: str, sha: str, notes: str, paths: list[Path]) -> Non
         else:
             missing.append(path)
     if missing and (not release['draft'] or release.get('immutable', False)):
-        raise ValueError('Published release is missing WorkBuddy assets; do not overwrite or move its tag. Prepare a new approved snapshot and draft release')
+        raise ValueError(f'Published release is missing {label}; do not overwrite or move its tag. Prepare a new approved snapshot and draft release')
     for path in missing:
         # A maintainer may have published since the preflight. Never knowingly
         # add assets after publication, even when immutability is disabled.

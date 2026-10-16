@@ -79,6 +79,57 @@ def test_launcher_pin_requires_matching_published_integrity(monkeypatch):
         check.launcher(ROOT)
 
 
+def test_launcher_mirror_conflict_fails_closed(monkeypatch):
+    import json as jsonlib
+    check = module()
+    pin = jsonlib.loads((ROOT / "launcher-source.json").read_text(encoding="utf-8"))
+
+    class Response:
+        def __init__(self, payload):
+            self.payload = payload
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            return False
+        def read(self):
+            return jsonlib.dumps(self.payload).encode()
+
+    good = {"name": pin["name"], "version": pin["version"], "dist": {"integrity": pin["integrity"]}}
+    bad = {"name": pin["name"], "version": pin["version"], "dist": {"integrity": "sha512-" + "C" * 86 + "=="}}
+
+    monkeypatch.setattr(check.urllib.request, "urlopen", lambda *a, **k: Response(good))
+    assert check.launcher(ROOT) is True
+
+    monkeypatch.setattr(check.urllib.request, "urlopen", lambda url, *a, **k: Response(bad if "npmmirror" in url else good))
+    with pytest.raises(ValueError, match="npmmirror"):
+        check.launcher(ROOT)
+
+
+def test_launcher_mirror_absence_is_informational(monkeypatch, capsys):
+    import json as jsonlib
+    import urllib.error
+    check = module()
+    pin = jsonlib.loads((ROOT / "launcher-source.json").read_text(encoding="utf-8"))
+    payload = {"name": pin["name"], "version": pin["version"], "dist": {"integrity": pin["integrity"]}}
+
+    class Response:
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            return False
+        def read(self):
+            return jsonlib.dumps(payload).encode()
+
+    def selective(url, *args, **kwargs):
+        if "npmmirror" in url:
+            raise urllib.error.HTTPError(url, 404, "Not Found", None, None)
+        return Response()
+
+    monkeypatch.setattr(check.urllib.request, "urlopen", selective)
+    assert check.launcher(ROOT) is True
+    assert "does not serve the pinned version" in capsys.readouterr().out
+
+
 def test_release_workflow_requires_the_public_launcher_pin():
     workflow = (ROOT / ".github/workflows/workbuddy-release.yml").read_text(encoding="utf-8")
     assert "public_install.py --require-launcher" in workflow

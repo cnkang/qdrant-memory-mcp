@@ -64,6 +64,8 @@ def validate_assets(root: Path, directory: Path, tag: str) -> list[Path]:
         raise ValueError('Asset directory must contain exactly the expected tgz and checksum')
     if archive.is_symlink() or not archive.is_file() or archive.stat().st_size > 4 * 1024 * 1024:
         raise ValueError('Archive must be a bounded regular file without symlinks')
+    if checksum.is_symlink() or not checksum.is_file() or checksum.stat().st_size > 1024:
+        raise ValueError('Checksum must be a bounded regular file without symlinks')
     digest = hashlib.sha256(archive.read_bytes()).hexdigest()
     if checksum.read_text(encoding='utf-8') != f'{digest}  {filename}\n':
         raise ValueError('Asset checksum or checksum filename does not match')
@@ -87,7 +89,7 @@ def main() -> int:
     paths = validate_assets(ROOT, args.asset_dir, args.release_tag)
     release = load_module('workbuddy_release', ROOT / 'integrations/workbuddy/release.py')
     api = release.GitHubAPI(os.environ['GITHUB_REPOSITORY'], os.environ['GITHUB_TOKEN'])
-    release.attach_assets(api, args.release_tag, sha, notes, paths)
+    release.attach_assets(api, args.release_tag, sha, notes, paths, label='DSH bundle assets')
     return 0
 
 

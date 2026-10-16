@@ -25,6 +25,8 @@ jobs:
         with:
           python-version: '3.11'
       - run: python -m pip install 'pytest>=8,<10' 'requests>=2,<3'
+      - name: Require the pinned public launcher before preparing release assets
+        run: python integrations/workbuddy/public_install.py --require-launcher
       - name: Verify source and pack the reviewed bundle
         env:
           RELEASE_TAG: ${{ github.ref_name }}

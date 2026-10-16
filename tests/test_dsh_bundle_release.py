@@ -89,7 +89,7 @@ def test_validate_assets_binds_names_checksum_and_payload(assets):
     assert module().validate_assets(source, archive.parent, 'dsh-bundle-v0.1.0') == [archive, checksum]
 
 
-@pytest.mark.parametrize('problem', ['checksum', 'extra', 'missing', 'payload', 'tag'])
+@pytest.mark.parametrize('problem', ['checksum', 'extra', 'missing', 'payload', 'tag', 'symlink'])
 def test_invalid_asset_directory_rejected(assets, problem):
     source, archive, checksum = assets
     if problem == 'checksum':
@@ -98,6 +98,9 @@ def test_invalid_asset_directory_rejected(assets, problem):
         (archive.parent / 'extra.tgz').write_bytes(b'no')
     elif problem == 'missing':
         checksum.unlink()
+    elif problem == 'symlink':
+        checksum.unlink()
+        checksum.symlink_to(archive)
     elif problem == 'payload':
         archive.unlink()
         with tarfile.open(archive, 'w:gz') as output:
@@ -121,6 +124,11 @@ def test_private_bundle_identity_rejected(source):
     meta_path.write_text(json.dumps(meta))
     with pytest.raises(ValueError, match='publishable'):
         module().bundle_metadata(source)
+
+
+def test_release_workflow_requires_the_public_launcher_pin():
+    workflow = (ROOT / '.github/workflows/dsh-bundle-release.yml').read_text(encoding='utf-8')
+    assert 'public_install.py --require-launcher' in workflow
 
 
 def test_check_source_does_not_require_token_or_api(source, monkeypatch):

@@ -104,7 +104,8 @@ rejects drift from the checked-in pins:
 
 - The launcher pin lives in `launcher-source.json` at the repository root and
   must be public on the npm registry with matching integrity before release
-  assets are prepared.
+  assets are prepared. Additional registries listed in `mcp.json` must serve
+  the same identity and integrity when they serve the pinned version.
 - The Skill pin lives in `integrations/workbuddy/skill-source.json` and must
   match a clean canonical checkout at the exact commit.
 - For a future MCP release, update the checked-in uvx alternative's version
@@ -116,10 +117,11 @@ rejects drift from the checked-in pins:
 their own Python backend instead of the managed launcher:
 
 ```sh
-uvx --from qdrant-memory-mcp==0.1.4 qdrant-memory-mcp --home /private/path/profile mcp
+uvx --from qdrant-memory-mcp==0.1.4 qdrant-memory-mcp mcp
 ```
 
-That route requires Python 3.11+, uv/uvx, a separately prepared profile and an
+Add `--home <private-profile-path>` before `mcp` to bind an explicit private
+profile directory. That route requires Python 3.11+, uv/uvx, a separately prepared profile and an
 embedding service such as Ollama. Warm the pinned package before connecting.
 Network installation can exceed the 30-second connection timeout. Never use a
 personal Hermes profile for WorkBuddy. Never initialize an existing
