@@ -24,6 +24,20 @@ Actions use immutable commit pins. Dependabot updates both occurrences of the
 CodeQL action together. Repository Dependabot security updates, secret scanning
 and push protection are enabled. No additional service token is required.
 
+## Accepted upstream advisory (test-only)
+
+The DSH contract-test packages (`integrations/dsh/`) transitively pin
+`@modelcontextprotocol/client@2.0.0` (required by
+`@deepseek-ai/dsh-mcp-client@0.2.0-rc.2`), which a Dependabot alert flags
+(GHSA-6qxp-vccf-f47h, OAuth credential disclosure, fixed in 2.2.0). This
+dependency exists only in the test environment: it is not part of the
+launcher, the connector package, the bundle or any release artifact, and the
+release artifacts contain no JavaScript dependencies at all. The fix must
+come from the upstream DSH line. When a DSH release resolves the client at
+2.2.0 or newer, bump the devDependency here and refresh the lockfile. Until
+then the alert stays open as a recorded, reviewed exception. Do not hand-edit
+the lockfile to force a different transitive pin.
+
 The Runtime dependency is exact at `0.3.0`. Runtime updates must also adjust
 compatibility expectations and the preparation fixture deliberately. A dependency-only PR cannot bypass the
 distribution's metadata/protocol checks. This repository scans distribution
