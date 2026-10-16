@@ -39,6 +39,18 @@ def registry_entry(base, pin):
         raise
 
 
+def mirror_entry(base, pin):
+    """Best-effort fallback lookup: absence and transient failures are informational."""
+    try:
+        entry = registry_entry(base, pin)
+    except (urllib.error.HTTPError, urllib.error.URLError, OSError) as exc:
+        print(f"Registry {base} is unreachable ({type(exc).__name__}); its fallback entry was not verified")
+        return None
+    if entry is None:
+        print(f"Registry {base} does not serve the pinned version; its fallback entry is inert")
+    return entry
+
+
 def launcher(root):
     """Check the pinned npm launcher identity, published integrity and mirror agreement."""
     pin = json.loads((root / "launcher-source.json").read_text(encoding="utf-8"))
@@ -48,17 +60,18 @@ def launcher(root):
         raise ValueError("The first npm registry must be the canonical registry")
     data = registry_entry(canonical, pin)
     if data is None:
+        for base in mirrors:
+            if mirror_entry(base, pin) is not None:
+                raise ValueError(f"Registry {base} serves a launcher version that the canonical registry does not publish")
         return False
     if data.get("name") != pin["name"] or data.get("version") != pin["version"]:
         raise ValueError("Conflicting public launcher identity")
     if data.get("dist", {}).get("integrity") != pin["integrity"]:
         raise ValueError("Public launcher integrity differs from the checked-in pin")
     for base in mirrors:
-        mirror = registry_entry(base, pin)
-        if mirror is None:
-            print(f"Registry {base} does not serve the pinned version; its fallback entry is inert")
-        elif mirror.get("name") != pin["name"] or mirror.get("version") != pin["version"] \
-                or mirror.get("dist", {}).get("integrity") != pin["integrity"]:
+        mirror = mirror_entry(base, pin)
+        if mirror is not None and (mirror.get("name") != pin["name"] or mirror.get("version") != pin["version"] \
+                or mirror.get("dist", {}).get("integrity") != pin["integrity"]):
             raise ValueError(f"Registry {base} serves a conflicting launcher payload")
     return True
 

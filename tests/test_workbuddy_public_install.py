@@ -130,6 +130,70 @@ def test_launcher_mirror_absence_is_informational(monkeypatch, capsys):
     assert "does not serve the pinned version" in capsys.readouterr().out
 
 
+def test_launcher_first_registry_must_be_canonical(tmp_path):
+    import json as jsonlib
+    check = module()
+    pin = (ROOT / "launcher-source.json").read_text(encoding="utf-8")
+    mcp = jsonlib.loads((ROOT / "integrations/workbuddy/mcp.json").read_text(encoding="utf-8"))
+    servers = mcp["mcpServers"]["qdrant-memory"]
+    servers["npmRegistries"] = list(reversed(servers["npmRegistries"]))
+    (tmp_path / "launcher-source.json").write_text(pin)
+    (tmp_path / "integrations/workbuddy").mkdir(parents=True)
+    (tmp_path / "integrations/workbuddy/mcp.json").write_text(jsonlib.dumps(mcp))
+    with pytest.raises(ValueError, match="canonical registry"):
+        check.launcher(tmp_path)
+
+
+def test_launcher_mirror_version_without_canonical_fails_closed(monkeypatch):
+    import json as jsonlib
+    import urllib.error
+    check = module()
+    pin = jsonlib.loads((ROOT / "launcher-source.json").read_text(encoding="utf-8"))
+    payload = {"name": pin["name"], "version": pin["version"], "dist": {"integrity": pin["integrity"]}}
+
+    class Response:
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            return False
+        def read(self):
+            return jsonlib.dumps(payload).encode()
+
+    def selective(url, *args, **kwargs):
+        if "registry.npmjs.org" in url:
+            raise urllib.error.HTTPError(url, 404, "Not Found", None, None)
+        return Response()
+
+    monkeypatch.setattr(check.urllib.request, "urlopen", selective)
+    with pytest.raises(ValueError, match="does not publish"):
+        check.launcher(ROOT)
+
+
+def test_launcher_unreachable_mirror_is_informational(monkeypatch, capsys):
+    import json as jsonlib
+    import urllib.error
+    check = module()
+    pin = jsonlib.loads((ROOT / "launcher-source.json").read_text(encoding="utf-8"))
+    payload = {"name": pin["name"], "version": pin["version"], "dist": {"integrity": pin["integrity"]}}
+
+    class Response:
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            return False
+        def read(self):
+            return jsonlib.dumps(payload).encode()
+
+    def selective(url, *args, **kwargs):
+        if "npmmirror" in url:
+            raise urllib.error.HTTPError(url, 503, "Service Unavailable", None, None)
+        return Response()
+
+    monkeypatch.setattr(check.urllib.request, "urlopen", selective)
+    assert check.launcher(ROOT) is True
+    assert "unreachable" in capsys.readouterr().out
+
+
 def test_release_workflow_requires_the_public_launcher_pin():
     workflow = (ROOT / ".github/workflows/workbuddy-release.yml").read_text(encoding="utf-8")
     assert "public_install.py --require-launcher" in workflow

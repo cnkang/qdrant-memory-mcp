@@ -89,7 +89,7 @@ def test_validate_assets_binds_names_checksum_and_payload(assets):
     assert module().validate_assets(source, archive.parent, 'dsh-bundle-v0.1.0') == [archive, checksum]
 
 
-@pytest.mark.parametrize('problem', ['checksum', 'extra', 'missing', 'payload', 'tag', 'symlink'])
+@pytest.mark.parametrize('problem', ['checksum', 'extra', 'missing', 'oversized', 'payload', 'tag', 'symlink'])
 def test_invalid_asset_directory_rejected(assets, problem):
     source, archive, checksum = assets
     if problem == 'checksum':
@@ -98,6 +98,8 @@ def test_invalid_asset_directory_rejected(assets, problem):
         (archive.parent / 'extra.tgz').write_bytes(b'no')
     elif problem == 'missing':
         checksum.unlink()
+    elif problem == 'oversized':
+        checksum.write_text('0' * 2048)
     elif problem == 'symlink':
         checksum.unlink()
         checksum.symlink_to(archive)
