@@ -21,12 +21,13 @@
   `0.1.0-rc.1` end to end on Linux, macOS and Windows: cold handshake within
   the connector timeout, a clean unprepared probe, refused-but-not-queued
   writes, CRUD and fresh-process persistence. The pinned `0.1.0-rc.2`
-  re-runs the same suite after its publication.
+  re-ran the same suite after its publication and passed on Linux, macOS
+  and Windows (2026-10-16).
 - Preserve profile cache settings across upgrades and reject malformed bridge
   responses safely. Reproduce the published launcher `0.1.0-rc.1` integrity
   from a clean source pack at its release and include strict package-content
-  checks; the same check re-runs for the pinned `0.1.0-rc.2` after its
-  publication.
+  checks. The same check re-ran for the pinned `0.1.0-rc.2` after its
+  publication and reproduced the published integrity (2026-10-16).
 
 ## 0.1.3
 

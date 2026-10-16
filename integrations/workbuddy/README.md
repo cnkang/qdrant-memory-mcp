@@ -105,7 +105,7 @@ rejects drift from the checked-in pins:
 - The launcher pin lives in `launcher-source.json` at the repository root and
   must be public on the npm registry with matching integrity before release
   assets are prepared. Additional registries listed in `mcp.json` are
-  best-effort cross-checked against the canonical registry; a conflict fails
+  best-effort cross-checked against the canonical registry. A conflict fails
   the gate.
 - The Skill pin lives in `integrations/workbuddy/skill-source.json` and must
   match a clean canonical checkout at the exact commit.
@@ -265,8 +265,9 @@ The managed connector was additionally exercised end to end on macOS through
 the exact public npx command with an isolated managed root: cold handshake,
 background preparation, refusal semantics, CRUD, fresh-process persistence and
 aborted-preparation resume. These acceptance runs measured the published
-`0.1.0-rc.1` tarball. The pinned `0.1.0-rc.2` re-runs the same acceptance
-after its publication. GUI-level marketplace ZIP import, managed-Node
+`0.1.0-rc.1` tarball. The pinned `0.1.0-rc.2` re-ran the same acceptance
+after its publication on 2026-10-16 and passed on Linux, macOS and Windows
+CI plus a local macOS run. GUI-level marketplace ZIP import, managed-Node
 provisioning and a full application restart on a clean machine remain
 maintainer gates before marketplace submission.
 
