@@ -17,7 +17,7 @@ assert.notEqual(dsh.profile, wb.profile);
 const interrupted = new AbortController();
 await assert.rejects(prepare(dsh, 'dsh', interrupted.signal, stage => {
   if (stage === 'install-runtime') interrupted.abort();
-}));
+}), error => interrupted.signal.aborted && error.stage === 'install-runtime');
 await assert.rejects(installed(dsh));
 // A stopped probe can leave stale temporary files; the next preparation must
 // replace them instead of failing on their presence.

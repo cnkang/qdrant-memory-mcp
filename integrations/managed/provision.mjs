@@ -9,11 +9,12 @@ import { BOOTSTRAPS, UV_VERSION, PYTHON_VERSION, download, extractExecutable, ve
 
 export const runtime = JSON.parse(await readFile(new URL('./runtime.json', import.meta.url), 'utf8'));
 export const hosts = new Set(['workbuddy', 'dsh']);
-const requirements = await readFile(new URL('./requirements.lock', import.meta.url), 'utf8');
+const requirements = (await readFile(new URL('./requirements.lock', import.meta.url), 'utf8')).replaceAll('\r\n', '\n');
 export const dependencyDigest = createHash('sha256').update(requirements).update(JSON.stringify(runtime)).digest('hex');
 const installedSnapshot = JSON.stringify({ revision: runtime.revision, dependencies: dependencyDigest });
 
 export function runtimeRequirement(artifact, metadata = runtime, lock = requirements) {
+  lock = lock.replaceAll('\r\n', '\n');
   if (metadata.status !== 'released-wheel') throw new Error('Unknown Runtime distribution');
   const requirement = `hermes-plugin-qdrant-memory==${metadata.version}`;
   const matches = [...lock.matchAll(/^hermes-plugin-qdrant-memory[^\n]*\n(?:[ \t]+--hash=sha256:[0-9a-f]+(?: \\)?\n)+/gm)];

@@ -36,6 +36,7 @@ test('released wheels require the exact pinned requirement and artifact hash', (
   const resolved = runtimeRequirement(path, metadata, lock);
   assert.match(resolved, /hermes-plugin-qdrant-memory @ file:/);
   assert.ok(resolved.includes('--hash=sha256:' + metadata.sha256));
+  assert.equal(runtimeRequirement(path, metadata, lock.replaceAll('\n', '\r\n')), resolved);
   for (const invalid of [lock.replace('==0.3.0', '>=0.3.0'), lock.replace(metadata.sha256, 'b'.repeat(64)), lock + lock]) {
     assert.throws(() => runtimeRequirement(path, metadata, invalid), /lock mismatch/);
   }
