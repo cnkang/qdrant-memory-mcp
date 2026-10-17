@@ -38,7 +38,7 @@ bundle release. Official SDK process tests verify the protocol. Importing these
 configs in actual host UIs still needs host acceptance. Do not relabel that test
 coverage as native host certification.
 
-中文：通过独立虚拟环境安装审查后的 Runtime checkout，启动唯一 owner，并为各 Agent
+中文：通过独立虚拟环境安装未发布的预览版 Runtime checkout，启动唯一 owner，并为各 Agent
 显式配置不同 token。使用本目录预览配置手动接入，不修改已有 DSH/WorkBuddy 私有安装。
 服务端校验 scope、共享标记、读写权限和版本；旧记录不会自动公开。
 Hermes Native Provider 保持兼容和私有，自动提取到共享空间尚未实现，不能注册重复接口。
