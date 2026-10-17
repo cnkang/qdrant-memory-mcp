@@ -1,7 +1,7 @@
 # Shared service integration preview / 共享服务接入预览
 
 **Unreleased, opt-in.** The distribution remains metadata-only and its public
-runtime pin is unchanged. These examples require installing the reviewed Runtime
+runtime pin is unchanged. These examples require installing the unreleased preview Runtime
 checkout into a separate virtual environment with `[mcp]`. Published 0.3.0 does
 not contain `shared-serve`/`shared-mcp`.
 

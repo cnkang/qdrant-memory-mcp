@@ -85,17 +85,26 @@ def test_bundle_inspect_rejects_manifest_without_reviewed_patch(tmp_path, monkey
         module.inspect(archive, source)
 
 
+def at_least(version, floor):
+    """A prerelease of the fix version does not count as the fix."""
+    numbers, _, prerelease = version.partition("-")
+    parts = tuple(int(part) for part in numbers.split("."))
+    return parts > floor or (parts == floor and not prerelease)
+
+
 def test_dsh_lock_excludes_oauth_vulnerable_sdk_versions():
     """Reject vulnerable SDK copies, including nested transitive resolutions."""
     lock = json.loads((ROOT / "integrations/dsh/package-lock.json").read_text(encoding="utf-8"))
     clients = []
     for path, package in lock["packages"].items():
         if path.endswith(("node_modules/@modelcontextprotocol/client", "node_modules/@modelcontextprotocol/core")):
-            version = tuple(int(part) for part in package["version"].split("."))
-            assert version >= (2, 2, 0), f"{path} retains GHSA-6qxp-vccf-f47h baseline"
+            assert at_least(
+                package["version"], (2, 2, 0)
+            ), f"{path} retains GHSA-6qxp-vccf-f47h baseline"
             if path.endswith("/client"):
                 clients.append(path)
         elif path.endswith("node_modules/@modelcontextprotocol/sdk"):
-            version = tuple(int(part) for part in package["version"].split("."))
-            assert version >= (1, 31, 0), f"{path} retains the affected 1.x SDK"
+            assert at_least(
+                package["version"], (1, 31, 0)
+            ), f"{path} retains the affected 1.x SDK"
     assert clients, "The actual DSH MCP client resolution must be audited"
