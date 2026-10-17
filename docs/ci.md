@@ -31,7 +31,7 @@ The reproducible cross-harness gate pins official DSH packages at
 [GHSA-6qxp-vccf-f47h](https://github.com/advisories/GHSA-6qxp-vccf-f47h)
 (Dependabot alert #2). The lockfile regression test rejects affected SDK
 versions, including nested copies. The alert closes only after the corrected
-lockfile reaches the default branch and GitHub re-evaluates it; a feature
+lockfile reaches the default branch and GitHub re-evaluates it. A feature
 branch push alone does not close it. No transitive override is used.
 
 The separate `DSH next compatibility` workflow resolves the three official
@@ -40,14 +40,14 @@ change. It runs the same real client/CLI/Bundle acceptance, rejects skipped
 results, and retains the resolved dependency tree, generated lockfile and audit
 report. It is a compatibility signal, separate from the exact-version release
 gate. Promote a tested `next` version by explicitly updating all three pins and
-the committed lockfile; do not replace `npm ci` with floating installs in the
+the committed lockfile. Do not replace `npm ci` with floating installs in the
 release gate. The npm `latest` tags are not synchronized across these packages.
 
 The 2026-10-17 audit of `0.2.1-rc.2` still reports one unrelated moderate
 advisory, [GHSA-px8p-9vwx-vf98](https://github.com/advisories/GHSA-px8p-9vwx-vf98),
 through the upstream Office conversion dependency on `fflate` (eight affected
 dependency nodes). No high/critical advisories remain in this npm tree.
-These npm dependencies are development-only contract-test dependencies; they
+These npm dependencies are development-only contract-test dependencies. They
 are not installed by Python artifacts or shipped in the configuration-only Bundle. Follow
 up with an upstream DSH update rather than `npm audit fix --force`.
 

@@ -17,10 +17,10 @@ The CLI, MCP Client and filesystem Skill provider are pinned together at that
 version. MCP Client/Core resolve to the OAuth advisory fix `2.2.0`.
 The Bundle peer range retains the old RC line and explicitly admits the new RC
 line, because npm prerelease matching does not infer it from the old range.
-The Desktop GUI evidence below remains for 0.2.0-rc.2; this update does not claim
+The Desktop GUI evidence below remains for 0.2.0-rc.2. This update does not claim
 new GUI acceptance. The independent floating `next` CI probe complements the
-committed exact-version release gate; see [dependency maintenance](ci.md).
-The updated distribution suite passed 141 tests; Ruff, actionlint, clean npm
+committed exact-version release gate. See [dependency maintenance](ci.md).
+The updated distribution suite passed 141 tests. Ruff, actionlint, clean npm
 installation, wheel/sdist builds and strict metadata checks also passed locally.
 
 ## Local automated coverage
@@ -68,7 +68,7 @@ write followed by a disk-full error and verify that a later retry succeeds.
 The earlier extension-contract inspection checked official DSH master
 `86a402200d95fecef4529d969836f1fe13c6cb0d` and the published `next` packages
 0.2.0-rc.2. At that inspection, master declared the 0.2.1 alpha line and no
-stable GitHub Release was available. That inspection is historical; the update
+stable GitHub Release was available. That inspection is historical. The update
 above records the current automated
 package baseline. Tests pin exact npm versions rather than moving master or
 the unsynchronized npm `latest` tags.
