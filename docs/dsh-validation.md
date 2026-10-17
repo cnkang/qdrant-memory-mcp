@@ -35,7 +35,7 @@ installation, wheel/sdist builds and strict metadata checks also passed locally.
 | Launcher distribution | At the `0.1.0-rc.1` and `0.1.0-rc.2` releases, a clean `npm pack` of `integrations/managed/` reproduced the published tarball integrity, and the release workflow refuses unpublished pins |
 | DSH 0.2.1-rc.2 official client | Real Cordis plugin activation/disposal, temporary probe, four tool registration/schema/rendering, error propagation, pre-cancelled request, child crash/reconnect and fresh-process persistence |
 | DSH official CLI | Overlay composition preserves the selected user's patch and unrelated profile patch |
-| DSH Bundle install | Real `dsh plugin` install of the packed Bundle tarball into a disposable profile; the layer composes and removes cleanly |
+| DSH Bundle install | Real `dsh plugin` install of the packed Bundle tarball into a disposable profile. The layer composes and removes cleanly |
 | DSH Skill provider | Canonical Skill discovery/loading by the actual filesystem provider |
 | WorkBuddy packaging | Canonical Skill 0.2.6 at exact commit, deterministic ZIP/checksum and existing publication guards |
 | Hermes native source | 431 passed, 6 skipped: native lifecycle/defaults/models, scope, ownership, ledger/recovery and standalone MCP. External-service/real-model skips remain separate gates |
