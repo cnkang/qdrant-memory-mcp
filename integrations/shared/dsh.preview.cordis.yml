@@ -1,0 +1,15 @@
+# Unreleased checkout preview. Does not install/modify the managed DSH bundle.
+# Host operator injects a distinct credential; no database/model profile in client.
+- insert:
+    - id: cnkang-qdrant-memory-shared-preview
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: qdrant-memory-shared
+        transport: stdio
+        command: /absolute/path/shared-runtime-env/bin/qdrant-memory
+        args:
+          - shared-mcp
+          - --url
+          - http://127.0.0.1:8765
+        env:
+          QDRANT_MEMORY_SHARED_TOKEN: !!js process.env.QDRANT_MEMORY_SHARED_TOKEN || ''

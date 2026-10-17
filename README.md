@@ -1,5 +1,9 @@
 # Qdrant Memory MCP
 
+## One Memory, Multiple Agents — unreleased preview
+
+An opt-in single-owner service and stdio bridge are implemented in the companion Runtime checkout. See [shared integration preview](integrations/shared/README.md). Published pins and managed private defaults are unchanged; Native Provider automatic shared extraction is deferred.
+
 <!-- mcp-name: io.github.cnkang/qdrant-memory -->
 
 A [WorkBuddy connector](integrations/workbuddy/README.md) and a

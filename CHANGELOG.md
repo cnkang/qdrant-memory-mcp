@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Add separate opt-in shared-service preview configurations for stdio hosts, DSH, WorkBuddy and Codex. Keep public runtime pins and managed private provisioning unchanged.
+
 ## 0.1.4
 
 - Pin the public Runtime 0.3.0 while preserving the metadata-only Python MCP,

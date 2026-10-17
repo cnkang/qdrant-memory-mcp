@@ -16,3 +16,5 @@ include docs/workbuddy-one-click-architecture.md docs/workbuddy-one-click-valida
 include docs/cross-harness-architecture.md docs/hermes-compatibility.md
 include docs/dsh-integration.md docs/dsh-integration.zh-CN.md docs/dsh-validation.md
 recursive-include docs/adr *.md
+
+recursive-include integrations/shared *.md *.json *.yml *.toml
