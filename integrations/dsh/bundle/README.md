@@ -13,7 +13,9 @@ connection never captures conversation turns automatically.
 ## Requirements
 
 - DeepSeek Harness with the official MCP client (`@deepseek-ai/dsh-mcp-client`).
-  The tested client line is `>=0.2.0-rc.2 <0.3.0`.
+  The compatibility range retains `>=0.2.0-rc.2 <0.3.0` and explicitly includes
+  the `0.2.1-rc.2` prerelease line. Automated test packages pin `0.2.1-rc.2`,
+  whose upstream MCP Client dependency is the patched `2.2.0`.
 - Node.js 20 or newer for `npx`. DSH already runs on Node.js.
 - `pnpm` on `PATH` for `dsh plugin --profile <name> add`: the official DSH
   plugin manager forwards installation to pnpm.

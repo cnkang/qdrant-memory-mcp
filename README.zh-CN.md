@@ -1,5 +1,9 @@
 # Qdrant Memory MCP
 
+## One Memory, Multiple Agents — 未发布预览
+
+配套 Runtime checkout 新增显式启用的单 owner 共享服务和 stdio 桥接。见[共享接入预览](integrations/shared/README.md)。现有发布版本、DSH/WorkBuddy 私有默认配置不变；Hermes Native Provider 自动共享提取尚未实现。
+
 这是 Qdrant Memory 的独立 PyPI 包装与 MCP Registry 分发仓库。
 所有业务逻辑来自唯一的 [Python Runtime](https://github.com/cnkang/hermes-plugin-qdrant-memory)，
 本仓库不复制 Runtime 或 [Agent Skill](https://github.com/cnkang/skills/tree/main/qdrant-memory)。

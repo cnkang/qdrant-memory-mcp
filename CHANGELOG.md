@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Update official DSH test packages to 0.2.1-rc.2, resolving the MCP OAuth advisory through upstream Client/Core 2.2.0. Preserve both Bundle peer RC lines.
+- Add a separate floating `next` compatibility probe while retaining exact, lockfile-based release acceptance.
+
+- Add separate opt-in shared-service preview configurations for stdio hosts, DSH, WorkBuddy and Codex. Keep public runtime pins and managed private provisioning unchanged.
+
 ## 0.1.4
 
 - Pin the public Runtime 0.3.0 while preserving the metadata-only Python MCP,
