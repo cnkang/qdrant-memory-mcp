@@ -50,7 +50,7 @@ jobs:
         run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Ensure pnpm for the official DSH plugin manager
         shell: bash
-        run: pnpm --version || npm install --global pnpm@12.14.0 --ignore-scripts
+        run: pnpm --version || npm install --global pnpm@12.14.0
       - name: Artifact, cold handshake, host isolation and secret boundaries
         run: node --test tests/test_managed_bootstrap.mjs tests/test_managed_launcher.mjs
       - name: Require a complete and clean npm payload
