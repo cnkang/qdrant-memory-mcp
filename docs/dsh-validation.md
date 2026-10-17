@@ -4,9 +4,24 @@ Validation is separated into protocol tests, real dependency/model preparation,
 and actual desktop conversations. No synthetic model fixture is described as a
 real model/GUI acceptance result.
 
-Local final checks: 94 Python distribution tests, 22 Node tests and two explicit
+Earlier baseline checks: 94 Python distribution tests, 22 Node tests and two explicit
 official DSH integration tests passed. WorkBuddy's deterministic connector build,
 wheel/sdist build, metadata checks, Ruff and workflow lint also passed.
+
+## DSH dependency update (2026-10-17)
+
+The official `next` release [0.2.1-rc.2](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.2.1-rc.2)
+passed all three real local acceptance tests: MCP Client lifecycle/CRUD/restart,
+CLI overlay preservation, and packed Bundle installation/composition/removal.
+The CLI, MCP Client and filesystem Skill provider are pinned together at that
+version. MCP Client/Core resolve to the OAuth advisory fix `2.2.0`.
+The Bundle peer range retains the old RC line and explicitly admits the new RC
+line, because npm prerelease matching does not infer it from the old range.
+The Desktop GUI evidence below remains for 0.2.0-rc.2; this update does not claim
+new GUI acceptance. The independent floating `next` CI probe complements the
+committed exact-version release gate; see [dependency maintenance](ci.md).
+The updated distribution suite passed 141 tests; Ruff, actionlint, clean npm
+installation, wheel/sdist builds and strict metadata checks also passed locally.
 
 ## Local automated coverage
 
@@ -18,7 +33,7 @@ wheel/sdist build, metadata checks, Ruff and workflow lint also passed.
 | Real CPU preparation | Fresh private Python and Runtime installation, verified CPU model, both host profiles, real inference, fresh-process save/search/update/delete |
 | Public npm launcher | The exact connector command and the exact DSH command run through `npx` against the published `0.1.0-rc.1` package: cold handshake within the connector timeout, a clean unprepared probe (no downloads, no lock, no fake success), background preparation, refused-but-not-replayed writes, CRUD and fresh-process persistence on Linux, macOS and Windows. The pinned `0.1.0-rc.2` re-ran the same acceptance after its publication and passed on all three platforms (2026-10-16) |
 | Launcher distribution | At the `0.1.0-rc.1` and `0.1.0-rc.2` releases, a clean `npm pack` of `integrations/managed/` reproduced the published tarball integrity, and the release workflow refuses unpublished pins |
-| DSH 0.2.0-rc.2 official client | Real Cordis plugin activation/disposal, temporary probe, four tool registration/schema/rendering, error propagation, pre-cancelled request, child crash/reconnect and fresh-process persistence |
+| DSH 0.2.1-rc.2 official client | Real Cordis plugin activation/disposal, temporary probe, four tool registration/schema/rendering, error propagation, pre-cancelled request, child crash/reconnect and fresh-process persistence |
 | DSH official CLI | Overlay composition preserves the selected user's patch and unrelated profile patch |
 | DSH Bundle install | Real `dsh plugin` install of the packed Bundle tarball into a disposable profile; the layer composes and removes cleanly |
 | DSH Skill provider | Canonical Skill discovery/loading by the actual filesystem provider |
@@ -50,11 +65,13 @@ files. It then verifies that preparation restores the exact dependency snapshot
 and completes installation before backend startup. Unit tests also inject a partial
 write followed by a disk-full error and verify that a later retry succeeds.
 
-The extension contracts were checked against official DSH master
+The earlier extension-contract inspection checked official DSH master
 `86a402200d95fecef4529d969836f1fe13c6cb0d` and the published `next` packages
-0.2.0-rc.2. Master declares the 0.2.1 alpha line. No stable GitHub Release was
-available at inspection. Tests pin the actual desktop-compatible npm version,
-not the moving master branch or a misleading npm `latest` tag.
+0.2.0-rc.2. At that inspection, master declared the 0.2.1 alpha line and no
+stable GitHub Release was available. That inspection is historical; the update
+above records the current automated
+package baseline. Tests pin exact npm versions rather than moving master or
+the unsynchronized npm `latest` tags.
 
 ## Desktop acceptance
 

@@ -69,7 +69,7 @@ Never remove locks or change fingerprints to force compatibility.
 | DSH bundle | 0.1.0 | Configuration-only npm bundle; installs the launcher through the official MCP client |
 | Bootstrap | uv 0.13.1 / Python 3.11.15 | Fixed platform artifacts, verified uv hash |
 | Canonical Skill | 0.2.6 | See connector `skill-source.json` for exact commit |
-| DSH contract-test packages | 0.2.0-rc.2 | Exact npm test pins and lockfile |
+| DSH contract-test packages | 0.2.1-rc.2 | Exact npm test pins and lockfile |
 
 The managed installer verifies its uv executable and public Runtime wheel
 before execution. uv verifies its managed Python artifacts. Runtime verifies
