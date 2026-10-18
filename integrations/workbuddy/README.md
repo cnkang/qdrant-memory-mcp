@@ -19,7 +19,7 @@ WorkBuddy's managed Node.js runtime. `mcp.json` declares:
       "command": "npx",
       "args": ["-y", "@cnkang/qdrant-memory-launcher@0.1.0-rc.3", "mcp", "workbuddy", "--auto-setup"],
       "runtime": {"type": "node", "version": "20"},
-      "npmRegistries": ["https://registry.npmjs.org", "https://registry.npmmirror.com"],
+      "npmRegistries": ["https://registry.npmjs.org"],
       "timeout": 30000
     }
   }
@@ -29,8 +29,8 @@ WorkBuddy's managed Node.js runtime. `mcp.json` declares:
 1. The user installs the connector in WorkBuddy.
 2. WorkBuddy prepares managed Node.js 20 and its isolated npm environment.
 3. `npx` fetches the exact pinned launcher version. The pin is exact, never
-   `latest`. The npm registry list is an ordered fallback. The canonical
-   registry is always first.
+   `latest`. New builds allow only the canonical npm registry; no mirror
+   fallback is configured.
 4. The launcher completes the MCP handshake promptly and exposes the four
    tools. In the background it prepares a private Python environment, the
    pinned Runtime wheel and a verified CPU embedding model.
@@ -118,7 +118,7 @@ rejects drift from the checked-in pins:
 their own Python backend instead of the managed launcher:
 
 ```sh
-uvx --from qdrant-memory-mcp==0.1.4 qdrant-memory-mcp mcp
+uvx --from qdrant-memory-mcp==0.2.1 qdrant-memory-mcp mcp
 ```
 
 Add `--home <private-profile-path>` before `mcp` to bind an explicit private
@@ -288,3 +288,20 @@ connector, package and profile backup. Never republish an existing PyPI
 version or rewrite a release tag.
 
 For DSH use its [own bundle and guide](../../docs/dsh-integration.md).
+
+
+## Private installation and registry policy
+
+New connector builds use only https://registry.npmjs.org; mirror fallback is not
+part of the reviewed connector configuration. Runtime npx integrity still comes
+from that registry. Release-time pin verification is not a per-launch digest
+check. Use a host-managed, preverified launcher when that stronger boundary is
+required. Existing published assets remain immutable.
+
+On POSIX, preparation now rejects existing managed paths owned by another user
+or writable by a group/other users, including unsafe ancestors. Root-owned
+non-writable system ancestors and sticky temporary ancestors may be traversed.
+The selected managed directory itself must belong to the invoking user. No
+existing directory permissions are silently changed. Select a private root or
+have its owner repair the permissions before retrying. On Windows, provision a
+private inherited ACL; POSIX mode checks do not establish that ACL.

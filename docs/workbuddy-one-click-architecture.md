@@ -15,7 +15,7 @@ WorkBuddy documents a managed Node runtime for stdio connectors from version
 "command": "npx",
 "args": ["-y", "@cnkang/qdrant-memory-launcher@0.1.0-rc.3", "mcp", "workbuddy", "--auto-setup"],
 "runtime": {"type": "node", "version": "20"},
-"npmRegistries": ["https://registry.npmjs.org", "https://registry.npmmirror.com"]
+"npmRegistries": ["https://registry.npmjs.org"]
 ```
 
 The Node front end promptly completes MCP initialization and exposes the four
@@ -24,17 +24,14 @@ the Python backend is ready, tools return an explicit error. No memory write
 is queued or reported successful. Dependencies, bootstrap and model files are
 pinned and verified. Setup uses only the Runtime's supported CLI.
 
-The npm registry list is an ordered fallback. The canonical registry is first.
-A release cannot ship while the pinned launcher version is unavailable there
-with matching integrity. Additional registries are best-effort cross-checked:
-a mirror that serves a conflicting or extra payload fails the release gate,
-and an absent or unreachable mirror is informational. At user runtime the npm
-client verifies each fetched tarball against the serving registry's published
-integrity metadata. This fallback is a deliberate availability trade-off for
-networks where the canonical registry is unreachable. The repository pin is
-enforced at release time, not by the managed `npx` invocation itself.
-Enforcing the pin before execution would require a host-side bootstrap step,
-which remains future work if that residual boundary must be closed. The
+The connector accepts only the canonical npm registry. Package validation rejects
+mirror or additional registry entries. Public release validation compares the
+exact launcher's identity and integrity against the checked-in pin. At runtime,
+npx still trusts canonical registry integrity metadata; this is not an independent
+repository-digest check before every execution. Deployments requiring that extra
+boundary should preinstall and verify the approved launcher through their host's
+artifact policy. This change does not republish existing connector assets.
+The
 handshake budget is the connector's 30-second timeout.
 Measured cold handshakes stay within it on every platform (worst observed
 cold npx: Windows, 15.5 seconds for `0.1.0-rc.1` and 21.5 seconds for
