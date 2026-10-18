@@ -12,10 +12,10 @@
 
 WorkBuddy 资产、SDK 兼容性和升级指引见 [0.1.4 发布说明](docs/releases/0.1.4.zh-CN.md)。
 
-使用固定版本安装命令前，请在 [PyPI 版本页面](https://pypi.org/project/qdrant-memory-mcp/0.2.0/)
+使用固定版本安装命令前，请在 [PyPI 版本页面](https://pypi.org/project/qdrant-memory-mcp/0.2.1/)
 确认该版本已公开发布。
 
-**版本：** 分发 0.2.0 固定依赖 Runtime 0.4.0，支持 MCP Python SDK 1.x 和 2.x
+**版本：** 分发 0.2.1 固定依赖 Runtime 0.4.0，支持 MCP Python SDK 1.x 和 2.x
 （`mcp>=1.30,<3`）；四个固定作用域工具和 stdio 启动参数保持一致。
 保留不同但高度相似文本的显式写入修复，
 无需 LLM。下文安装命令使用这些精确版本。发行产物见
@@ -49,12 +49,12 @@ Skill 仅提供可选指导，不是运行依赖。Hermes 的自动提取和 pre
 示例要求自己启动 Ollama 并安装对应模型。将路径替换为自己的绝对路径：
 
 ```bash
-uvx --from qdrant-memory-mcp==0.2.0 qdrant-memory-mcp --home /path/to/profile init
-uvx --from qdrant-memory-mcp==0.2.0 qdrant-memory-mcp --home /path/to/profile mcp
+uvx --from qdrant-memory-mcp==0.2.1 qdrant-memory-mcp --home /path/to/profile init
+uvx --from qdrant-memory-mcp==0.2.1 qdrant-memory-mcp --home /path/to/profile mcp
 ```
 
 省略 `--home` 时使用 `~/.qdrant-memory`，与 Hermes profile 独立。
-Registry 默认运行 `uvx --from qdrant-memory-mcp==0.2.0 qdrant-memory-mcp mcp`，
+Registry 默认运行 `uvx --from qdrant-memory-mcp==0.2.1 qdrant-memory-mcp mcp`，
 应先配置、初始化默认目录。
 客户端可通过 `mcp` 前面的可选 `--home` 参数选择自定义 profile。
 
@@ -62,7 +62,7 @@ Registry 默认运行 `uvx --from qdrant-memory-mcp==0.2.0 qdrant-memory-mcp mcp
 
 ```bash
 python3 -m venv .venv
-.venv/bin/python -m pip install qdrant-memory-mcp==0.2.0
+.venv/bin/python -m pip install qdrant-memory-mcp==0.2.1
 .venv/bin/qdrant-memory-mcp --home /path/to/profile init
 .venv/bin/qdrant-memory-mcp --home /path/to/profile mcp
 ```
@@ -80,7 +80,7 @@ Codex `config.toml`：
 ```toml
 [mcp_servers.qdrant_memory]
 command = "uvx"
-args = ["--from", "qdrant-memory-mcp==0.2.0", "qdrant-memory-mcp", "--home", "/path/to/profile", "mcp"]
+args = ["--from", "qdrant-memory-mcp==0.2.1", "qdrant-memory-mcp", "--home", "/path/to/profile", "mcp"]
 ```
 
 OpenCode `opencode.json`：
@@ -91,7 +91,7 @@ OpenCode `opencode.json`：
   "mcp": {
     "qdrant_memory": {
       "type": "local",
-      "command": ["uvx", "--from", "qdrant-memory-mcp==0.2.0", "qdrant-memory-mcp", "--home", "/path/to/profile", "mcp"],
+      "command": ["uvx", "--from", "qdrant-memory-mcp==0.2.1", "qdrant-memory-mcp", "--home", "/path/to/profile", "mcp"],
       "enabled": true
     }
   }

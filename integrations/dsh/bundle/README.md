@@ -35,7 +35,7 @@ The DSH MCP probe is temporary and must never run installation or downloads.
 Prepare the shared backend explicitly, once:
 
 ```sh
-npx -y @cnkang/qdrant-memory-launcher@0.1.0-rc.2 prepare dsh
+npx -y @cnkang/qdrant-memory-launcher@0.1.0-rc.3 prepare dsh
 ```
 
 Preparation downloads the private Python environment, the Runtime wheel and a

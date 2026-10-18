@@ -1,9 +1,15 @@
 # Shared service integration preview / 共享服务接入预览
 
-**Unreleased, opt-in.** The distribution remains metadata-only and its public
-runtime pin is unchanged. These examples require installing the unreleased preview Runtime
-checkout into a separate virtual environment with `[mcp]`. Published 0.3.0 does
-not contain `shared-serve`/`shared-mcp`.
+**Opt-in.** The distribution remains metadata-only and pins Runtime 0.4.0.
+Install the published Runtime into a separate virtual environment with `[mcp]`.
+Runtime 0.4.0 provides `shared-serve` and `shared-mcp`.
+
+Install the Runtime in an isolated environment:
+
+```sh
+python3 -m venv /absolute/path/shared-runtime-env
+/absolute/path/shared-runtime-env/bin/pip install 'hermes-plugin-qdrant-memory[mcp]==0.4.0'
+```
 
 Follow [Runtime operations and Hermes/DSH walkthrough](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/shared-memory/README.md)
 and the [security ADR](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/shared-memory/architecture.md).
@@ -32,11 +38,10 @@ in a Hermes profile already using the Native Provider. Native automatic shared
 extraction is planned, not implemented. The walkthrough uses an explicitly
 configured MCP-fallback profile or user-authorized operator CLI save.
 
-DSH/WorkBuddy managed provisioning, runtime locks, package versions and defaults
-are unchanged. These files are separate preview examples, not a new managed
-bundle release. Official SDK process tests verify the protocol. Importing these
-configs in actual host UIs still needs host acceptance. Do not relabel that test
-coverage as native host certification.
+DSH/WorkBuddy managed provisioning and private defaults are unchanged. These
+files are separate examples. Official SDK process tests verify the protocol.
+Importing these configs in actual host UIs still needs host acceptance. Do not
+relabel that test coverage as native host certification.
 
 中文：通过独立虚拟环境安装未发布的预览版 Runtime checkout，启动唯一 owner，并为各 Agent
 显式配置不同 token。使用本目录预览配置手动接入，不修改已有 DSH/WorkBuddy 私有安装。

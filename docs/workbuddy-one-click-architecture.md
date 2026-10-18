@@ -13,7 +13,7 @@ WorkBuddy documents a managed Node runtime for stdio connectors from version
 
 ```json
 "command": "npx",
-"args": ["-y", "@cnkang/qdrant-memory-launcher@0.1.0-rc.2", "mcp", "workbuddy", "--auto-setup"],
+"args": ["-y", "@cnkang/qdrant-memory-launcher@0.1.0-rc.3", "mcp", "workbuddy", "--auto-setup"],
 "runtime": {"type": "node", "version": "20"},
 "npmRegistries": ["https://registry.npmjs.org", "https://registry.npmmirror.com"]
 ```
@@ -38,7 +38,7 @@ which remains future work if that residual boundary must be closed. The
 handshake budget is the connector's 30-second timeout.
 Measured cold handshakes stay within it on every platform (worst observed
 cold npx: Windows, 15.5 seconds for `0.1.0-rc.1` and 21.5 seconds for
-`0.1.0-rc.2`).
+`0.1.0-rc.3`).
 
 The same program installer serves DSH, but DSH preparation is explicit and
 separate from its temporary MCP probe. Shared installation does not mean shared
@@ -64,7 +64,7 @@ and collection files remain in place. Incompatible data must fail closed.
 ## Release boundary
 
 The Runtime wheel and the canonical Skill pins are public artifacts. The
-launcher pin (`0.1.0-rc.2`) is published with matching integrity
+launcher pin (`0.1.0-rc.3`) is published with matching integrity
 (2026-10-16). The release workflow refuses unpublished pins. The public
 acceptance records `NOT VERIFIED` until a pinned version is available. The
 connector pins each artifact exactly. Marketplace ZIP import and managed-Node
