@@ -1,11 +1,23 @@
 # Changelog
 
+## DSH bundle 0.1.2
+
+- Pin launcher `0.1.0-rc.3`, which installs Runtime 0.4.0. The payload and the
+  configuration layer are otherwise unchanged.
+
 ## DSH bundle 0.1.1
 
 - Widen the `@deepseek-ai/dsh-mcp-client` peer range to include the `0.2.1-rc.2`
   prerelease line. The published 0.1.0 range accepted only the `0.2.0-rc.x`
   line, so installing it beside the current `next` channel failed peer
   resolution. The bundle payload is otherwise unchanged.
+
+## 0.2.1
+
+- Publish launcher `0.1.0-rc.3`, which installs Runtime 0.4.0. The previous
+  launcher `0.1.0-rc.2` still installed Runtime 0.3.0.
+- Remove the outdated "unreleased Runtime" text from the shared-service guide
+  and point the install examples at the published PyPI release.
 
 ## 0.2.0
 
