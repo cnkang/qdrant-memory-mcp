@@ -1,4 +1,4 @@
-# 0.1.4 补丁发布清单
+# 0.2.0 补丁发布清单
 
 [English](publishing.md) | [简体中文](publishing.zh-CN.md)
 
@@ -8,20 +8,20 @@ Runtime、PyPI 和 MCP Registry 发布须获得操作员明确授权。发布前
 示例表示目标发行版本，不代表该版本已公开可用。执行固定版本安装命令前，
 须确认对应公开版本；只有公开端点及安装验收通过后，才宣布发布完成。
 
-1. 核验已公开的 Runtime 0.3.0 及准确依赖。本次分发补丁不重新创建
+1. 核验已公开的 Runtime 0.4.0 及准确依赖。本次分发补丁不重新创建
    Runtime tag，也不重新发布 Runtime。
 2. 核对两个已有 PyPI Trusted Publisher：仓库分别为
    `cnkang/hermes-plugin-qdrant-memory` 和 `cnkang/qdrant-memory-mcp`，
    workflow 均为 `publish.yml`，环境均为 `pypi`。不创建重复配置。
-3. 通过现有受保护 GitHub 环境审核，复用已验证的 Runtime 0.3.0 公开 PyPI 文件。
+3. 通过现有受保护 GitHub 环境审核，复用已验证的 Runtime 0.4.0 公开 PyPI 文件。
    tag 必须指向 main 的提交，且与包版本匹配；不覆盖已有 tag 或发行文件。
 4. 在新环境中仅使用准确的公开 Runtime 版本，对 MCP wheel 和 sdist 运行
    SDK 1.x、2.x 的完整验收。
-5. 检查通过并获得授权后创建 MCP `v0.1.4` tag。workflow 在受保护 PyPI 发布前
+5. 检查通过并获得授权后创建 MCP `v0.2.0` tag。workflow 在受保护 PyPI 发布前
    构建并验证文件，然后核对公开包、使用官方 publisher 验证 Registry 元数据，
    并通过 `github-oidc` 发布。
 6. 验证 PyPI 所有权标记、公开 Registry 中
-   `io.github.cnkang/qdrant-memory` 的 0.1.4 版本和公开安装流程，再发布公告。
+   `io.github.cnkang/qdrant-memory` 的 0.2.0 版本和公开安装流程，再发布公告。
    Skill 来源保持已审核的不可变提交；仅在确有内容变化时更新。
 
 发布环境必须保留必要审核者及仅允许 `v*` tag 的规则：Runtime 的 `pypi`，

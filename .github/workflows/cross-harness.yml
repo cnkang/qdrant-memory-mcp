@@ -40,7 +40,7 @@ jobs:
       - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
         with:
           repository: cnkang/skills
-          ref: 042c3feadd77ef8099140fd1bfc9d7d03bdfaf78
+          ref: 02bc5f78fe802702148fecfa7f5a02836f17a3fa
           path: .scratch/canonical-skills
           persist-credentials: false
       - name: Install published Python MCP and test dependencies
@@ -158,13 +158,13 @@ jobs:
       - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
         with:
           repository: cnkang/skills
-          ref: 042c3feadd77ef8099140fd1bfc9d7d03bdfaf78
+          ref: 02bc5f78fe802702148fecfa7f5a02836f17a3fa
           path: .scratch/canonical-skills
           persist-credentials: false
       - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
         with:
           repository: cnkang/hermes-plugin-qdrant-memory
-          ref: 534562f1df43541dbf906d248bb11cd085b211ee
+          ref: ae11a0676724afb4af160b51d32da81b0828e089
           path: .scratch/runtime
           persist-credentials: false
       - name: Install standalone Runtime and existing-host test dependencies

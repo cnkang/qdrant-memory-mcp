@@ -50,7 +50,7 @@ These npm dependencies are development-only contract-test dependencies. They
 are not installed by Python artifacts or shipped in the configuration-only Bundle. Follow
 up with an upstream DSH update rather than `npm audit fix --force`.
 
-The Runtime dependency is exact at `0.3.0`. Runtime updates must also adjust
+The Runtime dependency is exact at `0.4.0`. Runtime updates must also adjust
 compatibility expectations and the preparation fixture deliberately. A dependency-only PR cannot bypass the
 distribution's metadata/protocol checks. This repository scans distribution
 scripts and workflows. Runtime business-code scanning belongs to its upstream.

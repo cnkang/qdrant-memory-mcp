@@ -2,14 +2,14 @@
 
 `pyproject.toml` declares no packages or Python modules. Its console script
 references `qdrant_memory.standalone:main`, supplied by the exact upstream
-dependency `hermes-plugin-qdrant-memory[mcp]==0.3.0`. A wheel contains only
+dependency `hermes-plugin-qdrant-memory[mcp]==0.4.0`. A wheel contains only
 dist-info metadata and the license. There is no shim or business implementation.
 
 Runtime source: https://github.com/cnkang/hermes-plugin-qdrant-memory
 
 Skill source: https://github.com/cnkang/skills/tree/main/qdrant-memory
 
-Version lines are independent: Runtime 0.3.0, Skill's own metadata version,
+Version lines are independent: Runtime 0.4.0, Skill's own metadata version,
 distribution 0.1.4. Runtime source and schema snapshots used for preparation
 are immutable. Publication requires the Runtime version to exist on PyPI.
 

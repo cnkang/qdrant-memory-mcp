@@ -103,7 +103,7 @@ def sandbox(tmp_path):
     if runtime_wheels or os.environ.get("DIST_TEST_UVX"):
         uvx = shutil.which("uvx")
         assert uvx, "uvx acceptance was requested but uvx is unavailable"
-        launch = [uvx, "--from", "qdrant-memory-mcp==0.1.4"]
+        launch = [uvx, "--from", "qdrant-memory-mcp==0.2.0"]
         if runtime_wheels:
             launch += [
                 "--find-links",

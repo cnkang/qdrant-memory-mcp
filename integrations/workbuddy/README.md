@@ -156,7 +156,7 @@ then `doctor`, in place of `mcp`, and pass `--home <private-profile-path>`
 for the authorized target. Check service readiness before
 connecting. For self-hosted or Cloud storage, follow the Runtime's documented
 server/cloud profile configuration. See the
-[canonical setup reference](https://github.com/cnkang/skills/blob/042c3feadd77ef8099140fd1bfc9d7d03bdfaf78/qdrant-memory/references/runtime.md)
+[canonical setup reference](https://github.com/cnkang/skills/blob/02bc5f78fe802702148fecfa7f5a02836f17a3fa/qdrant-memory/references/runtime.md)
 and [Runtime configuration](https://github.com/cnkang/hermes-plugin-qdrant-memory).
 
 Scope is operator-configured. Client names and tool arguments cannot switch
@@ -194,7 +194,7 @@ build environment (the Skill builder needs PyYAML):
 
 ```sh
 git clone --no-checkout https://github.com/cnkang/skills.git .workbuddy-skill
-git -C .workbuddy-skill checkout --detach 042c3feadd77ef8099140fd1bfc9d7d03bdfaf78
+git -C .workbuddy-skill checkout --detach 02bc5f78fe802702148fecfa7f5a02836f17a3fa
 python3 -m venv .workbuddy-env
 .workbuddy-env/bin/python -m pip install 'PyYAML==6.0.3'
 .workbuddy-env/bin/python integrations/workbuddy/build.py --check
