@@ -5,7 +5,7 @@ import filesystem from 'node:fs/promises';
 import { syncBuiltinESMExports } from 'node:module';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { mkdtemp, mkdir, symlink, rm, realpath, writeFile, readFile, lstat } from 'node:fs/promises';
+import { mkdtemp, mkdir, symlink, rm, realpath, writeFile, readFile, lstat, chmod } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { bridge, tools } from '../integrations/managed/bridge.mjs';
@@ -292,3 +292,22 @@ for (const response of [null, [], { jsonrpc: '2.0', result: {} }, { jsonrpc: '2.
     input.end();
   });
 }
+
+
+test('existing writable managed directories fail closed without changing permissions', {
+  skip: process.platform === 'win32',
+}, async () => {
+  const root = await mkdtemp(join(await realpath(tmpdir()), 'memory-permissions-'));
+  try {
+    const selected = join(root, 'existing');
+    await mkdir(selected, { mode: 0o700 });
+    for (const mode of [0o777, 0o770]) {
+      await chmod(selected, mode);
+      await assert.rejects(privateDirectory(join(selected, 'program')), /ownership or write permissions/);
+      assert.equal((await lstat(selected)).mode & 0o777, mode);
+      await assert.rejects(lstat(join(selected, 'program')), { code: 'ENOENT' });
+    }
+    await chmod(selected, 0o700);
+    assert.equal(await privateDirectory(join(selected, 'program')), join(selected, 'program'));
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
