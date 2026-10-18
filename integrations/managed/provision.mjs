@@ -71,6 +71,15 @@ export async function privateDirectory(path) {
     await mkdir(current, { mode: 0o700 }).catch(error => { if (error.code !== 'EEXIST') throw error; });
     const info = await lstat(current);
     if (info.isSymbolicLink() || !info.isDirectory()) throw new Error('Unsafe managed directory');
+    if (process.platform !== 'win32') {
+      // A root-owned sticky temporary ancestor may be traversed, never used as
+      // the managed directory. Refuse unsafe existing paths without chmod.
+      const stickyAncestor = current !== absolute && info.uid === 0 && (info.mode & 0o1000);
+      if (!stickyAncestor && ((info.mode & 0o022) ||
+          (info.uid !== process.getuid() && !(current !== absolute && info.uid === 0)))) {
+        throw new Error('Unsafe managed directory ownership or write permissions');
+      }
+    }
   }
   return absolute;
 }
