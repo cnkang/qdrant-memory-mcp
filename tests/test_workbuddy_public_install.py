@@ -11,6 +11,19 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 
 
+@pytest.fixture
+def mirror_root(tmp_path):
+    """Exercise legacy mirror validation independently of production metadata."""
+    import json
+    (tmp_path / "launcher-source.json").write_text((ROOT / "launcher-source.json").read_text())
+    folder = tmp_path / "integrations/workbuddy"
+    folder.mkdir(parents=True)
+    mcp = json.loads((ROOT / "integrations/workbuddy/mcp.json").read_text())
+    mcp["mcpServers"]["qdrant-memory"]["npmRegistries"].append("https://registry.npmmirror.com")
+    (folder / "mcp.json").write_text(json.dumps(mcp))
+    return tmp_path
+
+
 def module():
     spec = importlib.util.spec_from_file_location("workbuddy_public", ROOT / "integrations/workbuddy/public_install.py")
     result = importlib.util.module_from_spec(spec)
@@ -81,7 +94,7 @@ def test_launcher_pin_requires_matching_published_integrity(monkeypatch):
         check.launcher(ROOT)
 
 
-def test_launcher_mirror_conflict_fails_closed(monkeypatch):
+def test_launcher_mirror_conflict_fails_closed(monkeypatch, mirror_root):
     import json as jsonlib
     check = module()
     pin = jsonlib.loads((ROOT / "launcher-source.json").read_text(encoding="utf-8"))
@@ -100,17 +113,17 @@ def test_launcher_mirror_conflict_fails_closed(monkeypatch):
     bad = {"name": pin["name"], "version": pin["version"], "dist": {"integrity": "sha512-" + "C" * 86 + "=="}}
 
     monkeypatch.setattr(check.urllib.request, "urlopen", lambda *a, **k: Response(good))
-    assert check.launcher(ROOT) is True
+    assert check.launcher(mirror_root) is True
 
     def conflicting(url, *a, **k):
         return Response(bad if urllib.parse.urlparse(url).hostname == "registry.npmmirror.com" else good)
 
     monkeypatch.setattr(check.urllib.request, "urlopen", conflicting)
     with pytest.raises(ValueError, match="npmmirror"):
-        check.launcher(ROOT)
+        check.launcher(mirror_root)
 
 
-def test_launcher_mirror_absence_is_informational(monkeypatch, capsys):
+def test_launcher_mirror_absence_is_informational(monkeypatch, capsys, mirror_root):
     import json as jsonlib
     check = module()
     pin = jsonlib.loads((ROOT / "launcher-source.json").read_text(encoding="utf-8"))
@@ -130,7 +143,7 @@ def test_launcher_mirror_absence_is_informational(monkeypatch, capsys):
         return Response()
 
     monkeypatch.setattr(check.urllib.request, "urlopen", selective)
-    assert check.launcher(ROOT) is True
+    assert check.launcher(mirror_root) is True
     assert "does not serve the pinned version" in capsys.readouterr().out
 
 
@@ -140,7 +153,7 @@ def test_launcher_first_registry_must_be_canonical(tmp_path):
     pin = (ROOT / "launcher-source.json").read_text(encoding="utf-8")
     mcp = jsonlib.loads((ROOT / "integrations/workbuddy/mcp.json").read_text(encoding="utf-8"))
     servers = mcp["mcpServers"]["qdrant-memory"]
-    servers["npmRegistries"] = list(reversed(servers["npmRegistries"]))
+    servers["npmRegistries"] = ["https://registry.npmmirror.com", "https://registry.npmjs.org"]
     (tmp_path / "launcher-source.json").write_text(pin)
     (tmp_path / "integrations/workbuddy").mkdir(parents=True)
     (tmp_path / "integrations/workbuddy/mcp.json").write_text(jsonlib.dumps(mcp))
@@ -148,7 +161,7 @@ def test_launcher_first_registry_must_be_canonical(tmp_path):
         check.launcher(tmp_path)
 
 
-def test_launcher_mirror_version_without_canonical_fails_closed(monkeypatch):
+def test_launcher_mirror_version_without_canonical_fails_closed(monkeypatch, mirror_root):
     import json as jsonlib
     check = module()
     pin = jsonlib.loads((ROOT / "launcher-source.json").read_text(encoding="utf-8"))
@@ -169,10 +182,10 @@ def test_launcher_mirror_version_without_canonical_fails_closed(monkeypatch):
 
     monkeypatch.setattr(check.urllib.request, "urlopen", selective)
     with pytest.raises(ValueError, match="does not publish"):
-        check.launcher(ROOT)
+        check.launcher(mirror_root)
 
 
-def test_launcher_unreachable_mirror_is_informational(monkeypatch, capsys):
+def test_launcher_unreachable_mirror_is_informational(monkeypatch, capsys, mirror_root):
     import json as jsonlib
     check = module()
     pin = jsonlib.loads((ROOT / "launcher-source.json").read_text(encoding="utf-8"))
@@ -192,7 +205,7 @@ def test_launcher_unreachable_mirror_is_informational(monkeypatch, capsys):
         return Response()
 
     monkeypatch.setattr(check.urllib.request, "urlopen", selective)
-    assert check.launcher(ROOT) is True
+    assert check.launcher(mirror_root) is True
     assert "unreachable" in capsys.readouterr().out
 
 

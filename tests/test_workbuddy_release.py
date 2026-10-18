@@ -180,7 +180,7 @@ def asset_source(source):
     (config / 'connector-meta.json').write_text(json.dumps({'version': '0.1.0'}))
     launcher = {'name': '@cnkang/qdrant-memory-launcher', 'version': '0.1.0-rc.2', 'integrity': 'sha512-' + 'A' * 86 + '=='}
     (source / 'launcher-source.json').write_text(json.dumps(launcher))
-    mcp = {'mcpServers': {'qdrant-memory': {'type': 'stdio', 'command': 'npx', 'args': ['-y', '@cnkang/qdrant-memory-launcher@0.1.0-rc.2', 'mcp', 'workbuddy', '--auto-setup'], 'runtime': {'type': 'node', 'version': '20'}, 'npmRegistries': ['https://registry.npmjs.org', 'https://registry.npmmirror.com'], 'timeout': 30000}}}
+    mcp = {'mcpServers': {'qdrant-memory': {'type': 'stdio', 'command': 'npx', 'args': ['-y', '@cnkang/qdrant-memory-launcher@0.1.0-rc.2', 'mcp', 'workbuddy', '--auto-setup'], 'runtime': {'type': 'node', 'version': '20'}, 'npmRegistries': ['https://registry.npmjs.org'], 'timeout': 30000}}}
     (config / 'mcp.json').write_text(json.dumps(mcp))
     skill = {'version': '0.2.5', 'repository': 'https://github.com/cnkang/skills.git', 'commit': 'a' * 40}
     (config / 'skill-source.json').write_text(json.dumps(skill))
