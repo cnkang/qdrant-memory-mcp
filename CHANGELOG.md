@@ -7,8 +7,11 @@
   line, so installing it beside the current `next` channel failed peer
   resolution. The bundle payload is otherwise unchanged.
 
-## Unreleased
+## 0.2.0
 
+- Pin Runtime 0.4.0. The distribution now installs the opt-in authenticated
+  shared owner and its stdio bridge. The private defaults and the four tool
+  schemas do not change.
 - Update official DSH test packages to 0.2.1-rc.2, resolving the MCP OAuth advisory through upstream Client/Core 2.2.0. Preserve both Bundle peer RC lines.
 - Add a separate floating `next` compatibility probe while retaining exact, lockfile-based release acceptance.
 
