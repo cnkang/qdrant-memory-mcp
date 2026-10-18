@@ -22,7 +22,7 @@ def test_bundle_manifest_and_patch_contract():
     meta = json.loads((ROOT / "integrations/dsh/bundle/package.json").read_text(encoding="utf-8"))
     launcher = json.loads((ROOT / "launcher-source.json").read_text(encoding="utf-8"))
     assert meta["name"] == "@cnkang/qdrant-memory-dsh-bundle"
-    assert meta["version"] == "0.1.0"
+    assert meta["version"] == "0.1.1"
     assert meta["license"] == "MIT"
     assert meta.get("private") is not True
     assert meta["dsh"] == {"bundle": {"patch": "./cordis.patch.yml"}}

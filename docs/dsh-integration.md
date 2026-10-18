@@ -27,7 +27,7 @@ dsh plugin --profile <name> add @cnkang/qdrant-memory-dsh-bundle
 ```
 
 If your registry has not served the package yet, download
-`cnkang-qdrant-memory-dsh-bundle-0.1.0.tgz` from the repository release and
+`cnkang-qdrant-memory-dsh-bundle-0.1.1.tgz` from the repository release and
 install the file path instead. Verify the layer without booting:
 
 ```sh

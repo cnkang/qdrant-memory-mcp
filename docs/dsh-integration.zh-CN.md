@@ -24,7 +24,7 @@ dsh plugin --profile <名称> add @cnkang/qdrant-memory-dsh-bundle
 ```
 
 若所用 npm 镜像尚未同步该包，可改从仓库 Release 下载
-`cnkang-qdrant-memory-dsh-bundle-0.1.0.tgz`，用文件路径安装。不启动即可先验证层：
+`cnkang-qdrant-memory-dsh-bundle-0.1.1.tgz`，用文件路径安装。不启动即可先验证层：
 
 ```sh
 dsh --profile <名称> --dump-config
