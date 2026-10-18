@@ -50,13 +50,13 @@ jobs:
         run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Ensure pnpm for the official DSH plugin manager
         shell: bash
-        run: pnpm --version || npm install --global pnpm
+        run: pnpm --version || npm install --global pnpm@12.14.0
       - name: Artifact, cold handshake, host isolation and secret boundaries
         run: node --test tests/test_managed_bootstrap.mjs tests/test_managed_launcher.mjs
       - name: Require a complete and clean npm payload
         run: python scripts/pack_launcher.py --output-dir dist/launcher
       - name: WorkBuddy connector and shared bridge integration
-        run: python -m pytest -q tests/test_workbuddy_mcp.py tests/test_workbuddy_package.py tests/test_managed_bridge.py tests/test_cross_harness.py tests/test_dsh_bundle.py --junitxml=workbuddy-results.xml
+        run: python -m pytest -q tests/test_workbuddy_mcp.py tests/test_workbuddy_package.py tests/test_managed_bridge.py tests/test_cross_harness.py tests/test_dsh_bundle.py tests/test_shared_preview_configs.py --junitxml=workbuddy-results.xml
       - name: Official DSH client probe, unload, CRUD, bundle install and fresh-process persistence
         env:
           DSH_TEST_MODULES: ${{ github.workspace }}/integrations/dsh/node_modules

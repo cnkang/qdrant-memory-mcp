@@ -63,13 +63,13 @@ Never remove locks or change fingerprints to force compatibility.
 
 | Component | Pin | Availability |
 | --- | --- | --- |
-| Python MCP | 0.1.4 | Python/uvx distribution; confirm the exact version on PyPI |
-| Runtime | 0.3.0 | Public PyPI wheel; optional CPU provider |
-| Node launcher | 0.1.0-rc.2 | Release candidate pinned by the connector and Bundle; `0.1.0-rc.1` already public on npm |
-| DSH bundle | 0.1.0 | Configuration-only npm bundle; installs the launcher through the official MCP client |
+| Python MCP | 0.1.4 | Python/uvx distribution. Confirm the exact version on PyPI |
+| Runtime | 0.3.0 | Public PyPI wheel. Optional CPU provider |
+| Node launcher | 0.1.0-rc.2 | Release candidate pinned by the connector and Bundle. `0.1.0-rc.1` already public on npm |
+| DSH bundle | 0.1.0 | Configuration-only npm bundle. It installs the launcher through the official MCP client |
 | Bootstrap | uv 0.13.1 / Python 3.11.15 | Fixed platform artifacts, verified uv hash |
 | Canonical Skill | 0.2.6 | See connector `skill-source.json` for exact commit |
-| DSH contract-test packages | 0.2.0-rc.2 | Exact npm test pins and lockfile |
+| DSH contract-test packages | 0.2.1-rc.2 | Exact npm test pins and lockfile |
 
 The managed installer verifies its uv executable and public Runtime wheel
 before execution. uv verifies its managed Python artifacts. Runtime verifies

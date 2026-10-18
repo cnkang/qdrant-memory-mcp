@@ -1,0 +1,5 @@
+# Requires the unreleased preview Runtime checkout, not the current PyPI pin.
+[mcp_servers.qdrant-memory-shared]
+command = "/absolute/path/shared-runtime-env/bin/qdrant-memory"
+args = ["shared-mcp", "--url", "http://127.0.0.1:8765"]
+env_vars = ["QDRANT_MEMORY_SHARED_TOKEN"]

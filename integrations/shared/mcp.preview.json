@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "qdrant-memory-shared": {
+      "type": "stdio",
+      "command": "/absolute/path/shared-runtime-env/bin/qdrant-memory",
+      "args": ["shared-mcp", "--url", "http://127.0.0.1:8765"],
+      "env": {"QDRANT_MEMORY_SHARED_TOKEN": "<inject this agent's own token securely>"}
+    }
+  }
+}
