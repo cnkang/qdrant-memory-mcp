@@ -128,7 +128,7 @@ hardening for interrupted preparation) are public on npm. The release
 workflow refuses unpublished pins. The Runtime wheel is public on PyPI. The
 MCP distribution `v0.1.4` is published on PyPI and the MCP Registry, and its
 GitHub Release carries the connector assets (2026-10-16). The DSH Bundle
-0.1.0 is prepared for publication. Marketplace listing review, managed Node GUI
+0.1.1 is prepared for publication. Marketplace listing review, managed Node GUI
 import in WorkBuddy, full application restart on a clean machine, forced
 installer-crash recovery, dispatch-time cancellation, every HMR/profile-switch
 case, and production upgrade/rollback remain separate release gates. Cloud

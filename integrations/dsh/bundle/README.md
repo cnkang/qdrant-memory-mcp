@@ -50,11 +50,11 @@ dsh plugin --profile <name> add @cnkang/qdrant-memory-dsh-bundle
 ```
 
 If the npm registry has not served this package yet, install the release
-tarball instead. Download `cnkang-qdrant-memory-dsh-bundle-0.1.0.tgz` from
+tarball instead. Download `cnkang-qdrant-memory-dsh-bundle-0.1.1.tgz` from
 the repository release and run:
 
 ```sh
-dsh plugin --profile <name> add ./cnkang-qdrant-memory-dsh-bundle-0.1.0.tgz
+dsh plugin --profile <name> add ./cnkang-qdrant-memory-dsh-bundle-0.1.1.tgz
 ```
 
 Verify the layer without booting:

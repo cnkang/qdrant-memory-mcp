@@ -1,5 +1,12 @@
 # Changelog
 
+## DSH bundle 0.1.1
+
+- Widen the `@deepseek-ai/dsh-mcp-client` peer range to include the `0.2.1-rc.2`
+  prerelease line. The published 0.1.0 range accepted only the `0.2.0-rc.x`
+  line, so installing it beside the current `next` channel failed peer
+  resolution. The bundle payload is otherwise unchanged.
+
 ## Unreleased
 
 - Update official DSH test packages to 0.2.1-rc.2, resolving the MCP OAuth advisory through upstream Client/Core 2.2.0. Preserve both Bundle peer RC lines.
