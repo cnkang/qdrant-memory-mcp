@@ -21,7 +21,7 @@ the release as available only after the checks below confirm both public endpoin
      workflow `publish.yml`, environment `pypi`.
 3. Approve protected GitHub environments when prompted. A version tag must point
    to a main-branch commit and match package metadata. Releases cannot overwrite
-   an existing version. Reuse the verified public Runtime 0.3.0 artifacts.
+   an existing version. Reuse the verified public Runtime 0.4.0 artifacts.
 4. Run distribution acceptance in public dependency mode. Build/test wheel and
    sdist from a new environment using only the exact Runtime PyPI release.
 5. Create distribution tag v0.2.1 after confirmation. Its workflow builds and

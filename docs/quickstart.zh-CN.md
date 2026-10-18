@@ -61,8 +61,8 @@ ollama pull qwen3-embedding:4b
 Windows 也填写实际的绝对路径，JSON 中反斜杠写成 `\\`，或使用 `/`。
 
 ```sh
-uvx --from qdrant-memory-mcp==0.1.4 qdrant-memory-mcp --home "/path/to/workbuddy-profile" init
-uvx --from qdrant-memory-mcp==0.1.4 qdrant-memory-mcp --home "/path/to/workbuddy-profile" doctor
+uvx --from qdrant-memory-mcp==0.2.1 qdrant-memory-mcp --home "/path/to/workbuddy-profile" init
+uvx --from qdrant-memory-mcp==0.2.1 qdrant-memory-mcp --home "/path/to/workbuddy-profile" doctor
 ```
 
 初始化会调用本地模型、创建本地 collection，并检查模型维度和存储兼容性。
@@ -72,8 +72,9 @@ uvx --from qdrant-memory-mcp==0.1.4 qdrant-memory-mcp --home "/path/to/workbuddy
 ## 4. 在客户端连接 MCP
 
 WorkBuddy 中添加自定义 stdio MCP，使用以下配置；将路径替换为步骤 3 的同一个目录。
-已安装的连接器默认不带 `--home`，使用 `~/.qdrant-memory`；不要同时启用它和
-这里的自定义实例，也不要以为它会自动使用新建的独立 profile。
+受管连接器使用其数据根目录下的 `profiles/workbuddy/local`，不会自动选择这里的
+自定义 profile。直接运行不带 `--home` 的 uvx 接口才默认使用 `~/.qdrant-memory`。
+此设置只启用一个实例，避免同时启用受管连接器与自定义实例。
 
 ```json
 {
@@ -81,7 +82,7 @@ WorkBuddy 中添加自定义 stdio MCP，使用以下配置；将路径替换为
     "qdrant-memory": {
       "type": "stdio",
       "command": "uvx",
-      "args": ["--from", "qdrant-memory-mcp==0.1.4", "qdrant-memory-mcp", "--home", "/path/to/workbuddy-profile", "mcp"],
+      "args": ["--from", "qdrant-memory-mcp==0.2.1", "qdrant-memory-mcp", "--home", "/path/to/workbuddy-profile", "mcp"],
       "timeout": 30000
     }
   }

@@ -62,8 +62,8 @@ around paths with spaces. On Windows, use your Windows path. Double backslashes
 inside JSON, or use forward slashes.
 
 ```sh
-uvx --from qdrant-memory-mcp==0.1.4 qdrant-memory-mcp --home "/path/to/workbuddy-profile" init
-uvx --from qdrant-memory-mcp==0.1.4 qdrant-memory-mcp --home "/path/to/workbuddy-profile" doctor
+uvx --from qdrant-memory-mcp==0.2.1 qdrant-memory-mcp --home "/path/to/workbuddy-profile" init
+uvx --from qdrant-memory-mcp==0.2.1 qdrant-memory-mcp --home "/path/to/workbuddy-profile" doctor
 ```
 
 Initialization calls the local model, creates local storage and validates its
@@ -74,8 +74,9 @@ require investigation. Do not add reset options or remove data/lock files.
 ## 4. Connect the client
 
 Add a custom stdio MCP in WorkBuddy with the following settings. Use the same
-profile path as step 3. The packaged connector currently omits `--home` and uses
-`~/.qdrant-memory`. It does not automatically select your new profile. Do not
+profile path as step 3. The managed packaged connector uses its own `profiles/workbuddy/local` under
+the managed data root; it does not select this custom profile. The direct uvx
+launcher without `--home` defaults to `~/.qdrant-memory`. Do not
 enable both the packaged default and this custom instance for this setup.
 
 ```json
@@ -84,7 +85,7 @@ enable both the packaged default and this custom instance for this setup.
     "qdrant-memory": {
       "type": "stdio",
       "command": "uvx",
-      "args": ["--from", "qdrant-memory-mcp==0.1.4", "qdrant-memory-mcp", "--home", "/path/to/workbuddy-profile", "mcp"],
+      "args": ["--from", "qdrant-memory-mcp==0.2.1", "qdrant-memory-mcp", "--home", "/path/to/workbuddy-profile", "mcp"],
       "timeout": 30000
     }
   }
