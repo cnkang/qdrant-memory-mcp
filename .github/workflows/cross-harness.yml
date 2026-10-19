@@ -19,6 +19,54 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  owner-lifecycle:
+    name: Hermes to Pi automatic Owner handoff (deterministic models)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '24'
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.11'
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+        with:
+          repository: cnkang/hermes-plugin-qdrant-memory
+          ref: 4ec21255df42d3e499806fa920cb24132c90cf24
+          path: .scratch/owner-runtime
+          persist-credentials: false
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+        with:
+          repository: NousResearch/hermes-agent
+          ref: 8f5693af418256b89da17ddda18a9242f113dcf6
+          path: .scratch/hermes-host
+          persist-credentials: false
+      - name: Install source-preview Runtime and exact Pi family
+        run: |
+          python -m pip install './.scratch/owner-runtime[remote]' 'pytest>=8,<10' 'PyYAML>=6,<7' 'requests>=2,<3' 'ruamel.yaml>=0.18,<0.20'
+          npm ci --prefix integrations/agent-hosts --ignore-scripts --no-audit --no-fund
+      - name: Actual Pi session lifecycle with deterministic model provider
+        run: node --test tests/test_pi_owner_extension.mjs tests/test_pi_owner_host.mjs
+      - name: Actual Hermes callbacks to a fresh Pi session over verified HTTPS MCP
+        env:
+          QDRANT_OWNER_RUNTIME_ROOT: ${{ github.workspace }}/.scratch/owner-runtime
+          PYTHONPATH: ${{ github.workspace }}/.scratch/hermes-host
+        run: python -m pytest tests/test_native_pi_handoff.py -q --junitxml=owner-lifecycle-results.xml -W error::pytest.PytestUnhandledThreadExceptionWarning
+      - name: Require executed handoff acceptance
+        run: >-
+          python -c "import xml.etree.ElementTree as E; s=E.parse('owner-lifecycle-results.xml').findall('.//testsuite');
+          assert sum(int(x.get('tests',0)) for x in s)>=1;
+          assert sum(int(x.get('skipped',0)) for x in s)==0"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: owner-lifecycle
+          path: owner-lifecycle-results.xml
+          if-no-files-found: error
   integration:
     name: MCP adapters (${{ matrix.os }})
     runs-on: ${{ matrix.os }}

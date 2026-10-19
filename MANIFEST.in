@@ -18,3 +18,5 @@ include docs/dsh-integration.md docs/dsh-integration.zh-CN.md docs/dsh-validatio
 recursive-include docs/adr *.md
 
 recursive-include integrations/shared *.md *.json *.yml *.toml
+recursive-include integrations/pi *.mjs *.md
+include docs/universal-owner-status.zh-CN.md
