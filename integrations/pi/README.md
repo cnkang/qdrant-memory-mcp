@@ -26,6 +26,11 @@ memory by default. Shared/project capture additionally requires an Owner-side
 `capture_rule_id` approved for the intended project; the extension cannot create
 that permission or choose a different space through payloads.
 
+To capture private memory while recalling an authorized project, inject a separate
+read-only `QDRANT_MEMORY_RECALL_TOKEN`. The adapter uses it only for recall;
+`QDRANT_MEMORY_REMOTE_TOKEN` still binds capture and its durable outbox. Both
+credentials are independently scoped and revocable. No tool argument supplies scope.
+
 The Owner must explicitly enable its `/events` lifecycle extension with an
 extraction model. The adapter never extracts, embeds or writes a database. It
 reads only current permitted hook content, not files or historical conversations.

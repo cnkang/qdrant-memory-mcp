@@ -109,7 +109,9 @@ export function createOwnerMemoryExtension({ env = process.env, request = ownerR
       const messages = event.messages.filter(message => message.customType !== "qdrant-owner-recall");
       if (!recall || !prompt) return { messages };
       try {
-        const result = await request("remote-call", { query: prompt }, env);
+        const recallEnv = env.QDRANT_MEMORY_RECALL_TOKEN
+          ? { ...env, QDRANT_MEMORY_REMOTE_TOKEN: env.QDRANT_MEMORY_RECALL_TOKEN } : env;
+        const result = await request("remote-call", { query: prompt }, recallEnv);
         const memories = Array.isArray(result.memories) ? result.memories : [];
         if (!memories.length) return { messages };
         const data = recallData(memories);

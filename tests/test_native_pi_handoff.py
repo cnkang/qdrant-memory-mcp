@@ -28,11 +28,12 @@ def test_native_hermes_to_pi_authorized_project_handoff(tmp_path, monkeypatch):
     from agent.memory_manager import MemoryManager
     from qdrant_memory.provider import QdrantMemoryProvider
     from qdrant_memory.remote_gateway import create_gateway
+    from qdrant_memory.owner_lifecycle import OwnerLifecycle
     from tests.helpers import Embedder, LLM, config
 
     tokens = {
         name: hashlib.sha256(("host-fixture-" + name).encode()).hexdigest()
-        for name in ("native", "project", "reader")
+        for name in ("native", "project", "reader", "pi-private")
     }
     clients = [
         {
@@ -40,9 +41,13 @@ def test_native_hermes_to_pi_authorized_project_handoff(tmp_path, monkeypatch):
             "principal": name,
             "owner_id": "hermes-user",
             "device_id": name,
-            "logical_agent_id": "pi" if name == "reader" else "hermes",
-            "space_id": "private" if name == "native" else "alpha",
-            "visibility": "private" if name == "native" else "project",
+            "logical_agent_id": "pi" if name in {"reader", "pi-private"} else "hermes",
+            "space_id": "pi-private"
+            if name == "pi-private"
+            else "private"
+            if name == "native"
+            else "alpha",
+            "visibility": "private" if name in {"native", "pi-private"} else "project",
             "permission": "read" if name == "reader" else "write",
         }
         for name, token in tokens.items()
@@ -112,7 +117,9 @@ def test_native_hermes_to_pi_authorized_project_handoff(tmp_path, monkeypatch):
             sock.listen(64)
             port = sock.getsockname()[1]
             app = create_gateway(
-                native._native_owner.owner, allowed_hosts=[f"127.0.0.1:{port}"]
+                native._native_owner.owner,
+                allowed_hosts=[f"127.0.0.1:{port}"],
+                lifecycle=OwnerLifecycle(native._native_owner.owner),
             )
             service = uvicorn.Server(
                 uvicorn.Config(
@@ -135,7 +142,8 @@ def test_native_hermes_to_pi_authorized_project_handoff(tmp_path, monkeypatch):
                 "QDRANT_MEMORY_OWNER_URL": f"https://127.0.0.1:{port}/mcp",
                 "QDRANT_MEMORY_RUNTIME_PYTHON": sys.executable,
                 "QDRANT_MEMORY_CA_FILE": str(cert),
-                "QDRANT_MEMORY_REMOTE_TOKEN": tokens["reader"],
+                "QDRANT_MEMORY_REMOTE_TOKEN": tokens["pi-private"],
+                "QDRANT_MEMORY_RECALL_TOKEN": tokens["reader"],
                 "PYTHONPATH": str(Path(root).resolve())
                 + os.pathsep
                 + os.environ.get("PYTHONPATH", ""),
@@ -149,6 +157,14 @@ def test_native_hermes_to_pi_authorized_project_handoff(tmp_path, monkeypatch):
                     timeout=60,
                 )
                 assert result.returncode == 0, result.stdout + result.stderr
+                pi_rows = native._native_owner.owner.call(
+                    tokens["pi-private"], "qdrant_memory_search", {"query": "Alpha"}
+                )["memories"]
+                assert any(row["created_by"] == "pi-private" for row in pi_rows)
+                hermes_rows = native._native_owner.owner.call(
+                    tokens["native"], "qdrant_memory_search", {"query": "Alpha"}
+                )["memories"]
+                assert not any(row["created_by"] == "pi-private" for row in hermes_rows)
             finally:
                 service.should_exit = True
                 thread.join(timeout=30)

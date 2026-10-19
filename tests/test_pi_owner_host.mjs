@@ -11,9 +11,14 @@ import { createOwnerMemoryExtension, ownerRequest } from "../integrations/pi/own
 test("actual Pi session automatically captures and recalls without tool calls", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "qm-pi-host-"));
   const calls = [], contexts = [];
-  const request = async (mode, value) => {
-    calls.push({ mode, value });
-    if (process.env.QM_REAL_OWNER === "1") return ownerRequest(mode, value);
+  const request = async (mode, value, configured) => {
+    const call = { mode, value };
+    calls.push(call);
+    if (process.env.QM_REAL_OWNER === "1") {
+      const result = await ownerRequest(mode, value, configured);
+      call.status = result.status;
+      return result;
+    }
     return mode === "remote-event" ? { status: "COMMITTED" } : {
       memories: [{ text: "Project Alpha uses SQLite WAL.", version: "v1", space_id: "alpha", created_by: "hermes-a" }],
     };
@@ -25,7 +30,8 @@ test("actual Pi session automatically captures and recalls without tool calls", 
       contextWindow: 32768, maxTokens: 4096, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 } }] });
   const settingsManager = SettingsManager.inMemory({});
   const loader = new DefaultResourceLoader({ cwd: root, agentDir: root, settingsManager,
-    extensionFactories: [createOwnerMemoryExtension({ env: { QDRANT_MEMORY_AUTO_CAPTURE: "1", QDRANT_MEMORY_AUTO_RECALL: "1" }, request })] });
+    extensionFactories: [createOwnerMemoryExtension({ env: { ...(process.env.QM_REAL_OWNER === "1" ? process.env : {}),
+      QDRANT_MEMORY_AUTO_CAPTURE: "1", QDRANT_MEMORY_AUTO_RECALL: "1" }, request })] });
   await loader.reload();
   const { session } = await createAgentSession({ cwd: root, agentDir: root, resourceLoader: loader,
     modelRuntime, model: modelRuntime.getModel("fixture", "fixture"), settingsManager,
@@ -44,6 +50,7 @@ test("actual Pi session automatically captures and recalls without tool calls", 
     await session.prompt("Project Alpha journal mode?");
     assert.ok(contexts.length, JSON.stringify({ calls: calls.map(c => c.mode), messages: session.agent.state.messages.map(m => ({ role: m.role, reason: m.stopReason, error: m.errorMessage })) }));
     assert.ok(calls.some(call => call.mode === "remote-event"), "actual turn_end must capture");
+    if (process.env.QM_REAL_OWNER === "1") assert.ok(calls.some(call => call.mode === "remote-event" && call.status === "COMMITTED"));
     assert.ok(calls.some(call => call.mode === "remote-call"), "actual context hook must recall");
     assert.match(JSON.stringify(contexts), /Project Alpha uses SQLite WAL/);
     assert.equal(session.agent.state.messages.some(message => message.customType === "qdrant-owner-recall"), false,
