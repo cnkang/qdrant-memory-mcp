@@ -45,8 +45,8 @@ Hermes 相互独立。更新、卸载与恢复说明见 [Bundle 说明](../integ
 然后执行：
 
 ```sh
-uvx --from qdrant-memory-mcp==0.2.1 qdrant-memory-mcp --home "$HOME/.qdrant-memory-dsh" init
-uvx --from qdrant-memory-mcp==0.2.1 qdrant-memory-mcp --home "$HOME/.qdrant-memory-dsh" doctor
+uvx --from qdrant-memory-mcp==0.2.2 qdrant-memory-mcp --home "$HOME/.qdrant-memory-dsh" init
+uvx --from qdrant-memory-mcp==0.2.2 qdrant-memory-mcp --home "$HOME/.qdrant-memory-dsh" doctor
 dsh web --patch /绝对路径/qdrant-memory-mcp/integrations/dsh/qdrant-memory.cordis.yml
 ```
 
