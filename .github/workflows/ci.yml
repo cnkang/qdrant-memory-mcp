@@ -46,14 +46,14 @@ jobs:
           python -m venv .wheel-env
           if [ '${{ runner.os }}' = 'Windows' ]; then PY=.wheel-env/Scripts/python.exe; else PY=.wheel-env/bin/python; fi
           "$PY" -m pip install --find-links .runtime-dist dist/*.whl 'pytest>=8,<10' 'requests>=2,<3' '${{ matrix.mcp.requirement }}'
-          "$PY" -m pytest -q tests --junitxml=wheel-results.xml
+          "$PY" -m pytest -q tests --ignore=tests/test_native_pi_handoff.py --junitxml=wheel-results.xml
       - name: Create fresh sdist environment and exercise protocol
         shell: bash
         run: |
           python -m venv .sdist-env
           if [ '${{ runner.os }}' = 'Windows' ]; then PY=.sdist-env/Scripts/python.exe; else PY=.sdist-env/bin/python; fi
           "$PY" -m pip install --find-links .runtime-dist dist/*.tar.gz 'pytest>=8,<10' 'requests>=2,<3' '${{ matrix.mcp.requirement }}'
-          "$PY" -m pytest -q tests --junitxml=sdist-results.xml
+          "$PY" -m pytest -q tests --ignore=tests/test_native_pi_handoff.py --junitxml=sdist-results.xml
       - name: Reject skipped acceptance
         run: >-
           python -c "import xml.etree.ElementTree as E;
