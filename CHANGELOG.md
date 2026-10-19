@@ -12,6 +12,13 @@
   line, so installing it beside the current `next` channel failed peer
   resolution. The bundle payload is otherwise unchanged.
 
+## 0.2.2
+
+- Pin Skill 0.3.1 at commit `d6062f0`. The packaged WorkBuddy connector now
+  contains the shared-security guidance.
+- Version references move to 0.2.2. The Runtime pin, the four tools and the
+  private defaults do not change.
+
 ## 0.2.1
 
 - Publish launcher `0.1.0-rc.3`, which installs Runtime 0.4.0. The previous
