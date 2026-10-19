@@ -52,3 +52,19 @@ test("pending events cannot be replayed after a credential or Owner binding chan
   assert.equal(sends.length, 2);
   assert.equal(sends[1].user, "new project");
 });
+
+test("ephemeral recall bounds long text while keeping complete provenance", async () => {
+  const hooks = {};
+  const pi = { on(name, callback) { hooks[name] = callback; }, appendEntry() {} };
+  createOwnerMemoryExtension({ env: { QDRANT_MEMORY_AUTO_RECALL: "1" }, request: async () => ({ memories: [
+    { text: "x".repeat(10000), space_id: "alpha", version: "v1", created_by: "hermes-a", id: "one" }
+  ] }) })(pi);
+  await hooks.before_agent_start({ prompt: "Alpha?" }, { sessionManager: { getSessionId: () => "s" }, hasUI: false });
+  const result = await hooks.context({ messages: [] });
+  const content = result.messages[0].content;
+  assert.ok(content.length <= 4100);
+  const rows = JSON.parse(content.split("\n").at(-1));
+  assert.equal(rows[0].version, "v1");
+  assert.equal(rows[0].space_id, "alpha");
+  assert.equal(rows[0].created_by, "hermes-a");
+});

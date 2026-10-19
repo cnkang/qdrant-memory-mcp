@@ -1,0 +1,5 @@
+# Explicit source-preview installation; independently injected Owner service grant.
+[mcp_servers.qdrant-memory-owner]
+command = "/absolute/path/reviewed-runtime/bin/qdrant-memory"
+args = ["remote-mcp", "--url", "https://memory.example.com/mcp"]
+env_vars = ["QDRANT_MEMORY_REMOTE_TOKEN"]
