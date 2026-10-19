@@ -1,5 +1,12 @@
 # GitHub checks and dependency maintenance
 
+Distribution CI tests the released Runtime pin in fresh wheel and sdist environments
+and requires zero skipped acceptance cases. The source-preview Native-to-Pi test is
+explicitly selected in the separate `owner-lifecycle` cross-harness job, which installs
+the exact unreleased Runtime and real Hermes/Pi dependencies and also rejects skips.
+It is excluded from distribution collection because released Runtime 0.4.0 does not
+provide that preview API; an unavailable preview must not weaken the distribution gate.
+
 - Distribution CI builds metadata-only artifacts and verifies installed MCP
   protocol behavior on Linux, macOS and Windows (Python 3.11/3.14), independently
   with MCP Python SDK 1.x and 2.x. Publication also tests both SDK majors against
