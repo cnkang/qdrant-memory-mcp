@@ -47,9 +47,9 @@ backups. Preserve private config/grants with restricted access. Restore matching
 state and complete recovery before admitting clients. Rotate database credentials
 without distributing them to connectors. Do not remove claims to bypass conflicts.
 
-See Runtime [deployment examples and recovery](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/c2f080974e7b1a81631342c7ee2290f430711679/docs/shared-memory/deployment-security.md)
-and [threat model](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/c2f080974e7b1a81631342c7ee2290f430711679/docs/shared-memory/threat-model-v1.md),
-pinned to the available hardening revision. These additions remain unpublished. Current official
+See Runtime [deployment examples and recovery](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/shared-memory/deployment-security.md)
+and [threat model](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/shared-memory/threat-model-v1.md).
+The Runtime documentation is public; these additions remain unpublished beyond Runtime 0.4.0. Current official
 [Qdrant security documentation](https://qdrant.tech/documentation/security/)
 describes authentication and collection permissions. The official Qdrant MCP
 server also provides persistence; this Runtime adds memory lifecycle, fixed
