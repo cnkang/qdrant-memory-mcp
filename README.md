@@ -1,5 +1,7 @@
 # Qdrant Memory MCP
 
+For shared production deployments, read the [deployment security guide](docs/shared-deployment-security.md). Owner-only database write credentials are required independently of MCP grants. Destination protection and shared doctor are unpublished Runtime additions; published pins and installation commands remain unchanged.
+
 ## One Memory, Multiple Agents — opt-in shared owner
 
 The distribution adds an opt-in single-owner service and stdio bridge. Install Runtime 0.4.0 to use them. See [shared integration guide](integrations/shared/README.md). Private defaults are unchanged. Native Provider automatic shared extraction is deferred.
