@@ -12,6 +12,13 @@ write keys, embedding secrets, policy and Ledger with Owner. Tool arguments
 cannot choose another collection, owner or space. Direct Qdrant writes bypass
 Ledger and revision checks. An MCP token is not a database key.
 
+Each token resolves to one server-configured principal. Memory provenance records
+the original creator and the latest updater, and durable request receipts record
+the principal that admitted each mutation. Clients that need separate attribution
+must use separate tokens and distinct principals. Authentication, authorization,
+provenance and durable operation auditing are separate guarantees; the Runtime
+does not claim a complete historical audit of reads or deleted records.
+
 Local embedded production needs one private Owner home/data directory, one Owner,
 loopback service and local stdio bridges. Server/Cloud additionally require actual
 collection-scoped write credentials only for Owner and restricted network access.
