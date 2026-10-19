@@ -104,9 +104,9 @@ rejects drift from the checked-in pins:
 
 - The launcher pin lives in `launcher-source.json` at the repository root and
   must be public on the npm registry with matching integrity before release
-  assets are prepared. Additional registries listed in `mcp.json` are
-  best-effort cross-checked against the canonical registry. A conflict fails
-  the gate.
+  assets are prepared. `mcp.json` lists only the canonical registry
+  (`https://registry.npmjs.org`); package validation rejects additional
+  registry entries.
 - The Skill pin lives in `integrations/workbuddy/skill-source.json` and must
   match a clean canonical checkout at the exact commit.
 - For a future MCP release, update the checked-in uvx alternative's version
