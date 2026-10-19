@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "qdrant-memory-owner": {
+      "type": "stdio",
+      "command": "/absolute/path/reviewed-runtime/bin/qdrant-memory",
+      "args": ["remote-mcp", "--url", "https://memory.example.com/mcp"],
+      "env": {"QDRANT_MEMORY_REMOTE_TOKEN": "<inject this device's independent Owner grant securely>"}
+    }
+  }
+}

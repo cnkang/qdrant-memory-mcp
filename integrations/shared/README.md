@@ -51,3 +51,15 @@ relabel that test coverage as native host certification.
 Hermes Native Provider 保持兼容和私有，自动提取到共享空间尚未实现，不能注册重复接口。
 完整[中文指南](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/shared-memory/README.zh-CN.md)
 包含备份、恢复、回滚、安全限制与排障。
+# Remote source preview
+
+The `*.remote-preview.*` examples use the official MCP-to-MCP `remote-mcp`
+bridge over HTTPS. They require an explicitly installed reviewed Runtime with
+the new command, retain TLS verification and contain no database/model key.
+`mcp.remote-preview.json` uses the existing WorkBuddy/generic stdio shape;
+inject the credential using the Host's secure configuration. These are configuration
+examples, not evidence that each Host UI or automatic lifecycle was tested.
+Native HTTP-capable Hosts may connect directly to `https://<owner>/mcp` in the
+controlled provisioned-credential mode. OAuth/browser modes are unsupported.
+See [Pi's separately verified lifecycle adapter](../pi/README.md).
+

@@ -1,0 +1,14 @@
+# Copy only after choosing a reviewed Runtime and an independent device grant.
+- insert:
+    - id: cnkang-qdrant-memory-remote-preview
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: qdrant-memory-owner
+        transport: stdio
+        command: /absolute/path/reviewed-runtime/bin/qdrant-memory
+        args:
+          - remote-mcp
+          - --url
+          - https://memory.example.com/mcp
+        env:
+          QDRANT_MEMORY_REMOTE_TOKEN: !!js process.env.QDRANT_MEMORY_REMOTE_TOKEN || ''
