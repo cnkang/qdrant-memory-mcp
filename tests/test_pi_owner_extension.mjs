@@ -68,3 +68,19 @@ test("ephemeral recall bounds long text while keeping complete provenance", asyn
   assert.equal(rows[0].space_id, "alpha");
   assert.equal(rows[0].created_by, "hermes-a");
 });
+
+test("private capture and project recall use independently scoped credentials", async () => {
+  const hooks = {}, calls = [];
+  const env = { QDRANT_MEMORY_AUTO_CAPTURE: "1", QDRANT_MEMORY_AUTO_RECALL: "1",
+    QDRANT_MEMORY_REMOTE_TOKEN: "private-device-token", QDRANT_MEMORY_RECALL_TOKEN: "project-read-token" };
+  const pi = { on(name, callback) { hooks[name] = callback; }, appendEntry() {} };
+  createOwnerMemoryExtension({ env, request: async (mode, value, configured) => {
+    calls.push({ mode, token: configured.QDRANT_MEMORY_REMOTE_TOKEN });
+    return mode === "remote-call" ? { memories: [] } : { status: "COMMITTED" };
+  } })(pi);
+  await hooks.before_agent_start({ prompt: "Project Alpha?" }, { sessionManager: { getSessionId: () => "s" }, hasUI: false });
+  await hooks.context({ messages: [] });
+  await hooks.turn_end({ messageEntryId: "one", message: { role: "assistant", content: [] } });
+  assert.equal(calls.find(call => call.mode === "remote-call").token, "project-read-token");
+  assert.equal(calls.find(call => call.mode === "remote-event").token, "private-device-token");
+});
