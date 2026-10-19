@@ -1,5 +1,7 @@
 # 在 DeepSeek Harness 中使用 Qdrant 长期记忆
 
+共享部署的 DSH 只应持有独立的 Owner 客户端令牌，数据库写凭据由 Owner 独占。见[部署安全指南](shared-deployment-security.md)。普通托管 Bundle 保持私有模式，不会自动登记共享目的地。
+
 通过 DSH 官方 MCP 客户端，可以搜索、保存、更新和删除长期记忆。
 它提供明确的记忆操作，不会自动保存每一轮对话。
 

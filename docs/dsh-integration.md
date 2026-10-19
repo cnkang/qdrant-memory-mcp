@@ -1,5 +1,7 @@
 # Qdrant Memory for DeepSeek Harness
 
+Shared deployments require separate Owner client tokens and Owner-only database write credentials. See [deployment security](shared-deployment-security.md). The ordinary managed bundle stays private and does not enroll a shared destination.
+
 DSH can search, save, update and delete durable memories through its official
 MCP client. Memory survives a new session and server restart. This is explicit
 memory: the connection does not automatically save every conversation.

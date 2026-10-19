@@ -1,5 +1,7 @@
 # WorkBuddy MCP + Skill connector
 
+For explicitly configured shared access, give WorkBuddy only its own Owner token. Keep Qdrant write keys and Owner state out of connector packages. See [deployment security](../../docs/shared-deployment-security.md). The managed connector remains private by default; it does not enable destination protection.
+
 This adapter packages the shared Python memory runtime and the canonical Skill
 as a WorkBuddy connector. It implements no memory engine, changes no Runtime
 code and adds no Python modules to the metadata-only MCP wheel. Explicit

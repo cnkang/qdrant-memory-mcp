@@ -1,5 +1,7 @@
 # Shared service integration preview / 共享服务接入预览
 
+Read [deployment security](../../docs/shared-deployment-security.md) before production. Client bridges receive Owner tokens only; database write credentials stay with the Owner. Destination protection and shared doctor require the unpublished Runtime changes, not the 0.4.0 installation below.
+
 **Opt-in.** The distribution remains metadata-only and pins Runtime 0.4.0.
 Install the published Runtime into a separate virtual environment with `[mcp]`.
 Runtime 0.4.0 provides `shared-serve` and `shared-mcp`.

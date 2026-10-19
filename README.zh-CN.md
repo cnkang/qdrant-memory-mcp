@@ -1,5 +1,7 @@
 # Qdrant Memory MCP
 
+共享生产部署请参阅[部署安全指南](docs/shared-deployment-security.md)。Agent 只应接收 Owner 客户端令牌，不应接收 Qdrant 写凭据。本地锁无法阻止远程数据库写入。新保护策略和诊断尚未发布；分发版本、依赖固定值和安装命令保持不变。
+
 ## One Memory, Multiple Agents — 可选启用的共享 owner
 
 本分发新增显式启用的单 owner 共享服务和 stdio 桥接，需安装 Runtime 0.4.0。见[共享接入指南](integrations/shared/README.md)。私有默认配置与 DSH/WorkBuddy 托管配置不变；Hermes Native Provider 自动共享提取尚未实现。
