@@ -26,7 +26,7 @@ Observed locally with Python 3.11.15 and Node 22.23.2:
   client/CLI and canonical Skill in disposable profiles.
 
 Runtime implementation and real TLS/JWT authorization evidence are recorded in
-its [hardening report](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/shared-memory/hardening-report.md)
-after the Runtime PR merges. Production Cloud isolation and desktop WorkBuddy UI
+its [hardening report](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/c2f080974e7b1a81631342c7ee2290f430711679/docs/shared-memory/hardening-report.md)
+at the available hardening revision. Production Cloud isolation and desktop WorkBuddy UI
 behavior are not inferred from packaging tests. No release, tag, published asset
 change or distribution pin advance is included.
