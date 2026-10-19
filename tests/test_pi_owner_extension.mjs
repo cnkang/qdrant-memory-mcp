@@ -6,6 +6,22 @@ test("default off does not register lifecycle capture", () => {
   createOwnerMemoryExtension({ env: {} })({ on() { assert.fail("Unexpected hook"); } });
 });
 
+test("Owner cancellation is terminal and is never reported as committed", async () => {
+  const hooks = {}, entries = [];
+  let sends = 0;
+  const pi = { on(name, callback) { hooks[name] = callback; }, appendEntry(customType, data) { entries.push({ type: "custom", customType, data }); } };
+  createOwnerMemoryExtension({ env: { QDRANT_MEMORY_AUTO_CAPTURE: "1" }, request: async () => { sends++; return { status: "CANCELLED" }; } })(pi);
+  const ctx = { sessionManager: { getSessionId: () => "session", getEntries: () => entries }, hasUI: false };
+  await hooks.session_start({}, ctx);
+  await hooks.before_agent_start({ prompt: "synthetic permitted fact" }, ctx);
+  await hooks.turn_end({ messageEntryId: "one", message: { role: "assistant", content: [] } });
+  assert.equal(entries.at(-1).customType, "qdrant-owner-ack");
+  assert.equal(entries.at(-1).data.status, "CANCELLED");
+  await hooks.session_start({}, ctx);
+  await hooks.session_shutdown();
+  assert.equal(sends, 1);
+});
+
 test("official hook shapes retain failed events, retry IDs and fresh recall", async () => {
   const hooks = {}, entries = [], calls = [];
   let available = false;

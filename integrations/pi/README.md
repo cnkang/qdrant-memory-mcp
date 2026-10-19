@@ -67,3 +67,9 @@ manifest now pins Pi 1.3.0, which pins a consistent family of dependencies. The
 lockfile records that tested set. Codex, DSH, WorkBuddy and OpenCode remain
 explicit MCP/assisted modes until their own official lifecycle adapters are
 implemented and verified; this Pi extension is not evidence for those hosts.
+
+The Owner source preview supports device-bound event status/cancellation through
+`remote-event --action status|cancel`. Cancellation is permitted only before any
+extraction/write plan is prepared. Pi records `CANCELLED` as a distinct terminal
+outbox acknowledgement and stops replaying it; it does not claim the event was
+committed. Operator recovery gates remain in force after extraction failures.
