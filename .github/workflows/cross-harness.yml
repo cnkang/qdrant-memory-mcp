@@ -36,7 +36,7 @@ jobs:
       - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
         with:
           repository: cnkang/hermes-plugin-qdrant-memory
-          ref: 89a3744fb716ac90edeb3dfdb01f59e5efcbf280
+          ref: e33f7aed9bc5d47e55d92280c35c5b1f2ce7861d
           path: .scratch/owner-runtime
           persist-credentials: false
       - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
