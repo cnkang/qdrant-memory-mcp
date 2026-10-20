@@ -36,6 +36,7 @@ test("actual Pi session automatically captures and recalls without tool calls", 
   const { session } = await createAgentSession({ cwd: root, agentDir: root, resourceLoader: loader,
     modelRuntime, model: modelRuntime.getModel("fixture", "fixture"), settingsManager,
     sessionManager: SessionManager.inMemory(root), tools: [], thinkingLevel: "off" });
+  /** Observe the actual SDK model context and return a deterministic streaming response. */
   function fixtureStream(model, context) {
     contexts.push(context);
     const stream = createAssistantMessageEventStream();

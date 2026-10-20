@@ -2,6 +2,7 @@
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 
+/** Select bounded recall data without interpreting stored text as instructions. */
 function recallData(memories) {
   const selected = [];
   const keys = ["id", "space_id", "visibility", "version", "created_by", "updated_by", "source"];
@@ -20,6 +21,7 @@ function recallData(memories) {
   return selected.length ? JSON.stringify(selected) : null;
 }
 
+/** Call the configured HTTPS Owner through Runtime, bounding time and decoded output. */
 export function ownerRequest(mode, value, env = process.env) {
   const python = env.QDRANT_MEMORY_RUNTIME_PYTHON;
   if (!python) return Promise.reject(new Error("Owner Runtime Python must be explicitly configured"));
@@ -57,6 +59,7 @@ export function ownerRequest(mode, value, env = process.env) {
   });
 }
 
+/** Register opt-in Pi lifecycle hooks with a session-local durable outbox. */
 export function createOwnerMemoryExtension({ env = process.env, request = ownerRequest } = {}) {
   return function ownerMemory(pi) {
     const capture = env.QDRANT_MEMORY_AUTO_CAPTURE === "1";
@@ -77,6 +80,7 @@ export function createOwnerMemoryExtension({ env = process.env, request = ownerR
     ])).digest("hex");
     const activePending = () => [...pending.values()].filter(saved => saved.binding === binding()).length;
 
+    /** Share one drain operation; concurrent hooks request another pass rather than duplicate sends. */
     function flush() {
       requested = true;
       inflight ??= (async () => {
@@ -92,6 +96,7 @@ export function createOwnerMemoryExtension({ env = process.env, request = ownerR
       return inflight;
     }
 
+    /** Acknowledge only terminal receipts still bound to the active session and credentials. */
     async function drain() {
       const current = binding();
       const epoch = generation;
