@@ -1,23 +1,25 @@
 # GitHub checks and dependency maintenance
 
-Distribution CI tests the released Runtime pin in fresh wheel and sdist environments
-and requires zero skipped acceptance cases. The source-preview Native-to-Pi test is
-explicitly selected in the separate `owner-lifecycle` cross-harness job, which installs
-the exact unreleased Runtime and real Hermes/Pi dependencies and also rejects skips.
-It is excluded from distribution collection because released Runtime 0.4.0 does not
-provide that preview API; an unavailable preview must not weaken the distribution gate.
+Distribution CI tests the released Runtime version in fresh wheel and sdist environments.
+It rejects skipped acceptance tests.
+The separate `owner-lifecycle` job runs the Hermes-to-Pi source preview test.
+This job installs fixed Runtime, Hermes, and Pi versions.
+It also rejects skipped tests.
+Distribution CI excludes this test because Runtime 0.4.0 does not provide the preview API.
+An unavailable preview must not weaken distribution checks.
 
-- Distribution CI builds metadata-only artifacts and verifies installed MCP
-  protocol behavior on Linux, macOS and Windows (Python 3.11/3.14), independently
-  with MCP Python SDK 1.x and 2.x. Publication also tests both SDK majors against
-  wheel and sdist installations using the public Runtime release.
-  All 12 OS/Python/SDK combinations are required checks on the protected branch.
-- Cross-harness integration runs the official DSH client against a disposable
-  profile, installs the packed Bundle through the real `dsh plugin` command,
-  and runs the exact public `npx` launcher commands (cold handshake,
-  preparation, CRUD, persistence) on Linux, macOS and Windows.
-- Repository quality runs Ruff on release scripts/tests and actionlint on every
-  workflow, including shell steps. actionlint's archive is SHA256 verified.
+- Distribution CI builds metadata-only artifacts.
+  It tests installed MCP behavior on Linux, macOS, and Windows.
+  Tests cover Python 3.11 and 3.14 with MCP Python SDK 1.x and 2.x.
+  Publication also tests both SDK versions against wheel and sdist installations with the public Runtime release.
+  The protected branch requires all 12 operating system, Python, and SDK combinations.
+- Cross-harness integration runs the official DSH client with a temporary profile.
+  It installs the packed Bundle through the real `dsh plugin` command.
+  It runs the exact public `npx` launcher commands on Linux, macOS, and Windows.
+  Tests cover the initial handshake, preparation, memory operations, and persistence.
+- Repository quality runs Ruff on release scripts and tests.
+  It runs actionlint on every workflow, including shell steps.
+  CI verifies the SHA256 digest of the actionlint archive.
 - CodeQL analyzes Python and GitHub Actions with `security-extended` queries
   on PRs, main pushes and every Monday. The paired init/analyze actions use the
   same immutable commit.
@@ -28,8 +30,8 @@ provide that preview API; an unavailable preview must not weaken the distributio
   There is no automatic merge or publication.
 
 Actions use immutable commit pins. Dependabot updates both occurrences of the
-CodeQL action together. Repository Dependabot security updates, secret scanning
-and push protection are enabled. No additional service token is required.
+CodeQL action together. The repository enables Dependabot security updates, secret scanning,
+and push protection. These checks require no additional service token.
 
 ## DSH dependency security and update channels
 
@@ -67,10 +69,11 @@ They verify a ZIP roundtrip and reject a malformed ZIP64 archive within a fixed 
 These npm dependencies serve development tests only.
 Python artifacts and the configuration-only Bundle do not include them.
 
-The Runtime dependency is exact at `0.4.0`. Runtime updates must also adjust
-compatibility expectations and the preparation fixture deliberately. A dependency-only PR cannot bypass the
-distribution's metadata/protocol checks. This repository scans distribution
-scripts and workflows. Runtime business-code scanning belongs to its upstream.
+The Runtime dependency uses the exact version `0.4.0`.
+For a Runtime update, also update compatibility expectations and the preparation fixture.
+A dependency-only PR cannot bypass distribution metadata and protocol checks.
+This repository scans distribution scripts and workflows.
+The upstream Runtime repository scans Runtime business code.
 
-Publishing remains tag-only behind the existing protected environments and
-explicit publication confirmation. Adding checks does not trigger a release.
+Publication requires a tag, the existing protected environments, and explicit confirmation.
+New checks do not trigger a release.
