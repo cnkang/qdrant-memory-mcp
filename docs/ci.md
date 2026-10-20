@@ -27,11 +27,14 @@ and push protection are enabled. No additional service token is required.
 ## DSH dependency security and update channels
 
 The reproducible cross-harness gate pins official DSH packages at
-`0.2.1-rc.2`. Its upstream MCP Client/Core resolve to `2.2.0`, fixing
-[GHSA-6qxp-vccf-f47h](https://github.com/advisories/GHSA-6qxp-vccf-f47h). The lockfile regression test rejects affected SDK
-versions, including nested copies. The alert closes only after the corrected
-lockfile reaches the default branch and GitHub re-evaluates it. A feature
-branch push alone does not close it. No transitive override is used.
+`0.2.1-rc.2`. A temporary test-only override pins MCP Client to `2.3.0`, with Core `2.3.0`.
+It fixes [cross-origin redirect leakage](https://github.com/advisories/GHSA-6prh-2h8m-c8cw).
+The earlier [OAuth fix](https://github.com/advisories/GHSA-6qxp-vccf-f47h) remains included.
+Remove the override after an upstream DSH update uses a fixed client, then rerun the actual client acceptance.
+The lockfile test rejects affected versions, including nested copies.
+The redirect advisory affects HTTP and OAuth. This repository's DSH acceptance uses unaffected stdio.
+GitHub closes the alert only after the corrected lockfile reaches the default branch and is evaluated.
+A feature branch push alone does not close it.
 
 The separate `DSH next compatibility` workflow resolves the three official
 packages from `next` weekly, manually, and when relevant integration sources
