@@ -53,7 +53,7 @@ Remove this override after an upstream Office dependency uses a fixed parser.
 Then repeat the clean installation, audit, and actual DSH acceptance tests.
 Do not use `npm audit fix --force`.
 
-The 2026-10-21 clean installation and `npm audit` reported zero vulnerabilities.
+The clean installation and `npm audit` on 2026-10-20 (UTC) reported zero vulnerabilities.
 The lockfile test rejects affected parser copies, including nested copies.
 Acceptance tests resolve the parser through the Office package.
 They verify a ZIP roundtrip and reject a malformed ZIP64 archive within a fixed timeout.
