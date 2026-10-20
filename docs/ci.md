@@ -4,6 +4,7 @@ Distribution CI tests the released Runtime version in fresh wheel and sdist envi
 It rejects skipped acceptance tests.
 The separate `owner-lifecycle` job runs the Hermes-to-Pi source preview test.
 This job installs fixed Runtime, Hermes, and Pi versions.
+
 It also rejects skipped tests.
 Distribution CI excludes this test because Runtime 0.4.0 does not provide the preview API.
 An unavailable preview must not weaken distribution checks.
@@ -41,19 +42,26 @@ It fixes [cross-origin redirect leakage](https://github.com/advisories/GHSA-6prh
 The earlier [OAuth fix](https://github.com/advisories/GHSA-6qxp-vccf-f47h) remains included.
 Remove the override after an upstream DSH update uses a fixed client, then rerun the actual client acceptance.
 The lockfile test rejects affected versions, including nested copies.
+
 The redirect advisory affects HTTP and OAuth. This repository's DSH acceptance uses unaffected stdio.
 GitHub closes the alert only after the corrected lockfile reaches the default branch and is evaluated.
 A feature branch push alone does not close it.
 
 The separate `DSH next compatibility` workflow resolves the three official
 packages from `next` weekly, manually, and when relevant integration sources
-change. It runs the same real client/CLI/Bundle acceptance, rejects skipped
-results, rejects high or critical advisories, and retains the resolved
-dependency tree, generated lockfile and audit report. It is a compatibility signal, separate from the exact-version release
-gate. Promote a tested `next` version by explicitly updating all three pins and
-the committed lockfile. Do not replace `npm ci` with floating installs in the
-release gate. The npm `latest` tags are not synchronized across these packages.
-The `next` probe retains the test-only overrides. Inspect its resolved tree before removing an override.
+change. It runs the same acceptance tests for the real client, CLI, and Bundle.
+It rejects skipped tests and high or critical advisories.
+It retains the resolved dependency tree, generated lockfile, and audit report.
+These results show compatibility. Release checks still use exact package versions.
+
+To adopt a tested `next` version, update all three version pins.
+Update the committed lockfile.
+Keep `npm ci` in release checks.
+Do not use floating package versions for these checks.
+The upstream packages do not synchronize their npm `latest` tags.
+
+The `next` probe retains the test-only overrides.
+Inspect its resolved tree before removing an override.
 
 A second test-only override selects `fflate 0.8.3` for `@deepseek-ai/libreoffice-kit`.
 It fixes the [malformed ZIP64 parser advisory](https://github.com/advisories/GHSA-px8p-9vwx-vf98).
