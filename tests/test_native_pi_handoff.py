@@ -133,7 +133,8 @@ def test_native_hermes_to_pi_authorized_project_handoff(tmp_path, monkeypatch):
             )
             thread = threading.Thread(target=service.run, kwargs={"sockets": [sock]})
             thread.start()
-            while not service.started and time.monotonic() < deadline:
+            start_deadline = time.monotonic() + 10
+            while not service.started and time.monotonic() < start_deadline:
                 time.sleep(0.01)
             assert service.started
             env = {
