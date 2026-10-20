@@ -29,7 +29,7 @@ The current test lock uses a temporary MCP Client `2.3.0` override for the cross
 Core also resolves to `2.3.0`. The three official DSH packages remain at `0.2.1-rc.2`.
 The override affects development tests. It does not add dependencies to the configuration-only Bundle.
 A separate Office dependency override selects `fflate 0.8.3` for `@deepseek-ai/libreoffice-kit`.
-Clean installation and `npm audit` reported zero vulnerabilities on 2026-10-21.
+Clean installation and `npm audit` reported zero vulnerabilities on 2026-10-20 (UTC).
 The Office parser passed a ZIP roundtrip with Unicode text and binary data.
 It also rejected a malformed ZIP64 archive within the test timeout.
 See [dependency maintenance](ci.md) for the advisory and removal condition.
