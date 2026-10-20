@@ -33,13 +33,16 @@ export function ownerRequest(mode, value, env = process.env) {
   return new Promise((resolve, reject) => {
     const child = spawn(python, args, { env, stdio: ["pipe", "pipe", "pipe"], windowsHide: true });
     let output = "";
+    let bytes = 0;
     const timer = setTimeout(() => { child.kill(); reject(new Error("Owner request timed out")); }, 35000);
     child.on("error", () => { clearTimeout(timer); reject(new Error("Owner Runtime is unavailable")); });
     child.stdin.on("error", () => {});
     child.stderr.resume(); // never forward service errors or sensitive response bodies
+    child.stdout.setEncoding("utf8");
     child.stdout.on("data", chunk => {
+      bytes += Buffer.byteLength(chunk);
+      if (bytes > 1024 * 1024) { child.kill(); reject(new Error("Owner response exceeds limit")); return; }
       output += chunk;
-      if (Buffer.byteLength(output) > 1024 * 1024) { child.kill(); reject(new Error("Owner response exceeds limit")); }
     });
     child.on("close", code => {
       clearTimeout(timer);
@@ -63,25 +66,52 @@ export function createOwnerMemoryExtension({ env = process.env, request = ownerR
     let prompt = "";
     let session = "";
     let saturated = false;
+    let generation = 0;
+    let inflight = null;
+    let requested = false;
     const binding = () => createHash("sha256").update(JSON.stringify([
       env.QDRANT_MEMORY_OWNER_URL ?? "", env.QDRANT_MEMORY_REMOTE_TOKEN ?? ""
     ])).digest("hex");
+    const recallBinding = () => createHash("sha256").update(JSON.stringify([
+      env.QDRANT_MEMORY_OWNER_URL ?? "", env.QDRANT_MEMORY_RECALL_TOKEN || env.QDRANT_MEMORY_REMOTE_TOKEN || ""
+    ])).digest("hex");
     const activePending = () => [...pending.values()].filter(saved => saved.binding === binding()).length;
 
-    async function flush() {
+    function flush() {
+      requested = true;
+      inflight ??= (async () => {
+        do {
+          requested = false;
+          if (!await drain()) { requested = false; break; }
+        } while (requested);
+      })().finally(() => {
+        inflight = null;
+        // A hook can enqueue between the final await and this microtask.
+        if (requested) return flush();
+      });
+      return inflight;
+    }
+
+    async function drain() {
       const current = binding();
+      const epoch = generation;
+      const configured = { ...env };
       for (const [id, saved] of pending) {
+        if (epoch !== generation || current !== binding()) return true;
         if (saved.binding !== current) continue;
         try {
-          const result = await request("remote-event", saved.event, env);
-          if (!["COMMITTED", "CANCELLED"].includes(result.status)) break;
+          const result = await request("remote-event", saved.event, configured);
+          if (epoch !== generation || current !== binding() || pending.get(id) !== saved) return true;
+          if (!["COMMITTED", "CANCELLED"].includes(result.status)) return false;
           pi.appendEntry("qdrant-owner-ack", { event_id: id, status: result.status });
           pending.delete(id);
-        } catch { break; }
+        } catch { return false; }
       }
+      return true;
     }
 
     pi.on("session_start", async (_event, ctx) => {
+      generation++;
       session = ctx.sessionManager.getSessionId();
       pending.clear();
       // Read only this extension's durable outbox entries from the current
@@ -96,9 +126,11 @@ export function createOwnerMemoryExtension({ env = process.env, request = ownerR
     });
 
     pi.on("before_agent_start", async (event, ctx) => {
-      session = ctx.sessionManager.getSessionId();
+      const nextSession = ctx.sessionManager.getSessionId();
+      if (nextSession !== session) generation++;
+      session = nextSession;
       prompt = typeof event.prompt === "string" ? event.prompt : "";
-      await flush();
+      void flush();
       saturated = activePending() >= 128;
       const stale = pending.size - activePending();
       if (stale) pi.appendEntry("qdrant-owner-status", { status: "SKIPPED", reason: "credential_binding_changed", retained_events: stale });
@@ -108,10 +140,11 @@ export function createOwnerMemoryExtension({ env = process.env, request = ownerR
     pi.on("context", async (event) => {
       const messages = event.messages.filter(message => message.customType !== "qdrant-owner-recall");
       if (!recall || !prompt) return { messages };
+      const epoch = generation, authority = recallBinding(), query = prompt;
       try {
-        const recallEnv = env.QDRANT_MEMORY_RECALL_TOKEN
-          ? { ...env, QDRANT_MEMORY_REMOTE_TOKEN: env.QDRANT_MEMORY_RECALL_TOKEN } : env;
-        const result = await request("remote-call", { query: prompt }, recallEnv);
+        const recallEnv = { ...env, QDRANT_MEMORY_REMOTE_TOKEN: env.QDRANT_MEMORY_RECALL_TOKEN || env.QDRANT_MEMORY_REMOTE_TOKEN };
+        const result = await request("remote-call", { query }, recallEnv);
+        if (epoch !== generation || authority !== recallBinding() || query !== prompt) return { messages };
         const memories = Array.isArray(result.memories) ? result.memories : [];
         if (!memories.length) return { messages };
         const data = recallData(memories);

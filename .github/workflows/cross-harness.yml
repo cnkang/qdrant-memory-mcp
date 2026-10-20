@@ -50,7 +50,7 @@ jobs:
           python -m pip install './.scratch/owner-runtime[remote]' 'pytest>=8,<10' 'PyYAML>=6,<7' 'requests>=2,<3' 'ruamel.yaml>=0.18,<0.20'
           npm ci --prefix integrations/agent-hosts --ignore-scripts --no-audit --no-fund
       - name: Actual Pi session lifecycle with deterministic model provider
-        run: node --test tests/test_pi_owner_extension.mjs tests/test_pi_owner_host.mjs
+        run: node --test tests/test_pi_owner_extension.mjs tests/test_pi_owner_transport.mjs tests/test_pi_owner_host.mjs
       - name: Actual Hermes callbacks to a fresh Pi session over verified HTTPS MCP
         env:
           QDRANT_OWNER_RUNTIME_ROOT: ${{ github.workspace }}/.scratch/owner-runtime

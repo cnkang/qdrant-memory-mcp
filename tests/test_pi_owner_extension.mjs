@@ -1,6 +1,74 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { setImmediate } from "node:timers/promises";
 import { createOwnerMemoryExtension } from "../integrations/pi/owner-memory.mjs";
+
+function controlledOutbox(env) {
+  const hooks = {}, entries = [], calls = [];
+  let release, enter;
+  const held = new Promise(resolve => { release = resolve; });
+  const entered = new Promise(resolve => { enter = resolve; });
+  const pi = { on(name, callback) { hooks[name] = callback; }, appendEntry(customType, data) { entries.push({ type: "custom", customType, data }); } };
+  createOwnerMemoryExtension({ env, request: async (mode, value, configured) => {
+    calls.push({ id: value.event_id, token: configured.QDRANT_MEMORY_REMOTE_TOKEN });
+    if (calls.length === 1) enter();
+    await held;
+    return { status: "COMMITTED" };
+  } })(pi);
+  const ctx = { sessionManager: { getSessionId: () => "session", getEntries: () => entries }, hasUI: false };
+  const turn = id => hooks.turn_end({ messageEntryId: id, message: { role: "assistant", content: [] } });
+  return { hooks, entries, calls, release, entered, ctx, turn };
+}
+
+test("inflight recall cannot cross a changed read credential", async () => {
+  const hooks = {};
+  const env = { QDRANT_MEMORY_AUTO_RECALL: "1", QDRANT_MEMORY_RECALL_TOKEN: "a".repeat(40) };
+  let release;
+  const response = new Promise(resolve => { release = resolve; });
+  createOwnerMemoryExtension({ env, request: async () => response })({ on(name, handler) { hooks[name] = handler; }, appendEntry() {} });
+  await hooks.before_agent_start({ prompt: "original authorized project" }, { sessionManager: { getSessionId: () => "s" }, hasUI: false });
+  const pending = hooks.context({ messages: [] });
+  env.QDRANT_MEMORY_RECALL_TOKEN = "b".repeat(40);
+  release({ memories: [{ text: "old project private result", version: "v1" }] });
+  assert.deepEqual((await pending).messages, []);
+});
+
+test("pending delivery cannot block a prompt or duplicate sends during concurrent hooks", async () => {
+  const h = controlledOutbox({ QDRANT_MEMORY_AUTO_CAPTURE: "1", QDRANT_MEMORY_REMOTE_TOKEN: "a".repeat(40) });
+  await h.hooks.before_agent_start({ prompt: "first fact" }, h.ctx);
+  const first = h.turn("one");
+  await h.entered;
+  let delivered = false;
+  const prompt = h.hooks.before_agent_start({ prompt: "second fact" }, h.ctx).then(() => { delivered = true; });
+  try {
+    await setImmediate();
+    assert.equal(delivered, true, "new prompt must not await the held outbox request");
+    const second = h.turn("two");
+    h.release();
+    await Promise.all([first, second, prompt]);
+    assert.deepEqual(h.calls.map(row => row.id), ["session:one", "session:two"]);
+    assert.equal(h.entries.filter(row => row.customType === "qdrant-owner-ack").length, 2);
+  } finally { h.release(); await Promise.allSettled([first, prompt]); }
+});
+
+test("a binding change during a drain cannot send old raw events using a new credential", async () => {
+  const env = { QDRANT_MEMORY_AUTO_CAPTURE: "1", QDRANT_MEMORY_REMOTE_TOKEN: "a".repeat(40) };
+  const h = controlledOutbox(env);
+  await h.hooks.before_agent_start({ prompt: "old private fact" }, h.ctx);
+  const first = h.turn("one");
+  await h.entered;
+  const oldPending = h.turn("two");
+  env.QDRANT_MEMORY_REMOTE_TOKEN = "b".repeat(40);
+  const next = h.hooks.before_agent_start({ prompt: "new authorized fact" }, h.ctx);
+  const current = h.turn("three");
+  h.release();
+  await Promise.all([first, oldPending, next, current]);
+  assert.deepEqual(h.calls, [
+    { id: "session:one", token: "a".repeat(40) },
+    { id: "session:three", token: "b".repeat(40) }
+  ]);
+  assert.deepEqual(h.entries.filter(row => row.customType === "qdrant-owner-ack").map(row => row.data.event_id), ["session:three"]);
+});
 
 test("default off does not register lifecycle capture", () => {
   createOwnerMemoryExtension({ env: {} })({ on() { assert.fail("Unexpected hook"); } });

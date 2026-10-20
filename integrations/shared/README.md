@@ -56,8 +56,13 @@ Hermes Native Provider 保持兼容和私有，自动提取到共享空间尚未
 The `*.remote-preview.*` examples use the official MCP-to-MCP `remote-mcp`
 bridge over HTTPS. They require an explicitly installed reviewed Runtime with
 the new command, retain TLS verification and contain no database/model key.
-`mcp.remote-preview.json` uses the existing WorkBuddy/generic stdio shape;
-inject the credential using the Host's secure configuration. These are configuration
+`mcp.remote-preview.json` uses WorkBuddy's stdio shape and documented
+`${QDRANT_MEMORY_REMOTE_TOKEN}` credential reference, supplied by its secure
+credential configuration ([WorkBuddy connector documentation](https://open.workbuddy.cn/en/docs/connector)).
+This reference is not portable interpolation syntax for every MCP client. For a
+generic client, use its documented secret-reference syntax, or omit the `env`
+entry only when that client securely forwards this variable to the child process.
+Never replace the reference with a committed token. These are configuration
 examples, not evidence that each Host UI or automatic lifecycle was tested.
 Native HTTP-capable Hosts may connect directly to `https://<owner>/mcp` in the
 controlled provisioned-credential mode. OAuth/browser modes are unsupported.
