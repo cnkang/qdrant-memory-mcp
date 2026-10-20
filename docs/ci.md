@@ -44,14 +44,21 @@ dependency tree, generated lockfile and audit report. It is a compatibility sign
 gate. Promote a tested `next` version by explicitly updating all three pins and
 the committed lockfile. Do not replace `npm ci` with floating installs in the
 release gate. The npm `latest` tags are not synchronized across these packages.
+The `next` probe retains the test-only overrides. Inspect its resolved tree before removing an override.
 
-The 2026-10-17 audit of `0.2.1-rc.2` still reports one unrelated moderate
-advisory, [GHSA-px8p-9vwx-vf98](https://github.com/advisories/GHSA-px8p-9vwx-vf98),
-through the upstream Office conversion dependency on `fflate` (eight affected
-dependency nodes). No high/critical advisories remain in this npm tree.
-These npm dependencies are development-only contract-test dependencies. They
-are not installed by Python artifacts or shipped in the configuration-only Bundle. Follow
-up with an upstream DSH update rather than `npm audit fix --force`.
+A second test-only override selects `fflate 0.8.3` for `@deepseek-ai/libreoffice-kit`.
+It fixes the [malformed ZIP64 parser advisory](https://github.com/advisories/GHSA-px8p-9vwx-vf98).
+The three official DSH packages stay at `0.2.1-rc.2`.
+Remove this override after an upstream Office dependency uses a fixed parser.
+Then repeat the clean installation, audit, and actual DSH acceptance tests.
+Do not use `npm audit fix --force`.
+
+The 2026-10-21 clean installation and `npm audit` reported zero vulnerabilities.
+The lockfile test rejects affected parser copies, including nested copies.
+Acceptance tests resolve the parser through the Office package.
+They verify a ZIP roundtrip and reject a malformed ZIP64 archive within a fixed timeout.
+These npm dependencies serve development tests only.
+Python artifacts and the configuration-only Bundle do not include them.
 
 The Runtime dependency is exact at `0.4.0`. Runtime updates must also adjust
 compatibility expectations and the preparation fixture deliberately. A dependency-only PR cannot bypass the
