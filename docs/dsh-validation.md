@@ -15,11 +15,13 @@ passed all three real local acceptance tests: MCP Client lifecycle/CRUD/restart,
 CLI overlay preservation, and packed Bundle installation/composition/removal.
 The CLI, MCP Client and filesystem Skill provider are pinned together at that
 version. The original validation used the OAuth advisory fix `2.2.0`.
-The Bundle peer range retains the old RC line and explicitly admits the new RC
-line, because npm prerelease matching does not infer it from the old range.
+The Bundle peer range retains the old RC line and explicitly admits the new RC line.
+The old range does not include the new npm prerelease line.
+
 The Desktop GUI evidence below remains for 0.2.0-rc.2. This update does not claim
 new GUI acceptance. The independent floating `next` CI probe complements the
 committed exact-version release gate. See [dependency maintenance](ci.md).
+
 The updated distribution suite passed 141 tests. Ruff, actionlint, clean npm
 installation, wheel/sdist builds and strict metadata checks also passed locally.
 
@@ -28,6 +30,7 @@ installation, wheel/sdist builds and strict metadata checks also passed locally.
 The current test lock uses a temporary MCP Client `2.3.0` override for the cross-origin redirect fix.
 Core also resolves to `2.3.0`. The three official DSH packages remain at `0.2.1-rc.2`.
 The override affects development tests. It does not add dependencies to the configuration-only Bundle.
+
 A separate Office dependency override selects `fflate 0.8.3` for `@deepseek-ai/libreoffice-kit`.
 Clean installation and `npm audit` reported zero vulnerabilities on 2026-10-20 (UTC).
 The Office parser passed a ZIP roundtrip with Unicode text and binary data.
@@ -61,6 +64,7 @@ The subsequent fresh-root run that interrupted/resumed installation completed in
 DSH client tests use the official package and real stdio processes. A fixture
 tool registry provides an observation seam. Those tests do not exercise the
 whole AgentLoop or every permission policy. Pre-cancellation is tested.
+
 Cancellation of a dispatched durable write can have an uncertain outcome. The
 caller must check the exact operation and its ID before any repeat. Do not
 repeat an uncertain write unless a repeat is safe for that operation. No write replay is added by the adapter.
@@ -88,11 +92,13 @@ WorkBuddy 5.8.2 connected a custom managed-launcher source entry, discovered all
 four tools and created an isolated WorkBuddy profile automatically. Its actual
 model saved and searched Chinese/English synthetic facts. A fresh conversation,
 without the earlier transcript, retrieved the facts and used them to answer the
-requested weekdays. Full WorkBuddy quit released the launcher process. After
-relaunch, preparation was explicitly repaired/reconnected during a dependency
+requested weekdays. Full WorkBuddy quit released the launcher process.
+
+After relaunch, preparation was explicitly repaired/reconnected during a dependency
 environment change. Actual GUI searches confirmed the same records and IDs.
 Exact-ID update/delete and subsequent searches then passed. This is a
 restart/recovery result, not an uninterrupted cold-install UX certification.
+
 The GUI used an explicitly selected existing Node executable
 and shared pre-provisioned program/model files. This is not marketplace ZIP
 import, managed-Node provisioning or a clean-machine one-click certification.
@@ -102,9 +108,11 @@ through its Plugin Manager and activated the official MCP client. The actual
 model saved/searched two synthetic facts. A fresh session retrieved and used
 them without the previous transcript. Exact-ID update preserved the first ID,
 and exact-ID deletion removed the second from subsequent search. After a verified
-full desktop exit, backend diagnostics could reopen storage successfully. After
-relaunch, a new session loaded the canonical Skill through DSH's standard Skill
+full desktop exit, backend diagnostics could reopen storage successfully.
+
+After relaunch, a new session loaded the canonical Skill through DSH's standard Skill
 tool, recalled the updated record and continued to exclude the deleted ID.
+
 The test used
 the prepared CPU Runtime and a dedicated DSH profile. No DSH core changes were
 needed. Remaining desktop lifecycle and platform cases are separate release gates.
@@ -138,11 +146,11 @@ workflow refuses unpublished pins. The Runtime wheel is public on PyPI. The
 MCP distribution `v0.1.4` is published on PyPI and the MCP Registry, and its
 GitHub Release carries the connector assets (2026-10-16). The DSH Bundle
 0.1.1 is published on npm (2026-10-18), and its GitHub Release carries the
-tagged tgz and checksum. Marketplace listing review, managed Node GUI
-import in WorkBuddy, full application restart on a clean machine, forced
-installer-crash recovery, dispatch-time cancellation, every HMR/profile-switch
-case, and production upgrade/rollback remain separate release gates. Cloud
-multi-writer sharing and automatic DSH extraction/prefetch are not implemented.
+tagged tgz and checksum.
+
+The remaining gates include marketplace review, WorkBuddy managed Node import, and a full restart on a clean machine.
+They also include installer-crash recovery, dispatch-time cancellation, HMR/profile-switch cases, and production upgrade or rollback.
+Cloud multi-writer sharing and automatic DSH extraction/prefetch are not implemented.
 
 Keep one active owner for embedded storage. Do not bypass locks or reuse Hermes
 profiles implicitly. See [Hermes compatibility](hermes-compatibility.md),
