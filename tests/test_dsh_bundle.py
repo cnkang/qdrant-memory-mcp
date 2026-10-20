@@ -109,3 +109,14 @@ def test_dsh_lock_excludes_oauth_vulnerable_sdk_versions():
                 package["version"], (1, 32, 0)
             ), f"{path} retains the affected 1.x SDK"
     assert clients, "The actual DSH MCP client resolution must be audited"
+
+
+def test_dsh_lock_excludes_vulnerable_zip_parser_versions():
+    """Reject every affected fflate copy, including the Office dependency."""
+    lock = json.loads((ROOT / "integrations/dsh/package-lock.json").read_text(encoding="utf-8"))
+    copies = []
+    for path, package in lock["packages"].items():
+        if path.endswith("node_modules/fflate"):
+            assert at_least(package["version"], (0, 8, 3)), f"{path} retains GHSA-px8p-9vwx-vf98"
+            copies.append(path)
+    assert copies, "The actual DSH Office ZIP dependency must be audited"

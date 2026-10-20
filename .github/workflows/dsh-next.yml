@@ -48,7 +48,8 @@ jobs:
           persist-credentials: false
       - name: Install Python MCP and test dependencies
         run: python -m pip install . 'pytest>=8,<10' 'requests>=2,<3' 'jsonschema>=4,<5'
-      # Runner-local resolution only. Nothing is committed or pushed.
+      # Runner-local resolution retains the test-only security overrides.
+      # Nothing is committed or pushed.
       - name: Resolve official next packages independently of the release lockfile
         working-directory: integrations/dsh
         run: >-
@@ -69,8 +70,11 @@ jobs:
           set -e
           if [ "$audit_status" -gt 1 ]; then exit "$audit_status"; fi
           node --input-type=module -e 'import fs from "node:fs"; const report = JSON.parse(fs.readFileSync("next-audit.json", "utf8")); if (!report.metadata || report.error) process.exit(1); const counts = report.metadata.vulnerabilities || {}; console.log("advisories:", JSON.stringify(counts)); if (counts.high || counts.critical) process.exit(1);'
-      - name: Reject the known vulnerable MCP SDK baseline
-        run: python -m pytest -q tests/test_dsh_bundle.py::test_dsh_lock_excludes_oauth_vulnerable_sdk_versions
+      - name: Reject known vulnerable SDK and ZIP parser versions
+        run: >-
+          python -m pytest -q
+          tests/test_dsh_bundle.py::test_dsh_lock_excludes_oauth_vulnerable_sdk_versions
+          tests/test_dsh_bundle.py::test_dsh_lock_excludes_vulnerable_zip_parser_versions
       - name: Ensure pnpm for the official DSH plugin manager
         shell: bash
         run: pnpm --version || npm install --global pnpm@12.14.0

@@ -32,6 +32,47 @@ def dsh_cli(home, tmp_path):
     return ['node', str(cli)], env
 
 
+def test_official_dsh_office_zip_roundtrip_and_malformed_zip64():
+    """Exercise the Office dependency's parser and bound malformed ZIP64 rejection."""
+    script = r'''
+import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
+import { join } from 'node:path';
+const require = createRequire(join(process.env.DSH_TEST_MODULES, '@deepseek-ai/libreoffice-kit/package.json'));
+const { zipSync, unzipSync, strToU8, strFromU8 } = require('fflate');
+const archive = zipSync({
+  '文档.txt': strToU8('Office ZIP roundtrip: 中文'),
+  'binary.dat': new Uint8Array([0, 127, 128, 255]),
+});
+const restored = unzipSync(archive);
+assert.equal(strFromU8(restored['文档.txt']), 'Office ZIP roundtrip: 中文');
+assert.deepEqual([...restored['binary.dat']], [0, 127, 128, 255]);
+const original = Buffer.from(archive);
+const end = original.length - 22;
+const zip64End = Buffer.alloc(56);
+zip64End.writeUInt32LE(0x06064b50, 0);
+zip64End.writeBigUInt64LE(44n, 4);
+zip64End.writeUInt32LE(2, 32);
+zip64End.writeUInt32LE(original.readUInt32LE(end + 16), 48);
+const locator = Buffer.alloc(20);
+locator.writeUInt32LE(0x07064b50, 0);
+locator.writeBigUInt64LE(BigInt(end), 8);
+const malformed = Buffer.concat([original.subarray(0, end), zip64End, locator, original.subarray(end)]);
+const central = malformed.indexOf(Buffer.from([0x50, 0x4b, 0x01, 0x02]));
+assert.ok(central >= 0);
+assert.equal(malformed.readUInt16LE(central + 30), 0);
+malformed.writeUInt32LE(0xffffffff, central + 20);
+assert.throws(() => unzipSync(malformed));
+console.log('Office ZIP roundtrip and malformed ZIP64 rejection passed');
+'''
+    result = subprocess.run(
+        ['node', '--input-type=module', '-e', script],
+        capture_output=True, text=True, timeout=15,
+    )
+    assert result.returncode == 0, result.stderr
+    assert 'malformed ZIP64 rejection passed' in result.stdout
+
+
 def test_official_dsh_cli_overlay_preserves_user_patches(tmp_path):
     root = Path(__file__).resolve().parents[1]
     cli = Path(os.environ['DSH_TEST_MODULES']) / '@deepseek-ai/dsh/lib/bin.js'
