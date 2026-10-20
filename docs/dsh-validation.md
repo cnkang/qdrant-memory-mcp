@@ -14,7 +14,7 @@ The official `next` release [0.2.1-rc.2](https://github.com/deepseek-ai/deepseek
 passed all three real local acceptance tests: MCP Client lifecycle/CRUD/restart,
 CLI overlay preservation, and packed Bundle installation/composition/removal.
 The CLI, MCP Client and filesystem Skill provider are pinned together at that
-version. MCP Client/Core resolve to the OAuth advisory fix `2.2.0`.
+version. The original validation used the OAuth advisory fix `2.2.0`.
 The Bundle peer range retains the old RC line and explicitly admits the new RC
 line, because npm prerelease matching does not infer it from the old range.
 The Desktop GUI evidence below remains for 0.2.0-rc.2. This update does not claim
@@ -24,6 +24,11 @@ The updated distribution suite passed 141 tests. Ruff, actionlint, clean npm
 installation, wheel/sdist builds and strict metadata checks also passed locally.
 
 ## Local automated coverage
+
+The current test lock uses a temporary MCP Client `2.3.0` override for the cross-origin redirect fix.
+Core also resolves to `2.3.0`. The three official DSH packages remain at `0.2.1-rc.2`.
+The override affects development tests. It does not add dependencies to the configuration-only Bundle.
+See [dependency maintenance](ci.md) for the advisory and removal condition.
 
 | Layer | Verified behavior |
 | --- | --- |

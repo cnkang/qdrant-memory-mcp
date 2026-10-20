@@ -98,13 +98,14 @@ def test_dsh_lock_excludes_oauth_vulnerable_sdk_versions():
     clients = []
     for path, package in lock["packages"].items():
         if path.endswith(("node_modules/@modelcontextprotocol/client", "node_modules/@modelcontextprotocol/core")):
+            floor = (2, 3, 0) if path.endswith("/client") else (2, 2, 0)
             assert at_least(
-                package["version"], (2, 2, 0)
-            ), f"{path} retains GHSA-6qxp-vccf-f47h baseline"
+                package["version"], floor
+            ), f"{path} retains an OAuth or cross-origin redirect advisory baseline"
             if path.endswith("/client"):
                 clients.append(path)
         elif path.endswith("node_modules/@modelcontextprotocol/sdk"):
             assert at_least(
-                package["version"], (1, 31, 0)
+                package["version"], (1, 32, 0)
             ), f"{path} retains the affected 1.x SDK"
     assert clients, "The actual DSH MCP client resolution must be audited"
