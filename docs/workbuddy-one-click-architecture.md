@@ -27,7 +27,7 @@ pinned and verified. Setup uses only the Runtime's supported CLI.
 The connector accepts only the canonical npm registry. Package validation rejects
 mirror or additional registry entries. Public release validation compares the
 exact launcher's identity and integrity against the checked-in pin. At runtime,
-npx still trusts canonical registry integrity metadata; this is not an independent
+npx still trusts canonical registry integrity metadata. This is not an independent
 repository-digest check before every execution. Deployments requiring that extra
 boundary should preinstall and verify the approved launcher through their host's
 artifact policy. This change does not republish existing connector assets.

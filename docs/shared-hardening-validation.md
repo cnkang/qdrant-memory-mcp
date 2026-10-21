@@ -1,6 +1,6 @@
 # Shared security documentation validation — 2026-10-19
 
-Baseline main: `d708ca570980fbd3dba09d4b08679d9d8bc9a2a5`; initial local clean
+Baseline main: `d708ca570980fbd3dba09d4b08679d9d8bc9a2a5`. Initial local clean
 branch HEAD: `2e4da5526a454cacea5e34f7272a80446c4d243f`. The new review branch
 preserves existing work and updates guidance only. Distribution 0.2.1, Runtime
 0.4.0, WorkBuddy connector 0.2.0, Launcher 0.1.0-rc.3, Skill 0.3.0 and DSH

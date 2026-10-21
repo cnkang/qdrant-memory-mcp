@@ -38,19 +38,18 @@ results do not certify a different platform or a marketplace installation flow.
   provenance (connector, MCP, Runtime, launcher integrity, Skill commit) and a
   verifiable SHA-256 checksum.
 - The exact public `npx` connector command against the published `0.1.0-rc.1`
-  tarball passes an automated acceptance on Linux, macOS and Windows: cold
-  handshake within budget, unprepared DSH probe stays clean (no downloads, no
-  lock, no fake success), background preparation, refused-but-not-replayed
-  writes, CRUD, fresh-process persistence and resume after an aborted
-  preparation. The pinned `0.1.0-rc.2` re-ran the same acceptance after its
+    tarball passes an automated acceptance on Linux, macOS and Windows. The cold handshake
+  stays within budget. An unprepared DSH probe stays clean: no downloads, no lock and no
+  fake success. The suite also covers background preparation, refused-but-not-replayed
+  writes, CRUD, fresh-process persistence and resume after an aborted preparation. The pinned `0.1.0-rc.2` re-ran the same acceptance after its
   publication on 2026-10-16 and passed on Linux, macOS and Windows plus a
   local macOS run. All runs reported `passed: true`. The worst cold handshake
   was 21.5 seconds on Windows, inside the 30-second budget.
 - The uvx alternative is exercised against the actual public PyPI pin once a
   release is published. Unpublished candidates record `NOT VERIFIED` for that
-  check instead. The MCP `0.1.4` release completed that check in its
-  publication pipeline: `Public PyPI release verified: True`, and the uvx
-  protocol test ran against the public package.
+  check instead.   The MCP `0.1.4` release completed that check in its publication pipeline. It reported
+  `Public PyPI release verified: True`. The uvx protocol test ran against the public
+  package.
 - The release workflow refuses to prepare assets while the launcher pin is not
   public with matching integrity.
 

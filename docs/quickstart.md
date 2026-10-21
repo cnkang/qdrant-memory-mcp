@@ -75,7 +75,7 @@ require investigation. Do not add reset options or remove data/lock files.
 
 Add a custom stdio MCP in WorkBuddy with the following settings. Use the same
 profile path as step 3. The managed packaged connector uses its own `profiles/workbuddy/local` under
-the managed data root; it does not select this custom profile. The direct uvx
+the managed data root. It does not select this custom profile. The direct uvx
 launcher without `--home` defaults to `~/.qdrant-memory`. Do not
 enable both the packaged default and this custom instance for this setup.
 
