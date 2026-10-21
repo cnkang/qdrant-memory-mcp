@@ -46,7 +46,7 @@ Owner 控制身份、权限和空间选择。
 不同宿主需要独立的验收证据。
 
 [Runtime Cloud Owner 测试](https://github.com/cnkang/hermes-plugin-qdrant-memory/actions/runs/39558088367)
-已在 main 上通过 11 项测试。
+已在 main 上通过 1 项端到端测试，没有跳过的测试。
 测试删除了记录和集合，独立清理检查确认删除完成。
 测试使用测试专用 API Key，因此不代表集合级凭据隔离验收通过。
 [Runtime 模型指南](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/shared-memory/model-quality.md)
