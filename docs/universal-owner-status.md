@@ -20,7 +20,7 @@ The source preview does not establish production acceptance.
 | Codex, DSH, WorkBuddy, OpenCode | These hosts support explicit MCP or assisted use. Automatic memory requires a separate, verified lifecycle adapter for each host. |
 | OAuth, OIDC, browser authentication | The source preview does not support these authentication methods. Each client uses a separate service credential configured in advance. |
 | Embedded, Server, Cloud | All three deployment modes remain available. Validation covers Embedded and Server with TLS/JWT. A separate Runtime Cloud Owner test passed and removed its test collection. Collection-level credential restrictions remain unverified. |
-| Model quality | Runtime CI uses Qwen3.5 0.8B for functional smoke tests. A smoke pass does not establish extraction quality. Validate the target model with the full quality suite before deployment. |
+| Model quality | Runtime CI uses fixed models for functional smoke tests. A smoke pass does not establish extraction quality. Validate the target model with the full quality suite before deployment. |
 
 ## Pi sessions and authorization
 
@@ -45,9 +45,9 @@ These tests use deterministic model and embedding fixtures.
 They do not verify production model quality, host user interfaces, or public network deployment.
 Each host requires separate acceptance evidence.
 
-The [Runtime Cloud Owner test](https://github.com/cnkang/hermes-plugin-qdrant-memory/actions/runs/39620288178)
+The [Runtime Cloud Owner test](https://github.com/cnkang/hermes-plugin-qdrant-memory/actions/runs/39691871575)
 passed one end-to-end test on main, with no skipped tests.
-The run used Runtime [0b1b05289eae3731af30e1c38c427aec7c6ac635](https://github.com/cnkang/hermes-plugin-qdrant-memory/tree/0b1b05289eae3731af30e1c38c427aec7c6ac635), which is also the pinned preview revision.
+The run used Runtime [24f9b1110ee99237f432afefbc7af7573bfae494](https://github.com/cnkang/hermes-plugin-qdrant-memory/tree/24f9b1110ee99237f432afefbc7af7573bfae494), which is also the pinned preview revision.
 The test removed its records and collection, and a separate cleanup check confirmed removal.
 It used a test API key, so it does not establish collection-level credential isolation.
 The [Runtime model guide](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/shared-memory/model-quality.md)
