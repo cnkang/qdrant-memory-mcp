@@ -68,6 +68,26 @@ test("a binding change during a drain cannot send old raw events using a new cre
     { id: "session:three", token: "b".repeat(40) }
   ]);
   assert.deepEqual(h.entries.filter(row => row.customType === "qdrant-owner-ack").map(row => row.data.event_id), ["session:three"]);
+  const statuses = () => h.entries.filter(row => row.customType === "qdrant-owner-status");
+  assert.equal(statuses().length, 1);
+  assert.equal(statuses()[0].data.retained_events, 2);
+  for (let index = 0; index < 20; index++) {
+    await h.hooks.before_agent_start({ prompt: `new authorized prompt ${index}` }, h.ctx);
+  }
+  assert.equal(statuses().length, 1, "unchanged stale events must not grow the session per prompt");
+  await h.hooks.session_start({}, h.ctx);
+  await h.hooks.before_agent_start({ prompt: "resumed authorized prompt" }, h.ctx);
+  assert.equal(statuses().length, 2, "a resumed session reports its retained events once");
+  env.QDRANT_MEMORY_REMOTE_TOKEN = "a".repeat(40);
+  await h.hooks.before_agent_start({ prompt: "original binding restored" }, h.ctx);
+  await h.hooks.session_shutdown();
+  env.QDRANT_MEMORY_REMOTE_TOKEN = "b".repeat(40);
+  await h.hooks.before_agent_start({ prompt: "no stale events remain" }, h.ctx);
+  assert.equal(statuses().length, 2);
+  assert.deepEqual(h.calls.slice(2), [
+    { id: "session:one", token: "a".repeat(40) },
+    { id: "session:two", token: "a".repeat(40) }
+  ]);
 });
 
 test("default off does not register lifecycle capture", () => {
