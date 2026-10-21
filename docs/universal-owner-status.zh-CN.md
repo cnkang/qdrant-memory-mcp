@@ -20,7 +20,7 @@
 | Codex、DSH、WorkBuddy、OpenCode | 这些宿主支持显式 MCP 或辅助使用方式。自动记忆需要各自独立、经过验证的生命周期适配器。 |
 | OAuth、OIDC、浏览器认证 | 源码预览不支持这些认证方式。各客户端使用预先配置的独立服务凭据。 |
 | Embedded、Server、Cloud | 三种部署方式均保留。验证范围包括 Embedded 和使用 TLS/JWT 的 Server。独立的 Runtime Cloud Owner 测试已通过，并已删除测试集合。集合级凭据限制尚未验证。 |
-| 模型质量 | Runtime CI 使用 Qwen3.5 0.8B 进行功能冒烟测试。冒烟通过不代表提取质量达标。部署前必须使用目标模型运行完整质量测试。 |
+| 模型质量 | Runtime CI 使用固定模型进行功能冒烟测试。冒烟通过不代表提取质量达标。部署前必须使用目标模型运行完整质量测试。 |
 
 ## Pi 会话与授权
 
@@ -45,9 +45,9 @@ Owner 控制身份、权限和空间选择。
 它们不验证生产模型质量、宿主用户界面或公网部署。
 不同宿主需要独立的验收证据。
 
-[Runtime Cloud Owner 测试](https://github.com/cnkang/hermes-plugin-qdrant-memory/actions/runs/39620288178)
+[Runtime Cloud Owner 测试](https://github.com/cnkang/hermes-plugin-qdrant-memory/actions/runs/39691871575)
 已在 main 上通过 1 项端到端测试，没有跳过的测试。
-本次使用 Runtime [0b1b05289eae3731af30e1c38c427aec7c6ac635](https://github.com/cnkang/hermes-plugin-qdrant-memory/tree/0b1b05289eae3731af30e1c38c427aec7c6ac635)，与固定的预览版本一致。
+本次使用 Runtime [24f9b1110ee99237f432afefbc7af7573bfae494](https://github.com/cnkang/hermes-plugin-qdrant-memory/tree/24f9b1110ee99237f432afefbc7af7573bfae494)，与固定的预览版本一致。
 测试删除了记录和集合，独立清理检查确认删除完成。
 测试使用测试专用 API Key，因此不代表集合级凭据隔离验收通过。
 [Runtime 模型指南](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/shared-memory/model-quality.md)
