@@ -69,6 +69,7 @@ export function createOwnerMemoryExtension({ env = process.env, request = ownerR
     let prompt = "";
     let session = "";
     let saturated = false;
+    let reportedStale = 0;
     let generation = 0;
     let inflight = null;
     let requested = false;
@@ -117,6 +118,7 @@ export function createOwnerMemoryExtension({ env = process.env, request = ownerR
 
     pi.on("session_start", async (_event, ctx) => {
       generation++;
+      reportedStale = 0;
       session = ctx.sessionManager.getSessionId();
       pending.clear();
       // Read only this extension's durable outbox entries from the current
@@ -138,7 +140,8 @@ export function createOwnerMemoryExtension({ env = process.env, request = ownerR
       void flush();
       saturated = activePending() >= 128;
       const stale = pending.size - activePending();
-      if (stale) pi.appendEntry("qdrant-owner-status", { status: "SKIPPED", reason: "credential_binding_changed", retained_events: stale });
+      if (stale && stale !== reportedStale) pi.appendEntry("qdrant-owner-status", { status: "SKIPPED", reason: "credential_binding_changed", retained_events: stale });
+      reportedStale = stale;
       if (saturated && ctx.hasUI) ctx.ui.notify("Memory outbox full; new capture paused. Retry the Owner connection.", "warning");
     });
 

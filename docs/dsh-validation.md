@@ -148,7 +148,7 @@ GitHub Release carries the connector assets (2026-10-16). The DSH Bundle
 0.1.1 is published on npm (2026-10-18), and its GitHub Release carries the
 tagged tgz and checksum.
 
-The remaining gates include marketplace review, WorkBuddy managed Node import, and a full restart on a clean machine.
+The remaining gates include marketplace review, import with managed Node in WorkBuddy, and a full restart on a clean machine.
 They also include installer-crash recovery, dispatch-time cancellation, HMR/profile-switch cases, and production upgrade or rollback.
 Cloud multi-writer sharing and automatic DSH extraction/prefetch are not implemented.
 
