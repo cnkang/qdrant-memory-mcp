@@ -31,9 +31,11 @@ Skill 仅提供可选指导，不是运行依赖。Hermes 的自动提取和 pre
 最少步骤见 [本地 Ollama 快速开始](docs/quickstart.zh-CN.md)，包括复用已有模型、
 缺少模型时的安装指引、独立 WorkBuddy profile、连接配置和首次保存/搜索验证。
 这条本地路径不需要 Qdrant Server、Docker、云账号或 Embedding API Key；
-本直接路径仍需要准备 Python/uv，并完成一次 profile 配置。
+本直接路径仍需要准备 Python/uv，并完成一次 profile 配置。受管的 WorkBuddy
+连接器和 DSH Bundle 则由 Node.js 准备这些依赖。
 
-需要 Python 3.11+。用户必须自行配置 Qdrant 与 Embedding。
+需要 Python 3.11+，以及 [uv](https://docs.astral.sh/uv/) 或 Python 虚拟环境。
+必须自行配置存储和 Embedding 服务。
 在可信 profile 目录内创建 `qdrant-memory.json`：
 
 ```json
@@ -103,6 +105,8 @@ OpenCode `opencode.json`：
 Pi 需要另外安装 MCP 客户端扩展；将上述 command/args 填入该扩展支持的配置。
 本仓库不声称 Pi 内置 MCP，也不声称通用扩展配置格式。
 这些是配置示例；分发测试使用官方 Python MCP SDK，不把未实测的 Agent 应用列为已验证。
+各客户端的实证范围与限制见 Runtime 的
+[客户端证据与限制](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/mcp.md)。
 
 ## 工具、安全与限制
 
@@ -135,8 +139,10 @@ CI 对 Linux/macOS/Windows、Python 3.11/3.14 的 wheel/sdist 安装运行真实
 
 CI 优先使用正式 PyPI Runtime。新 Runtime 发布前，CI 使用 `runtime-source.json` 固定的不可变修订
 构建本地 wheel；正式包元数据始终依赖固定 PyPI 版本，发布流程禁止这种回退。
-详见 [英文说明](README.md)、[发布清单](docs/publishing.md) 与
-[Runtime 验证](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/validation.md)。
+详见 [CI 与依赖维护](docs/ci.md)、[发布清单](docs/publishing.md)、
+[架构](docs/architecture.md) 与
+[Runtime 验证](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/validation.md)，
+以及可选的 [Skill](https://github.com/cnkang/skills/tree/main/qdrant-memory)。
 
 ## WorkBuddy 与 DeepSeek Harness
 
