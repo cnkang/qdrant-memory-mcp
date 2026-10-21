@@ -1,6 +1,6 @@
 # WorkBuddy MCP + Skill connector
 
-For explicitly configured shared access, give WorkBuddy only its own Owner token. Keep Qdrant write keys and Owner state out of connector packages. See [deployment security](../../docs/shared-deployment-security.md). The managed connector remains private by default; it does not enable destination protection.
+For explicitly configured shared access, give WorkBuddy only its own Owner token. Keep Qdrant write keys and Owner state out of connector packages. See [deployment security](../../docs/shared-deployment-security.md). The managed connector remains private by default. It does not enable destination protection.
 
 This adapter packages the shared Python memory runtime and the canonical Skill
 as a WorkBuddy connector. It implements no memory engine, changes no Runtime
@@ -31,7 +31,7 @@ WorkBuddy's managed Node.js runtime. `mcp.json` declares:
 1. The user installs the connector in WorkBuddy.
 2. WorkBuddy prepares managed Node.js 20 and its isolated npm environment.
 3. `npx` fetches the exact pinned launcher version. The pin is exact, never
-   `latest`. New builds allow only the canonical npm registry; no mirror
+   `latest`. New builds allow only the canonical npm registry. No mirror
    fallback is configured.
 4. The launcher completes the MCP handshake promptly and exposes the four
    tools. In the background it prepares a private Python environment, the
@@ -107,7 +107,7 @@ rejects drift from the checked-in pins:
 - The launcher pin lives in `launcher-source.json` at the repository root and
   must be public on the npm registry with matching integrity before release
   assets are prepared. `mcp.json` lists only the canonical registry
-  (`https://registry.npmjs.org`); package validation rejects additional
+  (`https://registry.npmjs.org`). Package validation rejects additional
   registry entries.
 - The Skill pin lives in `integrations/workbuddy/skill-source.json` and must
   match a clean canonical checkout at the exact commit.
@@ -207,10 +207,9 @@ cd dist/workbuddy && shasum -a 256 -c *.sha256
 
 Windows uses `.workbuddy-env/Scripts/python.exe`. Python 3.11+ is required.
 `--skill-root /path/to/fresh/checkout` selects an existing pinned checkout.
-The builder needs no Qdrant, profile or credentials. It emits only ZIP and
-checksum under `dist/workbuddy`, rejects symlinks and unsafe resources, uses
-sorted STORE ZIP members with fixed dates and modes, and refuses differing
-existing output bytes. `--check` builds twice in disposable directories and
+The builder needs no Qdrant, profile or credentials. It emits only the ZIP and the checksum under `dist/workbuddy`. It rejects symlinks and
+unsafe resources. It uses sorted STORE ZIP members with fixed dates and modes. It
+refuses output bytes that differ from existing bytes. `--check` builds twice in disposable directories and
 compares exact bytes.
 
 ```text
@@ -240,9 +239,9 @@ Automated acceptance in this repository:
   the npm registry with matching integrity. The release workflow refuses to
   prepare assets while this check fails.
 - `tests/public-launcher-acceptance.mjs` runs the exact connector command and
-  the exact DSH command through `npx` with the pinned public package:
-  cold handshake budget, a clean unprepared probe, background preparation,
-  refused-but-not-queued writes, CRUD and fresh-process persistence. It runs
+    the exact DSH command through `npx` with the pinned public package. The check covers
+  the cold handshake budget, a clean unprepared probe, background preparation, refused-
+  but-not-queued writes, CRUD and fresh-process persistence. It runs
   on Linux, macOS and Windows.
 - The uvx alternative is exercised with the actual public PyPI pin once a
   release is published.
@@ -263,10 +262,10 @@ passed. Do not use existing personal memory for acceptance.
 | Missing embedding and invalid API key fail safely | SDK tested. GUI NOT VERIFIED |
 | Same-profile Hermes WriterLease refusal | SDK tested. GUI NOT VERIFIED |
 
-The managed connector was additionally exercised end to end on macOS through
-the exact public npx command with an isolated managed root: cold handshake,
-background preparation, refusal semantics, CRUD, fresh-process persistence and
-aborted-preparation resume. These acceptance runs measured the published
+The managed connector was also exercised end to end on macOS. The test used the exact
+public npx command with an isolated managed root. It covered the cold handshake,
+background preparation, refusal semantics, CRUD, fresh-process persistence and aborted-
+preparation resume. These acceptance runs measured the published
 `0.1.0-rc.1` tarball. The pinned `0.1.0-rc.2` re-ran the same acceptance
 after its publication on 2026-10-16 and passed on Linux, macOS and Windows
 CI plus a local macOS run. GUI-level marketplace ZIP import, managed-Node
@@ -294,7 +293,7 @@ For DSH use its [own bundle and guide](../../docs/dsh-integration.md).
 
 ## Private installation and registry policy
 
-New connector builds use only https://registry.npmjs.org; mirror fallback is not
+New connector builds use only https://registry.npmjs.org. Mirror fallback is not
 part of the reviewed connector configuration. Runtime npx integrity still comes
 from that registry. Release-time pin verification is not a per-launch digest
 check. Use a host-managed, preverified launcher when that stronger boundary is
@@ -306,4 +305,4 @@ non-writable system ancestors and sticky temporary ancestors may be traversed.
 The selected managed directory itself must belong to the invoking user. No
 existing directory permissions are silently changed. Select a private root or
 have its owner repair the permissions before retrying. On Windows, provision a
-private inherited ACL; POSIX mode checks do not establish that ACL.
+private inherited ACL. POSIX mode checks do not establish that ACL.

@@ -1,6 +1,6 @@
 # Qdrant Memory MCP
 
-For shared production deployments, read the [deployment security guide](docs/shared-deployment-security.md). Owner-only database write credentials are required independently of MCP grants. Destination protection and shared doctor are unpublished Runtime additions; published pins and installation commands remain unchanged.
+For shared production deployments, read the [deployment security guide](docs/shared-deployment-security.md). Owner-only database write credentials are required independently of MCP grants. Destination protection and shared doctor are unpublished Runtime additions. Published pins and installation commands remain unchanged.
 
 ## One Memory, Multiple Agents — opt-in shared owner
 
@@ -184,10 +184,9 @@ the optional [Skill](https://github.com/cnkang/skills/tree/main/qdrant-memory).
 
 Use the [WorkBuddy connector](integrations/workbuddy/README.md) or the
 [DSH installation guide](docs/dsh-integration.md) for explicit durable memory.
-Both reuse the Python Runtime, the four MCP tools and the canonical Skill. The
-published [managed launcher](integrations/managed/README.md) prepares private
-Python and CPU-model dependencies with Node.js, so the managed routes do not
-require a system Python, uvx or Ollama installation. The DSH Bundle is
+Both reuse the Python Runtime, the four MCP tools and the canonical Skill. The published [managed launcher](integrations/managed/README.md) prepares private Python
+and CPU-model dependencies with Node.js. Thus, the managed routes do not require a
+system Python, uvx or Ollama installation. The DSH Bundle is
 distributed as `@cnkang/qdrant-memory-dsh-bundle`. Existing Hermes profiles
 and defaults are unchanged. See [architecture and version matrix](docs/cross-harness-architecture.md)
 and [validation limits](docs/dsh-validation.md).

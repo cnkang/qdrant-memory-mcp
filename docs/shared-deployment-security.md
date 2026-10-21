@@ -2,7 +2,7 @@
 
 The metadata-only distribution delegates authorization and durable writes to the
 [Runtime](https://github.com/cnkang/hermes-plugin-qdrant-memory). Protected
-destination policy and `shared-doctor` are unpublished additions; check installed
+destination policy and `shared-doctor` are unpublished additions. Check installed
 help. Distribution 0.2.1 still pins published Runtime 0.4.0. Do not update pins or
 hashes to an unpublished version.
 
@@ -16,7 +16,7 @@ Each token resolves to one server-configured principal. Memory provenance record
 the original creator and the latest updater, and durable request receipts record
 the principal that admitted each mutation. Clients that need separate attribution
 must use separate tokens and distinct principals. Authentication, authorization,
-provenance and durable operation auditing are separate guarantees; the Runtime
+provenance and durable operation auditing are separate guarantees. The Runtime
 does not claim a complete historical audit of reads or deleted records.
 
 Local embedded production needs one private Owner home/data directory, one Owner,
@@ -38,7 +38,7 @@ backup coherence and running readiness can remain UNVERIFIED. These are evidence
 gaps, never successful isolation gates.
 
 For NAS/Docker, isolate Qdrant and its storage. Owner and stdio bridge processes
-must share Owner's loopback namespace; independent agent containers cannot use
+must share Owner's loopback namespace. Independent agent containers cannot use
 another container's loopback URL. Do not bind the service to `0.0.0.0`.
 Authenticated cross-container transport requires a separate v0.5.0 design.
 
@@ -49,8 +49,8 @@ without distributing them to connectors. Do not remove claims to bypass conflict
 
 See Runtime [deployment examples and recovery](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/shared-memory/deployment-security.md)
 and [threat model](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/shared-memory/threat-model-v1.md).
-The Runtime documentation is public; these additions remain unpublished beyond Runtime 0.4.0. Current official
+The Runtime documentation is public. These additions remain unpublished beyond Runtime 0.4.0. Current official
 [Qdrant security documentation](https://qdrant.tech/documentation/security/)
 describes authentication and collection permissions. The official Qdrant MCP
-server also provides persistence; this Runtime adds memory lifecycle, fixed
+server also provides persistence. This Runtime adds memory lifecycle, fixed
 scoped grants, controlled sharing and durable recovery.
