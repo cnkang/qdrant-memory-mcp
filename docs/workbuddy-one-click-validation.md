@@ -44,7 +44,10 @@ results do not certify a different platform or a marketplace installation flow.
   writes, CRUD, fresh-process persistence and resume after an aborted preparation. The pinned `0.1.0-rc.2` re-ran the same acceptance after its
   publication on 2026-10-16 and passed on Linux, macOS and Windows plus a
   local macOS run. All runs reported `passed: true`. The worst cold handshake
-  was 21.5 seconds on Windows, inside the 30-second budget.
+  was 21.5 seconds on Windows, inside the 30-second budget. The rc.1 and rc.2
+  results above are historical acceptance evidence. The current `0.1.0-rc.3` pin
+  passed the publication and integrity check in the release workflow. A separate
+  full acceptance run for rc.3 is not recorded.
 - The uvx alternative is exercised against the actual public PyPI pin once a
   release is published. Unpublished candidates record `NOT VERIFIED` for that
   check instead.   The MCP `0.1.4` release completed that check in its publication pipeline. It reported
