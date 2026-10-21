@@ -46,7 +46,7 @@ They do not verify production model quality, host user interfaces, or public net
 Each host requires separate acceptance evidence.
 
 The [Runtime Cloud Owner test](https://github.com/cnkang/hermes-plugin-qdrant-memory/actions/runs/39558088367)
-passed 11 tests on main.
+passed one end-to-end test on main, with no skipped tests.
 The test removed its records and collection, and a separate cleanup check confirmed removal.
 It used a test API key, so it does not establish collection-level credential isolation.
 The [Runtime model guide](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/shared-memory/model-quality.md)
