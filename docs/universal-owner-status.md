@@ -45,8 +45,9 @@ These tests use deterministic model and embedding fixtures.
 They do not verify production model quality, host user interfaces, or public network deployment.
 Each host requires separate acceptance evidence.
 
-The [Runtime Cloud Owner test](https://github.com/cnkang/hermes-plugin-qdrant-memory/actions/runs/39558088367)
+The [Runtime Cloud Owner test](https://github.com/cnkang/hermes-plugin-qdrant-memory/actions/runs/39620288178)
 passed one end-to-end test on main, with no skipped tests.
+The run used Runtime [0b1b05289eae3731af30e1c38c427aec7c6ac635](https://github.com/cnkang/hermes-plugin-qdrant-memory/tree/0b1b05289eae3731af30e1c38c427aec7c6ac635), which is also the pinned preview revision.
 The test removed its records and collection, and a separate cleanup check confirmed removal.
 It used a test API key, so it does not establish collection-level credential isolation.
 The [Runtime model guide](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/shared-memory/model-quality.md)
