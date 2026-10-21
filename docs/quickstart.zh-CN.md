@@ -61,8 +61,8 @@ ollama pull qwen3-embedding:4b
 Windows 也填写实际的绝对路径，JSON 中反斜杠写成 `\\`，或使用 `/`。
 
 ```sh
-uvx --from qdrant-memory-mcp==0.2.1 qdrant-memory-mcp --home "/path/to/workbuddy-profile" init
-uvx --from qdrant-memory-mcp==0.2.1 qdrant-memory-mcp --home "/path/to/workbuddy-profile" doctor
+uvx --from qdrant-memory-mcp==0.2.2 qdrant-memory-mcp --home "/path/to/workbuddy-profile" init
+uvx --from qdrant-memory-mcp==0.2.2 qdrant-memory-mcp --home "/path/to/workbuddy-profile" doctor
 ```
 
 初始化会调用本地模型、创建本地 collection，并检查模型维度和存储兼容性。
@@ -82,7 +82,7 @@ WorkBuddy 中添加自定义 stdio MCP，使用以下配置；将路径替换为
     "qdrant-memory": {
       "type": "stdio",
       "command": "uvx",
-      "args": ["--from", "qdrant-memory-mcp==0.2.1", "qdrant-memory-mcp", "--home", "/path/to/workbuddy-profile", "mcp"],
+      "args": ["--from", "qdrant-memory-mcp==0.2.2", "qdrant-memory-mcp", "--home", "/path/to/workbuddy-profile", "mcp"],
       "timeout": 30000
     }
   }
@@ -123,3 +123,5 @@ MCP 只执行显式搜索、保存、更新和删除，不会自动提取全部�
 
 当前错误信息经过脱敏，未必包含上述操作指引；可按本表排查。
 不要公开包含个人路径、记忆内容或凭证的配置和日志。
+服务细节见 [Ollama 快速入门](https://docs.ollama.com/quickstart) 与
+[Embedding API](https://docs.ollama.com/api/embed)。

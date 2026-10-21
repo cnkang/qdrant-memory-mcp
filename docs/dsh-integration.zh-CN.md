@@ -3,7 +3,7 @@
 共享部署的 DSH 只应持有独立的 Owner 客户端令牌，数据库写凭据由 Owner 独占。见[部署安全指南](shared-deployment-security.md)。普通托管 Bundle 保持私有模式，不会自动登记共享目的地。
 
 通过 DSH 官方 MCP 客户端，可以搜索、保存、更新和删除长期记忆。
-它提供明确的记忆操作，不会自动保存每一轮对话。
+记忆在新的会话和服务重启后仍然保留。它提供明确的记忆操作，不会自动保存每一轮对话。
 
 [English](dsh-integration.md) · [验证范围](dsh-validation.md)
 
@@ -22,19 +22,19 @@ Runtime wheel 和经过校验的 CPU 嵌入模型，可能需要数分钟并需�
 安装到一个 profile：
 
 ```sh
-dsh plugin --profile <名称> add @cnkang/qdrant-memory-dsh-bundle
+dsh plugin --profile <name> add @cnkang/qdrant-memory-dsh-bundle
 ```
 
 若所用 npm 镜像尚未同步该包，可改从仓库 Release 下载
 `cnkang-qdrant-memory-dsh-bundle-0.1.1.tgz`，用文件路径安装。不启动即可先验证层：
 
 ```sh
-dsh --profile <名称> --dump-config
+dsh --profile <name> --dump-config
 ```
 
 DSH 会先运行临时探测进程，再启动常驻连接。探测进程不会执行安装或下载模型；
 准备始终是上面的显式步骤。后端就绪前，工具会明确提示没有执行任何操作，
-写入不会被排队。DSH 的数据目录（`<托管根>/profiles/dsh/local`）与 WorkBuddy、
+写入不会被排队。DSH 的数据目录（`<managed-root>/profiles/dsh/local`）与 WorkBuddy、
 Hermes 相互独立。更新、卸载与恢复说明见 [Bundle 说明](../integrations/dsh/bundle/README.md)。
 
 ## 备选：已发布的 Python/uvx overlay
@@ -47,7 +47,7 @@ Hermes 相互独立。更新、卸载与恢复说明见 [Bundle 说明](../integ
 ```sh
 uvx --from qdrant-memory-mcp==0.2.2 qdrant-memory-mcp --home "$HOME/.qdrant-memory-dsh" init
 uvx --from qdrant-memory-mcp==0.2.2 qdrant-memory-mcp --home "$HOME/.qdrant-memory-dsh" doctor
-dsh web --patch /绝对路径/qdrant-memory-mcp/integrations/dsh/qdrant-memory.cordis.yml
+dsh web --patch /absolute/path/to/qdrant-memory-mcp/integrations/dsh/qdrant-memory.cordis.yml
 ```
 
 Windows 请使用对应的绝对路径。启动 DSH 前可用环境变量
@@ -90,3 +90,8 @@ DSH 会清理继承环境中名称包含 KEY、PASSWORD、SECRET、TOKEN 的变�
 验收时在会话 A 保存合成事实，在不传入旧对话的会话 B 检索并使用；再按返回的 ID
 更新和删除，并完整重启 DSH 验证持久化。自动化官方客户端测试与真实模型/GUI
 会话验收分别记录，不相互替代。
+
+适配器遵循官方
+[MCP 客户端契约](https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/mcp/mcp-client/README.md)、
+[记忆指南](https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/user/guide/mcp-memory.md)
+和 [Skill 文件系统 provider](https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/skill/skill-filesystem/README.md)。
