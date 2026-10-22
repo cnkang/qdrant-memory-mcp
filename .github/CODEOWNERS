@@ -1,0 +1,6 @@
+# Workflow and release files execute with repository or publishing authority.
+/.github/workflows/ @cnkang
+/scripts/prepare_runtime.py @cnkang
+/scripts/pypi_release.py @cnkang
+/scripts/registry_publish.py @cnkang
+/integrations/workbuddy/release.py @cnkang
