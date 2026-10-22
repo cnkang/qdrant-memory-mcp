@@ -39,6 +39,8 @@ def main(root=None):
     sha = source["commit"]
     assert len(sha) == 40 and all(c in "0123456789abcdef" for c in sha)
     target = root / ".runtime"
+    for stale in artifacts.glob("hermes_plugin_qdrant_memory-*.whl"):
+        stale.unlink()
     subprocess.run(["git", "clone", "--no-checkout", source["repository"], str(target)], check=True)
     subprocess.run(["git", "-C", str(target), "checkout", "--detach", sha], check=True)
     subprocess.run([sys.executable, "-m", "build", "--wheel", "--outdir", str(artifacts), str(target)], check=True)
