@@ -12,16 +12,16 @@ Configure the reviewed Runtime Python path and Owner endpoint.
 Supply a separate credential through the host secret manager.
 Set the configuration variables:
 
-The value must be an absolute path. The adapter runs that interpreter with `-I`
-from its own directory and without `PYTHONPATH`, so host project content cannot
-shadow the installed Runtime.
-
 ```sh
 export QDRANT_MEMORY_RUNTIME_PYTHON=/path/to/reviewed-runtime/bin/python
 export QDRANT_MEMORY_OWNER_URL=https://memory.example.com/mcp
 export QDRANT_MEMORY_AUTO_RECALL=1
 export QDRANT_MEMORY_AUTO_CAPTURE=1
 ```
+
+The value must be an absolute path. The adapter runs that interpreter with `-I`
+from its own directory and without `PYTHONPATH`, so host project content cannot
+shadow the installed Runtime.
 
 Supply `QDRANT_MEMORY_REMOTE_TOKEN` through the host secret environment.
 Do not put the token in commands or repository files.
