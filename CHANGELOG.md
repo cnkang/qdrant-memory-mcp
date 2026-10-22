@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- Bind the CI preparation source fallback to the canonical Runtime repository,
+  disable it for pull requests, and assert the built wheel matches the pinned
+  version.
+- Run the Pi Owner adapter with `-P` and a pinned working directory so a
+  `qdrant_memory/` package in the host's project tree cannot shadow the Runtime
+  that holds the Owner credential.
+- Sync the DSH uvx overlay to the published 0.2.2 MCP distribution.
+
 ## DSH bundle 0.1.2
 
 - Pin launcher `0.1.0-rc.3`, which installs Runtime 0.4.0. The payload and the
