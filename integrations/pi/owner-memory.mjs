@@ -1,7 +1,7 @@
 /** Pi 1.3 lifecycle adapter. Extraction, identity and durable writes live in Owner. */
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { dirname, resolve } from "node:path";
+import { dirname, isAbsolute, resolve } from "node:path";
 
 /** Select bounded recall data without interpreting stored text as instructions. */
 function recallData(memories) {
@@ -32,14 +32,23 @@ export function ownerRequest(mode, value, env = process.env) {
   }
   // -I isolates the interpreter from cwd and PYTHON* environment entries: a
   // qdrant_memory/ package in the host tree or on PYTHONPATH must not be imported
-  // as the Runtime that holds the Owner token.
-  const interpreter = resolve(python);
+  // as the Runtime that holds the Owner token. A bare command name would make
+  // the child cwd decide which executable runs, so require an explicit path.
+  if (!isAbsolute(python)) {
+    return Promise.reject(new Error("Owner Runtime Python must be an absolute path"));
+  }
+  const interpreter = python;
   const childEnv = { ...env };
   delete childEnv.PYTHONPATH;
   delete childEnv.PYTHONHOME;
   const args = ["-I", "-m", "qdrant_memory.standalone", mode, "--url", endpoint.href];
   if (mode === "remote-call") args.push("--tool", "qdrant_memory_search");
-  if (env.QDRANT_MEMORY_CA_FILE) args.push("--ca-file", env.QDRANT_MEMORY_CA_FILE);
+  if (env.QDRANT_MEMORY_CA_FILE) {
+    const ca = isAbsolute(env.QDRANT_MEMORY_CA_FILE)
+      ? env.QDRANT_MEMORY_CA_FILE
+      : resolve(process.cwd(), env.QDRANT_MEMORY_CA_FILE);
+    args.push("--ca-file", ca);
+  }
   return new Promise((resolvePromise, reject) => {
     const child = spawn(interpreter, args, {
       env: childEnv,

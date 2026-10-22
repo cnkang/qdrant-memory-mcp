@@ -29,13 +29,25 @@ test("Owner stdout preserves UTF-8 characters split between pipe chunks", async 
   syncBuiltinESMExports();
   try {
     const result = await ownerRequest("remote-call", { query: "中文" }, {
-      QDRANT_MEMORY_RUNTIME_PYTHON: "synthetic-runtime",
-      QDRANT_MEMORY_OWNER_URL: "https://owner.test/mcp"
+      QDRANT_MEMORY_RUNTIME_PYTHON: resolve("synthetic-runtime"),
+      QDRANT_MEMORY_OWNER_URL: "https://owner.test/mcp",
+      QDRANT_MEMORY_CA_FILE: "ca.pem"
     });
     assert.deepEqual(result, expected);
     assert.deepEqual(spawned[1].slice(0, 3), ["-I", "-m", "qdrant_memory.standalone"]);
     assert.equal(spawned[0], resolve("synthetic-runtime"));
+    assert.equal(spawned[1][spawned[1].indexOf("--ca-file") + 1], resolve(process.cwd(), "ca.pem"));
     assert.equal(spawned[2].cwd, dirname(resolve("synthetic-runtime")));
     assert.equal("PYTHONPATH" in spawned[2].env, false);
   } finally { t.mock.restoreAll(); syncBuiltinESMExports(); }
+});
+
+test("bare interpreter names are rejected before spawn", async () => {
+  await assert.rejects(
+    () => ownerRequest("remote-call", {}, {
+      QDRANT_MEMORY_RUNTIME_PYTHON: "python3",
+      QDRANT_MEMORY_OWNER_URL: "https://owner.test/mcp"
+    }),
+    /absolute path/
+  );
 });
