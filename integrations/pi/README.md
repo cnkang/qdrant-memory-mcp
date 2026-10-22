@@ -12,8 +12,9 @@ Configure the reviewed Runtime Python path and Owner endpoint.
 Supply a separate credential through the host secret manager.
 Set the configuration variables:
 
-The adapter runs that interpreter with `-I` from its own directory and without
-`PYTHONPATH`, so host project content cannot shadow the installed Runtime.
+The value must be an absolute path. The adapter runs that interpreter with `-I`
+from its own directory and without `PYTHONPATH`, so host project content cannot
+shadow the installed Runtime.
 
 ```sh
 export QDRANT_MEMORY_RUNTIME_PYTHON=/path/to/reviewed-runtime/bin/python
