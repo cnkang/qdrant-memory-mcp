@@ -54,6 +54,31 @@ The [Runtime model guide](https://github.com/cnkang/hermes-plugin-qdrant-memory/
 distinguishes functional smoke results from full model quality results.
 These Runtime results do not establish production acceptance or host UI acceptance.
 
+## Manual desktop acceptance (2026-10-22)
+
+A separate manual test used WorkBuddy 5.8.3 and DeepSeek Harness 0.2.1-rc.2.
+Both applications connected through `shared-mcp` to one isolated loopback Owner.
+Each application had a separate credential. The test used only synthetic records,
+Embedded Qdrant, and an existing local `qwen3-embedding:4b` model with 2560 dimensions.
+The tested Runtime revision was [7994e54de83fa8d39e566724dd88dd13b34970ee](https://github.com/cnkang/hermes-plugin-qdrant-memory/tree/7994e54de83fa8d39e566724dd88dd13b34970ee).
+Its Runtime package files match the pinned preview revision above.
+
+| Manual check | Result |
+|---|---|
+| WorkBuddy add and search | PASS. The tool returned one record and its version. |
+| DSH recall in an independent session | PASS. The ID, version, and creator matched. |
+| DSH CAS update and identical request replay | PASS. The replay returned the same new version. Only one record remained. |
+| WorkBuddy update with the old version | PASS. `SharedConflictError` rejected the write. The DSH update remained intact. |
+| Owner stop and restart | PASS. DSH read the same ID, new version, content, and updater. |
+| Cleanup | PASS. DSH deleted only the test record. Both applications then returned no records. A storage check confirmed zero points. |
+
+The test restored WorkBuddy's prior custom MCP configuration, disabled the temporary
+DSH bundle, stopped the Owner, and removed the temporary credentials and policy.
+The empty local test profile and its synthetic operation Ledger remain for audit.
+This test does not establish cross-device HTTPS UI acceptance, application restart
+acceptance, native bundle installation acceptance, or automatic memory lifecycle support.
+It is separate from the deterministic CI tests above.
+
 The released distribution adopts a new Runtime version only after compatibility validation.
 The source preview does not automatically migrate user data or change production services.
 [Shared service configuration](../integrations/shared/README.md) describes separate credentials and HTTPS examples.

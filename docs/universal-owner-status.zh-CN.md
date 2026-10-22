@@ -54,6 +54,30 @@ Owner 控制身份、权限和空间选择。
 区分功能冒烟结果和完整模型质量结果。
 这些 Runtime 结果不代表生产环境验收或宿主 UI 验收通过。
 
+## 手动桌面验收（2026-10-22）
+
+独立的手动测试使用 WorkBuddy 5.8.3 和 DeepSeek Harness 0.2.1-rc.2。
+两个应用通过 `shared-mcp` 连接同一个隔离的环回 Owner。
+每个应用使用独立凭据。测试仅使用合成记录、Embedded Qdrant，
+以及本机已有的 `qwen3-embedding:4b` 模型，维度为 2560。
+实测 Runtime 版本为 [7994e54de83fa8d39e566724dd88dd13b34970ee](https://github.com/cnkang/hermes-plugin-qdrant-memory/tree/7994e54de83fa8d39e566724dd88dd13b34970ee)。
+该版本的 Runtime 包文件与上文固定的预览版本一致。
+
+| 手动检查 | 结果 |
+|---|---|
+| WorkBuddy 添加与检索 | PASS。工具返回一条记录及其版本。 |
+| DSH 独立会话召回 | PASS。ID、版本和创建者一致。 |
+| DSH CAS 更新及相同请求重放 | PASS。重放返回相同的新版本，仍只有一条记录。 |
+| WorkBuddy 使用旧版本更新 | PASS。`SharedConflictError` 拒绝写入，DSH 更新内容保留。 |
+| Owner 停止及重启 | PASS。DSH 读回相同的 ID、新版本、内容及更新者。 |
+| 清理 | PASS。DSH 只删除测试记录；两个应用随后均返回零条记录，存储检查确认零个 point。 |
+
+测试恢复了 WorkBuddy 原有自定义 MCP 配置，停用了临时 DSH bundle，
+停止 Owner，并删除临时凭据及 policy。
+空的本地测试 profile 和合成操作 Ledger 保留用于审计。
+本次测试不代表跨设备 HTTPS UI、应用重启、原生 bundle 安装或自动记忆生命周期验收通过。
+它独立于上文的确定性 CI 测试。
+
 正式发行版仅在兼容性验证完成后采用新的 Runtime 版本。
 源码预览不会自动迁移用户数据或更改线上服务。
 [共享服务配置](../integrations/shared/README.md)说明独立凭据和 HTTPS 示例。
