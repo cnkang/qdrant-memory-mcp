@@ -14,6 +14,9 @@ Set the configuration variables:
 
 ```sh
 export QDRANT_MEMORY_RUNTIME_PYTHON=/path/to/reviewed-runtime/bin/python
+
+The adapter runs that interpreter with `-P` and from its own directory, so a
+`qdrant_memory/` package in the host project cannot shadow the installed Runtime.
 export QDRANT_MEMORY_OWNER_URL=https://memory.example.com/mcp
 export QDRANT_MEMORY_AUTO_RECALL=1
 export QDRANT_MEMORY_AUTO_CAPTURE=1

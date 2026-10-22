@@ -1,6 +1,7 @@
 /** Pi 1.3 lifecycle adapter. Extraction, identity and durable writes live in Owner. */
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
+import { dirname } from "node:path";
 
 /** Select bounded recall data without interpreting stored text as instructions. */
 function recallData(memories) {
@@ -29,11 +30,18 @@ export function ownerRequest(mode, value, env = process.env) {
   if (endpoint.protocol !== "https:" || endpoint.pathname !== "/mcp" || endpoint.username || endpoint.password || endpoint.search || endpoint.hash) {
     return Promise.reject(new Error("An HTTPS MCP Owner endpoint is required"));
   }
-  const args = ["-m", "qdrant_memory.standalone", mode, "--url", endpoint.href];
+  // -P keeps the launch directory off sys.path: a qdrant_memory/ package in the
+  // host's working tree must not be imported as the Runtime that holds the token.
+  const args = ["-P", "-m", "qdrant_memory.standalone", mode, "--url", endpoint.href];
   if (mode === "remote-call") args.push("--tool", "qdrant_memory_search");
   if (env.QDRANT_MEMORY_CA_FILE) args.push("--ca-file", env.QDRANT_MEMORY_CA_FILE);
   return new Promise((resolve, reject) => {
-    const child = spawn(python, args, { env, stdio: ["pipe", "pipe", "pipe"], windowsHide: true });
+    const child = spawn(python, args, {
+      env,
+      cwd: dirname(python),
+      stdio: ["pipe", "pipe", "pipe"],
+      windowsHide: true,
+    });
     let output = "";
     let bytes = 0;
     const timer = setTimeout(() => { child.kill(); reject(new Error("Owner request timed out")); }, 35000);
