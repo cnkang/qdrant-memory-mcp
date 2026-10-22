@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import childProcess from "node:child_process";
 import { EventEmitter } from "node:events";
 import { syncBuiltinESMExports } from "node:module";
-import { dirname } from "node:path";
+import { dirname, resolve } from "node:path";
 import { PassThrough } from "node:stream";
 import test from "node:test";
 import { ownerRequest } from "../integrations/pi/owner-memory.mjs";
@@ -33,7 +33,9 @@ test("Owner stdout preserves UTF-8 characters split between pipe chunks", async 
       QDRANT_MEMORY_OWNER_URL: "https://owner.test/mcp"
     });
     assert.deepEqual(result, expected);
-    assert.deepEqual(spawned[1].slice(0, 3), ["-P", "-m", "qdrant_memory.standalone"]);
-    assert.equal(spawned[2].cwd, dirname("synthetic-runtime"));
+    assert.deepEqual(spawned[1].slice(0, 3), ["-I", "-m", "qdrant_memory.standalone"]);
+    assert.equal(spawned[0], resolve("synthetic-runtime"));
+    assert.equal(spawned[2].cwd, dirname(resolve("synthetic-runtime")));
+    assert.equal("PYTHONPATH" in spawned[2].env, false);
   } finally { t.mock.restoreAll(); syncBuiltinESMExports(); }
 });

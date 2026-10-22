@@ -1,7 +1,7 @@
 /** Pi 1.3 lifecycle adapter. Extraction, identity and durable writes live in Owner. */
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { dirname } from "node:path";
+import { dirname, resolve } from "node:path";
 
 /** Select bounded recall data without interpreting stored text as instructions. */
 function recallData(memories) {
@@ -30,15 +30,20 @@ export function ownerRequest(mode, value, env = process.env) {
   if (endpoint.protocol !== "https:" || endpoint.pathname !== "/mcp" || endpoint.username || endpoint.password || endpoint.search || endpoint.hash) {
     return Promise.reject(new Error("An HTTPS MCP Owner endpoint is required"));
   }
-  // -P keeps the launch directory off sys.path: a qdrant_memory/ package in the
-  // host's working tree must not be imported as the Runtime that holds the token.
-  const args = ["-P", "-m", "qdrant_memory.standalone", mode, "--url", endpoint.href];
+  // -I isolates the interpreter from cwd and PYTHON* environment entries: a
+  // qdrant_memory/ package in the host tree or on PYTHONPATH must not be imported
+  // as the Runtime that holds the Owner token.
+  const interpreter = resolve(python);
+  const childEnv = { ...env };
+  delete childEnv.PYTHONPATH;
+  delete childEnv.PYTHONHOME;
+  const args = ["-I", "-m", "qdrant_memory.standalone", mode, "--url", endpoint.href];
   if (mode === "remote-call") args.push("--tool", "qdrant_memory_search");
   if (env.QDRANT_MEMORY_CA_FILE) args.push("--ca-file", env.QDRANT_MEMORY_CA_FILE);
-  return new Promise((resolve, reject) => {
-    const child = spawn(python, args, {
-      env,
-      cwd: dirname(python),
+  return new Promise((resolvePromise, reject) => {
+    const child = spawn(interpreter, args, {
+      env: childEnv,
+      cwd: dirname(interpreter),
       stdio: ["pipe", "pipe", "pipe"],
       windowsHide: true,
     });
@@ -60,7 +65,7 @@ export function ownerRequest(mode, value, env = process.env) {
         if (code !== 0) throw new Error();
         const result = JSON.parse(output);
         if (!result || result.error) throw new Error();
-        resolve(result);
+        resolvePromise(result);
       } catch { reject(new Error("Owner request failed; pending event retained")); }
     });
     child.stdin.end(JSON.stringify(value));
