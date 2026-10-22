@@ -1,4 +1,5 @@
 # Workflow and release files execute with repository or publishing authority.
+/.github/CODEOWNERS @cnkang
 /.github/workflows/ @cnkang
 /scripts/prepare_runtime.py @cnkang
 /scripts/pypi_release.py @cnkang
