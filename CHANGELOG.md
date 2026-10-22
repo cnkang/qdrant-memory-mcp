@@ -5,9 +5,10 @@
 - Bind the CI preparation source fallback to the canonical Runtime repository,
   disable it for pull requests, and assert the built wheel matches the pinned
   version.
-- Run the Pi Owner adapter with `-P` and a pinned working directory so a
-  `qdrant_memory/` package in the host's project tree cannot shadow the Runtime
-  that holds the Owner credential.
+- Run the Pi Owner adapter with `-I`, without `PYTHONPATH`, from a pinned
+  working directory, and only with an absolute interpreter path, so host project
+  content cannot shadow the Runtime that holds the Owner credential. Resolve a
+  relative `QDRANT_MEMORY_CA_FILE` before the cwd change.
 - Sync the DSH uvx overlay to the published 0.2.2 MCP distribution.
 
 ## DSH bundle 0.1.2
