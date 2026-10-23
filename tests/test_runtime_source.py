@@ -2,6 +2,7 @@
 
 import io
 import json
+import re
 import urllib.error
 
 import pytest
@@ -13,15 +14,14 @@ from test_release_guards import load_script
 
 def test_cross_harness_checkouts_match_selected_runtime_source():
     """The host gates must install the same Runtime release as the distribution."""
-    import yaml
-
     root = pathlib.Path(__file__).resolve().parents[1]
     source = json.loads((root / "runtime-source.json").read_text())
-    workflow = yaml.safe_load((root / ".github/workflows/cross-harness.yml").read_text())
-    checkouts = [step["with"]["ref"] for job in workflow["jobs"].values()
-                 for step in job["steps"]
-                 if step.get("with", {}).get("repository") == "cnkang/hermes-plugin-qdrant-memory"]
-    assert checkouts
+    workflow = (root / ".github/workflows/cross-harness.yml").read_text()
+    # The workflow uses literal adjacent repository/ref fields. Check every
+    # Runtime checkout without adding a YAML dependency to package acceptance.
+    repository = r"(?m)^\s+repository: cnkang/hermes-plugin-qdrant-memory\s*\n"
+    checkouts = re.findall(repository + r"\s+ref: ([^\s#]+)", workflow)
+    assert len(checkouts) == len(re.findall(repository, workflow)) > 0
     assert all(revision == source["commit"] for revision in checkouts)
 
 
