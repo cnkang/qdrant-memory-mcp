@@ -149,10 +149,18 @@ jobs:
           npm pack --ignore-scripts --pack-destination "$LAUNCHER_TEST_ROOT"
           npm install --prefix "$LAUNCHER_TEST_ROOT" --ignore-scripts --no-audit --no-fund "$LAUNCHER_TEST_ROOT"/*.tgz
       - name: Fresh shared program and isolated host profiles
+        shell: bash
         env:
           QDRANT_MEMORY_MANAGED_ROOT: ${{ runner.temp }}/qdrant-managed-acceptance
           QDRANT_TEST_LAUNCHER_ROOT: ${{ runner.temp }}/launcher-test/node_modules/@cnkang/qdrant-memory-launcher
-        run: node tests/managed-cold-acceptance.mjs
+        run: node tests/managed-cold-acceptance.mjs 2>&1 | tee managed-cold-acceptance.log
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: managed-cold-${{ matrix.os }}
+          path: managed-cold-acceptance.log
+          retention-days: 7
+          if-no-files-found: warn
 
   public-launcher:
     name: Public npm acceptance (${{ matrix.os }})

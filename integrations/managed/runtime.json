@@ -1,9 +1,17 @@
 {
-  "revision": "ae11a0676724afb4af160b51d32da81b0828e089",
-  "version": "0.4.0",
+  "revision": "60762c3e39f4cb3419f6e983aeb61833952bf216",
+  "version": "0.5.0",
   "status": "released-wheel",
-  "url": "https://files.pythonhosted.org/packages/74/d6/260d0a40d1e302c7ad3d1827eace288afe741047de71abb38f18d59288c9/hermes_plugin_qdrant_memory-0.4.0-py3-none-any.whl",
-  "sha256": "cfed078f24b213978cd65a336d5898bfaccb12701aaec65adf99682e6a777d6a",
-  "size": 94599,
+  "url": "https://files.pythonhosted.org/packages/61/6a/f579692053fb496f516516cc1093fd44522ead4c518e1de1c1f339ea9dab/hermes_plugin_qdrant_memory-0.5.0-py3-none-any.whl",
+  "sha256": "74d27f978d6a736938c0aa7a2309575c9f4b97e51f0334b61d8aa96b8b5b2f0e",
+  "size": 136707,
+  "fastembed_compat": {
+    "url": "https://raw.githubusercontent.com/cnkang/hermes-plugin-qdrant-memory/60762c3e39f4cb3419f6e983aeb61833952bf216/scripts/build_fastembed_compat.py",
+    "sha256": "18fe4e21a093547a3a8b06201feffe0b02c80613226dd2198731857b8832f5fe",
+    "size": 6231,
+    "version": "0.9.0+qm.pillow13",
+    "wheel_size": 471579,
+    "wheel_sha256": "93a08d8f50c7f29d93b65e3f18fdbfaf317ab8ecbe661ec4106f054087fc798d"
+  },
   "model_revision": "faf4aa4225822f3bc6376869cb1164e8e3feedd0"
 }

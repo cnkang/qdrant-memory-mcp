@@ -1,6 +1,6 @@
 # Managed Qdrant Memory launcher
 
-The launcher installs a private Python environment, Runtime 0.3.0 and a
+The launcher installs a private Python environment, Runtime 0.5.0 and a
 verified multilingual CPU embedding model. WorkBuddy and DeepSeek Harness use
 separate embedded memory profiles. Existing Hermes installations keep their
 configuration and data.
@@ -13,7 +13,7 @@ are tracked separately for each operating system.
 For a client that already supplies Node.js 20 or newer:
 
 ```sh
-npm install --global @cnkang/qdrant-memory-launcher@0.1.0-rc.3
+npm install --global @cnkang/qdrant-memory-launcher@0.1.0-rc.4
 qdrant-memory-launcher prepare dsh
 qdrant-memory-launcher mcp dsh
 ```
@@ -76,9 +76,21 @@ processes have stopped before inspecting only that program's
 ## Package integrity
 
 The launcher contains no third-party JavaScript dependencies or downloaded
-models. It verifies bootstrap and public Runtime wheel bytes before execution.
-All Python dependencies are pinned with hashes and installed as wheels, with
-no source builds. Runtime verifies the model revision and artifacts.
+models. It verifies bootstrap and public Runtime 0.5.0 wheel bytes before execution.
+All Python dependencies are pinned with hashes and installed as wheels. No
+dependency source code is compiled. Runtime verifies model revisions and artifacts.
+
+Pillow stays at 13.0.0. FastEmbed 0.9.0 still declares an upper bound below 13,
+so preparation uses the Runtime's existing metadata-only compatibility builder.
+The builder source is pinned by immutable commit, size and SHA-256 in
+`runtime.json` and verified before the private Python executes it. Its output
+`0.9.0+qm.pillow13` wheel is also checked against a fixed size and hash before
+installation. Inference files stay unchanged. `uv pip check` remains required.
+The verified wheel is reused when an interrupted installation resumes.
+
+Remove this temporary path after an official FastEmbed release supports Pillow
+13 and passes the same CPU model and dependency checks. Do not lower Pillow to
+resolve its upstream constraint. Existing profiles and model caches are retained.
 
 `runtime.json`, `requirements.lock` and `bootstrap.mjs` record the exact
 versions and integrity checks. See [third-party notices](THIRD_PARTY_NOTICES.md).

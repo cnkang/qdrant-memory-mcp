@@ -8,6 +8,8 @@ It downloads the following components into a private installation directory:
 | uv | Apache-2.0 OR MIT |
 | Python (python-build-standalone) | PSF-2.0 |
 | Qdrant Memory Runtime | MIT |
+| FastEmbed (metadata-only compatibility build) | Apache-2.0 |
+| Pillow | MIT-CMU |
 | CPU embedding model, Qdrant/paraphrase-multilingual-MiniLM-L12-v2-onnx-Q | Apache-2.0 |
 
 Versions, download locations and artifact hashes are recorded in

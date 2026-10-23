@@ -9,6 +9,7 @@ import { mkdtemp, mkdir, symlink, rm, realpath, writeFile, readFile, lstat, chmo
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { bridge, tools } from '../integrations/managed/bridge.mjs';
+import * as provisioning from '../integrations/managed/provision.mjs';
 import { locations, installEnvironment, privateDirectory, run, installed, prepare,
   publishSnapshot, runtime, dependencyDigest, runtimeRequirement, modelCache, publishRename } from '../integrations/managed/provision.mjs';
 
@@ -63,6 +64,20 @@ test('released wheels require the exact pinned requirement and artifact hash', (
     assert.throws(() => runtimeRequirement(path, metadata, invalid), /lock mismatch/);
   }
   assert.throws(() => runtimeRequirement(path, { ...metadata, status: 'unknown' }, lock), /Unknown/);
+});
+
+test('FastEmbed compatibility installation requires the exact local wheel and hash', () => {
+  assert.equal(typeof provisioning.fastembedRequirement, 'function');
+  const metadata = { version: '0.9.0+qm.pillow13', wheel_sha256: 'c'.repeat(64) };
+  const lock = `fastembed==${metadata.version} \\\n    --hash=sha256:${metadata.wheel_sha256}\n`;
+  const artifact = join(tmpdir(), 'fastembed-0.9.0+qm.pillow13-py3-none-any.whl');
+  const resolved = provisioning.fastembedRequirement(artifact, metadata, lock);
+  assert.match(resolved, /fastembed @ file:/);
+  assert.ok(resolved.includes('--hash=sha256:' + metadata.wheel_sha256));
+  assert.equal(provisioning.fastembedRequirement(artifact, metadata, lock.replaceAll('\n', '\r\n')), resolved);
+  for (const invalid of [lock.replace('==0.9.0+qm.pillow13', '==0.9.0'), lock.replace(metadata.wheel_sha256, 'd'.repeat(64)), lock.replace(metadata.wheel_sha256, metadata.wheel_sha256 + '0'), lock + lock]) {
+    assert.throws(() => provisioning.fastembedRequirement(artifact, metadata, invalid), /FastEmbed dependency lock mismatch/);
+  }
 });
 
 test('installation snapshots replace interrupted writes but reject changed contents and unsafe paths', async () => {

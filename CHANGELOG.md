@@ -1,5 +1,14 @@
 # Changelog
 
+## Launcher 0.1.0-rc.4
+
+- Install the public Runtime 0.5.0 wheel with its matching immutable source and
+  artifact hashes. Keep existing profiles, host isolation and model caches.
+- Require Pillow 13.0.0. Reuse the Runtime's hash-verified metadata-only FastEmbed
+  compatibility builder, verify its output and retain dependency checks.
+- Assert the installed versions in the real Linux, macOS and Windows cold-setup
+  gates. Preserve their diagnostic logs on failure.
+
 ## 0.2.3
 
 - Align Owner source CI with the reviewed Runtime main revision. Keep the

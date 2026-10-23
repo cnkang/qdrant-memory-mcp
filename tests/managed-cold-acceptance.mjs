@@ -1,6 +1,6 @@
 /** Explicit real-download gate; no system Python, uv or model service is used. */
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import { readFile, writeFile, lstat } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -37,6 +37,14 @@ await prepare(dsh, 'dsh');
 await assert.rejects(lstat(join(dsh.program, `hermes_plugin_qdrant_memory-${runtime.version}-py3-none-any.whl.pending`)), { code: 'ENOENT' });
 assert.equal(await readFile(lockfile, 'utf8'), requirements);
 await prepare(wb, 'workbuddy');
+const versions = spawnSync(await installed(dsh), ['-I', '-c',
+  'import importlib.metadata as m,json; print(json.dumps({n:m.version(n) for n in ["Pillow","fastembed","hermes-plugin-qdrant-memory"]}))'],
+  { encoding: 'utf8', timeout: 30000 });
+assert.equal(versions.status, 0, 'Managed dependency metadata must be readable');
+const dependencies = JSON.parse(versions.stdout);
+assert.equal(dependencies.Pillow, '13.0.0');
+assert.equal(dependencies.fastembed, runtime.fastembed_compat.version);
+assert.equal(dependencies['hermes-plugin-qdrant-memory'], runtime.version);
 const launcher = join(packageRoot, 'launcher.mjs');
 
 async function session(host, action) {
@@ -106,4 +114,4 @@ for (const host of ['dsh', 'workbuddy']) {
 assert.equal(await installed(dsh), await installed(wb));
 const cfg = JSON.parse(await readFile(wb.profile + '/qdrant-memory.json', 'utf8'));
 assert.equal(cfg.scope.agent_id, 'workbuddy');
-console.log(JSON.stringify({ passed: true, hosts: 2, interrupted_install_resumed: true, partial_snapshots_recovered: true, fresh_process_persistence: true, elapsed_seconds: Math.round((performance.now() - start) / 1000) }));
+console.log(JSON.stringify({ passed: true, dependencies, hosts: 2, interrupted_install_resumed: true, partial_snapshots_recovered: true, fresh_process_persistence: true, elapsed_seconds: Math.round((performance.now() - start) / 1000) }));
