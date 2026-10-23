@@ -3,6 +3,7 @@
 import asyncio
 import json
 import shutil
+import time
 from pathlib import Path
 
 from mcp import ClientSession, StdioServerParameters
@@ -48,10 +49,16 @@ def test_bridge_crud_restart_scope_writerlease_and_redaction(sandbox):
             async with ClientSession(*streams) as session:
                 await asyncio.wait_for(session.initialize(), 5)
                 assert len((await session.list_tools()).tools) == 4
-                # Readiness polling is read-only. Never retry/queue a write.
-                for _ in range(100):
-                    result = await session.call_tool(
-                        "qdrant_memory_search", {"query": "readiness"}
+                # Windows CI can take over 10 seconds to import the installed
+                # Runtime. Use the same bounded startup budget as the direct
+                # stdio test. Poll only reads; never retry or queue a write.
+                deadline = time.monotonic() + 90
+                while time.monotonic() < deadline:
+                    result = await asyncio.wait_for(
+                        session.call_tool(
+                            "qdrant_memory_search", {"query": "readiness"}
+                        ),
+                        timeout=max(0.001, deadline - time.monotonic()),
                     )
                     if not is_error(result):
                         break
