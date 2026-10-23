@@ -1,7 +1,7 @@
-# Pi Owner lifecycle adapter (source preview)
+# Pi Owner lifecycle adapter
 
-This adapter requires a reviewed Runtime source version with `remote-call` and `remote-event`.
-Distribution packages continue to use Runtime 0.4.0.
+This adapter requires Runtime 0.5.0, which provides `remote-call` and `remote-event`.
+The published distribution selects Runtime 0.5.0.
 This adapter is off by default. It uses Pi's public `session_start`,
 `before_agent_start`, `context`, `turn_end` and `session_shutdown` extension hooks.
 Tests use the actual Pi 1.3.0 session runtime and deterministic model responses.
@@ -94,7 +94,7 @@ Codex, DSH, WorkBuddy, and OpenCode support explicit MCP or assisted use.
 They require separate, verified lifecycle adapters for automatic memory.
 The Pi tests do not verify these other hosts.
 
-The Owner source preview binds event status and cancellation to the device credential.
+The Owner binds event status and cancellation to the device credential.
 Use `remote-event --action status` to read event status.
 Use `remote-event --action cancel` to request cancellation.
 The Owner permits cancellation before it prepares an extraction or write plan.
