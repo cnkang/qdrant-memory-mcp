@@ -2,9 +2,11 @@
 
 The metadata-only distribution delegates authorization and durable writes to the
 [Runtime](https://github.com/cnkang/hermes-plugin-qdrant-memory). Protected
-destination policy and `shared-doctor` are unpublished additions. Check installed
-help. Distribution 0.2.1 still pins published Runtime 0.4.0. Do not update pins or
-hashes to an unpublished version.
+destination policy and `shared-doctor` require Runtime 0.5.0. Check installed
+help. Distribution 0.2.3 still pins Runtime 0.4.0, so its default installation
+does not include these controls. Use the Runtime 0.5.0 installation instructions
+to deploy them. Keep each distribution's version, source and artifact hashes
+consistent when you change a pin.
 
 Provision separate Owner tokens for DSH, WorkBuddy and other agents. Grant only
 necessary spaces and choose `read` for read-only clients. Keep database collection
