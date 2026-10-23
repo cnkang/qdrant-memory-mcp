@@ -43,7 +43,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: cnkang/skills
-          ref: 1d00de460fdd979f58eb580092fb56ddae0f0e88
+          ref: 184258fb11b9f90df4a17d5bbcd0a160b395529d
           path: .scratch/canonical-skills
           persist-credentials: false
       - name: Install Python MCP and test dependencies
