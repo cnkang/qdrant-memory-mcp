@@ -7,14 +7,14 @@ Destination protection and shared doctor require Runtime 0.5.0.
 Runtime 0.4.0 does not provide these features.
 
 **Opt-in.** The distribution remains metadata-only and pins Runtime 0.5.0.
-Install the published Runtime into a separate virtual environment with `[mcp]`.
+Install the published Runtime into a separate virtual environment with `[remote]`, which adds the HTTPS listener dependencies.
 Runtime 0.5.0 provides `shared-serve`, `shared-mcp`, `remote-serve` and `remote-mcp`.
 
 Install the Runtime in an isolated environment:
 
 ```sh
 python3 -m venv /absolute/path/shared-runtime-env
-/absolute/path/shared-runtime-env/bin/pip install 'hermes-plugin-qdrant-memory[mcp]==0.5.0'
+/absolute/path/shared-runtime-env/bin/pip install 'hermes-plugin-qdrant-memory[remote]==0.5.0'
 ```
 
 Follow the [Runtime operations and Hermes/DSH walkthrough](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/shared-memory/README.md).
