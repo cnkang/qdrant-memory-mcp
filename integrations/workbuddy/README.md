@@ -99,7 +99,7 @@ program's `.provision.lock`. Never remove profile files or Runtime data locks.
 
 ## Update and versioning
 
-Connector 0.2.2, MCP 0.2.4, Runtime 0.5.0, launcher 0.1.0-rc.4 and Skill 0.3.2
+Connector 0.2.2, MCP 0.2.4, Runtime 0.5.0, launcher 0.1.0-rc.4 and Skill 0.3.3
 are independent versions. `provenance.json` inside the ZIP records all
 versions, the launcher integrity and the Skill source commit. The builder
 rejects drift from the checked-in pins:
@@ -158,7 +158,7 @@ then `doctor`, in place of `mcp`, and pass `--home <private-profile-path>`
 for the authorized target. Check service readiness before
 connecting. For self-hosted or Cloud storage, follow the Runtime's documented
 server/cloud profile configuration. See the
-[canonical setup reference](https://github.com/cnkang/skills/blob/184258fb11b9f90df4a17d5bbcd0a160b395529d/qdrant-memory/references/runtime.md)
+[canonical setup reference](https://github.com/cnkang/skills/blob/5bac228e8594a6cf8ff642c22f0f0e100ebca3a6/qdrant-memory/references/runtime.md)
 and [Runtime configuration](https://github.com/cnkang/hermes-plugin-qdrant-memory).
 
 Scope is operator-configured. Client names and tool arguments cannot switch
@@ -196,7 +196,7 @@ build environment (the Skill builder needs PyYAML):
 
 ```sh
 git clone --no-checkout https://github.com/cnkang/skills.git .workbuddy-skill
-git -C .workbuddy-skill checkout --detach 184258fb11b9f90df4a17d5bbcd0a160b395529d
+git -C .workbuddy-skill checkout --detach 5bac228e8594a6cf8ff642c22f0f0e100ebca3a6
 python3 -m venv .workbuddy-env
 .workbuddy-env/bin/python -m pip install 'PyYAML==6.0.3'
 .workbuddy-env/bin/python integrations/workbuddy/build.py --check
