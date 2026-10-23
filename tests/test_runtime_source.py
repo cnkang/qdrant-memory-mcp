@@ -11,6 +11,20 @@ import pathlib
 from test_release_guards import load_script
 
 
+def test_cross_harness_checkouts_match_selected_runtime_source():
+    """The host gates must install the same Runtime release as the distribution."""
+    import yaml
+
+    root = pathlib.Path(__file__).resolve().parents[1]
+    source = json.loads((root / "runtime-source.json").read_text())
+    workflow = yaml.safe_load((root / ".github/workflows/cross-harness.yml").read_text())
+    checkouts = [step["with"]["ref"] for job in workflow["jobs"].values()
+                 for step in job["steps"]
+                 if step.get("with", {}).get("repository") == "cnkang/hermes-plugin-qdrant-memory"]
+    assert checkouts
+    assert all(revision == source["commit"] for revision in checkouts)
+
+
 def test_public_runtime_avoids_clone(monkeypatch):
     """Use the public pinned Runtime wheel without cloning a source fallback."""
     module = load_script("prepare_runtime")
