@@ -4,7 +4,7 @@
 
 - Align Owner source CI with the reviewed Runtime main revision. Keep the
   public Runtime 0.4.0 dependency and managed launcher artifact pins unchanged.
-- Prepare Connector 0.2.1 with the reviewed Skill 0.3.2 installer security fixes.
+- Update Connector 0.2.1 with the reviewed Skill 0.3.2 installer security fixes.
   Separate historical desktop and Cloud evidence from the current source pin.
 
 - Bind the CI preparation source fallback to the canonical Runtime repository,
