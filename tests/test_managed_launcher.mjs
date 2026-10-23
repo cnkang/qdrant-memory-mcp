@@ -4,7 +4,7 @@ import { PassThrough } from 'node:stream';
 import filesystem from 'node:fs/promises';
 import { syncBuiltinESMExports } from 'node:module';
 import { spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { mkdtemp, mkdir, symlink, rm, realpath, writeFile, readFile, lstat, chmod } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -72,7 +72,7 @@ test('FastEmbed compatibility installation requires the exact local wheel and ha
   const lock = `fastembed==${metadata.version} \\\n    --hash=sha256:${metadata.wheel_sha256}\n`;
   const artifact = join(tmpdir(), 'fastembed-0.9.0+qm.pillow13-py3-none-any.whl');
   const resolved = provisioning.fastembedRequirement(artifact, metadata, lock);
-  assert.match(resolved, /fastembed @ file:/);
+  assert.ok(resolved.startsWith(`fastembed @ ${pathToFileURL(artifact).href} `));
   assert.ok(resolved.includes('--hash=sha256:' + metadata.wheel_sha256));
   assert.equal(provisioning.fastembedRequirement(artifact, metadata, lock.replaceAll('\n', '\r\n')), resolved);
   for (const invalid of [lock.replace('==0.9.0+qm.pillow13', '==0.9.0'), lock.replace(metadata.wheel_sha256, 'd'.repeat(64)), lock.replace(metadata.wheel_sha256, metadata.wheel_sha256 + '0'), lock + lock]) {

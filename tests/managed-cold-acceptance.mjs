@@ -37,7 +37,8 @@ await prepare(dsh, 'dsh');
 await assert.rejects(lstat(join(dsh.program, `hermes_plugin_qdrant_memory-${runtime.version}-py3-none-any.whl.pending`)), { code: 'ENOENT' });
 assert.equal(await readFile(lockfile, 'utf8'), requirements);
 await prepare(wb, 'workbuddy');
-const versions = spawnSync(await installed(dsh), ['-I', '-c',
+const managedPython = join(dsh.program, 'env', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python');
+const versions = spawnSync(managedPython, ['-I', '-c',
   'import importlib.metadata as m,json; print(json.dumps({n:m.version(n) for n in ["Pillow","fastembed","hermes-plugin-qdrant-memory"]}))'],
   { encoding: 'utf8', timeout: 30000 });
 assert.equal(versions.status, 0, 'Managed dependency metadata must be readable');
