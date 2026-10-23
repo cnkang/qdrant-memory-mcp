@@ -2,11 +2,10 @@
 
 The metadata-only distribution delegates authorization and durable writes to the
 [Runtime](https://github.com/cnkang/hermes-plugin-qdrant-memory). Protected
-destination policy and `shared-doctor` require Runtime 0.5.0. Check installed
-help. Distribution 0.2.3 still pins Runtime 0.4.0, so its default installation
-does not include these controls. Use the Runtime 0.5.0 installation instructions
-to deploy them. Keep each distribution's version, source and artifact hashes
-consistent when you change a pin.
+destination policy and `shared-doctor` are included in Runtime 0.5.0, which
+distribution 0.2.4 selects. Check installed help and configure these controls
+before admitting clients. Keep each distribution's version, source and artifact
+hashes consistent when you change a pin.
 
 Provision separate Owner tokens for DSH, WorkBuddy and other agents. Grant only
 necessary spaces and choose `read` for read-only clients. Keep database collection
@@ -51,7 +50,7 @@ without distributing them to connectors. Do not remove claims to bypass conflict
 
 See Runtime [deployment examples and recovery](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/shared-memory/deployment-security.md)
 and [threat model](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/shared-memory/threat-model-v1.md).
-The Runtime documentation is public. These additions remain unpublished beyond Runtime 0.4.0. Current official
+Runtime 0.5.0 publishes these controls. Current official
 [Qdrant security documentation](https://qdrant.tech/documentation/security/)
 describes authentication and collection permissions. The official Qdrant MCP
 server also provides persistence. This Runtime adds memory lifecycle, fixed

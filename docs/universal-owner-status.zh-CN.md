@@ -1,14 +1,13 @@
-# Universal Owner 功能与限制（源码预览）
+# Universal Owner 功能与限制
 
 [English](universal-owner-status.md)
 
-本页说明源码预览的功能和支持边界。
-正式发行版使用 Runtime 0.4.0。
-预览功能需要单独安装支持相应接口的已审查 Runtime 源码。
-源码预览不代表生产环境验收。
+本页说明 Runtime 0.5.0 的功能及本仓库的预览适配器。
+分发 0.2.4 选择已发布的 Runtime 0.5.0 包。
+预览适配器需要单独安装相应集成。
+发布和源码 CI 不代表生产环境验收。
 
-当前 Owner 源码 CI 固定 Runtime [`4e0e4ebc25f133d96696e6cf25abb7f696a8ab15`](https://github.com/cnkang/hermes-plugin-qdrant-memory/tree/4e0e4ebc25f133d96696e6cf25abb7f696a8ab15)。
-该源码固定版本不会改变发行包的 Runtime 0.4.0 依赖。
+当前 Owner 源码 CI 固定 Runtime [`60762c3e39f4cb3419f6e983aeb61833952bf216`](https://github.com/cnkang/hermes-plugin-qdrant-memory/tree/60762c3e39f4cb3419f6e983aeb61833952bf216)，即已发布 Runtime 0.5.0 的源码。
 
 ## 功能
 

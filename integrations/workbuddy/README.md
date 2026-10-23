@@ -19,7 +19,7 @@ WorkBuddy's managed Node.js runtime. `mcp.json` declares:
     "qdrant-memory": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "@cnkang/qdrant-memory-launcher@0.1.0-rc.3", "mcp", "workbuddy", "--auto-setup"],
+      "args": ["-y", "@cnkang/qdrant-memory-launcher@0.1.0-rc.4", "mcp", "workbuddy", "--auto-setup"],
       "runtime": {"type": "node", "version": "20"},
       "npmRegistries": ["https://registry.npmjs.org"],
       "timeout": 30000
@@ -99,7 +99,7 @@ program's `.provision.lock`. Never remove profile files or Runtime data locks.
 
 ## Update and versioning
 
-Connector 0.2.1, MCP 0.2.3, Runtime 0.4.0, launcher 0.1.0-rc.3 and Skill 0.3.2
+Connector 0.2.2, MCP 0.2.4, Runtime 0.5.0, launcher 0.1.0-rc.4 and Skill 0.3.2
 are independent versions. `provenance.json` inside the ZIP records all
 versions, the launcher integrity and the Skill source commit. The builder
 rejects drift from the checked-in pins:
@@ -120,7 +120,7 @@ rejects drift from the checked-in pins:
 their own Python backend instead of the managed launcher:
 
 ```sh
-uvx --from qdrant-memory-mcp==0.2.3 qdrant-memory-mcp mcp
+uvx --from qdrant-memory-mcp==0.2.4 qdrant-memory-mcp mcp
 ```
 
 Add `--home <private-profile-path>` before `mcp` to bind an explicit private

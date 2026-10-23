@@ -16,7 +16,7 @@ uses) and no system Python, uvx, Ollama or Qdrant Server. Prepare the shared
 backend first:
 
 ```sh
-npx -y @cnkang/qdrant-memory-launcher@0.1.0-rc.3 prepare dsh
+npx -y @cnkang/qdrant-memory-launcher@0.1.0-rc.4 prepare dsh
 ```
 
 Wait for `{"ready":true,"host":"dsh"}`. Preparation downloads the private
@@ -52,8 +52,8 @@ at `~/.qdrant-memory-dsh` instead of `~/.qdrant-memory`. Put your chosen scope a
 embedding settings in that profile's `qdrant-memory.json`, then initialize it:
 
 ```sh
-uvx --from qdrant-memory-mcp==0.2.3 qdrant-memory-mcp --home "$HOME/.qdrant-memory-dsh" init
-uvx --from qdrant-memory-mcp==0.2.3 qdrant-memory-mcp --home "$HOME/.qdrant-memory-dsh" doctor
+uvx --from qdrant-memory-mcp==0.2.4 qdrant-memory-mcp --home "$HOME/.qdrant-memory-dsh" init
+uvx --from qdrant-memory-mcp==0.2.4 qdrant-memory-mcp --home "$HOME/.qdrant-memory-dsh" doctor
 dsh web --patch /absolute/path/to/qdrant-memory-mcp/integrations/dsh/qdrant-memory.cordis.yml
 ```
 

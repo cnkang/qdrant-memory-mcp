@@ -29,14 +29,14 @@ def test_connector_metadata_and_generated_pin():
     assert server == {
         "type": "stdio",
         "command": "npx",
-        "args": ["-y", "@cnkang/qdrant-memory-launcher@0.1.0-rc.3", "mcp", "workbuddy", "--auto-setup"],
+        "args": ["-y", "@cnkang/qdrant-memory-launcher@0.1.0-rc.4", "mcp", "workbuddy", "--auto-setup"],
         "runtime": {"type": "node", "version": "20"},
         "npmRegistries": ["https://registry.npmjs.org"],
         "timeout": 30000,
     }
     assert launcher["name"] == "@cnkang/qdrant-memory-launcher"
     assert server["args"][1] == f"{launcher['name']}@{launcher['version']}"
-    assert runtime["version"] == "0.4.0"
+    assert runtime["version"] == "0.5.0"
     assert len(source["commit"]) == 40
 
 

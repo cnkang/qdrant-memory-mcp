@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.4
+
+- Select the published Runtime 0.5.0 package and its matching preparation and
+  Owner CI revision. Keep one Runtime implementation and the existing stdio tools.
+- Update Connector 0.2.2 and DSH bundle 0.1.3 to the Pillow 13 launcher 0.1.0-rc.4.
+  Pin its exact npm integrity. Retain existing profiles and model caches.
+- Align active English and Chinese installation instructions and support limits.
+
 ## Launcher 0.1.0-rc.4
 
 - Install the public Runtime 0.5.0 wheel with its matching immutable source and

@@ -14,7 +14,7 @@
 先准备共享后端：
 
 ```sh
-npx -y @cnkang/qdrant-memory-launcher@0.1.0-rc.3 prepare dsh
+npx -y @cnkang/qdrant-memory-launcher@0.1.0-rc.4 prepare dsh
 ```
 
 等待输出 `{"ready":true,"host":"dsh"}`。准备过程会下载私有 Python 环境、固定版本的
@@ -45,8 +45,8 @@ Hermes 相互独立。更新、卸载与恢复说明见 [Bundle 说明](../integ
 然后执行：
 
 ```sh
-uvx --from qdrant-memory-mcp==0.2.3 qdrant-memory-mcp --home "$HOME/.qdrant-memory-dsh" init
-uvx --from qdrant-memory-mcp==0.2.3 qdrant-memory-mcp --home "$HOME/.qdrant-memory-dsh" doctor
+uvx --from qdrant-memory-mcp==0.2.4 qdrant-memory-mcp --home "$HOME/.qdrant-memory-dsh" init
+uvx --from qdrant-memory-mcp==0.2.4 qdrant-memory-mcp --home "$HOME/.qdrant-memory-dsh" doctor
 dsh web --patch /absolute/path/to/qdrant-memory-mcp/integrations/dsh/qdrant-memory.cordis.yml
 ```
 
