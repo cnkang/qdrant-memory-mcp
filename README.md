@@ -1,6 +1,6 @@
 # Qdrant Memory MCP
 
-For shared production deployments, read the [deployment security guide](docs/shared-deployment-security.md). Owner-only database write credentials are required independently of MCP grants. Destination protection and shared doctor are unpublished Runtime additions. Published pins and installation commands remain unchanged.
+For shared production deployments, read the [deployment security guide](docs/shared-deployment-security.md). Owner-only database write credentials are required independently of MCP grants. Destination protection and shared doctor require a newer Runtime than this distribution's Runtime 0.4.0 dependency. See the [Owner support record](docs/universal-owner-status.md) before selecting source features.
 
 ## One Memory, Multiple Agents — opt-in shared owner
 
@@ -20,7 +20,7 @@ Its metadata-only wheel contains no Python business implementation. The console
 script points directly to `qdrant_memory.standalone:main` and depends on
 `hermes-plugin-qdrant-memory[mcp]==0.4.0`.
 
-See [0.1.4 release notes](docs/releases/0.1.4.md) for WorkBuddy assets, SDK compatibility and upgrade guidance.
+See [0.2.3 release notes](docs/releases/0.2.3.md) for source alignment, WorkBuddy assets and compatibility boundaries.
 
 Before using an exact-version installation command, confirm that version on
 the [PyPI release page](https://pypi.org/project/qdrant-memory-mcp/0.2.3/).

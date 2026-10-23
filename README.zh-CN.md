@@ -1,6 +1,6 @@
 # Qdrant Memory MCP
 
-共享生产部署请参阅[部署安全指南](docs/shared-deployment-security.md)。Agent 只应接收 Owner 客户端令牌，不应接收 Qdrant 写凭据。本地锁无法阻止远程数据库写入。新保护策略和诊断尚未发布；分发版本、依赖固定值和安装命令保持不变。
+共享生产部署请参阅[部署安全指南](docs/shared-deployment-security.md)。Owner 必须独占数据库应用写凭据，MCP 授权不能替代此要求。目的地保护和 shared doctor 需要比本分发固定依赖的 Runtime 0.4.0 更新的版本。选择源码功能前，请查看 [Owner 支持记录](docs/universal-owner-status.zh-CN.md)。
 
 ## One Memory, Multiple Agents — 可选启用的共享 owner
 
@@ -12,7 +12,7 @@
 `qdrant-memory-mcp` 直接引用 `qdrant_memory.standalone:main`，固定依赖
 `hermes-plugin-qdrant-memory[mcp]==0.4.0`，不需要安装 Hermes。
 
-WorkBuddy 资产、SDK 兼容性和升级指引见 [0.1.4 发布说明](docs/releases/0.1.4.zh-CN.md)。
+源码对齐、WorkBuddy 资产和兼容边界见 [0.2.3 发布说明](docs/releases/0.2.3.zh-CN.md)。
 
 使用固定版本安装命令前，请在 [PyPI 版本页面](https://pypi.org/project/qdrant-memory-mcp/0.2.3/)
 确认该版本已公开发布。

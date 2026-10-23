@@ -62,8 +62,8 @@ around paths with spaces. On Windows, use your Windows path. Double backslashes
 inside JSON, or use forward slashes.
 
 ```sh
-uvx --from qdrant-memory-mcp==0.2.2 qdrant-memory-mcp --home "/path/to/workbuddy-profile" init
-uvx --from qdrant-memory-mcp==0.2.2 qdrant-memory-mcp --home "/path/to/workbuddy-profile" doctor
+uvx --from qdrant-memory-mcp==0.2.3 qdrant-memory-mcp --home "/path/to/workbuddy-profile" init
+uvx --from qdrant-memory-mcp==0.2.3 qdrant-memory-mcp --home "/path/to/workbuddy-profile" doctor
 ```
 
 Initialization calls the local model, creates local storage and validates its
@@ -85,7 +85,7 @@ enable both the packaged default and this custom instance for this setup.
     "qdrant-memory": {
       "type": "stdio",
       "command": "uvx",
-      "args": ["--from", "qdrant-memory-mcp==0.2.2", "qdrant-memory-mcp", "--home", "/path/to/workbuddy-profile", "mcp"],
+      "args": ["--from", "qdrant-memory-mcp==0.2.3", "qdrant-memory-mcp", "--home", "/path/to/workbuddy-profile", "mcp"],
       "timeout": 30000
     }
   }

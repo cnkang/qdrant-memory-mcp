@@ -120,7 +120,7 @@ rejects drift from the checked-in pins:
 their own Python backend instead of the managed launcher:
 
 ```sh
-uvx --from qdrant-memory-mcp==0.2.1 qdrant-memory-mcp mcp
+uvx --from qdrant-memory-mcp==0.2.3 qdrant-memory-mcp mcp
 ```
 
 Add `--home <private-profile-path>` before `mcp` to bind an explicit private
