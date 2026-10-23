@@ -1,20 +1,20 @@
-# Shared service integration preview / 共享服务接入预览
+# Shared service integration / 共享服务接入
 
 Read [deployment security](../../docs/shared-deployment-security.md) before production use.
 Client bridges receive only Owner tokens.
 The Owner retains database write credentials.
-Destination protection and shared doctor require the Runtime source preview.
-Runtime 0.4.0 does not provide these preview features.
+Destination protection and shared doctor require Runtime 0.5.0.
+Runtime 0.4.0 does not provide these features.
 
-**Opt-in.** The distribution remains metadata-only and pins Runtime 0.4.0.
+**Opt-in.** The distribution remains metadata-only and pins Runtime 0.5.0.
 Install the published Runtime into a separate virtual environment with `[mcp]`.
-Runtime 0.4.0 provides `shared-serve` and `shared-mcp`.
+Runtime 0.5.0 provides `shared-serve`, `shared-mcp`, `remote-serve` and `remote-mcp`.
 
 Install the Runtime in an isolated environment:
 
 ```sh
 python3 -m venv /absolute/path/shared-runtime-env
-/absolute/path/shared-runtime-env/bin/pip install 'hermes-plugin-qdrant-memory[mcp]==0.4.0'
+/absolute/path/shared-runtime-env/bin/pip install 'hermes-plugin-qdrant-memory[mcp]==0.5.0'
 ```
 
 Follow the [Runtime operations and Hermes/DSH walkthrough](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/shared-memory/README.md).
@@ -44,22 +44,23 @@ Only the Owner accesses Qdrant and the Ledger or creates embeddings.
 Tool arguments cannot select a credential identity.
 Existing records stay private.
 
-The local HTTP connection uses a private API.
-It does not provide a remote HTTP MCP endpoint.
-This released configuration does not support remote agent URLs, OAuth, or multiple distributed writers.
+The `shared-serve` private API stays local HTTP and loopback-only.
+Remote clients use the separate HTTPS MCP endpoint that Runtime 0.5.0 adds, each with its own device credential.
+One Owner serves one destination.
+OAuth and multiple distributed writers remain unsupported.
 
 The released Hermes Native Provider continues automatic private extraction.
 Do not register a second qdrant-memory interface in a Hermes profile that already uses the Native Provider.
-Runtime 0.4.0 does not provide automatic shared extraction through the Native Provider.
+Runtime 0.5.0 provides opt-in automatic shared extraction through a Native Hermes Owner or a standalone Owner.
 The walkthrough uses a separate MCP profile or an authorized operator CLI save command.
-The source preview supports additional capabilities in the [Owner capability summary](../../docs/universal-owner-status.md).
+This release supports additional capabilities in the [Owner capability summary](../../docs/universal-owner-status.md).
 
 DSH and WorkBuddy retain their managed setup and private defaults. These
 files are separate examples. Official SDK process tests verify the protocol.
 These tests do not verify configuration imports through host user interfaces.
 Do not describe protocol test results as native host certification.
 
-## Remote source preview
+## Remote HTTPS MCP
 
 The `*.remote-preview.*` examples use the official MCP-to-MCP `remote-mcp`
 bridge over HTTPS. They require a reviewed Runtime with `remote-mcp`.
@@ -82,35 +83,35 @@ See [Pi's separately verified lifecycle adapter](../pi/README.md).
 
 ## Summary / 摘要
 
-Install Runtime 0.4.0 in a separate virtual environment.
+Install Runtime 0.5.0 in a separate virtual environment.
 Start one Owner with a separate token for each client.
 Use the example for your host.
 The examples do not change existing private DSH or WorkBuddy installations.
 The Owner checks scope, sharing flags, permissions, and record versions.
 Existing records stay private.
 
-Runtime 0.4.0 preserves private Hermes Native Provider behavior and does not provide automatic shared extraction.
+Runtime 0.5.0 preserves private Hermes Native Provider behavior and adds explicit shared capture rules.
 Do not register a duplicate interface.
-The HTTPS source preview requires a reviewed Runtime and TLS verification.
+The HTTPS MCP endpoint requires Runtime 0.5.0 and TLS verification.
 Its credential-reference syntax depends on the host.
-The source preview does not support OAuth or browser authentication.
+This release does not support OAuth or browser authentication.
 Protocol tests do not verify host user interfaces or automatic memory.
 
 The [Runtime guide](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/shared-memory/README.md)
 covers backup, recovery, rollback, security limits, and troubleshooting.
 
-在独立虚拟环境中安装 Runtime 0.4.0。
+在独立虚拟环境中安装 Runtime 0.5.0。
 启动一个 Owner，并为每个客户端配置独立 token。
 使用对应宿主的示例配置。
 示例不会更改已有的 DSH 或 WorkBuddy 私有安装。
 Owner 校验 scope、共享标记、权限和记录版本。
 已有记录保持私有。
 
-Runtime 0.4.0 保留 Hermes Native Provider 的私有行为，不提供自动共享提取。
+Runtime 0.5.0 保留 Hermes Native Provider 的私有行为，并新增显式的共享捕获规则。
 不要注册重复接口。
-HTTPS 源码预览需要已审查的 Runtime，并必须验证 TLS。
+HTTPS MCP 端点需要 Runtime 0.5.0，并必须验证 TLS。
 凭据引用语法取决于宿主。
-源码预览不支持 OAuth 或浏览器认证。
+本版本不支持 OAuth 或浏览器认证。
 协议测试不能验证宿主用户界面或自动记忆。
 
 [Runtime 中文指南](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/shared-memory/README.zh-CN.md)

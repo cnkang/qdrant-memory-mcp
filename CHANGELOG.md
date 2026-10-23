@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Align the integration guides and version tables with the shipped pins:
+  Runtime 0.5.0, distribution 0.2.4, launcher 0.1.0-rc.4 and Skill 0.3.3. Remove
+  the source-preview wording that no longer describes the published packages.
+
 ## 0.2.4
 
 - Select the published Runtime 0.5.0 package and its matching preparation and

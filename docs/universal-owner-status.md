@@ -20,7 +20,7 @@ Current Owner source CI pins Runtime [`60762c3e39f4cb3419f6e983aeb61833952bf216`
 | Pi automatic memory | The adapter uses official Pi 1.3.0 lifecycle hooks. The Owner extracts and persists memories. Tests use real Pi sessions and deterministic models. |
 | Hermes-to-Pi automatic handoff | Tests use actual Hermes MemoryManager callbacks, one Owner, verified HTTPS, and a fresh session in a separate Pi process. |
 | Codex, DSH, WorkBuddy, OpenCode | These hosts support explicit MCP or assisted use. Automatic memory requires a separate, verified lifecycle adapter for each host. |
-| OAuth, OIDC, browser authentication | The source preview does not support these authentication methods. Each client uses a separate service credential configured in advance. |
+| OAuth, OIDC, browser authentication | This release does not support these authentication methods. Each client uses a separate service credential configured in advance. |
 | Embedded, Server, Cloud | All three deployment modes remain available. Validation covers Embedded and Server with TLS/JWT. A separate Runtime Cloud Owner test passed and removed its test collection. Collection-level credential restrictions remain unverified. |
 | Model quality | Runtime CI uses fixed models for functional smoke tests. A smoke pass does not establish extraction quality. Validate the target model with the full quality suite before deployment. |
 
@@ -82,6 +82,6 @@ acceptance, native bundle installation acceptance, or automatic memory lifecycle
 It is separate from the deterministic CI tests above.
 
 The released distribution adopts a new Runtime version only after compatibility validation.
-The source preview does not automatically migrate user data or change production services.
+This release does not automatically migrate user data or change production services.
 [Shared service configuration](../integrations/shared/README.md) describes separate credentials and HTTPS examples.
 Read [deployment security](shared-deployment-security.md) before deployment.

@@ -20,7 +20,7 @@
 | Pi 自动记忆 | 适配器使用官方 Pi 1.3.0 生命周期钩子。Owner 负责提取和持久化。测试使用真实 Pi 会话和确定性模型。 |
 | Hermes-to-Pi 自动交接 | 测试使用真实 Hermes MemoryManager 回调、同一个 Owner、经过验证的 HTTPS 和独立 Pi 进程中的新会话。 |
 | Codex、DSH、WorkBuddy、OpenCode | 这些宿主支持显式 MCP 或辅助使用方式。自动记忆需要各自独立、经过验证的生命周期适配器。 |
-| OAuth、OIDC、浏览器认证 | 源码预览不支持这些认证方式。各客户端使用预先配置的独立服务凭据。 |
+| OAuth、OIDC、浏览器认证 | 本版本不支持这些认证方式。各客户端使用预先配置的独立服务凭据。 |
 | Embedded、Server、Cloud | 三种部署方式均保留。验证范围包括 Embedded 和使用 TLS/JWT 的 Server。独立的 Runtime Cloud Owner 测试已通过，并已删除测试集合。集合级凭据限制尚未验证。 |
 | 模型质量 | Runtime CI 使用固定模型进行功能冒烟测试。冒烟通过不代表提取质量达标。部署前必须使用目标模型运行完整质量测试。 |
 
@@ -81,6 +81,6 @@ Owner 控制身份、权限和空间选择。
 它独立于上文的确定性 CI 测试。
 
 正式发行版仅在兼容性验证完成后采用新的 Runtime 版本。
-源码预览不会自动迁移用户数据或更改线上服务。
+本版本不会自动迁移用户数据或更改线上服务。
 [共享服务配置](../integrations/shared/README.md)说明独立凭据和 HTTPS 示例。
 部署前应阅读[部署安全说明](shared-deployment-security.md)。
