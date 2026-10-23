@@ -9,7 +9,7 @@
         command: uvx
         args:
           - --from
-          - qdrant-memory-mcp==0.2.2
+          - qdrant-memory-mcp==0.2.3
           - qdrant-memory-mcp
           - --home
           - !!js process.env.QDRANT_MEMORY_DSH_PROFILE || require('node:path').join(require('node:os').homedir(), '.qdrant-memory-dsh')

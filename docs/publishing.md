@@ -1,4 +1,4 @@
-# 0.2.2 publication checklist
+# 0.2.3 publication checklist
 
 [English](publishing.md) | [简体中文](publishing.zh-CN.md)
 
@@ -24,11 +24,11 @@ the release as available only after the checks below confirm both public endpoin
    an existing version. Reuse the verified public Runtime 0.4.0 artifacts.
 4. Run distribution acceptance in public dependency mode. Build/test wheel and
    sdist from a new environment using only the exact Runtime PyPI release.
-5. Create distribution tag v0.2.2 after confirmation. Its workflow builds and
+5. Create distribution tag v0.2.3 after confirmation. Its workflow builds and
    tests before protected PyPI publication, verifies public metadata, validates
    with the official publisher, then uses `github-oidc` for Registry publication.
 6. Verify PyPI ownership marker and the public Registry entry
-   `io.github.cnkang/qdrant-memory` version 0.2.2. Publish the release announcement
+   `io.github.cnkang/qdrant-memory` version 0.2.3. Publish the release announcement
    only after the public endpoints and public-install acceptance confirm the release.
 
 The distribution workflow has a tag-only manual `registry_only` retry mode.
