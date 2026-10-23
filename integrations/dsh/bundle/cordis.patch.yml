@@ -1,6 +1,6 @@
 # Qdrant Memory Bundle: connect a prepared shared-memory profile through the
 # official DSH MCP client. Prepare the backend before enabling this bundle:
-#   npx -y @cnkang/qdrant-memory-launcher@0.1.0-rc.3 prepare dsh
+#   npx -y @cnkang/qdrant-memory-launcher@0.1.0-rc.4 prepare dsh
 # The probe never runs installation or model downloads.
 - insert:
     - id: cnkang-qdrant-memory-mcp
@@ -11,6 +11,6 @@
         command: npx
         args:
           - -y
-          - '@cnkang/qdrant-memory-launcher@0.1.0-rc.3'
+          - '@cnkang/qdrant-memory-launcher@0.1.0-rc.4'
           - mcp
           - dsh

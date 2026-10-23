@@ -34,7 +34,7 @@ def test_metadata_contract():
     """Keep dependency, Registry versions and ownership aligned with packaging."""
     project = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]
     server = json.loads((ROOT / "server.json").read_text())
-    assert project["dependencies"] == ["hermes-plugin-qdrant-memory[mcp]==0.4.0"]
+    assert project["dependencies"] == ["hermes-plugin-qdrant-memory[mcp]==0.5.0"]
     assert project["scripts"] == {"qdrant-memory-mcp": "qdrant_memory.standalone:main"}
     assert project["version"] == server["version"] == server["packages"][0]["version"]
     assert server["packages"][0]["identifier"] == project["name"]
@@ -61,7 +61,7 @@ def test_artifacts_are_metadata_only():
             in metadata.get_payload()
         )
         assert metadata.get_all("Requires-Dist") == [
-            "hermes-plugin-qdrant-memory[mcp]==0.4.0"
+            "hermes-plugin-qdrant-memory[mcp]==0.5.0"
         ]
         entry = configparser.ConfigParser()
         entry.read_string(
@@ -84,9 +84,9 @@ def test_artifacts_are_metadata_only():
 def test_installed_entrypoint():
     """Verify installed distribution provenance and the delegated console command."""
     dist = importlib.metadata.distribution("qdrant-memory-mcp")
-    assert dist.version == "0.2.3"
+    assert dist.version == "0.2.4"
     runtime = importlib.metadata.distribution("hermes-plugin-qdrant-memory")
-    assert runtime.version == "0.4.0"
+    assert runtime.version == "0.5.0"
     assert importlib.metadata.packages_distributions()["qdrant_memory"] == [
         "hermes-plugin-qdrant-memory"
     ]

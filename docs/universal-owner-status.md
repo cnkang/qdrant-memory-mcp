@@ -1,14 +1,13 @@
-# Universal Owner capabilities and limits (source preview)
+# Universal Owner capabilities and limits
 
 [简体中文](universal-owner-status.zh-CN.md)
 
-This page describes source preview capabilities and support limits.
-The released distribution uses Runtime 0.4.0.
-Preview features require a separate installation of reviewed Runtime source with the applicable interfaces.
-The source preview does not establish production acceptance.
+This page describes Runtime 0.5.0 capabilities and the repository's preview adapters.
+Distribution 0.2.4 selects the published Runtime 0.5.0 package.
+Preview adapters require a separate installation of the applicable integration.
+Publication and source CI do not establish production acceptance.
 
-Current Owner source CI pins Runtime [`4e0e4ebc25f133d96696e6cf25abb7f696a8ab15`](https://github.com/cnkang/hermes-plugin-qdrant-memory/tree/4e0e4ebc25f133d96696e6cf25abb7f696a8ab15).
-This source pin does not change the distribution dependency on Runtime 0.4.0.
+Current Owner source CI pins Runtime [`60762c3e39f4cb3419f6e983aeb61833952bf216`](https://github.com/cnkang/hermes-plugin-qdrant-memory/tree/60762c3e39f4cb3419f6e983aeb61833952bf216), the published Runtime 0.5.0 source.
 
 ## Capabilities
 
