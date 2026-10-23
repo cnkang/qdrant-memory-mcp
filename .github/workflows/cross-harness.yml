@@ -36,7 +36,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: cnkang/hermes-plugin-qdrant-memory
-          ref: 24f9b1110ee99237f432afefbc7af7573bfae494
+          ref: 4e0e4ebc25f133d96696e6cf25abb7f696a8ab15
           path: .scratch/owner-runtime
           persist-credentials: false
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -88,7 +88,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: cnkang/skills
-          ref: d6062f07f35a741d5058712ab5e9966b39f87e00
+          ref: 1d00de460fdd979f58eb580092fb56ddae0f0e88
           path: .scratch/canonical-skills
           persist-credentials: false
       - name: Install published Python MCP and test dependencies
@@ -206,7 +206,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: cnkang/skills
-          ref: d6062f07f35a741d5058712ab5e9966b39f87e00
+          ref: 1d00de460fdd979f58eb580092fb56ddae0f0e88
           path: .scratch/canonical-skills
           persist-credentials: false
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1

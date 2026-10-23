@@ -7,6 +7,9 @@ The released distribution uses Runtime 0.4.0.
 Preview features require a separate installation of reviewed Runtime source with the applicable interfaces.
 The source preview does not establish production acceptance.
 
+Current Owner source CI pins Runtime [`4e0e4ebc25f133d96696e6cf25abb7f696a8ab15`](https://github.com/cnkang/hermes-plugin-qdrant-memory/tree/4e0e4ebc25f133d96696e6cf25abb7f696a8ab15).
+This source pin does not change the distribution dependency on Runtime 0.4.0.
+
 ## Capabilities
 
 | Capability | Support limits |
@@ -47,7 +50,7 @@ Each host requires separate acceptance evidence.
 
 The [Runtime Cloud Owner test](https://github.com/cnkang/hermes-plugin-qdrant-memory/actions/runs/39691871575)
 passed one end-to-end test on main, with no skipped tests.
-The run used Runtime [24f9b1110ee99237f432afefbc7af7573bfae494](https://github.com/cnkang/hermes-plugin-qdrant-memory/tree/24f9b1110ee99237f432afefbc7af7573bfae494), which is also the pinned preview revision.
+The run used Runtime [24f9b1110ee99237f432afefbc7af7573bfae494](https://github.com/cnkang/hermes-plugin-qdrant-memory/tree/24f9b1110ee99237f432afefbc7af7573bfae494). This is a historical test baseline.
 The test removed its records and collection, and a separate cleanup check confirmed removal.
 It used a test API key, so it does not establish collection-level credential isolation.
 The [Runtime model guide](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/shared-memory/model-quality.md)
@@ -61,7 +64,7 @@ Both applications connected through `shared-mcp` to one isolated loopback Owner.
 Each application had a separate credential. The test used only synthetic records,
 Embedded Qdrant, and an existing local `qwen3-embedding:4b` model with 2560 dimensions.
 The tested Runtime revision was [7994e54de83fa8d39e566724dd88dd13b34970ee](https://github.com/cnkang/hermes-plugin-qdrant-memory/tree/7994e54de83fa8d39e566724dd88dd13b34970ee).
-Its Runtime package files match the pinned preview revision above.
+These results apply to that test baseline. The new source pin needs separate CI evidence.
 
 | Manual check | Result |
 |---|---|

@@ -1,6 +1,11 @@
 # Changelog
 
-## Unreleased
+## 0.2.3
+
+- Align Owner source CI with the reviewed Runtime main revision. Keep the
+  public Runtime 0.4.0 dependency and managed launcher artifact pins unchanged.
+- Prepare Connector 0.2.1 with the reviewed Skill 0.3.2 installer security fixes.
+  Separate historical desktop and Cloud evidence from the current source pin.
 
 - Bind the CI preparation source fallback to the canonical Runtime repository,
   disable it for pull requests, and assert the built wheel matches the pinned
@@ -9,7 +14,7 @@
   working directory, and only with an absolute interpreter path, so host project
   content cannot shadow the Runtime that holds the Owner credential. Resolve a
   relative `QDRANT_MEMORY_CA_FILE` before the cwd change.
-- Sync the DSH uvx overlay to the published 0.2.2 MCP distribution.
+- Sync the DSH uvx overlay to MCP 0.2.3.
 
 ## DSH bundle 0.1.2
 

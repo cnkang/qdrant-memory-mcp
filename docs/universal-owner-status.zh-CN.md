@@ -7,6 +7,9 @@
 预览功能需要单独安装支持相应接口的已审查 Runtime 源码。
 源码预览不代表生产环境验收。
 
+当前 Owner 源码 CI 固定 Runtime [`4e0e4ebc25f133d96696e6cf25abb7f696a8ab15`](https://github.com/cnkang/hermes-plugin-qdrant-memory/tree/4e0e4ebc25f133d96696e6cf25abb7f696a8ab15)。
+该源码固定版本不会改变发行包的 Runtime 0.4.0 依赖。
+
 ## 功能
 
 | 功能 | 支持边界 |
@@ -47,7 +50,7 @@ Owner 控制身份、权限和空间选择。
 
 [Runtime Cloud Owner 测试](https://github.com/cnkang/hermes-plugin-qdrant-memory/actions/runs/39691871575)
 已在 main 上通过 1 项端到端测试，没有跳过的测试。
-本次使用 Runtime [24f9b1110ee99237f432afefbc7af7573bfae494](https://github.com/cnkang/hermes-plugin-qdrant-memory/tree/24f9b1110ee99237f432afefbc7af7573bfae494)，与固定的预览版本一致。
+本次使用 Runtime [24f9b1110ee99237f432afefbc7af7573bfae494](https://github.com/cnkang/hermes-plugin-qdrant-memory/tree/24f9b1110ee99237f432afefbc7af7573bfae494)。这是历史测试基线。
 测试删除了记录和集合，独立清理检查确认删除完成。
 测试使用测试专用 API Key，因此不代表集合级凭据隔离验收通过。
 [Runtime 模型指南](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/shared-memory/model-quality.md)
@@ -61,7 +64,7 @@ Owner 控制身份、权限和空间选择。
 每个应用使用独立凭据。测试仅使用合成记录、Embedded Qdrant，
 以及本机已有的 `qwen3-embedding:4b` 模型，维度为 2560。
 实测 Runtime 版本为 [7994e54de83fa8d39e566724dd88dd13b34970ee](https://github.com/cnkang/hermes-plugin-qdrant-memory/tree/7994e54de83fa8d39e566724dd88dd13b34970ee)。
-该版本的 Runtime 包文件与上文固定的预览版本一致。
+此处的结果仅适用于该次测试基线。新的源码固定版本需要独立 CI 证据。
 
 | 手动检查 | 结果 |
 |---|---|
