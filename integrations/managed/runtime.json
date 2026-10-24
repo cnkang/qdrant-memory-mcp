@@ -2,7 +2,7 @@
   "revision": "40ac832ab2093e1614c88ef219d1f6a0ef4701a9",
   "version": "0.5.1",
   "status": "released-wheel",
-  "url": "https://files.pythonhosted.org/packages/61/6a/f579692053fb496f516516cc1093fd44522ead4c518e1de1c1f339ea9dab/hermes_plugin_qdrant_memory-0.5.1-py3-none-any.whl",
+  "url": "https://files.pythonhosted.org/packages/c4/c8/39729c3611652cc8ceb3d943a9d7582939e44199cff9f98830a73d760971/hermes_plugin_qdrant_memory-0.5.1-py3-none-any.whl",
   "sha256": "60f3d3e4cb5b9e690b601aa7f4ab75612c9d9777f7efd9519b62a903da48bdd9",
   "size": 137413,
   "fastembed_compat": {

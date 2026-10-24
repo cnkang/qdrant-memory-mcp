@@ -65,7 +65,7 @@ Never remove locks or change fingerprints to force compatibility.
 | --- | --- | --- |
 | Python MCP | 0.2.5 | Python/uvx distribution. Confirm the exact version on PyPI |
 | Runtime | 0.5.1 | Public PyPI wheel. Optional CPU provider |
-| Node launcher | 0.1.0-rc.5 | Release candidate pinned by the connector and Bundle. It installs Runtime 0.5.1 |
+| Node launcher | 0.1.0-rc.6 | Release candidate pinned by the connector and Bundle. It installs Runtime 0.5.1 |
 | DSH bundle | 0.1.3 | Configuration-only npm bundle, public on npm. It installs the launcher through the official MCP client |
 | Bootstrap | uv 0.13.1 / Python 3.11.15 | Fixed platform artifacts, verified uv hash |
 | Canonical Skill | 0.3.3 | See connector `skill-source.json` for exact commit |
