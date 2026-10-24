@@ -14,7 +14,7 @@
 先准备共享后端：
 
 ```sh
-npx -y @cnkang/qdrant-memory-launcher@0.1.0-rc.5 prepare dsh
+npx -y @cnkang/qdrant-memory-launcher@0.1.0-rc.6 prepare dsh
 ```
 
 等待输出 `{"ready":true,"host":"dsh"}`。准备过程会下载私有 Python 环境、固定版本的
