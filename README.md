@@ -4,7 +4,7 @@ For shared production deployments, read the [deployment security guide](docs/sha
 
 ## One Memory, Multiple Agents — opt-in shared owner
 
-The distribution adds an opt-in single-owner service and stdio bridge. Install Runtime 0.5.0 to use them. See [shared integration guide](integrations/shared/README.md). Private defaults are unchanged. Native Provider automatic shared extraction is deferred.
+The distribution adds an opt-in single-owner service and stdio bridge. Install Runtime 0.5.1 to use them. See [shared integration guide](integrations/shared/README.md). Private defaults are unchanged. Native Provider automatic shared extraction is deferred.
 
 <!-- mcp-name: io.github.cnkang/qdrant-memory -->
 
@@ -18,14 +18,14 @@ Persistent, scoped memory for AI agents through four explicit **stdio MCP** tool
 This repository distributes the existing [Python Runtime](https://github.com/cnkang/hermes-plugin-qdrant-memory).
 Its metadata-only wheel contains no Python business implementation. The console
 script points directly to `qdrant_memory.standalone:main` and depends on
-`hermes-plugin-qdrant-memory[mcp]==0.5.0`.
+`hermes-plugin-qdrant-memory[mcp]==0.5.1`.
 
 See [0.2.4 release notes](docs/releases/0.2.4.md) for source alignment, WorkBuddy assets and compatibility boundaries.
 
 Before using an exact-version installation command, confirm that version on
-the [PyPI release page](https://pypi.org/project/qdrant-memory-mcp/0.2.4/).
+the [PyPI release page](https://pypi.org/project/qdrant-memory-mcp/0.2.5/).
 
-**Versions:** MCP distribution 0.2.4 pins Runtime 0.5.0, which supports MCP
+**Versions:** MCP distribution 0.2.5 pins Runtime 0.5.1, which supports MCP
 Python SDK 1.x and 2.x (`mcp>=1.30,<3`). The four scoped tools and stdio
 launch arguments are the same for both SDK majors. It retains the fix for explicit
 writes of distinct, highly similar texts without an LLM. The commands below use
@@ -72,13 +72,13 @@ Create an operator-owned profile directory and save `qdrant-memory.json` inside:
 Initialize, then launch (replace `/path/to/profile` with your absolute path):
 
 ```bash
-uvx --from qdrant-memory-mcp==0.2.4 qdrant-memory-mcp --home /path/to/profile init
-uvx --from qdrant-memory-mcp==0.2.4 qdrant-memory-mcp --home /path/to/profile mcp
+uvx --from qdrant-memory-mcp==0.2.5 qdrant-memory-mcp --home /path/to/profile init
+uvx --from qdrant-memory-mcp==0.2.5 qdrant-memory-mcp --home /path/to/profile mcp
 ```
 
 The command without `--home` uses `~/.qdrant-memory`, independent of Hermes.
 Configure and initialize that directory before letting a Registry client launch
-`uvx --from qdrant-memory-mcp==0.2.4 qdrant-memory-mcp mcp`.
+`uvx --from qdrant-memory-mcp==0.2.5 qdrant-memory-mcp mcp`.
 The executable name matches the package name.
 The Registry's positional `mcp` selects protocol mode. Its optional named
 `--home` precedes `mcp` when a client supplies a custom profile.
@@ -87,7 +87,7 @@ Alternatively:
 
 ```bash
 python3 -m venv .venv
-.venv/bin/python -m pip install qdrant-memory-mcp==0.2.4
+.venv/bin/python -m pip install qdrant-memory-mcp==0.2.5
 .venv/bin/qdrant-memory-mcp --home /path/to/profile init
 .venv/bin/qdrant-memory-mcp --home /path/to/profile mcp
 ```
@@ -109,7 +109,7 @@ Codex `config.toml` example:
 ```toml
 [mcp_servers.qdrant_memory]
 command = "uvx"
-args = ["--from", "qdrant-memory-mcp==0.2.4", "qdrant-memory-mcp", "--home", "/path/to/profile", "mcp"]
+args = ["--from", "qdrant-memory-mcp==0.2.5", "qdrant-memory-mcp", "--home", "/path/to/profile", "mcp"]
 ```
 
 OpenCode `opencode.json` example:
@@ -120,7 +120,7 @@ OpenCode `opencode.json` example:
   "mcp": {
     "qdrant_memory": {
       "type": "local",
-      "command": ["uvx", "--from", "qdrant-memory-mcp==0.2.4", "qdrant-memory-mcp", "--home", "/path/to/profile", "mcp"],
+      "command": ["uvx", "--from", "qdrant-memory-mcp==0.2.5", "qdrant-memory-mcp", "--home", "/path/to/profile", "mcp"],
       "enabled": true
     }
   }

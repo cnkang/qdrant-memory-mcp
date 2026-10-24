@@ -10,7 +10,7 @@ dispatch。
 示例仅标识目标发行版本，不能证明该版本已公开可用。使用安装命令前，须核实准确的公开
 版本。只有下列检查确认两个公开端点后，才可宣布发布已可用。
 
-1. 核验已公开的 Runtime 0.5.0 发行版及准确依赖。不要为本次分发重新创建其 tag，
+1. 核验已公开的 Runtime 0.5.1 发行版及准确依赖。不要为本次分发重新创建其 tag，
    也不要再次发布。
 2. 复核已有的 PyPI Trusted Publisher（PyPI 账号步骤）：
    - `hermes-plugin-qdrant-memory`：owner `cnkang`，仓库
@@ -18,7 +18,7 @@ dispatch。
    - `qdrant-memory-mcp`：owner `cnkang`，仓库 `qdrant-memory-mcp`，
      workflow `publish.yml`，环境 `pypi`。
 3. 在提示时批准受保护的 GitHub 环境。版本 tag 必须指向 main 分支的提交，并与包元数据
-   一致。发行不能覆盖已有版本。复用已验证的公开 Runtime 0.5.0 文件。
+   一致。发行不能覆盖已有版本。复用已验证的公开 Runtime 0.5.1 文件。
 4. 在公开依赖模式下运行分发验收：在新环境中仅使用准确的公开 Runtime PyPI 发行版
    构建并测试 wheel 和 sdist。
 5. 确认后创建分发 tag v0.2.4。其 workflow 先构建和测试，再执行受保护的 PyPI 发布，

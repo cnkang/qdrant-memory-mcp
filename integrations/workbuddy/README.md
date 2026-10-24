@@ -19,7 +19,7 @@ WorkBuddy's managed Node.js runtime. `mcp.json` declares:
     "qdrant-memory": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "@cnkang/qdrant-memory-launcher@0.1.0-rc.4", "mcp", "workbuddy", "--auto-setup"],
+      "args": ["-y", "@cnkang/qdrant-memory-launcher@0.1.0-rc.5", "mcp", "workbuddy", "--auto-setup"],
       "runtime": {"type": "node", "version": "20"},
       "npmRegistries": ["https://registry.npmjs.org"],
       "timeout": 30000
@@ -99,7 +99,7 @@ program's `.provision.lock`. Never remove profile files or Runtime data locks.
 
 ## Update and versioning
 
-Connector 0.2.2, MCP 0.2.4, Runtime 0.5.0, launcher 0.1.0-rc.4 and Skill 0.3.3
+Connector 0.2.3, MCP 0.2.5, Runtime 0.5.1, launcher 0.1.0-rc.5 and Skill 0.3.4
 are independent versions. `provenance.json` inside the ZIP records all
 versions, the launcher integrity and the Skill source commit. The builder
 rejects drift from the checked-in pins:
@@ -196,7 +196,7 @@ build environment (the Skill builder needs PyYAML):
 
 ```sh
 git clone --no-checkout https://github.com/cnkang/skills.git .workbuddy-skill
-git -C .workbuddy-skill checkout --detach 5bac228e8594a6cf8ff642c22f0f0e100ebca3a6
+git -C .workbuddy-skill checkout --detach da19b4b68ea8454abdcceebd9066b7add9969427
 python3 -m venv .workbuddy-env
 .workbuddy-env/bin/python -m pip install 'PyYAML==6.0.3'
 .workbuddy-env/bin/python integrations/workbuddy/build.py --check
