@@ -130,7 +130,7 @@ export function createOwnerMemoryExtension({ env = process.env, request = ownerR
         try {
           const result = await request("remote-event", saved.event, configured);
           if (epoch !== generation || current !== binding() || pending.get(id) !== saved) return true;
-          if (!["COMMITTED", "CANCELLED"].includes(result.status)) return false;
+          if (!["COMMITTED", "CANCELLED", "QUARANTINED"].includes(result.status)) return false;
           pi.appendEntry("qdrant-owner-ack", { event_id: id, status: result.status });
           pending.delete(id);
         } catch { return false; }

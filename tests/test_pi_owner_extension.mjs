@@ -33,6 +33,21 @@ test("inflight recall cannot cross a changed read credential", async () => {
   assert.deepEqual((await pending).messages, []);
 });
 
+test("a quarantined event is a terminal acknowledgement, not a retry loop", async () => {
+  const hooks = {}, entries = [];
+  let sends = 0;
+  const pi = { on(name, callback) { hooks[name] = callback; }, appendEntry(customType, data) { entries.push({ type: "custom", customType, data }); } };
+  createOwnerMemoryExtension({ env: { QDRANT_MEMORY_AUTO_CAPTURE: "1" }, request: async () => { sends++; return { status: "QUARANTINED" }; } })(pi);
+  const ctx = { sessionManager: { getSessionId: () => "session", getEntries: () => entries }, hasUI: false };
+  await hooks.session_start({}, ctx);
+  await hooks.before_agent_start({ prompt: "synthetic permitted fact" }, ctx);
+  await hooks.turn_end({ messageEntryId: "one", message: { role: "assistant", content: [] } });
+  await hooks.session_shutdown();
+  assert.equal(entries.at(-1).customType, "qdrant-owner-ack");
+  assert.equal(entries.at(-1).data.status, "QUARANTINED");
+  assert.equal(sends, 1);
+});
+
 test("pending delivery cannot block a prompt or duplicate sends during concurrent hooks", async () => {
   const h = controlledOutbox({ QDRANT_MEMORY_AUTO_CAPTURE: "1", QDRANT_MEMORY_REMOTE_TOKEN: "a".repeat(40) });
   await h.hooks.before_agent_start({ prompt: "first fact" }, h.ctx);
