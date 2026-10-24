@@ -428,8 +428,8 @@ h11==0.16.0 \
 h2==4.4.1 \
     --hash=sha256:0e25f1462b23c9cb82d9eb02e28bc706dac2a68cb457c6a0d74d63c8a2a5d0e6 \
     --hash=sha256:4e866ffb1a869ae14dd9b5e6beb5c24a13da0495ad72b65925ded182521c1516
-hermes-plugin-qdrant-memory==0.5.0 \
-    --hash=sha256:74d27f978d6a736938c0aa7a2309575c9f4b97e51f0334b61d8aa96b8b5b2f0e
+hermes-plugin-qdrant-memory==0.5.1 \
+    --hash=sha256:60f3d3e4cb5b9e690b601aa7f4ab75612c9d9777f7efd9519b62a903da48bdd9
 hf-xet==1.7.0 ; platform_machine == 'AMD64' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'arm64' or platform_machine == 'x86_64' \
     --hash=sha256:0a9e802f33bf50c851abe45fc5380e61f959e2d369647d6742b79ad9d6c27cab \
     --hash=sha256:19c0e64f14175ccb6a1aff69e0d2ab9ec5269a560e6687abaf2b3fa4f73de7cd \

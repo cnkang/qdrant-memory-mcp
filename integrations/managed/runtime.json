@@ -1,12 +1,12 @@
 {
-  "revision": "60762c3e39f4cb3419f6e983aeb61833952bf216",
-  "version": "0.5.0",
+  "revision": "40ac832ab2093e1614c88ef219d1f6a0ef4701a9",
+  "version": "0.5.1",
   "status": "released-wheel",
-  "url": "https://files.pythonhosted.org/packages/61/6a/f579692053fb496f516516cc1093fd44522ead4c518e1de1c1f339ea9dab/hermes_plugin_qdrant_memory-0.5.0-py3-none-any.whl",
-  "sha256": "74d27f978d6a736938c0aa7a2309575c9f4b97e51f0334b61d8aa96b8b5b2f0e",
-  "size": 136707,
+  "url": "https://files.pythonhosted.org/packages/61/6a/f579692053fb496f516516cc1093fd44522ead4c518e1de1c1f339ea9dab/hermes_plugin_qdrant_memory-0.5.1-py3-none-any.whl",
+  "sha256": "60f3d3e4cb5b9e690b601aa7f4ab75612c9d9777f7efd9519b62a903da48bdd9",
+  "size": 137413,
   "fastembed_compat": {
-    "url": "https://raw.githubusercontent.com/cnkang/hermes-plugin-qdrant-memory/60762c3e39f4cb3419f6e983aeb61833952bf216/scripts/build_fastembed_compat.py",
+    "url": "https://raw.githubusercontent.com/cnkang/hermes-plugin-qdrant-memory/40ac832ab2093e1614c88ef219d1f6a0ef4701a9/scripts/build_fastembed_compat.py",
     "sha256": "18fe4e21a093547a3a8b06201feffe0b02c80613226dd2198731857b8832f5fe",
     "size": 6231,
     "version": "0.9.0+qm.pillow13",

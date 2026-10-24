@@ -7,15 +7,17 @@
     "url": "https://github.com/cnkang/qdrant-memory-mcp",
     "source": "github"
   },
-  "version": "0.2.4",
+  "version": "0.2.5",
   "packages": [
     {
       "registryType": "pypi",
       "registryBaseUrl": "https://pypi.org",
       "identifier": "qdrant-memory-mcp",
-      "version": "0.2.4",
+      "version": "0.2.5",
       "runtimeHint": "uvx",
-      "transport": {"type": "stdio"},
+      "transport": {
+        "type": "stdio"
+      },
       "packageArguments": [
         {
           "type": "named",
@@ -23,12 +25,26 @@
           "description": "Optional absolute path to an operator-configured, initialized profile; omission uses ~/.qdrant-memory.",
           "valueHint": "profile_path"
         },
-        {"type": "positional", "value": "mcp"}
+        {
+          "type": "positional",
+          "value": "mcp"
+        }
       ],
       "environmentVariables": [
-        {"name": "QDRANT_URL", "description": "Optional remote Qdrant endpoint when configured for server/cloud mode."},
-        {"name": "QDRANT_API_KEY", "description": "Optional Qdrant credential for configured remote storage.", "isSecret": true},
-        {"name": "EMBEDDING_API_KEY", "description": "Optional credential for the configured embedding provider.", "isSecret": true}
+        {
+          "name": "QDRANT_URL",
+          "description": "Optional remote Qdrant endpoint when configured for server/cloud mode."
+        },
+        {
+          "name": "QDRANT_API_KEY",
+          "description": "Optional Qdrant credential for configured remote storage.",
+          "isSecret": true
+        },
+        {
+          "name": "EMBEDDING_API_KEY",
+          "description": "Optional credential for the configured embedding provider.",
+          "isSecret": true
+        }
       ]
     }
   ]

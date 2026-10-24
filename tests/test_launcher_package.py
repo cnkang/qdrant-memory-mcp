@@ -61,4 +61,4 @@ def test_managed_lock_keeps_pillow_security_version_and_compatibility_hash():
     compat = metadata["fastembed_compat"]
     assert "fastembed==0.9.0+qm.pillow13 \\\n" in lock
     assert "--hash=sha256:" + compat["wheel_sha256"] in lock
-    assert metadata["version"] == "0.5.0"
+    assert metadata["version"] == "0.5.1"
