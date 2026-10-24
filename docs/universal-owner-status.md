@@ -2,12 +2,12 @@
 
 [简体中文](universal-owner-status.zh-CN.md)
 
-This page describes Runtime 0.5.0 capabilities and the repository's preview adapters.
-Distribution 0.2.4 selects the published Runtime 0.5.0 package.
+This page describes Runtime 0.5.1 capabilities and the repository's preview adapters.
+Distribution 0.2.5 selects the published Runtime 0.5.1 package.
 Preview adapters require a separate installation of the applicable integration.
 Publication and source CI do not establish production acceptance.
 
-Current Owner source CI pins Runtime [`60762c3e39f4cb3419f6e983aeb61833952bf216`](https://github.com/cnkang/hermes-plugin-qdrant-memory/tree/60762c3e39f4cb3419f6e983aeb61833952bf216), the published Runtime 0.5.0 source.
+Current Owner source CI pins Runtime [`40ac832ab2093e1614c88ef219d1f6a0ef4701a9`](https://github.com/cnkang/hermes-plugin-qdrant-memory/tree/40ac832ab2093e1614c88ef219d1f6a0ef4701a9), the published Runtime 0.5.1 source.
 
 ## Capabilities
 
