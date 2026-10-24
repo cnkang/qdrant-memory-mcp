@@ -111,6 +111,22 @@ def test_dsh_lock_excludes_oauth_vulnerable_sdk_versions():
     assert clients, "The actual DSH MCP client resolution must be audited"
 
 
+def test_dsh_lock_excludes_vulnerable_http_and_schema_versions():
+    """Reject affected undici and Zod copies throughout the resolved tree."""
+    lock = json.loads((ROOT / "integrations/dsh/package-lock.json").read_text(encoding="utf-8"))
+    seen = {"undici": [], "zod": []}
+    for path, package in lock["packages"].items():
+        for name, floor, advisory in (
+            ("undici", (8, 12, 2), "GHSA-xjj6-f33q-929c"),
+            ("zod", (4, 6, 6), "GHSA-mrhx-c7xc-m3w5"),
+        ):
+            if path.endswith(f"node_modules/{name}"):
+                assert at_least(package["version"], floor), f"{path} retains {advisory}"
+                seen[name].append(path)
+    assert seen["undici"], "The resolved HTTP client must be audited"
+    assert seen["zod"], "The resolved schema validator must be audited"
+
+
 def test_dsh_lock_excludes_vulnerable_zip_parser_versions():
     """Reject every affected fflate copy, including the Office dependency."""
     lock = json.loads((ROOT / "integrations/dsh/package-lock.json").read_text(encoding="utf-8"))

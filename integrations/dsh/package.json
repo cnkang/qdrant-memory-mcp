@@ -6,7 +6,9 @@
     "@modelcontextprotocol/client": "2.3.0",
     "@deepseek-ai/libreoffice-kit": {
       "fflate": "0.8.3"
-    }
+    },
+    "undici": "8.12.3",
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@deepseek-ai/dsh": "0.2.1-rc.2",
