@@ -23,7 +23,10 @@ In a sibling checkout these are `../hermes-plugin-qdrant-memory/docs/shared-memo
 
 1. Create a new Owner profile and collection with one compatible embedding pipeline.
 2. Generate distinct high-entropy credentials and explicit fixed-space grants.
-3. Start exactly one `qdrant-memory --home OWNER shared-serve --policy POLICY`.
+3. Start exactly one Owner.
+   Local clients use `qdrant-memory --home OWNER shared-serve --policy POLICY`.
+   Remote clients use `remote-serve` behind a same-host TLS proxy.
+   Pass the exact public host with `--allowed-host`.
 4. Select the configuration example for your host.
    Use `mcp.preview.json` for manual stdio registration, including WorkBuddy.
    Use `dsh.preview.cordis.yml` for an explicit DSH configuration change.
@@ -63,7 +66,8 @@ Do not describe protocol test results as native host certification.
 ## Remote HTTPS MCP
 
 The `*.remote-preview.*` examples use the official MCP-to-MCP `remote-mcp`
-bridge over HTTPS. They require a reviewed Runtime with `remote-mcp`.
+bridge over HTTPS. Runtime 0.5.0 provides that bridge.
+The example file names keep their original suffix.
 They keep TLS verification enabled.
 They do not contain database or model credentials.
 
@@ -78,13 +82,15 @@ Do not commit a token in place of the reference.
 
 These examples do not verify host user interfaces or automatic memory.
 Hosts with native HTTP support can connect directly to `https://<owner>/mcp` with a separate credential.
-The preview does not support OAuth or browser authentication.
+This release does not support OAuth or browser authentication.
 See [Pi's separately verified lifecycle adapter](../pi/README.md).
 
 ## Summary / 摘要
 
 Install Runtime 0.5.0 in a separate virtual environment.
 Start one Owner with a separate token for each client.
+One Owner serves one destination.
+Multiple distributed writers remain unsupported.
 Use the example for your host.
 The examples do not change existing private DSH or WorkBuddy installations.
 The Owner checks scope, sharing flags, permissions, and record versions.
@@ -102,6 +108,8 @@ covers backup, recovery, rollback, security limits, and troubleshooting.
 
 在独立虚拟环境中安装 Runtime 0.5.0。
 启动一个 Owner，并为每个客户端配置独立 token。
+一个 Owner 只服务一个 destination。
+不支持多个分布式 writer。
 使用对应宿主的示例配置。
 示例不会更改已有的 DSH 或 WorkBuddy 私有安装。
 Owner 校验 scope、共享标记、权限和记录版本。
