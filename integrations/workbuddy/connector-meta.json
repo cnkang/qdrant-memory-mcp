@@ -1,14 +1,24 @@
 {
   "name": "Qdrant Memory",
-  "name_zh": "Qdrant 长期记忆",
+  "name_zh": "Qdrant \u957f\u671f\u8bb0\u5fc6",
   "name_en": "Qdrant Memory",
   "description": "Persistent, scoped memory for AI agents. Search, save, update and delete memories using Qdrant through an MCP server.",
-  "description_zh": "为 AI 智能体提供基于 Qdrant 的持久化长期记忆，支持记忆搜索、保存、更新和删除。",
+  "description_zh": "\u4e3a AI \u667a\u80fd\u4f53\u63d0\u4f9b\u57fa\u4e8e Qdrant \u7684\u6301\u4e45\u5316\u957f\u671f\u8bb0\u5fc6\uff0c\u652f\u6301\u8bb0\u5fc6\u641c\u7d22\u3001\u4fdd\u5b58\u3001\u66f4\u65b0\u548c\u5220\u9664\u3002",
   "description_en": "Persistent, scoped memory for AI agents. Search, save, update and delete memories using Qdrant through an MCP server.",
   "source": "cnkang-qdrant-memory",
   "type": "mcp",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "minWorkbuddyVersion": "5.0.0",
-  "examples_zh": ["查找之前对这个项目做出的技术决策", "记住我在这个项目中偏好使用 Python", "把这条已选中的记忆更新为新的技术偏好", "删除这条我明确选中的记忆"],
-  "examples_en": ["Search previous project decisions", "Remember my preference for Python in this project", "Update this selected memory with my new technical preference", "Delete this explicitly selected memory"]
+  "examples_zh": [
+    "\u67e5\u627e\u4e4b\u524d\u5bf9\u8fd9\u4e2a\u9879\u76ee\u505a\u51fa\u7684\u6280\u672f\u51b3\u7b56",
+    "\u8bb0\u4f4f\u6211\u5728\u8fd9\u4e2a\u9879\u76ee\u4e2d\u504f\u597d\u4f7f\u7528 Python",
+    "\u628a\u8fd9\u6761\u5df2\u9009\u4e2d\u7684\u8bb0\u5fc6\u66f4\u65b0\u4e3a\u65b0\u7684\u6280\u672f\u504f\u597d",
+    "\u5220\u9664\u8fd9\u6761\u6211\u660e\u786e\u9009\u4e2d\u7684\u8bb0\u5fc6"
+  ],
+  "examples_en": [
+    "Search previous project decisions",
+    "Remember my preference for Python in this project",
+    "Update this selected memory with my new technical preference",
+    "Delete this explicitly selected memory"
+  ]
 }
