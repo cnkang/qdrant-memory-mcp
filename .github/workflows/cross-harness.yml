@@ -45,7 +45,7 @@ jobs:
           ref: 8f5693af418256b89da17ddda18a9242f113dcf6
           path: .scratch/hermes-host
           persist-credentials: false
-      - name: Install source-preview Runtime and exact Pi family
+      - name: Install the reviewed Runtime and the exact Pi family
         run: |
           python -m pip install './.scratch/owner-runtime[remote]' 'pytest>=8,<10' 'PyYAML>=6,<7' 'requests>=2,<3' 'ruamel.yaml>=0.18,<0.20'
           npm ci --prefix integrations/agent-hosts --ignore-scripts --no-audit --no-fund

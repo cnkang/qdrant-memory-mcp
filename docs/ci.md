@@ -2,12 +2,15 @@
 
 Distribution CI tests the released Runtime version in fresh wheel and sdist environments.
 It rejects skipped acceptance tests.
-The separate `owner-lifecycle` job runs the Hermes-to-Pi source preview test.
+The separate `owner-lifecycle` job runs the Hermes-to-Pi lifecycle handoff test.
 This job installs fixed Runtime, Hermes, and Pi versions.
-
 It also rejects skipped tests.
-Distribution CI excludes this test because Runtime 0.4.0 does not provide the preview API.
-An unavailable preview must not weaken distribution checks.
+
+Distribution CI does not select `tests/test_native_pi_handoff.py`.
+The test needs a Hermes host checkout and a Pi workspace.
+The `owner-lifecycle` job supplies both inputs.
+That job pins Runtime `60762c3` (version 0.5.0), which provides `remote-call` and `remote-event`.
+Both jobs reject skipped tests.
 
 - Distribution CI builds metadata-only artifacts.
   It tests installed MCP behavior on Linux, macOS, and Windows.
@@ -77,7 +80,7 @@ They verify a ZIP roundtrip and reject a malformed ZIP64 archive within a fixed 
 These npm dependencies serve development tests only.
 Python artifacts and the configuration-only Bundle do not include them.
 
-The Runtime dependency uses the exact version `0.4.0`.
+The Runtime dependency uses the exact version `0.5.0`.
 For a Runtime update, also update compatibility expectations and the preparation fixture.
 A dependency-only PR cannot bypass distribution metadata and protocol checks.
 This repository scans distribution scripts and workflows.
