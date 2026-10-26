@@ -1,5 +1,9 @@
 # Qdrant Memory MCP
 
+**One Memory. Multiple Agents.**
+
+面向 AI Agent 的持久化、可移植、权限感知记忆，以 MCP 适配层分发 Qdrant Memory Runtime。
+
 共享生产部署请参阅[部署安全指南](docs/shared-deployment-security.md)。Owner 必须独占数据库应用写凭据，MCP 授权不能替代此要求。Runtime 0.5.0 已包含目的地保护和 shared doctor，须由操作者配置这些控制。支持边界请查看 [Owner 支持记录](docs/universal-owner-status.zh-CN.md)。
 
 ## One Memory, Multiple Agents — 可选启用的共享 owner
@@ -25,6 +29,21 @@
 [Runtime PyPI 页面](https://pypi.org/project/hermes-plugin-qdrant-memory/)。三个仓库的版本独立管理。
 Skill 仅提供可选指导，不是运行依赖。Hermes 的自动提取和 prefetch 仍属于
 原生集成；普通 MCP 仅执行明确请求的记忆操作，不自动提取每轮对话。
+
+## 宿主支持矩阵
+
+验证级别：仅配置示例、协议级测试、官方 SDK/CLI 测试、真实宿主测试、真实桌面 GUI 测试、未验证。
+
+| 宿主 | 原生 Provider | 显式 MCP 工具 | 自动捕获 | 自动召回 | 共享 Owner | 远程访问 | 验证 |
+|---|---|---|---|---|---|---|---|
+| Hermes | 是 | 是（通过 standalone） | 是 | 是 | 可选 | 是 | 真实宿主测试 |
+| OpenCode | 否 | 是 | 否 | 否 | 通过 Owner | 是 | 真实宿主测试（双设备） |
+| Pi | 否 | 是（扩展） | 可选适配器 | 可选适配器 | 通过 Owner | 是 | 真实宿主测试 |
+| DeepSeek Harness | 否 | 是（DSH bundle） | 否 | 否 | 通过 Owner | 是 | 真实宿主测试 |
+| WorkBuddy | 否 | 是（connector） | 否 | 否 | 通过 Owner | 是 | 真实桌面 GUI 测试 |
+| Codex | 否 | 是 | 否 | 否 | 通过 Owner | 是 | 仅配置示例 |
+
+本分发不对任何 MCP 宿主自动提取对话。自动捕获与召回需要原生 Provider 或生命周期适配器。
 
 ## 安装与配置
 
@@ -129,6 +148,15 @@ stdout 只承载协议，错误经过脱敏。不支持无协调的多进程写�
 本地模型与本地 Qdrant 可实现本地数据处理；云 Embedding 会接收记忆/查询文本，
 云 Qdrant 会接收向量和 payload，客户端或模型也会接收召回文本。
 操作者需要管理保留策略、权限与 profile 文件。
+
+## 概念与证据
+
+- 共享 vs 可移植 vs 备份：[Runtime 可移植性指南](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/portability.md)
+- 跨 Harness 架构：[docs/cross-harness-architecture.md](docs/cross-harness-architecture.md)
+- Shared Owner 状态：[docs/universal-owner-status.zh-CN.md](docs/universal-owner-status.zh-CN.md)
+- 验证限制：[docs/dsh-validation.md](docs/dsh-validation.md)
+
+长期 24 小时验收：pending / 尚未验证。
 
 ## 验证与开发
 

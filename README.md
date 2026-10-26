@@ -1,6 +1,11 @@
 # Qdrant Memory MCP
 
-For shared production deployments, read the [deployment security guide](docs/shared-deployment-security.md). Owner-only database write credentials are required independently of MCP grants. Runtime 0.5.0 includes destination protection and shared doctor; the operator must configure these controls. See the [Owner support record](docs/universal-owner-status.md) for support limits.
+**One Memory. Multiple Agents.**
+
+Durable, portable, and permission-aware memory for AI agents — distributed as
+an MCP adapter over the Qdrant Memory Runtime.
+
+For shared production deployments, read the [deployment security guide](docs/shared-deployment-security.md). Owner-only database write credentials are required independently of MCP grants. Runtime 0.5.0 includes destination protection and shared doctor. The operator must configure these controls. See the [Owner support record](docs/universal-owner-status.md) for support limits.
 
 ## One Memory, Multiple Agents — opt-in shared owner
 
@@ -39,6 +44,23 @@ and MCP distribution versions are independent. The Skill is usage guidance,
 not a runtime dependency. Hermes retains its native MemoryProvider, automatic
 extraction and prefetch. Ordinary MCP performs only explicitly requested memory
 operations. It does not automatically extract every conversation turn.
+
+## Harness support matrix
+
+Verification levels: configuration example only, protocol-level tested, official
+SDK/CLI tested, real host tested, real desktop GUI tested, not verified.
+
+| Host | Native Provider | Explicit MCP tools | Automatic capture | Automatic recall | Shared Owner | Remote access | Verification |
+|---|---|---|---|---|---|---|---|
+| Hermes | Yes | Yes (via standalone) | Yes | Yes | Opt-in | Yes | Real host tested |
+| OpenCode | No | Yes | No | No | Via Owner | Yes | Real host tested (dual-device) |
+| Pi | No | Yes (extension) | Opt-in adapter | Opt-in adapter | Via Owner | Yes | Real host tested |
+| DeepSeek Harness | No | Yes (DSH bundle) | No | No | Via Owner | Yes | Real host tested |
+| WorkBuddy | No | Yes (connector) | No | No | Via Owner | Yes | Real desktop GUI tested |
+| Codex | No | Yes | No | No | Via Owner | Yes | Configuration example only |
+
+This distribution does not auto-extract conversations for any MCP host. Automatic
+capture and recall require a native provider or a lifecycle adapter.
 
 ## Install and initialize
 
@@ -161,6 +183,15 @@ or Hermes processes writing to it. Separate profiles or machines do not provide
 a distributed lock. This package does not support uncoordinated multiprocess
 writes, auto-extraction, an HTTP transport, or implicit credential discovery
 from Hermes. It preserves the Runtime's ledger, IDs and recovery semantics.
+
+## Concepts and evidence
+
+- Sharing vs Portability vs Backup: [Runtime portability guide](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/portability.md)
+- Cross-harness architecture: [docs/cross-harness-architecture.md](docs/cross-harness-architecture.md)
+- Shared Owner status: [docs/universal-owner-status.md](docs/universal-owner-status.md)
+- Validation limits: [docs/dsh-validation.md](docs/dsh-validation.md)
+
+Long-running 24-hour acceptance: pending / not yet verified.
 
 ## Verification and development
 
