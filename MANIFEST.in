@@ -3,13 +3,13 @@ recursive-include schemas *.json
 include schemas/LICENSE schemas/README.md
 recursive-include scripts *.py
 recursive-include tests *.py
+prune tests/dev
 recursive-include integrations/workbuddy *.py *.json *.svg *.md
 recursive-include integrations/managed *.mjs *.md *.json
 include integrations/managed/requirements.in integrations/managed/requirements.lock integrations/managed/LICENSE
-recursive-include integrations/dsh *.yml *.md *.json
+include integrations/dsh/README.md integrations/dsh/qdrant-memory.cordis.yml
+recursive-include integrations/dsh/bundle *.json *.yml *.md
 prune integrations/dsh/node_modules
-recursive-include tests *.mjs
-include tests/test_managed_bootstrap.mjs
 include docs/architecture.md docs/ci.md docs/publishing.md
 include docs/quickstart.md docs/quickstart.zh-CN.md
 include docs/workbuddy-one-click-architecture.md docs/workbuddy-one-click-validation.md
@@ -19,6 +19,5 @@ recursive-include docs/adr *.md
 
 recursive-include integrations/shared *.md *.json *.yml *.toml
 recursive-include integrations/pi *.mjs *.md
-include integrations/agent-hosts/package.json integrations/agent-hosts/package-lock.json
 include docs/universal-owner-status.md docs/universal-owner-status.zh-CN.md
 recursive-include docs/releases *.md

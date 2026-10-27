@@ -211,6 +211,13 @@ workflow acceptance requires installation from PyPI and never uses that fallback
 See [CI and dependency maintenance](docs/ci.md), [publishing](docs/publishing.md), [architecture](docs/architecture.md), and
 the optional [Skill](https://github.com/cnkang/skills/tree/main/qdrant-memory).
 
+## Dependency boundary
+
+The runtime dependency is only `hermes-plugin-qdrant-memory[mcp]`. Test and acceptance
+harnesses (DSH contract tests, existing-host acceptance) keep their own lockfiles under
+`tests/`-adjacent locations and are excluded from wheel/sdist. Development dependencies
+are declared under `[project.optional-dependencies].dev` and are not installed for end users.
+
 ## WorkBuddy and DeepSeek Harness
 
 Use the [WorkBuddy connector](integrations/workbuddy/README.md) or the
