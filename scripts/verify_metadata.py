@@ -68,6 +68,7 @@ def verify():
         for req in expected:
             assert any(
                 a.name == req.name
+                and a.extras == req.extras
                 and str(a.specifier) == str(req.specifier)
                 and str(a.marker) == str(req.marker)
                 for a in actual
