@@ -11,12 +11,14 @@ on:
       - 'integrations/dsh/**'
       - 'tests/dsh*'
       - 'tests/test_dsh_bundle.py'
+      - 'tests/dev/test_dsh_lock_audit.py'
   pull_request:
     paths:
       - '.github/workflows/dsh-next.yml'
       - 'integrations/dsh/**'
       - 'tests/dsh*'
       - 'tests/test_dsh_bundle.py'
+      - 'tests/dev/test_dsh_lock_audit.py'
 
 permissions:
   contents: read
