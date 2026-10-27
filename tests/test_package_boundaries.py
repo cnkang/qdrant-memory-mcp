@@ -1,5 +1,6 @@
 """Guard the boundary between end-user MCP artifacts and test-only harnesses."""
 
+import tarfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -27,4 +28,11 @@ def test_pyproject_declares_dev_dependencies_separately():
 
 
 def test_dev_security_audits_live_outside_shipped_tests():
-    assert (ROOT / "tests" / "dev" / "test_dsh_lock_audit.py").is_file()
+    sdists = list((ROOT / "dist").glob("*.tar.gz"))
+    if sdists:
+        with tarfile.open(sdists[0]) as archive:
+            names = archive.getnames()
+        assert not any(name.endswith("tests/dev/test_dsh_lock_audit.py") for name in names)
+    else:
+        # Without a built artifact, enforce the same boundary through the manifest.
+        assert "prune tests/dev" in (ROOT / "MANIFEST.in").read_text(encoding="utf-8")

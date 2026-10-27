@@ -104,7 +104,7 @@ jobs:
       - name: Require a complete and clean npm payload
         run: python scripts/pack_launcher.py --output-dir dist/launcher
       - name: WorkBuddy connector and shared bridge integration
-        run: python -m pytest -q tests/test_workbuddy_mcp.py tests/test_workbuddy_package.py tests/test_managed_bridge.py tests/test_cross_harness.py tests/test_dsh_bundle.py tests/test_shared_preview_configs.py --junitxml=workbuddy-results.xml
+        run: python -m pytest -q tests/test_workbuddy_mcp.py tests/test_workbuddy_package.py tests/test_managed_bridge.py tests/test_cross_harness.py tests/test_dsh_bundle.py tests/dev/test_dsh_lock_audit.py tests/test_shared_preview_configs.py --junitxml=workbuddy-results.xml
       - name: Official DSH client probe, unload, CRUD, bundle install and fresh-process persistence
         env:
           DSH_TEST_MODULES: ${{ github.workspace }}/integrations/dsh/node_modules
