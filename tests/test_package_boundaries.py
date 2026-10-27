@@ -1,6 +1,7 @@
 """Guard the boundary between end-user MCP artifacts and test-only harnesses."""
 
 import tarfile
+import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -20,11 +21,13 @@ def test_manifest_excludes_test_only_harness_artifacts():
 
 
 def test_pyproject_declares_dev_dependencies_separately():
-    pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
-    assert "[project.optional-dependencies]" in pyproject
-    assert "pytest" in pyproject
+    metadata = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    project = metadata["project"]
+    # Test-only dependencies live in the optional dev group, not in runtime.
+    dev = project["optional-dependencies"]["dev"]
+    assert any(requirement.startswith("pytest") for requirement in dev)
     # Runtime dependency stays minimal and exact.
-    assert 'dependencies = ["hermes-plugin-qdrant-memory[mcp]==0.5.1"]' in pyproject
+    assert project["dependencies"] == ["hermes-plugin-qdrant-memory[mcp]==0.5.1"]
 
 
 def test_dev_security_audits_live_outside_shipped_tests():
@@ -32,7 +35,9 @@ def test_dev_security_audits_live_outside_shipped_tests():
     if sdists:
         with tarfile.open(sdists[0]) as archive:
             names = archive.getnames()
-        assert not any(name.endswith("tests/dev/test_dsh_lock_audit.py") for name in names)
+        assert not any(
+            name.endswith("tests/dev/test_dsh_lock_audit.py") for name in names
+        )
     else:
         # Without a built artifact, enforce the same boundary through the manifest.
         assert "prune tests/dev" in (ROOT / "MANIFEST.in").read_text(encoding="utf-8")
