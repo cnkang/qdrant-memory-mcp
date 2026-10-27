@@ -57,7 +57,21 @@ def verify():
             wheel.read(next(n for n in names if n.endswith("/METADATA")))
         )
         assert metadata["Version"] == project["version"]
-        assert metadata.get_all("Requires-Dist") == project["dependencies"]
+        from packaging.requirements import Requirement
+
+        actual = [Requirement(r) for r in (metadata.get_all("Requires-Dist") or [])]
+        expected = [Requirement(r) for r in project["dependencies"]]
+        for group, deps in project.get("optional-dependencies", {}).items():
+            for dep in deps:
+                expected.append(Requirement(f"{dep}; extra == \"{group}\""))
+        assert len(actual) == len(expected)
+        for req in expected:
+            assert any(
+                a.name == req.name
+                and str(a.specifier) == str(req.specifier)
+                and str(a.marker) == str(req.marker)
+                for a in actual
+            ), f"Missing Requires-Dist entry: {req}"
         assert marker in metadata.get_payload()
         entry = configparser.ConfigParser()
         entry.read_string(
