@@ -60,9 +60,13 @@ def test_artifacts_are_metadata_only():
             "<!-- mcp-name: io.github.cnkang/qdrant-memory -->"
             in metadata.get_payload()
         )
-        assert metadata.get_all("Requires-Dist") == [
-            "hermes-plugin-qdrant-memory[mcp]==0.5.1"
-        ]
+        requires = metadata.get_all("Requires-Dist") or []
+        assert "hermes-plugin-qdrant-memory[mcp]==0.5.1" in requires
+        assert all(
+            r == "hermes-plugin-qdrant-memory[mcp]==0.5.1"
+            or r.endswith('; extra == "dev"')
+            for r in requires
+        )
         entry = configparser.ConfigParser()
         entry.read_string(
             wheel.read(
