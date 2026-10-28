@@ -4,6 +4,7 @@ import argparse
 import importlib.util
 import json
 import os
+import re
 import tomllib
 import urllib.error
 import urllib.request
@@ -15,6 +16,14 @@ query = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(query)
 release = query.release
 
+EXTRA_MARKER = re.compile(r"\bextra\s*(?:==|!=|in\b)")
+
+
+def extra_gated(entry):
+    """Report whether a requirement carries an environment marker for an extra."""
+    _, separator, marker = entry.partition(";")
+    return bool(separator) and EXTRA_MARKER.search(marker) is not None
+
 
 def available(root):
     project = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))["project"]
@@ -22,7 +31,22 @@ def available(root):
     if data is None:
         return False
     info = data["info"]
-    if info.get("name") != project["name"] or info.get("version") != project["version"] or info.get("requires_dist") != project["dependencies"] or "<!-- mcp-name: io.github.cnkang/qdrant-memory -->" not in info.get("description", ""):
+    # This check runs without third-party packages, so it compares the declared
+    # runtime pins textually: every unconditional entry must be one of them and
+    # every other entry must be guarded by an extra marker.
+    declared = project["dependencies"]
+    published = info.get("requires_dist") or []
+    missing = [dependency for dependency in declared if dependency not in published]
+    unexpected = [
+        entry for entry in published if entry not in declared and not extra_gated(entry)
+    ]
+    if (
+        info.get("name") != project["name"]
+        or info.get("version") != project["version"]
+        or missing
+        or unexpected
+        or "<!-- mcp-name: io.github.cnkang/qdrant-memory -->" not in info.get("description", "")
+    ):
         raise ValueError("Conflicting public MCP version, ownership or Runtime dependency")
     return True
 
