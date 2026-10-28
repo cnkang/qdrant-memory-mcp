@@ -213,10 +213,11 @@ the optional [Skill](https://github.com/cnkang/skills/tree/main/qdrant-memory).
 
 ## Dependency boundary
 
-The runtime dependency is only `hermes-plugin-qdrant-memory[mcp]`. Test and acceptance
-harnesses (DSH contract tests, existing-host acceptance) keep their own lockfiles under
-`tests/`-adjacent locations and are excluded from wheel/sdist. Development dependencies
-are declared under `[project.optional-dependencies].dev` and are not installed for end users.
+The runtime dependency is only `hermes-plugin-qdrant-memory[mcp]`. The sdist includes the
+Python acceptance tests, apart from opt-in harnesses that need an external Runtime checkout
+or DSH client assets; selected harness lockfiles and Node-only `.mjs` tests are excluded.
+The wheel remains metadata-only. Development dependencies are declared under
+`[project.optional-dependencies].dev` and are not installed for end users.
 
 ## WorkBuddy and DeepSeek Harness
 

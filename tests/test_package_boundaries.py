@@ -20,6 +20,8 @@ def test_manifest_excludes_test_only_harness_artifacts():
     assert "prune tests/dev" in manifest
     # The opt-in DSH acceptance harness needs files the sdist does not carry.
     assert "exclude tests/dsh_acceptance.py" in manifest
+    # The existing-host handoff harness needs an external Runtime checkout.
+    assert "exclude tests/test_native_pi_handoff.py" in manifest
     assert "recursive-include tests *.py" in manifest
 
 
@@ -37,10 +39,29 @@ def test_dev_security_audits_live_outside_shipped_tests():
     sdists = list((ROOT / "dist").glob("*.tar.gz"))
     if sdists:
         with tarfile.open(sdists[0]) as archive:
-            names = archive.getnames()
+            names = [name.split("/", 1)[-1] for name in archive.getnames()]
         assert not any(
             name.endswith("tests/dev/test_dsh_lock_audit.py") for name in names
         )
+        assert not any(
+            name.endswith(("tests/dsh_acceptance.py", "tests/test_native_pi_handoff.py"))
+            for name in names
+        )
+        assert not any(
+            name.startswith("integrations/agent-hosts/") for name in names
+        )
+        assert "integrations/dsh/package.json" not in names
+        # Harness lockfiles stay out; integrations/managed/requirements.lock ships.
+        assert not any(name.endswith("package-lock.json") for name in names)
+        assert not any(
+            name.startswith("tests/") and name.endswith(".mjs") for name in names
+        )
     else:
         # Without a built artifact, enforce the same boundary through the manifest.
-        assert "prune tests/dev" in (ROOT / "MANIFEST.in").read_text(encoding="utf-8")
+        manifest = (ROOT / "MANIFEST.in").read_text(encoding="utf-8")
+        assert "prune tests/dev" in manifest
+        assert "exclude tests/dsh_acceptance.py" in manifest
+        assert "exclude tests/test_native_pi_handoff.py" in manifest
+        assert "integrations/agent-hosts/package" not in manifest
+        assert "recursive-include integrations/dsh *.yml *.md *.json" not in manifest
+        assert "recursive-include tests *.mjs" not in manifest
