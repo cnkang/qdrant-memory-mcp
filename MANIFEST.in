@@ -5,6 +5,7 @@ recursive-include scripts *.py
 recursive-include tests *.py
 exclude tests/dsh_acceptance.py
 exclude tests/test_native_pi_handoff.py
+exclude tests/test_managed_bridge.py
 prune tests/dev
 recursive-include integrations/workbuddy *.py *.json *.svg *.md
 recursive-include integrations/managed *.mjs *.md *.json
