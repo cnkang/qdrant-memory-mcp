@@ -61,11 +61,14 @@ def test_artifacts_are_metadata_only():
             in metadata.get_payload()
         )
         requires = metadata.get_all("Requires-Dist") or []
-        assert "hermes-plugin-qdrant-memory[mcp]==0.5.1" in requires
-        assert all(
-            r == "hermes-plugin-qdrant-memory[mcp]==0.5.1"
-            or r.endswith('; extra == "dev"')
-            for r in requires
+        from test_release_guards import load_script
+
+        release = load_script("pypi_release")
+        project = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]
+        # The public release check must expect exactly what the wheel declares,
+        # including the markers of the declared optional extras.
+        assert sorted(release.requirement_key(r) for r in requires) == sorted(
+            release.requirement_key(r) for r in release.expected_requirements(project)
         )
         entry = configparser.ConfigParser()
         entry.read_string(
