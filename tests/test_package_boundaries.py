@@ -18,6 +18,9 @@ def test_manifest_excludes_test_only_harness_artifacts():
     assert "tests/test_managed_bootstrap.mjs" not in manifest
     # Development-only security audits stay out of the sdist.
     assert "prune tests/dev" in manifest
+    # The opt-in DSH acceptance harness needs files the sdist does not carry.
+    assert "exclude tests/dsh_acceptance.py" in manifest
+    assert "recursive-include tests *.py" in manifest
 
 
 def test_pyproject_declares_dev_dependencies_separately():
