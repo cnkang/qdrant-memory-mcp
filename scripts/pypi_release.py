@@ -12,8 +12,6 @@ import zipfile
 from email.parser import BytesParser
 from pathlib import Path
 
-from packaging.requirements import Requirement
-
 
 def expected_requirements(project):
     """List the Requires-Dist entries the declared metadata must produce."""
@@ -25,6 +23,8 @@ def expected_requirements(project):
 
 def requirement_key(value):
     """Normalize a requirement so metadata and resolver ordering do not matter."""
+    from packaging.requirements import Requirement
+
     requirement = Requirement(value)
     return (
         requirement.name,

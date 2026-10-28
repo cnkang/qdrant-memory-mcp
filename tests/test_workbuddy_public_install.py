@@ -44,6 +44,26 @@ def test_matching_public_version_runs_public_gate(monkeypatch):
     assert check.available(ROOT) is True
 
 
+def test_declared_dev_extras_do_not_conflict(monkeypatch):
+    check = module()
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
+    published = list(project["dependencies"]) + [
+        "pytest<10,>=8; extra == \"dev\"",
+        "requests<3,>=2; extra == \"dev\"",
+    ]
+    monkeypatch.setattr(check, "release", lambda *a: {"info": {"name": project["name"], "version": project["version"], "requires_dist": published, "description": "<!-- mcp-name: io.github.cnkang/qdrant-memory -->"}})
+    assert check.available(ROOT) is True
+
+
+def test_undeclared_unconditional_requirement_fails_closed(monkeypatch):
+    check = module()
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
+    published = list(project["dependencies"]) + ["undici==9.9.9", "evil-extra==1.0"]
+    monkeypatch.setattr(check, "release", lambda *a: {"info": {"name": project["name"], "version": project["version"], "requires_dist": published, "description": "<!-- mcp-name: io.github.cnkang/qdrant-memory -->"}})
+    with pytest.raises(ValueError, match="public"):
+        check.available(ROOT)
+
+
 def test_conflicting_public_runtime_fails_closed(monkeypatch):
     check = module()
     project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
