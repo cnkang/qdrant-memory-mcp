@@ -55,6 +55,54 @@ def test_declared_dev_extras_do_not_conflict(monkeypatch):
     assert check.available(ROOT) is True
 
 
+def test_undeclared_extra_gated_requirement_fails_closed(monkeypatch):
+    check = module()
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
+    published = list(project["dependencies"]) + ['undici==9.9.9; extra == "dev"']
+    monkeypatch.setattr(check, "release", lambda *a: {"info": {"name": project["name"], "version": project["version"], "requires_dist": published, "description": "<!-- mcp-name: io.github.cnkang/qdrant-memory -->"}})
+    with pytest.raises(ValueError, match="public"):
+        check.available(ROOT)
+
+
+def test_extra_gated_requirement_must_match_its_own_extra(monkeypatch, tmp_path):
+    check = module()
+    (tmp_path / "pyproject.toml").write_text(
+        """
+[project]
+name = "qdrant-memory-mcp"
+version = "0.2.5"
+dependencies = ["runtime==1.0"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+docs = ["sphinx>=7"]
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    info = {
+        "name": "qdrant-memory-mcp",
+        "version": "0.2.5",
+        "description": "<!-- mcp-name: io.github.cnkang/qdrant-memory -->",
+    }
+
+    def publish(*requires):
+        monkeypatch.setattr(
+            check,
+            "release",
+            lambda *a: {"info": {**info, "requires_dist": list(requires)}},
+        )
+
+    publish("runtime==1.0", 'sphinx>=7; extra == "docs"')
+    assert check.available(tmp_path) is True
+    publish("runtime==1.0", 'sphinx>=7; extra == "dev"')
+    with pytest.raises(ValueError, match="public"):
+        check.available(tmp_path)
+    # A partial list stays valid when every gated entry belongs to its own extra.
+    publish("runtime==1.0", 'pytest>=8; extra == "dev"')
+    assert check.available(tmp_path) is True
+
+
 def test_undeclared_unconditional_requirement_fails_closed(monkeypatch):
     check = module()
     project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]

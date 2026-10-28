@@ -17,12 +17,20 @@ spec.loader.exec_module(query)
 release = query.release
 
 EXTRA_EQUALS = re.compile(r"\bextra\s*==\s*[\"']([^\"']+)[\"']")
+REQUIREMENT_NAME = re.compile(r"^\s*([A-Za-z0-9][A-Za-z0-9._-]*)")
 
 
-def extra_gated(entry, groups):
-    """Report whether every branch of the marker requires one declared extra."""
-    _, separator, marker = entry.partition(";")
-    if not separator:
+def requirement_name(entry):
+    """Return a PEP 503-normalized distribution name, or None when unparseable."""
+    match = REQUIREMENT_NAME.match(entry)
+    return re.sub(r"[-_.]+", "-", match.group(1)).lower() if match else None
+
+
+def extra_gated(entry, optional):
+    """Report whether every marker branch requires an extra that declares it."""
+    requirement, separator, marker = entry.partition(";")
+    name = requirement_name(requirement)
+    if not separator or name is None:
         return False
     # An `or` branch that does not require a declared extra applies to plain
     # installs, so the whole requirement is unconditional for our purpose.
@@ -31,7 +39,12 @@ def extra_gated(entry, groups):
     # taking a third-party dependency in this job.
     for branch in re.split(r"\s+or\s+", marker):
         declared = EXTRA_EQUALS.findall(branch)
-        if not declared or any(group not in groups for group in declared):
+        if not declared or any(group not in optional for group in declared):
+            return False
+        if any(
+            name not in {requirement_name(dep) for dep in optional[group]}
+            for group in declared
+        ):
             return False
     return True
 
@@ -44,15 +57,15 @@ def available(root):
     info = data["info"]
     # This check runs without third-party packages, so it compares the declared
     # runtime pins textually: every unconditional entry must be one of them and
-    # every other entry must be guarded by an extra marker.
+    # every other entry must be extra-gated by an extra that declares it.
     declared = project["dependencies"]
-    groups = set(project.get("optional-dependencies", {}))
+    optional = project.get("optional-dependencies", {})
     published = info.get("requires_dist") or []
     missing = [dependency for dependency in declared if dependency not in published]
     unexpected = [
         entry
         for entry in published
-        if entry not in declared and not extra_gated(entry, groups)
+        if entry not in declared and not extra_gated(entry, optional)
     ]
     if (
         info.get("name") != project["name"]
