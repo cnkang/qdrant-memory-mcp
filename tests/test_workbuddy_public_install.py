@@ -64,6 +64,27 @@ def test_undeclared_unconditional_requirement_fails_closed(monkeypatch):
         check.available(ROOT)
 
 
+def test_markers_outside_a_declared_extra_fail_closed(monkeypatch):
+    check = module()
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
+    entries = [
+        'pytest<10,>=8; extra == "prod"',
+        'pytest<10,>=8; extra == "dev" or python_version < "3.11"',
+        'pytest<10,>=8; extra != "dev"',
+    ]
+    for entry in entries:
+        published = list(project["dependencies"]) + [entry]
+        monkeypatch.setattr(check, "release", lambda *a, published=published: {"info": {"name": project["name"], "version": project["version"], "requires_dist": published, "description": "<!-- mcp-name: io.github.cnkang/qdrant-memory -->"}})
+        with pytest.raises(ValueError, match="public"):
+            check.available(ROOT)
+    # A conjunct inside the declared extra stays gated.
+    gated = list(project["dependencies"]) + [
+        'pytest<10,>=8; extra == "dev" and python_version < "3.12"'
+    ]
+    monkeypatch.setattr(check, "release", lambda *a: {"info": {"name": project["name"], "version": project["version"], "requires_dist": gated, "description": "<!-- mcp-name: io.github.cnkang/qdrant-memory -->"}})
+    assert check.available(ROOT) is True
+
+
 def test_conflicting_public_runtime_fails_closed(monkeypatch):
     check = module()
     project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
