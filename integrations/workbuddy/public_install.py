@@ -16,13 +16,24 @@ query = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(query)
 release = query.release
 
-EXTRA_MARKER = re.compile(r"\bextra\s*(?:==|!=|in\b)")
+EXTRA_EQUALS = re.compile(r"\bextra\s*==\s*[\"']([^\"']+)[\"']")
 
 
-def extra_gated(entry):
-    """Report whether a requirement carries an environment marker for an extra."""
+def extra_gated(entry, groups):
+    """Report whether every branch of the marker requires one declared extra."""
     _, separator, marker = entry.partition(";")
-    return bool(separator) and EXTRA_MARKER.search(marker) is not None
+    if not separator:
+        return False
+    # An `or` branch that does not require a declared extra applies to plain
+    # installs, so the whole requirement is unconditional for our purpose.
+    # This splits on top-level ` or ` only: a nested parenthesised `or` is
+    # rejected rather than parsed, which keeps the guard fail-closed without
+    # taking a third-party dependency in this job.
+    for branch in re.split(r"\s+or\s+", marker):
+        declared = EXTRA_EQUALS.findall(branch)
+        if not declared or any(group not in groups for group in declared):
+            return False
+    return True
 
 
 def available(root):
@@ -35,10 +46,13 @@ def available(root):
     # runtime pins textually: every unconditional entry must be one of them and
     # every other entry must be guarded by an extra marker.
     declared = project["dependencies"]
+    groups = set(project.get("optional-dependencies", {}))
     published = info.get("requires_dist") or []
     missing = [dependency for dependency in declared if dependency not in published]
     unexpected = [
-        entry for entry in published if entry not in declared and not extra_gated(entry)
+        entry
+        for entry in published
+        if entry not in declared and not extra_gated(entry, groups)
     ]
     if (
         info.get("name") != project["name"]
