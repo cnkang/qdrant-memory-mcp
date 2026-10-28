@@ -80,6 +80,7 @@ jobs:
           path: dist
       - uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086
         if: needs.build.outputs.exists != 'true'
+      - run: python -m pip install 'packaging>=24,<27'
       - run: python scripts/pypi_release.py --require
   registry:
     needs: [build, pypi]
