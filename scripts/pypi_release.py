@@ -12,6 +12,27 @@ import zipfile
 from email.parser import BytesParser
 from pathlib import Path
 
+from packaging.requirements import Requirement
+
+
+def expected_requirements(project):
+    """List the Requires-Dist entries the declared metadata must produce."""
+    expected = list(project["dependencies"])
+    for group, deps in project.get("optional-dependencies", {}).items():
+        expected.extend(f'{dependency}; extra == "{group}"' for dependency in deps)
+    return expected
+
+
+def requirement_key(value):
+    """Normalize a requirement so metadata and resolver ordering do not matter."""
+    requirement = Requirement(value)
+    return (
+        requirement.name,
+        tuple(sorted(requirement.extras)),
+        tuple(sorted(str(item) for item in requirement.specifier)),
+        str(requirement.marker),
+    )
+
 
 def release(project, required):
     url = f"https://pypi.org/pypi/{project['name']}/{project['version']}/json"
@@ -41,7 +62,10 @@ def main():
         info = data["info"]
         assert info["name"] == project["name"] and info["version"] == project["version"]
         assert "<!-- mcp-name: io.github.cnkang/qdrant-memory -->" in info["description"]
-        assert info["requires_dist"] == project["dependencies"]
+        expected = expected_requirements(project)
+        assert sorted(map(requirement_key, info["requires_dist"] or [])) == sorted(
+            map(requirement_key, expected)
+        )
         urls = data["urls"]
         assert len(urls) == 2 and {u["packagetype"] for u in urls} == {"bdist_wheel", "sdist"}
         for item in urls:
@@ -64,7 +88,9 @@ def main():
             assert "qdrant-memory-mcp = qdrant_memory.standalone:main" in entry
             metadata = BytesParser().parsebytes(wheel.read(next(n for n in wheel.namelist() if n.endswith("/METADATA"))))
             assert metadata["Version"] == project["version"]
-            assert metadata.get_all("Requires-Dist") == project["dependencies"]
+            assert sorted(
+                map(requirement_key, metadata.get_all("Requires-Dist") or [])
+            ) == sorted(map(requirement_key, expected))
     if output := os.environ.get("GITHUB_OUTPUT"):
         with open(output, "a", encoding="utf-8") as stream:
             stream.write(f"exists={str(exists).lower()}\n")
