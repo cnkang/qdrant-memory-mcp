@@ -22,6 +22,8 @@ def test_manifest_excludes_test_only_harness_artifacts():
     assert "exclude tests/dsh_acceptance.py" in manifest
     # The existing-host handoff harness needs an external Runtime checkout.
     assert "exclude tests/test_native_pi_handoff.py" in manifest
+    # The managed bridge test needs the Node fixture the sdist does not carry.
+    assert "exclude tests/test_managed_bridge.py" in manifest
     assert "recursive-include tests *.py" in manifest
 
 
@@ -44,7 +46,13 @@ def test_dev_security_audits_live_outside_shipped_tests():
             name.endswith("tests/dev/test_dsh_lock_audit.py") for name in names
         )
         assert not any(
-            name.endswith(("tests/dsh_acceptance.py", "tests/test_native_pi_handoff.py"))
+            name.endswith(
+                (
+                    "tests/dsh_acceptance.py",
+                    "tests/test_managed_bridge.py",
+                    "tests/test_native_pi_handoff.py",
+                )
+            )
             for name in names
         )
         assert not any(
@@ -62,6 +70,7 @@ def test_dev_security_audits_live_outside_shipped_tests():
         assert "prune tests/dev" in manifest
         assert "exclude tests/dsh_acceptance.py" in manifest
         assert "exclude tests/test_native_pi_handoff.py" in manifest
+        assert "exclude tests/test_managed_bridge.py" in manifest
         assert "integrations/agent-hosts/package" not in manifest
         assert "recursive-include integrations/dsh *.yml *.md *.json" not in manifest
         assert "recursive-include tests *.mjs" not in manifest
