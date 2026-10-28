@@ -3,6 +3,7 @@ recursive-include schemas *.json
 include schemas/LICENSE schemas/README.md
 recursive-include scripts *.py
 recursive-include tests *.py
+exclude tests/dsh_acceptance.py
 prune tests/dev
 recursive-include integrations/workbuddy *.py *.json *.svg *.md
 recursive-include integrations/managed *.mjs *.md *.json
