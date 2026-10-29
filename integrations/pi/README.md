@@ -1,7 +1,7 @@
 # Pi Owner lifecycle adapter
 
-This adapter requires Runtime 0.5.1, which provides `remote-call` and `remote-event`.
-The published distribution selects Runtime 0.5.1.
+This adapter requires Runtime 0.5.2, which provides `remote-call` and `remote-event`.
+The published distribution selects Runtime 0.5.2.
 This adapter is off by default. It uses Pi's public `session_start`,
 `before_agent_start`, `context`, `turn_end` and `session_shutdown` extension hooks.
 Tests use the actual Pi 1.3.0 session runtime and deterministic model responses.

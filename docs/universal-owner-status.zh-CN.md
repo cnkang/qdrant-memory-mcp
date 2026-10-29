@@ -2,12 +2,12 @@
 
 [English](universal-owner-status.md)
 
-本页说明 Runtime 0.5.1 的功能及本仓库的预览适配器。
-分发 0.2.5 选择已发布的 Runtime 0.5.1 包。
+本页说明 Runtime 0.5.2 的功能及本仓库的预览适配器。
+分发 0.2.6 选择已发布的 Runtime 0.5.2 包。
 预览适配器需要单独安装相应集成。
 发布和源码 CI 不代表生产环境验收。
 
-当前 Owner 源码 CI 固定 Runtime [`40ac832ab2093e1614c88ef219d1f6a0ef4701a9`](https://github.com/cnkang/hermes-plugin-qdrant-memory/tree/40ac832ab2093e1614c88ef219d1f6a0ef4701a9)，即已发布 Runtime 0.5.0 的源码。
+当前 Owner 源码 CI 固定 Runtime [`f4aa663f750b9cb306d00231a0a2085df60d8f92`](https://github.com/cnkang/hermes-plugin-qdrant-memory/tree/f4aa663f750b9cb306d00231a0a2085df60d8f92)，即已发布 Runtime 0.5.2 的源码。
 
 ## 功能
 

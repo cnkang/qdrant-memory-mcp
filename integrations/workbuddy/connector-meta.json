@@ -7,7 +7,7 @@
   "description_en": "Persistent, scoped memory for AI agents. Search, save, update and delete memories using Qdrant through an MCP server.",
   "source": "cnkang-qdrant-memory",
   "type": "mcp",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "minWorkbuddyVersion": "5.0.0",
   "examples_zh": [
     "\u67e5\u627e\u4e4b\u524d\u5bf9\u8fd9\u4e2a\u9879\u76ee\u505a\u51fa\u7684\u6280\u672f\u51b3\u7b56",
