@@ -16,7 +16,7 @@ uses) and no system Python, uvx, Ollama or Qdrant Server. Prepare the shared
 backend first:
 
 ```sh
-npx -y @cnkang/qdrant-memory-launcher@0.1.0-rc.6 prepare dsh
+npx -y @cnkang/qdrant-memory-launcher@0.1.0-rc.7 prepare dsh
 ```
 
 Wait for `{"ready":true,"host":"dsh"}`. Preparation downloads the private

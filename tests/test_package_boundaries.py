@@ -34,7 +34,7 @@ def test_pyproject_declares_dev_dependencies_separately():
     dev = project["optional-dependencies"]["dev"]
     assert any(requirement.startswith("pytest") for requirement in dev)
     # Runtime dependency stays minimal and exact.
-    assert project["dependencies"] == ["hermes-plugin-qdrant-memory[mcp]==0.5.1"]
+    assert project["dependencies"] == ["hermes-plugin-qdrant-memory[mcp]==0.5.2"]
 
 
 def test_dev_security_audits_live_outside_shipped_tests():

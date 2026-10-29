@@ -1,4 +1,4 @@
-# 0.2.4 publication checklist
+# 0.2.6 publication checklist
 
 [English](publishing.md) | [简体中文](publishing.zh-CN.md)
 
@@ -12,7 +12,7 @@ An example identifies the intended release. It does not prove public availabilit
 Verify the exact public version before using its installation command. Announce
 the release as available only after the checks below confirm both public endpoints.
 
-1. Verify the existing public Runtime 0.5.1 release and exact dependency.
+1. Verify the existing public Runtime 0.5.2 release and exact dependency.
    Do not recreate its tag or publish it again for this distribution.
 2. Recheck existing PyPI Trusted Publishers (PyPI account step):
    - `hermes-plugin-qdrant-memory`: owner `cnkang`, repository
@@ -21,7 +21,7 @@ the release as available only after the checks below confirm both public endpoin
      workflow `publish.yml`, environment `pypi`.
 3. Approve protected GitHub environments when prompted. A version tag must point
    to a main-branch commit and match package metadata. Releases cannot overwrite
-   an existing version. Reuse the verified public Runtime 0.5.1 artifacts.
+   an existing version. Reuse the verified public Runtime 0.5.2 artifacts.
 4. Run distribution acceptance in public dependency mode. Build/test wheel and
    sdist from a new environment using only the exact Runtime PyPI release.
 5. Create distribution tag v0.2.4 after confirmation. Its workflow builds and

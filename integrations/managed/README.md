@@ -13,7 +13,7 @@ are tracked separately for each operating system.
 For a client that already supplies Node.js 20 or newer:
 
 ```sh
-npm install --global @cnkang/qdrant-memory-launcher@0.1.0-rc.6
+npm install --global @cnkang/qdrant-memory-launcher@0.1.0-rc.7
 qdrant-memory-launcher prepare dsh
 qdrant-memory-launcher mcp dsh
 ```
