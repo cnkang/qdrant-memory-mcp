@@ -36,7 +36,7 @@ def test_connector_metadata_and_generated_pin():
     }
     assert launcher["name"] == "@cnkang/qdrant-memory-launcher"
     assert server["args"][1] == f"{launcher['name']}@{launcher['version']}"
-    assert runtime["version"] == "0.5.2"
+    assert runtime["version"] == "0.5.3"
     assert len(source["commit"]) == 40
 
 
