@@ -2,6 +2,7 @@
 
 import asyncio
 import hashlib
+import importlib.metadata
 import json
 import os
 import queue
@@ -16,6 +17,16 @@ from pathlib import Path
 import pytest
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
+
+
+def _uvx_package_requirement():
+    """Pin uvx acceptance to the MCP distribution under test."""
+    return f"qdrant-memory-mcp=={importlib.metadata.version('qdrant-memory-mcp')}"
+
+
+def test_uvx_acceptance_tracks_installed_distribution(monkeypatch):
+    monkeypatch.setattr(importlib.metadata, "version", lambda _name: "9.8.7")
+    assert _uvx_package_requirement() == "qdrant-memory-mcp==9.8.7"
 
 
 @pytest.fixture
@@ -103,7 +114,7 @@ def sandbox(tmp_path):
     if runtime_wheels or os.environ.get("DIST_TEST_UVX"):
         uvx = shutil.which("uvx")
         assert uvx, "uvx acceptance was requested but uvx is unavailable"
-        launch = [uvx, "--from", "qdrant-memory-mcp==0.2.4"]
+        launch = [uvx, "--from", _uvx_package_requirement()]
         if runtime_wheels:
             launch += [
                 "--find-links",

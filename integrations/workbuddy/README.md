@@ -123,7 +123,7 @@ integrity and Skill source commit. The builder rejects drift from checked-in pin
 their own Python backend instead of the managed launcher:
 
 ```sh
-uvx --from qdrant-memory-mcp==0.2.4 qdrant-memory-mcp mcp
+uvx --from qdrant-memory-mcp==0.2.7 qdrant-memory-mcp mcp
 ```
 
 Add `--home <private-profile-path>` before `mcp` to bind an explicit private

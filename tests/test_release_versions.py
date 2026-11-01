@@ -4,6 +4,7 @@ import re
 import shlex
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -41,3 +42,26 @@ def test_public_protocol_install_tracks_project_version(tmp_path):
     ]
     assert "qdrant-memory-mcp==9.8.7" in expanded
     assert not any("find-links" in value for value in arguments)
+
+
+def test_current_workbuddy_and_dsh_instructions_track_project_version():
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    requirement = f"qdrant-memory-mcp=={project['project']['version']}"
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    paths = [
+        "docs/quickstart.zh-CN.md",
+        "docs/quickstart.md",
+        "docs/dsh-integration.md",
+        "docs/dsh-integration.zh-CN.md",
+        "integrations/dsh/qdrant-memory.cordis.yml",
+        "integrations/workbuddy/README.md",
+        "integrations/workbuddy/mcp.uvx.json",
+    ]
+    assert requirement in readme
+    for relative in paths:
+        assert requirement in (ROOT / relative).read_text(encoding="utf-8"), relative
+
+    runtime_version = project["project"]["dependencies"][0].rsplit("==", 1)[1]
+    architecture = (ROOT / "docs/cross-harness-architecture.md").read_text(encoding="utf-8")
+    assert f"| Python MCP | {project['project']['version']} |" in architecture
+    assert f"| Runtime | {runtime_version} |" in architecture
