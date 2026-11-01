@@ -1,10 +1,11 @@
 # Changelog
 
-## Unreleased
+## 0.2.7
 
-- Align the integration guides and version tables with the shipped pins:
-  Runtime 0.5.0, distribution 0.2.4, launcher 0.1.0-rc.4 and Skill 0.3.3. Remove
-  the source-preview wording that no longer describes the published packages.
+- Pin the metadata-only distribution to Runtime 0.5.3, which includes the
+  provider lifecycle fix for failed initialization and WriterLease contention.
+- Update the exact MCP install pins and Registry metadata. MCP tool schemas,
+  transport and persisted data remain unchanged.
 
 ## 0.2.4
 
