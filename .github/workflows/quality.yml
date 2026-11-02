@@ -14,7 +14,8 @@ jobs:
     name: SonarCloud quality gate
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    # Checkout, analysis and the 300 s quality-gate wait share this budget.
+    timeout-minutes: 20
     permissions:
       contents: read
       pull-requests: read
