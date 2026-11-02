@@ -22,10 +22,12 @@ def connector_launch(sandbox):
     profile, config_path, config, env, installed, cli, embeddings = sandbox
     managed = json.loads((ROOT / "integrations/workbuddy/mcp.json").read_text(encoding="utf-8"))
     server, = managed["mcpServers"].values()
-    assert server["timeout"] == 30000 and server["command"] == "npx"
+    assert server["timeout"] == 30000
+    assert server["command"] == "npx"
     alternative = json.loads((ROOT / "integrations/workbuddy/mcp.uvx.json").read_text(encoding="utf-8"))
     uvx_server, = alternative["mcpServers"].values()
-    assert uvx_server["timeout"] == 30000 and uvx_server["command"] == "uvx"
+    assert uvx_server["timeout"] == 30000
+    assert uvx_server["command"] == "uvx"
     if os.environ.get("WORKBUDDY_TEST_UVX") == "1":
         # The uvx distribution stays the documented alternative custom MCP
         # route. It launches the exact public PyPI pin with no personal
@@ -108,7 +110,8 @@ def test_connector_invalid_embedding_key_fails_safely(sandbox):
         config_path.write_text(json.dumps(config), encoding="utf-8")
         env["EMBEDDING_API_KEY"] = "synthetic-secret-no-real-credential"
         result = subprocess.run([*launch, "--home", str(profile), "mcp"], input="", text=True, env=env, capture_output=True, timeout=30)
-        assert result.returncode != 0 and Unauthorized.calls > 0
+        assert result.returncode != 0
+        assert Unauthorized.calls > 0
         assert "synthetic-secret" not in result.stdout + result.stderr
         assert "Traceback" not in result.stdout + result.stderr
     finally:

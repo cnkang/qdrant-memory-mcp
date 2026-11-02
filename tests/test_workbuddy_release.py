@@ -348,7 +348,8 @@ def test_release_readers_are_independent_of_windows_codepage(asset_source, sourc
     release.validate_source(source, 'v1.2.3')
     root, directory, archive, checksum = asset_source
     release.validate_assets(root, directory, 'v1.2.3')
-    assert encodings and all(encoding == 'utf-8' for encoding in encodings)
+    assert encodings
+    assert all(encoding == 'utf-8' for encoding in encodings)
 
 
 @pytest.mark.parametrize('required', ['icon.svg', 'skills/qdrant-memory/LICENSE', 'skills/qdrant-memory/SKILL.md'])

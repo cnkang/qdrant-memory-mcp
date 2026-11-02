@@ -181,7 +181,8 @@ def test_workflow_skill_pins_and_readonly_preview():
         assert "ref: " + source["commit"] in workflow
         assert "persist-credentials: false" in workflow
     preview = (ROOT / ".github/workflows/workbuddy-preview.yml").read_text(encoding="utf-8")
-    assert "contents: write" not in preview and "pull_request_target" not in preview
+    assert "contents: write" not in preview
+    assert "pull_request_target" not in preview
     assert "WORKBUDDY_TEST_UVX" in preview
 
 

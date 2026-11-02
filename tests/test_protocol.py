@@ -230,7 +230,8 @@ def test_real_stdio_crud_restart_scope_and_redaction(sandbox):
         """Verify the replacement survives restart before deleting its exact ID."""
         found = await call(session, "search", {"query": "updated durable fact"})
         matches = [m for m in found["memories"] if m["id"] == memory_id]
-        assert len(matches) == 1 and matches[0]["text"] == "updated durable fact"
+        assert len(matches) == 1
+        assert matches[0]["text"] == "updated durable fact"
         await call(session, "delete", {"id": memory_id})
 
     asyncio.run(connection(restarted))
@@ -325,15 +326,15 @@ def test_stdout_is_jsonrpc_only(sandbox):
         process.stdin.write(json.dumps(messages[0]) + "\n")
         process.stdin.flush()
         initialized = json.loads(received.get(timeout=90))
-        assert (
-            initialized["id"] == 1
-            and initialized["jsonrpc"] == "2.0"
-            and "result" in initialized
-        )
+        assert initialized["id"] == 1
+        assert initialized["jsonrpc"] == "2.0"
+        assert "result" in initialized
         process.stdin.write("".join(json.dumps(m) + "\n" for m in messages[1:]))
         process.stdin.flush()
         listed = json.loads(received.get(timeout=30))
-        assert listed["id"] == 2 and listed["jsonrpc"] == "2.0" and "result" in listed
+        assert listed["id"] == 2
+        assert listed["jsonrpc"] == "2.0"
+        assert "result" in listed
         assert len(listed["result"]["tools"]) == 4
     finally:
         process.stdin.close()
@@ -344,9 +345,8 @@ def test_stdout_is_jsonrpc_only(sandbox):
             process.wait(timeout=5)
         reader.join(timeout=5)
     assert process.returncode == 0, process.stderr.read()
-    assert not reader.is_alive() and received.empty(), (
-        "Unexpected stdout after protocol responses"
-    )
+    assert not reader.is_alive()
+    assert received.empty(), "Unexpected stdout after protocol responses"
     process.stdout.close()
     process.stderr.close()
 
@@ -378,10 +378,8 @@ def test_failed_write_recovers_through_mcp_after_restart(sandbox):
                     )
                     assert not found.model_dump(by_alias=True)["isError"]
                     memories = json.loads(found.content[0].text)["memories"]
-                    assert (
-                        len(memories) == 1
-                        and memories[0]["text"] == "recover-fixture durable fact"
-                    )
+                    assert len(memories) == 1
+                    assert memories[0]["text"] == "recover-fixture durable fact"
 
     asyncio.run(run(True))
     embeddings.failures = 0
