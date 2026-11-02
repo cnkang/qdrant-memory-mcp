@@ -6,8 +6,6 @@ import shutil
 import subprocess
 from pathlib import Path
 
-pytest_plugins = ['test_protocol']
-
 
 def test_official_dsh_client(sandbox):
     profile, _, _, env, launch, cli, _ = sandbox
