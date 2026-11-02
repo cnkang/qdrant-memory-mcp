@@ -32,6 +32,9 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # The scanner host lives in the workflow, not in a data file, so a
+          # pull request cannot redirect the token by editing a properties file.
+          SONAR_HOST_URL: https://sonarcloud.io
 
   lint:
     name: Python and workflow lint
