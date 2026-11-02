@@ -1,5 +1,5 @@
 # Source pins for requirements-cross-harness-ci.txt (Python 3.11). Regenerate the lock with:
-#   uv pip compile --universal --python-version 3.11 --generate-hashes requirements-cross-harness-ci.in -o requirements-cross-harness-ci.txt
+#   cd .github && uv pip compile --universal --python-version 3.11 --generate-hashes requirements-cross-harness-ci.in -o requirements-cross-harness-ci.txt
 hermes-plugin-qdrant-memory[mcp]==0.5.4
 pytest==9.2.0
 PyYAML==6.0.3

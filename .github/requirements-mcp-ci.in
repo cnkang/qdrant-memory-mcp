@@ -1,5 +1,5 @@
 # Source pins for requirements-mcp-ci.txt (Python 3.11). Regenerate the lock with:
-#   uv pip compile --universal --python-version 3.11 --generate-hashes requirements-mcp-ci.in -o requirements-mcp-ci.txt
+#   cd .github && uv pip compile --universal --python-version 3.11 --generate-hashes requirements-mcp-ci.in -o requirements-mcp-ci.txt
 hermes-plugin-qdrant-memory[mcp]==0.5.4
 pytest==9.2.0
 requests==2.34.2
