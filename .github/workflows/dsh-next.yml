@@ -49,7 +49,7 @@ jobs:
           path: .scratch/canonical-skills
           persist-credentials: false
       - name: Install Python MCP and test dependencies
-        run: python -m pip install . 'pytest>=8,<10' 'requests>=2,<3' 'jsonschema>=4,<5'
+        run: "python -m pip install --only-binary=:all: . 'pytest==9.2.0' 'requests==2.34.2' 'jsonschema==4.26.0'"
       # Runner-local resolution retains the test-only security overrides.
       # Nothing is committed or pushed.
       - name: Resolve official next packages independently of the release lockfile
