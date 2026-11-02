@@ -7,10 +7,32 @@ import os
 import time
 import tomllib
 import urllib.error
+import urllib.parse
 import urllib.request
 import zipfile
 from email.parser import BytesParser
 from pathlib import Path
+
+ARTIFACT_HOST = 'files.pythonhosted.org'
+DIST = Path('dist')
+
+
+def artifact_url(value):
+    """Return the artifact URL on the reviewed host; the payload never picks it."""
+    parts = urllib.parse.urlsplit(value)
+    if (parts.scheme != 'https' or parts.hostname != ARTIFACT_HOST or parts.username
+            or parts.password or parts.port not in (None, 443)):
+        raise ValueError(f'Unexpected artifact URL: {value}')
+    return urllib.parse.urlunsplit(('https', ARTIFACT_HOST, parts.path, parts.query, ''))
+
+
+def artifact_path(filename):
+    """Resolve an artifact name below dist/; reject traversal and absolute names."""
+    root = DIST.resolve()
+    path = (root / filename).resolve()
+    if not path.is_relative_to(root):
+        raise ValueError(f'Artifact path escapes dist: {filename}')
+    return path
 
 
 def expected_requirements(project):
@@ -72,16 +94,16 @@ def main():
             assert not item["yanked"]
             filename = item["filename"]
             assert Path(filename).name == filename
-            assert item["url"].startswith("https://files.pythonhosted.org/")
-            with urllib.request.urlopen(item["url"], timeout=30) as response:
+            target = artifact_path(filename)
+            with urllib.request.urlopen(artifact_url(item["url"]), timeout=30) as response:
                 payload = response.read()
             assert hashlib.sha256(payload).hexdigest() == item["digests"]["sha256"]
             if args.download:
-                Path("dist").mkdir(exist_ok=True)
-                Path("dist", filename).write_bytes(payload)
+                DIST.mkdir(exist_ok=True)
+                target.write_bytes(payload)
             else:
-                assert Path("dist", filename).read_bytes() == payload, f"Conflicting immutable artifact: {filename}"
-        wheel_path = next(Path("dist").glob("*.whl"))
+                assert target.read_bytes() == payload, f"Conflicting immutable artifact: {filename}"
+        wheel_path = next(DIST.glob("*.whl"))
         with zipfile.ZipFile(wheel_path) as wheel:
             assert all(".dist-info/" in name for name in wheel.namelist())
             entry = wheel.read(next(n for n in wheel.namelist() if n.endswith("/entry_points.txt"))).decode()
