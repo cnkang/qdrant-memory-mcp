@@ -22,7 +22,7 @@ WorkBuddy's managed Node.js runtime. `mcp.json` declares:
       "args": ["-y", "@cnkang/qdrant-memory-launcher@0.1.0-rc.7", "mcp", "workbuddy", "--auto-setup"],
       "runtime": {"type": "node", "version": "20"},
       "npmRegistries": ["https://registry.npmjs.org"],
-      "timeout": 30000
+      "timeout": 60000
     }
   }
 }
@@ -241,11 +241,11 @@ Automated acceptance in this repository:
 - `public_install.py` verifies that the pinned launcher version is public on
   the npm registry with matching integrity. The release workflow refuses to
   prepare assets while this check fails.
-- `tests/public-launcher-acceptance.mjs` runs the exact connector command and
-    the exact DSH command through `npx` with the pinned public package. The check covers
-  the cold handshake budget, a clean unprepared probe, background preparation, refused-
-  but-not-queued writes, CRUD and fresh-process persistence. It runs
-  on Linux, macOS and Windows.
+- `tests/public-launcher-acceptance.mjs` runs the exact connector and DSH
+  commands through `npx` with the pinned public package. The check covers the
+  60-second cold handshake budget, a clean unprepared probe, background
+  preparation, refused-but-not-queued writes, CRUD and fresh-process
+  persistence. It runs on Linux, macOS and Windows.
 - The uvx alternative is exercised with the actual public PyPI pin once a
   release is published.
 
@@ -259,7 +259,7 @@ passed. Do not use existing personal memory for acceptance.
 | Managed Node preparation and first connection, no developer tools | NOT VERIFIED |
 | Connect via custom managed entry. Discover exactly four tools | PASS: macOS, WorkBuddy 5.8.2 (custom entry, earlier round) |
 | Cold preparation of Python, dependencies and CPU model | PASS: public npx command (`0.1.0-rc.1`), local macOS run and three-platform CI |
-| First handshake within the connector timeout | PASS (`0.1.0-rc.1`): worst measured cold npx 15.5 seconds (Windows CI). Budget 30 seconds |
+| First handshake within the connector timeout | PASS (`0.1.0-rc.1`): worst measured cold npx 15.5 seconds (Windows CI). Historical budget 30 seconds; current managed connector budget 60 seconds |
 | Search/save/update/delete with synthetic records | PASS (`0.1.0-rc.1`): protocol level through the public npx command, three platforms. Marketplace GUI NOT VERIFIED |
 | Restart MCP child. Retrieve persisted synthetic records | PASS (`0.1.0-rc.1`): fresh-process persistence, three platforms. Full application restart NOT VERIFIED |
 | Missing embedding and invalid API key fail safely | SDK tested. GUI NOT VERIFIED |

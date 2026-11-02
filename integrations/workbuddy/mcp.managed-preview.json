@@ -5,7 +5,7 @@
       "command": "node",
       "args": ["/absolute/path/to/integrations/managed/launcher.mjs", "mcp", "workbuddy", "--auto-setup"],
       "runtime": {"type": "node", "version": "20"},
-      "timeout": 30000
+      "timeout": 60000
     }
   }
 }

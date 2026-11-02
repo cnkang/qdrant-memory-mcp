@@ -31,11 +31,11 @@ npx still trusts canonical registry integrity metadata. This is not an independe
 repository-digest check before every execution. Deployments requiring that extra
 boundary should preinstall and verify the approved launcher through their host's
 artifact policy. This change does not republish existing connector assets.
-The
-handshake budget is the connector's 30-second timeout.
-Measured cold handshakes stay within it on every platform (worst observed
-cold npx: Windows, 15.5 seconds for `0.1.0-rc.1` and 21.5 seconds for
-`0.1.0-rc.3`).
+The managed connector now allows 60 seconds for the cold `npx` launch and MCP
+handshake. Earlier acceptance measurements were within the former 30-second
+budget; the larger limit leaves more room for a slow first npm download. The
+worst earlier cold measurements were 15.5 seconds on Windows for
+`0.1.0-rc.1` and 21.5 seconds for `0.1.0-rc.3`.
 
 The same program installer serves DSH, but DSH preparation is explicit and
 separate from its temporary MCP probe. Shared installation does not mean shared

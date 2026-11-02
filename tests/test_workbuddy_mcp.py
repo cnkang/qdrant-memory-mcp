@@ -21,7 +21,7 @@ def connector_launch(sandbox):
     profile, config_path, config, env, installed, cli, embeddings = sandbox
     managed = json.loads((ROOT / "integrations/workbuddy/mcp.json").read_text(encoding="utf-8"))
     server, = managed["mcpServers"].values()
-    assert server["timeout"] == 30000
+    assert server["timeout"] == 60000
     assert server["command"] == "npx"
     alternative = json.loads((ROOT / "integrations/workbuddy/mcp.uvx.json").read_text(encoding="utf-8"))
     uvx_server, = alternative["mcpServers"].values()
