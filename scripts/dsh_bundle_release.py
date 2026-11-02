@@ -28,7 +28,7 @@ def git(root: Path, *args: str) -> str:
 
 def bundle_metadata(root: Path) -> dict:
     meta = json.loads((root / 'integrations/dsh/bundle/package.json').read_text(encoding='utf-8'))
-    if meta.get('private') or not re.fullmatch(r'@[a-z0-9-]+/[a-z0-9-]+', meta.get('name', '')) or not re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+', meta.get('version', '')):
+    if meta.get('private') or not re.fullmatch(r'@[a-z0-9-]+/[a-z0-9-]+', meta.get('name', '')) or not re.fullmatch(r'\d+\.\d+\.\d+', meta.get('version', ''), re.ASCII):
         raise ValueError('Bundle package identity is not publishable')
     return meta
 
@@ -85,11 +85,11 @@ def main() -> int:
     sha, notes = validate_source(ROOT, args.release_tag)
     if args.check_source:
         print(f'Validated merged bundle release: {args.release_tag} ({sha})')
-        return 0
-    paths = validate_assets(ROOT, args.asset_dir, args.release_tag)
-    release = load_module('workbuddy_release', ROOT / 'integrations/workbuddy/release.py')
-    api = release.GitHubAPI(os.environ['GITHUB_REPOSITORY'], os.environ['GITHUB_TOKEN'])
-    release.attach_assets(api, args.release_tag, sha, notes, paths, label='DSH bundle assets')
+    else:
+        paths = validate_assets(ROOT, args.asset_dir, args.release_tag)
+        release = load_module('workbuddy_release', ROOT / 'integrations/workbuddy/release.py')
+        api = release.GitHubAPI(os.environ['GITHUB_REPOSITORY'], os.environ['GITHUB_TOKEN'])
+        release.attach_assets(api, args.release_tag, sha, notes, paths, label='DSH bundle assets')
     return 0
 
 
