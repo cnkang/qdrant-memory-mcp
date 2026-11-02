@@ -37,7 +37,10 @@ def extra_gated(entry, optional):
     # This splits on top-level ` or ` only: a nested parenthesised `or` is
     # rejected rather than parsed, which keeps the guard fail-closed without
     # taking a third-party dependency in this job.
-    for branch in re.split(r"\s+or\s+", marker):
+    # The possessive quantifier keeps the whitespace run from being
+    # reconsidered: a separator match can only start at the run's first space,
+    # so the accepted input language is unchanged.
+    for branch in re.split(r"\s++or\s+", marker):
         declared = EXTRA_EQUALS.findall(branch)
         if not declared or any(group not in optional for group in declared):
             return False
@@ -94,7 +97,7 @@ def mirror_entry(base, pin):
     """Best-effort fallback lookup: absence and transient failures are informational."""
     try:
         entry = registry_entry(base, pin)
-    except (urllib.error.HTTPError, urllib.error.URLError, OSError) as exc:
+    except OSError as exc:
         print(f"Registry {base} is unreachable ({type(exc).__name__}); its fallback entry was not verified")
         return None
     if entry is None:
