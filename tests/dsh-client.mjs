@@ -47,11 +47,13 @@ try {
   const pid = Number(await readFile(process.env.QDRANT_TEST_PID, 'utf8'));
   process.kill(pid, 'SIGKILL');
   // Reconnect must finish before a new process reads the embedded profile.
-  for (let attempt = 0; ; attempt++) {
-    if (a.definitions.get(namespace + 'search') !== oldDefinition) break;
+  async function waitForReconnect(attempt = 0) {
+    if (a.definitions.get(namespace + 'search') !== oldDefinition) return;
     assert.ok(attempt < 100, 'DSH failed to reconnect after child crash');
     await new Promise(resolve => setTimeout(resolve, 100));
+    return waitForReconnect(attempt + 1);
   }
+  await waitForReconnect();
   assert.ok((await a.call('search', { query: 'DSH synthetic durable preference' })).memories.some(m => m.id === id));
   const before = new AbortController(); before.abort();
   await assert.rejects(a.call('search', { query: 'cancelled' }, before.signal));

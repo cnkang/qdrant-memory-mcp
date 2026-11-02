@@ -1,17 +1,20 @@
 import test, { mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { PassThrough } from 'node:stream';
-import filesystem from 'node:fs/promises';
+import filesystem, { mkdtemp, mkdir, symlink, rm, realpath, writeFile, readFile, lstat, chmod } from 'node:fs/promises';
 import { syncBuiltinESMExports } from 'node:module';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { mkdtemp, mkdir, symlink, rm, realpath, writeFile, readFile, lstat, chmod } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { bridge, tools } from '../integrations/managed/bridge.mjs';
 import * as provisioning from '../integrations/managed/provision.mjs';
 import { locations, installEnvironment, privateDirectory, run, installed, prepare,
   publishSnapshot, runtime, dependencyDigest, runtimeRequirement, modelCache, publishRename } from '../integrations/managed/provision.mjs';
+
+// Ordered asynchronous steps: each promise waits for the previous one.
+const runSequentially = (items, action) => items.reduce(
+  (previous, item) => previous.then(() => action(item)), Promise.resolve());
 
 test('npm-style symlink entry actually executes the launcher CLI', async () => {
   const root = await mkdtemp(join(await realpath(tmpdir()), 'memory-npm-bin-'));
@@ -37,15 +40,20 @@ test('upgrades retain the existing owned cache location without changing profile
     await writeFile(config, content);
     assert.equal(await modelCache(paths), old);
     assert.equal(await readFile(config, 'utf8'), content);
-    for (const cache of ['relative', join(root, 'profiles'), join(root, 'models')]) {
+    await runSequentially(['relative', join(root, 'profiles'), join(root, 'models')], async cache => {
       await writeFile(config, JSON.stringify({ embedding: { model_cache_dir: cache } }));
       await assert.rejects(modelCache(paths), /cache/);
-    }
+    });
     const outside = join(root, 'outside');
     await mkdir(outside);
     const link = join(root, 'models', 'linked');
     try { await symlink(outside, link, process.platform === 'win32' ? 'junction' : 'dir'); }
-    catch (error) { if (process.platform === 'win32' && error.code === 'EPERM') return; throw error; }
+    catch (error) {
+      if (process.platform === 'win32' && error.code === 'EPERM') {
+        return;
+      }
+      throw error;
+    }
     await writeFile(config, JSON.stringify({ embedding: { model_cache_dir: join(link, 'cache') } }));
     await assert.rejects(modelCache(paths), /Unsafe/);
     await assert.rejects(lstat(join(outside, 'cache')), { code: 'ENOENT' });
@@ -85,12 +93,12 @@ test('installation snapshots replace interrupted writes but reject changed conte
   const path = join(root, 'requirements.lock');
   const expected = 'pinned-runtime==1.0 --hash=sha256:verified\n';
   try {
-    for (const partial of ['', expected.slice(0, 15), expected]) {
+    await runSequentially(['', expected.slice(0, 15), expected], async partial => {
       await writeFile(path, partial);
       await writeFile(path + '.pending', 'interrupted temporary write');
       await publishSnapshot(path, expected);
       assert.equal(await readFile(path, 'utf8'), expected);
-    }
+    });
     await writeFile(path, 'unexpected-package==2');
     await assert.rejects(publishSnapshot(path, expected), /snapshot changed/);
     assert.equal(await readFile(path, 'utf8'), 'unexpected-package==2');
@@ -185,19 +193,19 @@ test('preparation recovers truncated markers only while holding its installation
   const expected = JSON.stringify({ revision: runtime.revision, dependencies: dependencyDigest });
   const stop = stage => { if (stage === 'download-bootstrap') throw new Error('test stops before network'); };
   try {
-    for (const partial of ['', expected.slice(0, 20)]) {
+    await runSequentially(['', expected.slice(0, 20)], async partial => {
       await writeFile(marker, partial);
       await assert.rejects(installed(paths), SyntaxError);
       await mkdir(join(root, '.provision.lock'));
       await assert.rejects(prepare(paths, 'dsh', undefined, stop), /already running/);
       assert.equal(await readFile(marker, 'utf8'), partial);
       await rm(join(root, '.provision.lock'), { recursive: true });
-      for (let attempt = 0; attempt < 2; attempt++) {
+      await runSequentially([0, 1], async () => {
         await assert.rejects(prepare(paths, 'dsh', undefined, stop), error =>
           error.stage === 'download-bootstrap' && error.message === 'test stops before network');
         await assert.rejects(lstat(marker), { code: 'ENOENT' });
-      }
-    }
+      });
+    });
     await writeFile(marker, JSON.stringify({ revision: 'different', dependencies: dependencyDigest }));
     await assert.rejects(prepare(paths, 'dsh', undefined, stop), /revision or dependency mismatch/);
     await writeFile(marker, '{"unrecognized":');
@@ -302,7 +310,7 @@ for (const response of [null, [], { jsonrpc: '2.0', result: {} }, { jsonrpc: '2.
       env: { ...process.env, QDRANT_TEST_RESPONSE: JSON.stringify(response) + '\n' } }), input, output);
     await Promise.race([done, new Promise((_, reject) => {
       const timer = setTimeout(() => reject(new Error('Malformed backend did not close')), 3000);
-      done.finally(() => clearTimeout(timer));
+      done.finally(() => clearTimeout(timer)).catch(() => {});
     })]);
     input.end();
   });
@@ -316,12 +324,12 @@ test('existing writable managed directories fail closed without changing permiss
   try {
     const selected = join(root, 'existing');
     await mkdir(selected, { mode: 0o700 });
-    for (const mode of [0o777, 0o770]) {
+    await runSequentially([0o777, 0o770], async mode => {
       await chmod(selected, mode);
       await assert.rejects(privateDirectory(join(selected, 'program')), /ownership or write permissions/);
       assert.equal((await lstat(selected)).mode & 0o777, mode);
       await assert.rejects(lstat(join(selected, 'program')), { code: 'ENOENT' });
-    }
+    });
     await chmod(selected, 0o700);
     assert.equal(await privateDirectory(join(selected, 'program')), join(selected, 'program'));
   } finally { await rm(root, { recursive: true, force: true }); }
