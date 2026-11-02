@@ -101,7 +101,7 @@ program's `.provision.lock`. Never remove profile files or Runtime data locks.
 
 The last published connector archive is 0.2.4; it recorded MCP 0.2.6,
 Runtime 0.5.2, launcher 0.1.0-rc.7 and Skill 0.3.4. The current Python MCP
-distribution is 0.2.8 and pins Runtime 0.5.4. The managed WorkBuddy route
+distribution is 0.2.9 and pins Runtime 0.5.5. The managed WorkBuddy route
 continues to use the standalone launcher, which does not instantiate Hermes'
 native MemoryProvider; the P0 lifecycle fix does not require a launcher npm
 release. `provenance.json` inside each ZIP records its versions, launcher
@@ -123,7 +123,7 @@ integrity and Skill source commit. The builder rejects drift from checked-in pin
 their own Python backend instead of the managed launcher:
 
 ```sh
-uvx --from qdrant-memory-mcp==0.2.8 qdrant-memory-mcp mcp
+uvx --from qdrant-memory-mcp==0.2.9 qdrant-memory-mcp mcp
 ```
 
 Add `--home <private-profile-path>` before `mcp` to bind an explicit private

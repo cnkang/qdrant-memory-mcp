@@ -80,7 +80,7 @@ They verify a ZIP roundtrip and reject a malformed ZIP64 archive within a fixed 
 These npm dependencies serve development tests only.
 Python artifacts and the configuration-only Bundle do not include them.
 
-The Runtime dependency uses the exact version `0.5.4`.
+The Runtime dependency uses the exact version `0.5.5`.
 For a Runtime update, also update compatibility expectations and the preparation fixture.
 A dependency-only PR cannot bypass distribution metadata and protocol checks.
 This repository scans distribution scripts and workflows.

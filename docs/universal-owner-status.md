@@ -2,8 +2,8 @@
 
 [简体中文](universal-owner-status.zh-CN.md)
 
-This page describes Runtime 0.5.4 capabilities and the repository's preview adapters.
-Distribution 0.2.8 selects the published Runtime 0.5.4 package.
+This page describes Runtime 0.5.5 capabilities and the repository's preview adapters.
+Distribution 0.2.9 selects the published Runtime 0.5.5 package.
 Preview adapters require a separate installation of the applicable integration.
 Publication and source CI do not establish production acceptance.
 
