@@ -24,7 +24,7 @@ def test_native_hermes_to_pi_authorized_project_handoff(tmp_path, monkeypatch):
 
     import uvicorn
 
-    sys.path.insert(0, str(Path(root).resolve()))
+    monkeypatch.syspath_prepend(str(Path(root).resolve()))
     from agent.memory_manager import MemoryManager
     from qdrant_memory.provider import QdrantMemoryProvider
     from qdrant_memory.remote_gateway import create_gateway
