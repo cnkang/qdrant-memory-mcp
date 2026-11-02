@@ -9,7 +9,7 @@ It also rejects skipped tests.
 Distribution CI does not select `tests/test_native_pi_handoff.py`.
 The test needs a Hermes host checkout and a Pi workspace.
 The `owner-lifecycle` job supplies both inputs.
-That job pins Runtime `1b50a22` (version 0.5.4), which provides `remote-call` and `remote-event`.
+That job pins Runtime `6ddf7215479692e7882f3065885931f01908c0ac`, the published 0.5.4 source, which provides `remote-call` and `remote-event`.
 Both jobs reject skipped tests.
 
 - Distribution CI builds metadata-only artifacts.

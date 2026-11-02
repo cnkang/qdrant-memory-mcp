@@ -7,7 +7,7 @@ Distribution 0.2.8 selects the published Runtime 0.5.4 package.
 Preview adapters require a separate installation of the applicable integration.
 Publication and source CI do not establish production acceptance.
 
-Current Owner source CI pins Runtime [`1b50a22bf80d894a6b90fe11457d5a72bc73dcd3`](https://github.com/cnkang/hermes-plugin-qdrant-memory/tree/1b50a22bf80d894a6b90fe11457d5a72bc73dcd3), the published Runtime 0.5.4 source.
+Current Owner source CI pins Runtime [`6ddf7215479692e7882f3065885931f01908c0ac`](https://github.com/cnkang/hermes-plugin-qdrant-memory/tree/6ddf7215479692e7882f3065885931f01908c0ac), the published Runtime 0.5.4 source.
 
 ## Capabilities
 
