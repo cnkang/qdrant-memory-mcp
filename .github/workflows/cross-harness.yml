@@ -147,7 +147,13 @@ jobs:
           mkdir -p "$LAUNCHER_TEST_ROOT"
           cd integrations/managed
           npm pack --ignore-scripts --pack-destination "$LAUNCHER_TEST_ROOT"
-          npm install --prefix "$LAUNCHER_TEST_ROOT" --ignore-scripts --no-audit --no-fund "$LAUNCHER_TEST_ROOT"/*.tgz
+          cd "$LAUNCHER_TEST_ROOT"
+          # The packed archive is the whole payload and exactly this commit, so declare it
+          # by filename (a local reference, not a registry range), lock that single
+          # resolution, and install from the lock instead of resolving at install time.
+          node -e 'const fs=require("node:fs");const archive=fs.readdirSync(".").find((name)=>name.endsWith(".tgz"));const manifest={name:"launcher-acceptance",private:true,dependencies:{"@cnkang/qdrant-memory-launcher":"file:./"+archive}};fs.writeFileSync("package.json",JSON.stringify(manifest,null,2)+"\n");'
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          npm ci --ignore-scripts --no-audit --no-fund
       - name: Fresh shared program and isolated host profiles
         shell: bash
         env:
