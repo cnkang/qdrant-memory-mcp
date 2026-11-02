@@ -79,20 +79,23 @@ def test_validate_existing_tag_at_clean_merged_head(source, release_tag):
 
 @pytest.mark.parametrize('tag', ['0.1.0', 'dsh-bundle-0.1.0', 'dsh-bundle-v0.2.0', 'dsh-bundle-v01.0.0'])
 def test_invalid_or_mismatched_tag(source, tag):
+    release = module()
     with pytest.raises(ValueError):
-        module().validate_source(source, tag)
+        release.validate_source(source, tag)
 
 
 def test_dirty_tracked_tree_rejected(source, release_tag):
     (source / 'integrations/dsh/bundle/README.md').write_text('dirty')
+    release = module()
     with pytest.raises(ValueError, match='tracked'):
-        module().validate_source(source, release_tag)
+        release.validate_source(source, release_tag)
 
 
 def test_commit_must_be_on_main(source, release_tag):
     git(source, 'update-ref', '-d', 'refs/remotes/origin/main')
+    release = module()
     with pytest.raises(ValueError, match='main'):
-        module().validate_source(source, release_tag)
+        release.validate_source(source, release_tag)
 
 
 def test_validate_assets_binds_names_checksum_and_payload(assets, release_tag):
@@ -125,9 +128,10 @@ def test_invalid_asset_directory_rejected(assets, release_tag, problem):
                 member.size = len(data)
                 output.addfile(member, io.BytesIO(data))
         checksum.write_text(hashlib.sha256(archive.read_bytes()).hexdigest() + '  ' + archive.name + '\n')
+    release = module()
+    tag = 'dsh-bundle-v0.2.0' if problem == 'tag' else release_tag
     with pytest.raises(ValueError):
-        tag = 'dsh-bundle-v0.2.0' if problem == 'tag' else release_tag
-        module().validate_assets(source, archive.parent, tag)
+        release.validate_assets(source, archive.parent, tag)
 
 
 def test_private_bundle_identity_rejected(source):
@@ -135,8 +139,9 @@ def test_private_bundle_identity_rejected(source):
     meta = json.loads(meta_path.read_text())
     meta['private'] = True
     meta_path.write_text(json.dumps(meta))
+    release = module()
     with pytest.raises(ValueError, match='publishable'):
-        module().bundle_metadata(source)
+        release.bundle_metadata(source)
 
 
 def test_release_workflow_requires_the_public_launcher_pin():
