@@ -16,7 +16,16 @@ from pathlib import Path, PurePosixPath
 
 ROOT = Path(__file__).resolve().parents[2]
 PREFIX = "qdrant-memory-workbuddy/"
-SEMVER = r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)"
+# ASCII-only \d keeps the accepted version language byte-identical to [0-9].
+SEMVER = r"(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)"
+FRONTMATTER_DELIMITER = b"\n---\n"
+GIT_QUERIES = {
+    # Reviewed read-only git queries; callers never supply argv tokens.
+    "origin": ("remote", "get-url", "origin"),
+    "commit": ("rev-parse", "HEAD"),
+    "dirty": ("status", "--porcelain", "--ignored"),
+    "skill": ("show", "HEAD:qdrant-memory/SKILL.md"),
+}
 
 
 def validate_metadata(meta):
@@ -29,7 +38,7 @@ def validate_metadata(meta):
         raise ValueError("Invalid connector source or type")
     # Runtime and npm registry fields require WorkBuddy 5.0.0; declare the
     # maximum version of every used field.
-    if not re.fullmatch(SEMVER, meta["version"]) or meta["minWorkbuddyVersion"] != "5.0.0":
+    if not re.fullmatch(SEMVER, meta["version"], re.ASCII) or meta["minWorkbuddyVersion"] != "5.0.0":
         raise ValueError("Invalid connector version or minimum client version")
     for key in ("examples_zh", "examples_en"):
         if not isinstance(meta[key], list) or not 2 <= len(meta[key]) <= 5 or not all(isinstance(x, str) and x.strip() for x in meta[key]):
@@ -43,7 +52,7 @@ def validate_launcher(launcher):
         raise ValueError("Launcher source fields differ from reviewed schema")
     if launcher["name"] != "@cnkang/qdrant-memory-launcher":
         raise ValueError("Launcher package name mismatch")
-    if not re.fullmatch(SEMVER + r"(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?", launcher["version"]):
+    if not re.fullmatch(SEMVER + r"(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?", launcher["version"], re.ASCII):
         raise ValueError("Launcher version must be a pinned semver")
     if not re.fullmatch(r"sha512-[A-Za-z0-9+/]+={0,2}", launcher["integrity"]):
         raise ValueError("Launcher integrity must be a sha512 digest")
@@ -96,21 +105,44 @@ def inputs(root):
     validate_uvx_alternative(read("mcp.uvx.json"), project["version"])
     if project["dependencies"] != [f"hermes-plugin-qdrant-memory[mcp]=={runtime['version']}"]:
         raise ValueError("Runtime dependency and provenance mismatch")
-    if set(source) != {"repository", "commit", "version"} or source["repository"] != "https://github.com/cnkang/skills.git" or not re.fullmatch(r"[0-9a-f]{40}", source["commit"]) or not re.fullmatch(SEMVER, source["version"]):
+    if set(source) != {"repository", "commit", "version"} or source["repository"] != "https://github.com/cnkang/skills.git" or not re.fullmatch(r"[0-9a-f]{40}", source["commit"]) or not re.fullmatch(SEMVER, source["version"], re.ASCII):
         raise ValueError("Skill must come from immutable canonical repository")
     return meta, mcp, source, project, runtime, launcher
 
 
-def git(root, *args):
-    return subprocess.check_output(["git", "-C", str(root), *args], text=True).strip()
+def git_argv(query):
+    """Return the reviewed argument vector for one named read-only git query."""
+    try:
+        return GIT_QUERIES[query]
+    except KeyError:
+        raise ValueError("Unknown git query") from None
+
+
+def checked_root(path):
+    """Resolve a skill checkout; the absolute result cannot parse as a git option."""
+    root = Path(path).resolve()
+    if not root.is_dir():
+        raise ValueError("Skill root must be an existing directory")
+    return root
+
+
+def git(root, query):
+    """Run one reviewed read-only git query and return its stripped text."""
+    return subprocess.check_output(["git", "-C", str(root), *git_argv(query)], text=True).strip()
+
+
+def git_blob(root, query):
+    """Run one reviewed read-only git query and return the untouched bytes."""
+    return subprocess.check_output(["git", "-C", str(root), *git_argv(query)])
 
 
 def validate_skill_source(skill_root, source):
-    if git(skill_root, "remote", "get-url", "origin") not in {source["repository"], "https://github.com/cnkang/skills", "git@github.com:cnkang/skills.git"}:
+    skill_root = checked_root(skill_root)
+    if git(skill_root, "origin") not in {source["repository"], "https://github.com/cnkang/skills", "git@github.com:cnkang/skills.git"}:
         raise ValueError("Skill origin differs from canonical repository")
-    if git(skill_root, "rev-parse", "HEAD") != source["commit"]:
+    if git(skill_root, "commit") != source["commit"]:
         raise ValueError("Skill checkout must match the full pinned commit")
-    if git(skill_root, "status", "--porcelain", "--ignored"):
+    if git(skill_root, "dirty"):
         raise ValueError("Skill checkout must be clean, including ignored files; use a fresh clone")
 
 
@@ -127,6 +159,7 @@ def safe_resource(name):
 
 
 def skill_files(skill_root, source):
+    skill_root = checked_root(skill_root)
     validate_skill_source(skill_root, source)
     with tempfile.TemporaryDirectory() as temp:
         # Reuse, never reimplement, upstream frontmatter/link/resource validation.
@@ -145,11 +178,11 @@ def skill_files(skill_root, source):
                     raise ValueError("Unsafe upstream resource")
                 files["skills/" + entry.filename] = (archive.read(entry), stat.S_IMODE(mode))
     raw = files["skills/qdrant-memory/SKILL.md"][0]
-    canonical = subprocess.check_output(["git", "-C", str(skill_root), "show", "HEAD:qdrant-memory/SKILL.md"])
-    if raw.split(b"\n---\n", 1)[1] != canonical.split(b"\n---\n", 1)[1]:
+    canonical = git_blob(skill_root, "skill")
+    if raw.split(FRONTMATTER_DELIMITER, 1)[1] != canonical.split(FRONTMATTER_DELIMITER, 1)[1]:
         raise ValueError("Canonical Skill body differs")
     # Top-level version is emitted by the reviewed upstream adapter.
-    header = raw.split(b"\n---\n", 1)[0].decode("utf-8")
+    header = raw.split(FRONTMATTER_DELIMITER, 1)[0].decode("utf-8")
     if not re.search(r"(?m)^version: ['\"]?" + re.escape(source["version"]) + r"['\"]?$", header):
         raise ValueError("Skill version mismatch")
     if "skills/qdrant-memory/LICENSE" not in files:
