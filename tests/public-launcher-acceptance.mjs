@@ -31,7 +31,7 @@ const spec = `${launcher.name}@${launcher.version}`;
 const root = process.env.QDRANT_MEMORY_MANAGED_ROOT;
 assert.ok(root, 'Set QDRANT_MEMORY_MANAGED_ROOT to a disposable managed root');
 assert.ok(root.startsWith('/') || /^[A-Za-z]:[\\/]/.test(root), 'Managed root must be absolute');
-const handshakeBudgetMs = 30000;
+const handshakeBudgetMs = 60000;
 const start = performance.now();
 
 // Ordered asynchronous steps: each promise waits for the previous one.
@@ -64,24 +64,54 @@ function launch(host, extra = []) {
     windowsHide: true,
   });
   const responses = new Map();
+  let stderr = '';
+  child.stderr.on('data', chunk => {
+    if (stderr.length < 4096) stderr += chunk.toString().slice(0, 4096 - stderr.length);
+  });
+  const stderrDetail = () => {
+    const detail = stderr.trim()
+      .replace(/((?:_authToken|password|token)\s*[=:]\s*)\S+/gi, '$1[redacted]')
+      .replace(/(authorization:\s*(?:bearer|basic)\s+)\S+/gi, '$1[redacted]')
+      .replace(/(https?:\/\/)[^/\s@]+@/gi, '$1[redacted]@');
+    return detail ? `\nnpx stderr:\n${detail.slice(-2048)}` : '';
+  };
+  const failPending = error => {
+    for (const pending of responses.values()) pending.reject(error);
+    responses.clear();
+  };
+  child.once('error', error => {
+    failPending(new Error(`Could not start npx (${error.code ?? error.message})${stderrDetail()}`));
+  });
+  child.once('close', (code, signal) => {
+    if (responses.size) failPending(new Error(`npx exited before responding (code ${code}, signal ${signal})${stderrDetail()}`));
+  });
+  child.stdin.on('error', error => {
+    failPending(new Error(`Could not send MCP request to npx (${error.code ?? error.message})${stderrDetail()}`));
+  });
   const lines = createInterface({ input: child.stdout });
   lines.on('line', line => {
     let message;
     try { message = JSON.parse(line); }
     catch { throw new Error(`Launcher stdout is not protocol-only JSON: ${line.slice(0, 200)}`); }
-    if (message.id !== undefined) responses.get(message.id)?.(message);
+    if (message.id !== undefined) responses.get(message.id)?.resolve(message);
   });
-  child.stderr.resume();
   let id = 0;
   async function request(method, params, timeoutMs = 30000) {
     const current = ++id;
+    if (child.exitCode !== null || child.signalCode !== null) {
+      throw new Error(
+        `npx exited before ${method} (code ${child.exitCode}, signal ${child.signalCode})${stderrDetail()}`,
+      );
+    }
     let timer;
     const response = new Promise((accept, reject) => {
-      responses.set(current, accept);
-      timer = setTimeout(() => reject(new Error(`Timed out waiting for ${method}`)), timeoutMs);
+      responses.set(current, { resolve: accept, reject });
+      timer = setTimeout(() => reject(new Error(`Timed out waiting for ${method}${stderrDetail()}`)), timeoutMs);
     });
-    child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: current, method, params }) + '\n');
-    try { return await response; } finally { clearTimeout(timer); responses.delete(current); }
+    try {
+      child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: current, method, params }) + '\n');
+      return await response;
+    } finally { clearTimeout(timer); responses.delete(current); }
   }
   async function initialize() {
     const response = await request('initialize', { protocolVersion: '2025-11-25', capabilities: {}, clientInfo: { name: 'public-acceptance', version: '1' } }, handshakeBudgetMs);

@@ -32,7 +32,7 @@ def test_connector_metadata_and_generated_pin():
         "args": ["-y", "@cnkang/qdrant-memory-launcher@0.1.0-rc.7", "mcp", "workbuddy", "--auto-setup"],
         "runtime": {"type": "node", "version": "20"},
         "npmRegistries": ["https://registry.npmjs.org"],
-        "timeout": 30000,
+        "timeout": 60000,
     }
     assert launcher["name"] == "@cnkang/qdrant-memory-launcher"
     assert server["args"][1] == f"{launcher['name']}@{launcher['version']}"

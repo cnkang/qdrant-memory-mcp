@@ -66,7 +66,7 @@ def expected_mcp(launcher):
         "args": ["-y", f"{launcher['name']}@{launcher['version']}", "mcp", "workbuddy", "--auto-setup"],
         "runtime": {"type": "node", "version": "20"},
         "npmRegistries": ["https://registry.npmjs.org"],
-        "timeout": 30000,
+        "timeout": 60000,
     }}}
 
 
