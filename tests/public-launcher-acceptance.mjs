@@ -66,7 +66,7 @@ function launch(host, extra = []) {
   const responses = new Map();
   let stderr = '';
   child.stderr.on('data', chunk => {
-    if (stderr.length < 4096) stderr += chunk.toString().slice(0, 4096 - stderr.length);
+    stderr = (stderr + chunk.toString()).slice(-4096);
   });
   const stderrDetail = () => {
     const detail = stderr.trim()
