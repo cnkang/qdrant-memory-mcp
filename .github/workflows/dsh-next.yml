@@ -85,7 +85,11 @@ jobs:
           tests/dev/test_dsh_lock_audit.py::test_dsh_lock_excludes_vulnerable_zip_parser_versions
       - name: Ensure pnpm for the official DSH plugin manager
         shell: bash
-        run: pnpm --version || npm install --global --ignore-scripts pnpm@12.14.0
+        run: |
+          if pnpm --version; then exit 0; fi
+          # pnpm ships a placeholder binary; its own installer is what materialises the
+          # host binary and the Windows shims, so this install must keep its scripts.
+          npm install --global pnpm@12.14.0
       - name: Real official client, CLI, Skill provider and Bundle acceptance
         env:
           DSH_TEST_MODULES: ${{ github.workspace }}/integrations/dsh/node_modules
