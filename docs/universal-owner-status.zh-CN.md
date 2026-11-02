@@ -7,7 +7,7 @@
 预览适配器需要单独安装相应集成。
 发布和源码 CI 不代表生产环境验收。
 
-当前 Owner 源码 CI 固定 Runtime [`1b50a22bf80d894a6b90fe11457d5a72bc73dcd3`](https://github.com/cnkang/hermes-plugin-qdrant-memory/tree/1b50a22bf80d894a6b90fe11457d5a72bc73dcd3)，即已发布 Runtime 0.5.4 的源码。
+当前 Owner 源码 CI 固定 Runtime [`6ddf7215479692e7882f3065885931f01908c0ac`](https://github.com/cnkang/hermes-plugin-qdrant-memory/tree/6ddf7215479692e7882f3065885931f01908c0ac)，即已发布 Runtime 0.5.4 的源码。
 
 ## 功能
 

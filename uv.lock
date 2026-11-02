@@ -497,7 +497,7 @@ wheels = [
 
 [[package]]
 name = "hermes-plugin-qdrant-memory"
-version = "0.5.2"
+version = "0.5.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "httpx" },
@@ -505,9 +505,9 @@ dependencies = [
     { name = "portalocker" },
     { name = "qdrant-client" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/c5/03/31c55d05a9d4625e708167d333b62365aa6e0640a84348af0a1ff1160d35/hermes_plugin_qdrant_memory-0.5.2.tar.gz", hash = "sha256:77fab77f9e1059ffd2380ec311344e544075f6783f1f3270f928c237a2f52f00", size = 377006, upload-time = "2026-10-29T04:42:57.973Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/4d/8a/7df1291fd5b4ee8a33f6a293b156ef4f0541746674070a0997106e029a06/hermes_plugin_qdrant_memory-0.5.4.tar.gz", hash = "sha256:bb8bca97dbee1753b0921e2d6283d47fcb214b33b8f6ef0f8de6e8f36570a5de", size = 412502, upload-time = "2026-11-02T11:39:47.665Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/cd/07/36b65f4f606638d6655c6bb6ee781c6f7733f46e8f03cae4d35c1877def9/hermes_plugin_qdrant_memory-0.5.2-py3-none-any.whl", hash = "sha256:e0070c05d0223072351fdf87e7e4afc5b4e72ecc6e25c1c78b1437fd03787f20", size = 144861, upload-time = "2026-10-29T04:42:56.386Z" },
+    { url = "https://files.pythonhosted.org/packages/7b/de/9eeba13ca44235279ca19590f1da4d232ccd84e0943134c176764f6c7581/hermes_plugin_qdrant_memory-0.5.4-py3-none-any.whl", hash = "sha256:5749f7554c1bf1d79e088afda1a7b111e2470cd208d0faa9b3ecfbc9b0c48f77", size = 156696, upload-time = "2026-11-02T11:39:46.046Z" },
 ]
 
 [package.optional-dependencies]
@@ -1326,7 +1326,7 @@ wheels = [
 
 [[package]]
 name = "qdrant-memory-mcp"
-version = "0.2.6"
+version = "0.2.8"
 source = { editable = "." }
 dependencies = [
     { name = "hermes-plugin-qdrant-memory", extra = ["mcp"] },
@@ -1345,12 +1345,12 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "build", marker = "extra == 'dev'", specifier = ">=1.2,<2" },
-    { name = "hermes-plugin-qdrant-memory", extras = ["mcp"], specifier = "==0.5.2" },
+    { name = "hermes-plugin-qdrant-memory", extras = ["mcp"], specifier = "==0.5.4" },
     { name = "jsonschema", marker = "extra == 'dev'", specifier = ">=4,<5" },
     { name = "mcp", marker = "extra == 'dev'", specifier = ">=1.30,<3" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8,<10" },
     { name = "requests", marker = "extra == 'dev'", specifier = ">=2,<3" },
-    { name = "twine", marker = "extra == 'dev'", specifier = ">=6,<7" },
+    { name = "twine", marker = "extra == 'dev'", specifier = ">=6,<8" },
 ]
 provides-extras = ["dev"]
 
