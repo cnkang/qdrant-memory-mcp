@@ -92,7 +92,9 @@ jobs:
           path: .scratch/canonical-skills
           persist-credentials: false
       - name: Install published Python MCP and test dependencies
-        run: "python -m pip install --only-binary=:all: . 'pytest==9.2.0' 'requests==2.34.2' 'jsonschema==4.26.0'"
+        run: |
+          python -m pip install --require-hashes --only-binary=:all: -r .github/requirements-mcp-ci.txt
+          python -m pip install --only-binary=:all: --no-deps .
       - name: Install exact official DSH client and Skill provider
         working-directory: integrations/dsh
         run: npm ci --ignore-scripts --no-audit --no-fund
@@ -234,7 +236,9 @@ jobs:
           path: .scratch/runtime
           persist-credentials: false
       - name: Install standalone Runtime and existing-host test dependencies
-        run: "python -m pip install --only-binary=:all: . './.scratch/runtime[mcp]' 'pytest==9.2.0' 'PyYAML==6.0.3' 'requests==2.34.2'"
+        run: |
+          python -m pip install --require-hashes --only-binary=:all: -r .github/requirements-cross-harness-ci.txt
+          python -m pip install --only-binary=:all: --no-deps . './.scratch/runtime[mcp]'
       - name: Install exact OpenCode and Pi CLIs
         working-directory: integrations/agent-hosts
         run: |
