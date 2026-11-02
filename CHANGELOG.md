@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.2.8
+
+- Pin the metadata-only distribution to Runtime 0.5.4, the maintainability
+  release that keeps Runtime 0.5.3 behavior and splits long functions into named
+  helpers.
+- Replace every CI install with a hash-locked file and add a SonarCloud scan to
+  the repository quality workflow, covering the default branch and pull requests.
+- Move the Pi host acceptance harness to `minimatch` 11.0.1 and the WorkBuddy
+  lane to `uv` 0.13.6, past their published advisories.
+- MCP tool schemas, stdio transport, scope rules and persisted data are
+  unchanged.
+
 ## 0.2.7
 
 - Pin the metadata-only distribution to Runtime 0.5.3, which includes the

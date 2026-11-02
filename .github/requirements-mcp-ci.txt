@@ -448,7 +448,7 @@ h2==4.4.1 \
     --hash=sha256:0e25f1462b23c9cb82d9eb02e28bc706dac2a68cb457c6a0d74d63c8a2a5d0e6 \
     --hash=sha256:4e866ffb1a869ae14dd9b5e6beb5c24a13da0495ad72b65925ded182521c1516
     # via httpx
-hermes-plugin-qdrant-memory==0.5.3 \
+hermes-plugin-qdrant-memory==0.5.4 \
     --hash=sha256:79e09c487cfecd45e2a8e86fa86601de575c05e60689df4f9578ca42ec19d5ca \
     --hash=sha256:83742bd79fe6e75158bc734dd7863bad3f243b009d3a7e4db4462a62f14aacaf
     # via -r /tmp/hashgen/requirements-mcp-ci.txt.in

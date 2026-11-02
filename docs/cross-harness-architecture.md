@@ -63,8 +63,8 @@ Never remove locks or change fingerprints to force compatibility.
 
 | Component | Pin | Availability |
 | --- | --- | --- |
-| Python MCP | 0.2.7 | Python/uvx distribution. Confirm the exact version on PyPI |
-| Runtime | 0.5.3 | Public PyPI wheel. Optional CPU provider |
+| Python MCP | 0.2.8 | Python/uvx distribution. Confirm the exact version on PyPI |
+| Runtime | 0.5.4 | Public PyPI wheel. Optional CPU provider |
 | Node launcher | 0.1.0-rc.7 | Release candidate pinned by the connector and Bundle. It installs Runtime 0.5.2 for standalone MCP use |
 | DSH bundle | 0.1.5 | Configuration-only npm bundle, public on npm. It installs the launcher through the official MCP client |
 | Bootstrap | uv 0.13.1 / Python 3.11.15 | Fixed platform artifacts, verified uv hash |
@@ -73,7 +73,7 @@ Never remove locks or change fingerprints to force compatibility.
 
 The managed Node launcher remains at 0.1.0-rc.7 with Runtime 0.5.2. Its
 WorkBuddy/DSH child process runs the standalone MCP entrypoint and does not
-construct Hermes' native MemoryProvider. Runtime 0.5.3's provider lifecycle fix
+construct Hermes' native MemoryProvider. Runtime 0.5.4's provider lifecycle fix
 does not require a launcher or DSH bundle npm release.
 
 The managed installer verifies its uv executable and public Runtime wheel

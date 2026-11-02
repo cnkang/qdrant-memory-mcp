@@ -36,7 +36,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: cnkang/hermes-plugin-qdrant-memory
-          ref: 1b50a22bf80d894a6b90fe11457d5a72bc73dcd3
+          ref: 6ddf7215479692e7882f3065885931f01908c0ac
           path: .scratch/owner-runtime
           persist-credentials: false
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -232,7 +232,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: cnkang/hermes-plugin-qdrant-memory
-          ref: 1b50a22bf80d894a6b90fe11457d5a72bc73dcd3
+          ref: 6ddf7215479692e7882f3065885931f01908c0ac
           path: .scratch/runtime
           persist-credentials: false
       - name: Install standalone Runtime and existing-host test dependencies
