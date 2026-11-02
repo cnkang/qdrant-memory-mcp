@@ -5,7 +5,7 @@ import { constants } from 'node:fs';
 import { mkdir, lstat, readFile, writeFile, rename, rm, realpath, open } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join, dirname, parse, resolve, relative, isAbsolute, basename } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { pathToFileURL } from 'node:url';
 import { BOOTSTRAPS, UV_VERSION, PYTHON_VERSION, download, extractExecutable, verifyArtifact } from './bootstrap.mjs';
 
 export const runtime = JSON.parse(await readFile(new URL('./runtime.json', import.meta.url), 'utf8'));
@@ -13,6 +13,16 @@ export const hosts = new Set(['workbuddy', 'dsh']);
 const requirements = (await readFile(new URL('./requirements.lock', import.meta.url), 'utf8')).replaceAll('\r\n', '\n');
 export const dependencyDigest = createHash('sha256').update(requirements).update(JSON.stringify(runtime)).digest('hex');
 const installedSnapshot = JSON.stringify({ revision: runtime.revision, dependencies: dependencyDigest });
+
+// Ordered asynchronous steps: each promise waits for the previous one.
+const runSequentially = (items, action) => items.reduce(
+  (previous, item) => previous.then(() => action(item)), Promise.resolve());
+
+function dataRoot(env, home, platform) {
+  if (platform === 'win32') return env.LOCALAPPDATA || join(home, 'AppData', 'Local');
+  if (platform === 'darwin') return join(home, 'Library', 'Application Support');
+  return env.XDG_DATA_HOME || join(home, '.local', 'share');
+}
 
 export function runtimeRequirement(artifact, metadata = runtime, lock = requirements) {
   lock = lock.replaceAll('\r\n', '\n');
@@ -38,9 +48,7 @@ export function fastembedRequirement(artifact, metadata = runtime.fastembed_comp
 
 export function locations(host, env = process.env, home = homedir(), platform = process.platform) {
   if (!hosts.has(host)) throw new Error('Choose workbuddy or dsh');
-  const data = platform === 'win32' ? (env.LOCALAPPDATA || join(home, 'AppData', 'Local'))
-    : platform === 'darwin' ? join(home, 'Library', 'Application Support')
-      : (env.XDG_DATA_HOME || join(home, '.local', 'share'));
+  const data = dataRoot(env, home, platform);
   if (!isAbsolute(data)) throw new Error('Managed data root must be absolute');
   const root = env.QDRANT_MEMORY_MANAGED_ROOT || join(data, 'qdrant-memory-managed');
   if (!isAbsolute(root)) throw new Error('Managed root must be absolute');
@@ -75,8 +83,10 @@ export async function modelCache(paths) {
 
 export async function privateDirectory(path) {
   const absolute = resolve(path);
-  let current = parse(absolute).root;
-  for (const part of absolute.slice(current.length).split(/[\\/]/).filter(Boolean)) {
+  const base = parse(absolute).root;
+  let current = base;
+  const parts = absolute.slice(base.length).split(/[\\/]/).filter(Boolean);
+  await runSequentially(parts, async part => {
     current = join(current, part);
     await mkdir(current, { mode: 0o700 }).catch(error => { if (error.code !== 'EEXIST') throw error; });
     const info = await lstat(current);
@@ -90,7 +100,7 @@ export async function privateDirectory(path) {
         throw new Error('Unsafe managed directory ownership or write permissions');
       }
     }
-  }
+  });
   return absolute;
 }
 
@@ -111,7 +121,7 @@ export function run(executable, args, { env, signal, timeout = 600000 } = {}) {
       if (!child.pid) return;
       if (process.platform === 'win32') {
         // Windows has no POSIX process groups. Use the OS tree-termination utility.
-        const systemRoot = process.env.SYSTEMROOT || 'C:\\Windows';
+        const systemRoot = process.env.SYSTEMROOT || String.raw`C:\Windows`;
         spawn(join(systemRoot, 'System32', 'taskkill.exe'), ['/pid', String(child.pid), '/T', '/F'],
           { windowsHide: true, stdio: 'ignore' }).unref();
       } else { try { process.kill(-child.pid, 'SIGKILL'); } catch { /* already closed */ } }
@@ -144,15 +154,17 @@ async function regularFile(path) {
 // stopped its probe. Retry only transient lock errors, within bounds.
 export async function publishRename(from, to, signal) {
   const delays = [50, 100, 200, 400, 800, 1500, 1500, 1500, 1500, 1500];
-  for (let attempt = 0; ; attempt++) {
+  const attempt = async index => {
     try {
       await rename(from, to);
       return;
     } catch (error) {
-      if (!['EPERM', 'EACCES', 'EBUSY'].includes(error.code) || attempt >= delays.length || signal?.aborted) throw error;
-      await new Promise(resolve => setTimeout(resolve, delays[attempt]));
+      if (!['EPERM', 'EACCES', 'EBUSY'].includes(error.code) || index >= delays.length || signal?.aborted) throw error;
+      await new Promise(resolve => setTimeout(resolve, delays[index]));
+      return attempt(index + 1);
     }
-  }
+  };
+  return attempt(0);
 }
 
 // Caller must hold the program's provisioning lock. Only a prefix of the exact
@@ -188,6 +200,105 @@ export async function installed(paths) {
   return regularFile(executable);
 }
 
+async function inspectInstallation(paths) {
+  try { return await installed(paths); } catch (error) {
+    if (error instanceof SyntaxError) {
+      const marker = join(paths.program, 'installed.json');
+      // A truncated legacy marker is not installation success. Retry package
+      // validation/installation before committing a new marker; never run it.
+      const partial = await readFile(marker, 'utf8');
+      if (!installedSnapshot.startsWith(partial)) throw error;
+      await rm(marker);
+      return undefined;
+    }
+    if (error.code !== 'ENOENT') throw error;
+    return undefined;
+  }
+}
+
+async function ensureRuntimeArchive(paths, signal) {
+  const archive = join(paths.program, `hermes_plugin_qdrant_memory-${runtime.version}-py3-none-any.whl`);
+  // Clear an interrupted temporary download even if the verified artifact
+  // survived. The provisioning lock owns only this program transaction.
+  await rm(archive + '.pending', { force: true });
+  try { await regularFile(archive); verifyArtifact(await readFile(archive), runtime); }
+  catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+    // Publish the archive only after the full download is on disk, so an
+    // interrupted write can never leave a partial archive that blocks retries.
+    const temporaryArchive = archive + '.pending';
+    await rm(temporaryArchive, { force: true });
+    await writeFile(temporaryArchive, await download(runtime, signal), { mode: 0o600 });
+    await publishRename(temporaryArchive, archive, signal);
+  }
+  return archive;
+}
+
+async function ensureFastembedCompat(paths, python, env, signal) {
+  const compat = runtime.fastembed_compat;
+  const wheels = join(paths.program, 'compat-wheels');
+  await privateDirectory(wheels);
+  const wheel = join(wheels, `fastembed-${compat.version}-py3-none-any.whl`);
+  const wheelSpec = { size: compat.wheel_size, sha256: compat.wheel_sha256 };
+  try { await regularFile(wheel); verifyArtifact(await readFile(wheel), wheelSpec); }
+  catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+    // Reuse the Runtime's reviewed builder. Verify its immutable source
+    // before execution and its wheel before passing any input to pip.
+    const builder = join(paths.program, 'build_fastembed_compat.py');
+    await publishSnapshot(builder, (await download(compat, signal)).toString('utf8'));
+    const pending = join(paths.program, 'compat-wheels.pending');
+    await privateDirectory(pending);
+    const pendingWheel = join(pending, basename(wheel));
+    await rm(pendingWheel, { force: true });
+    await run(python, ['-I', builder, '--output-dir', pending], { env, signal });
+    await regularFile(pendingWheel);
+    verifyArtifact(await readFile(pendingWheel), wheelSpec);
+    await publishRename(pendingWheel, wheel, signal);
+  }
+  return { compat, wheel };
+}
+
+async function installRuntime(paths, env, signal, enter) {
+  const spec = BOOTSTRAPS[`${process.platform}-${process.arch}`];
+  if (!spec) throw new Error('Unsupported managed platform');
+  const uv = join(paths.program, process.platform === 'win32' ? 'uv.exe' : 'uv');
+  enter('download-bootstrap');
+  // Publish only a fully verified regular executable, never an archive path.
+  const bytes = extractExecutable(await download(spec, signal), `uv-${UV_VERSION}.data/scripts/${process.platform === 'win32' ? 'uv.exe' : 'uv'}`);
+  const temporary = uv + '.pending';
+  // A stopped probe can leave a stale temporary file; the held lock makes removal safe.
+  await rm(temporary, { force: true });
+  await writeFile(temporary, bytes, { flag: 'wx', mode: 0o700 });
+  if (await lstat(uv).catch(error => { if (error.code !== 'ENOENT') throw error; })) await regularFile(uv);
+  await publishRename(temporary, uv, signal);
+  enter('install-python');
+  await run(uv, ['python', 'install', PYTHON_VERSION, '--no-bin'], { env, signal });
+  const python = await run(uv, ['python', 'find', '--system', PYTHON_VERSION], { env, signal });
+  const inside = relative(await realpath(paths.program), await realpath(python));
+  if (!inside || inside.startsWith('..') || isAbsolute(inside)) throw new Error('Python escaped managed root');
+  // A client may stop a probe after discovery, interrupting preparation.
+  // Resume only this revision-owned environment; never clear its contents.
+  await run(uv, ['venv', '--allow-existing', '--python', python, join(paths.program, 'env')], { env, signal });
+  enter('download-runtime');
+  const archive = await ensureRuntimeArchive(paths, signal);
+  const environmentPython = join(paths.program, 'env', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python');
+  enter('build-fastembed-compat');
+  const { compat, wheel } = await ensureFastembedCompat(paths, python, env, signal);
+  // Install wheels only. The compatibility build changes no inference code.
+  const resolvedRequirements = fastembedRequirement(wheel, compat, runtimeRequirement(archive));
+  const lockfile = join(paths.program, 'requirements.lock');
+  await publishSnapshot(lockfile, resolvedRequirements);
+  enter('install-runtime');
+  await run(uv, ['pip', 'install', '--python', environmentPython, '--no-deps', '--no-build-isolation', '--require-hashes',
+    '--only-binary=:all:',
+    '-r', lockfile], { env, signal });
+  await run(uv, ['pip', 'check', '--python', environmentPython], { env, signal });
+  await rm(archive);
+  await publishSnapshot(join(paths.program, 'installed.json'), installedSnapshot);
+  return installed(paths);
+}
+
 export async function prepare(paths, host, signal, onStage = () => {}) {
   if (!hosts.has(host)) throw new Error('Unknown host');
   await privateDirectory(paths.program);
@@ -197,90 +308,9 @@ export async function prepare(paths, host, signal, onStage = () => {}) {
   let stage = 'inspect-installation';
   const enter = value => { stage = value; onStage(value); };
   try {
-    let executable;
-    try { executable = await installed(paths); } catch (error) {
-      if (error instanceof SyntaxError) {
-        const marker = join(paths.program, 'installed.json');
-        // A truncated legacy marker is not installation success. Retry package
-        // validation/installation before committing a new marker; never run it.
-        const partial = await readFile(marker, 'utf8');
-        if (!installedSnapshot.startsWith(partial)) throw error;
-        await rm(marker);
-      } else if (error.code !== 'ENOENT') throw error;
-    }
+    let executable = await inspectInstallation(paths);
     const env = installEnvironment(paths.program);
-    if (!executable) {
-      const spec = BOOTSTRAPS[`${process.platform}-${process.arch}`];
-      if (!spec) throw new Error('Unsupported managed platform');
-      const uv = join(paths.program, process.platform === 'win32' ? 'uv.exe' : 'uv');
-      enter('download-bootstrap');
-      // Publish only a fully verified regular executable, never an archive path.
-      const bytes = extractExecutable(await download(spec, signal), `uv-${UV_VERSION}.data/scripts/${process.platform === 'win32' ? 'uv.exe' : 'uv'}`);
-      const temporary = uv + '.pending';
-      // A stopped probe can leave a stale temporary file; the held lock makes removal safe.
-      await rm(temporary, { force: true });
-      await writeFile(temporary, bytes, { flag: 'wx', mode: 0o700 });
-      if (await lstat(uv).catch(error => { if (error.code !== 'ENOENT') throw error; })) await regularFile(uv);
-      await publishRename(temporary, uv, signal);
-      enter('install-python');
-      await run(uv, ['python', 'install', PYTHON_VERSION, '--no-bin'], { env, signal });
-      const python = await run(uv, ['python', 'find', '--system', PYTHON_VERSION], { env, signal });
-      const inside = relative(await realpath(paths.program), await realpath(python));
-      if (!inside || inside.startsWith('..') || isAbsolute(inside)) throw new Error('Python escaped managed root');
-      // A client may stop a probe after discovery, interrupting preparation.
-      // Resume only this revision-owned environment; never clear its contents.
-      await run(uv, ['venv', '--allow-existing', '--python', python, join(paths.program, 'env')], { env, signal });
-      enter('download-runtime');
-      const archive = join(paths.program, `hermes_plugin_qdrant_memory-${runtime.version}-py3-none-any.whl`);
-      // Clear an interrupted temporary download even if the verified artifact
-      // survived. The provisioning lock owns only this program transaction.
-      await rm(archive + '.pending', { force: true });
-      try { await regularFile(archive); verifyArtifact(await readFile(archive), runtime); }
-      catch (error) {
-        if (error.code !== 'ENOENT') throw error;
-        // Publish the archive only after the full download is on disk, so an
-        // interrupted write can never leave a partial archive that blocks retries.
-        const temporaryArchive = archive + '.pending';
-        await rm(temporaryArchive, { force: true });
-        await writeFile(temporaryArchive, await download(runtime, signal), { mode: 0o600 });
-        await publishRename(temporaryArchive, archive, signal);
-      }
-      const environmentPython = join(paths.program, 'env', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python');
-      enter('build-fastembed-compat');
-      const compat = runtime.fastembed_compat;
-      const wheels = join(paths.program, 'compat-wheels');
-      await privateDirectory(wheels);
-      const wheel = join(wheels, `fastembed-${compat.version}-py3-none-any.whl`);
-      const wheelSpec = { size: compat.wheel_size, sha256: compat.wheel_sha256 };
-      try { await regularFile(wheel); verifyArtifact(await readFile(wheel), wheelSpec); }
-      catch (error) {
-        if (error.code !== 'ENOENT') throw error;
-        // Reuse the Runtime's reviewed builder. Verify its immutable source
-        // before execution and its wheel before passing any input to pip.
-        const builder = join(paths.program, 'build_fastembed_compat.py');
-        await publishSnapshot(builder, (await download(compat, signal)).toString('utf8'));
-        const pending = join(paths.program, 'compat-wheels.pending');
-        await privateDirectory(pending);
-        const pendingWheel = join(pending, basename(wheel));
-        await rm(pendingWheel, { force: true });
-        await run(python, ['-I', builder, '--output-dir', pending], { env, signal });
-        await regularFile(pendingWheel);
-        verifyArtifact(await readFile(pendingWheel), wheelSpec);
-        await publishRename(pendingWheel, wheel, signal);
-      }
-      // Install wheels only. The compatibility build changes no inference code.
-      const resolvedRequirements = fastembedRequirement(wheel, compat, runtimeRequirement(archive));
-      const lockfile = join(paths.program, 'requirements.lock');
-      await publishSnapshot(lockfile, resolvedRequirements);
-      enter('install-runtime');
-      await run(uv, ['pip', 'install', '--python', environmentPython, '--no-deps', '--no-build-isolation', '--require-hashes',
-        '--only-binary=:all:',
-        '-r', lockfile], { env, signal });
-      await run(uv, ['pip', 'check', '--python', environmentPython], { env, signal });
-      await rm(archive);
-      await publishSnapshot(join(paths.program, 'installed.json'), installedSnapshot);
-      executable = await installed(paths);
-    }
+    if (!executable) executable = await installRuntime(paths, env, signal, enter);
     await privateDirectory(dirname(paths.profile));
     const models = await modelCache(paths);
     await privateDirectory(models);

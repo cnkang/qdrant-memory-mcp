@@ -29,10 +29,11 @@ export async function main(args) {
 }
 
 if (process.argv[1] && pathToFileURL(await realpath(process.argv[1])).href === import.meta.url) {
-  main(process.argv.slice(2)).catch(error => {
+  try { await main(process.argv.slice(2)); }
+  catch (error) {
     // Keep the message bounded: only the internal stage label may be added.
     const stage = error && typeof error.stage === 'string' && /^[a-z][a-z-]*$/.test(error.stage) ? ` Failed stage: ${error.stage}.` : '';
     console.error(`Qdrant Memory launcher failed. Check command, preparation, network, disk space and profile ownership. No profile was reset.${stage}`);
     process.exitCode = 1;
-  });
+  }
 }
