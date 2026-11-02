@@ -10,8 +10,6 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 from test_protocol import test_stdout_is_jsonrpc_only as exercise_stdout
 
-pytest_plugins = ["test_protocol"]
-
 
 def is_error(result):
     """Read the tool error flag across MCP SDK 1.x (isError) and 2.x (is_error)."""

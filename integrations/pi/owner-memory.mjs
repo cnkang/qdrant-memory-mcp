@@ -71,9 +71,9 @@ export function ownerRequest(mode, value, env = process.env) {
     child.on("close", code => {
       clearTimeout(timer);
       try {
-        if (code !== 0) throw new Error();
+        if (code !== 0) throw new Error("Owner Runtime exited before returning a result");
         const result = JSON.parse(output);
-        if (!result || result.error) throw new Error();
+        if (!result || result.error) throw new Error("Owner Runtime returned an error result");
         resolvePromise(result);
       } catch { reject(new Error("Owner request failed; pending event retained")); }
     });

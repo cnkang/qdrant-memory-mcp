@@ -47,7 +47,7 @@ jobs:
           persist-credentials: false
       - name: Install the reviewed Runtime and the exact Pi family
         run: |
-          python -m pip install './.scratch/owner-runtime[remote]' 'pytest>=8,<10' 'PyYAML>=6,<7' 'requests>=2,<3' 'ruamel.yaml>=0.18,<0.20'
+          python -m pip install --only-binary=:all: './.scratch/owner-runtime[remote]' 'pytest==9.2.0' 'PyYAML==6.0.3' 'requests==2.34.2' 'ruamel.yaml==0.19.1'
           npm ci --prefix integrations/agent-hosts --ignore-scripts --no-audit --no-fund
       - name: Actual Pi session lifecycle with deterministic model provider
         run: node --test tests/test_pi_owner_extension.mjs tests/test_pi_owner_transport.mjs tests/test_pi_owner_host.mjs
@@ -92,13 +92,17 @@ jobs:
           path: .scratch/canonical-skills
           persist-credentials: false
       - name: Install published Python MCP and test dependencies
-        run: python -m pip install . 'pytest>=8,<10' 'requests>=2,<3' 'jsonschema>=4,<5'
+        run: "python -m pip install --only-binary=:all: . 'pytest==9.2.0' 'requests==2.34.2' 'jsonschema==4.26.0'"
       - name: Install exact official DSH client and Skill provider
         working-directory: integrations/dsh
         run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Ensure pnpm for the official DSH plugin manager
         shell: bash
-        run: pnpm --version || npm install --global pnpm@12.14.0
+        run: |
+          if pnpm --version; then exit 0; fi
+          # pnpm ships a placeholder binary; its own installer is what materialises the
+          # host binary and the Windows shims, so this install must keep its scripts.
+          npm install --global pnpm@12.14.0
       - name: Artifact, cold handshake, host isolation and secret boundaries
         run: node --test tests/test_managed_bootstrap.mjs tests/test_managed_launcher.mjs
       - name: Require a complete and clean npm payload
@@ -147,7 +151,13 @@ jobs:
           mkdir -p "$LAUNCHER_TEST_ROOT"
           cd integrations/managed
           npm pack --ignore-scripts --pack-destination "$LAUNCHER_TEST_ROOT"
-          npm install --prefix "$LAUNCHER_TEST_ROOT" --ignore-scripts --no-audit --no-fund "$LAUNCHER_TEST_ROOT"/*.tgz
+          cd "$LAUNCHER_TEST_ROOT"
+          # The packed archive is the whole payload and exactly this commit, so declare it
+          # by filename (a local reference, not a registry range), lock that single
+          # resolution, and install from the lock instead of resolving at install time.
+          node -e 'const fs=require("node:fs");const archive=fs.readdirSync(".").find((name)=>name.endsWith(".tgz"));const manifest={name:"launcher-acceptance",private:true,dependencies:{"@cnkang/qdrant-memory-launcher":"file:./"+archive}};fs.writeFileSync("package.json",JSON.stringify(manifest,null,2)+"\n");'
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          npm ci --ignore-scripts --no-audit --no-fund
       - name: Fresh shared program and isolated host profiles
         shell: bash
         env:
@@ -224,7 +234,7 @@ jobs:
           path: .scratch/runtime
           persist-credentials: false
       - name: Install standalone Runtime and existing-host test dependencies
-        run: python -m pip install . './.scratch/runtime[mcp]' 'pytest>=8,<10' 'PyYAML>=6,<7' 'requests>=2,<3'
+        run: "python -m pip install --only-binary=:all: . './.scratch/runtime[mcp]' 'pytest==9.2.0' 'PyYAML==6.0.3' 'requests==2.34.2'"
       - name: Install exact OpenCode and Pi CLIs
         working-directory: integrations/agent-hosts
         run: |

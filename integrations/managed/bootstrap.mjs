@@ -44,13 +44,58 @@ function bounds(bytes, offset, size) {
   }
 }
 
+function findEndRecord(bytes) {
+  for (let cursor = bytes.length - 22; cursor >= Math.max(0, bytes.length - 65557); cursor--) {
+    if (bytes.readUInt32LE(cursor) === 0x06054b50) return cursor;
+  }
+  throw new Error('ZIP end record missing');
+}
+
+function centralEntry(bytes, cursor) {
+  bounds(bytes, cursor, 46);
+  if (bytes.readUInt32LE(cursor) !== 0x02014b50) throw new Error('Invalid ZIP directory');
+  const flags = bytes.readUInt16LE(cursor + 8);
+  const method = bytes.readUInt16LE(cursor + 10);
+  const compressed = bytes.readUInt32LE(cursor + 20);
+  const expanded = bytes.readUInt32LE(cursor + 24);
+  const nameSize = bytes.readUInt16LE(cursor + 28);
+  const extraSize = bytes.readUInt16LE(cursor + 30);
+  const commentSize = bytes.readUInt16LE(cursor + 32);
+  const mode = bytes.readUInt32LE(cursor + 38) >>> 16;
+  const localOffset = bytes.readUInt32LE(cursor + 42);
+  bounds(bytes, cursor + 46, nameSize + extraSize + commentSize);
+  const name = bytes.subarray(cursor + 46, cursor + 46 + nameSize).toString('utf8');
+  if (name.startsWith('/') || /^[A-Za-z]:/.test(name) || name.includes('\\') || name.includes('\0')
+      || name.split('/').includes('..') || (mode & 0xf000) === 0xa000 || flags & 1) {
+    throw new Error('Unsafe ZIP member');
+  }
+  return { flags, method, compressed, expanded, mode, localOffset, name,
+    length: 46 + nameSize + extraSize + commentSize };
+}
+
+function executableContent(bytes, entry) {
+  if (![0, 0x8000].includes(entry.mode & 0xf000) || ![0, 8].includes(entry.method)
+      || entry.expanded > 64 * 1024 * 1024) throw new Error('Invalid executable entry');
+  bounds(bytes, entry.localOffset, 30);
+  if (bytes.readUInt32LE(entry.localOffset) !== 0x04034b50
+      || bytes.readUInt16LE(entry.localOffset + 6) !== entry.flags
+      || bytes.readUInt16LE(entry.localOffset + 8) !== entry.method) throw new Error('Invalid ZIP local header');
+  const localNameSize = bytes.readUInt16LE(entry.localOffset + 26);
+  const localExtraSize = bytes.readUInt16LE(entry.localOffset + 28);
+  bounds(bytes, entry.localOffset + 30, localNameSize + localExtraSize + entry.compressed);
+  if (bytes.subarray(entry.localOffset + 30, entry.localOffset + 30 + localNameSize).toString('utf8') !== entry.name) {
+    throw new Error('ZIP local path mismatch');
+  }
+  const start = entry.localOffset + 30 + localNameSize + localExtraSize;
+  const content = bytes.subarray(start, start + entry.compressed);
+  const executable = entry.method === 0 ? content : inflateRawSync(content, { maxOutputLength: 64 * 1024 * 1024 });
+  if (executable.length !== entry.expanded) throw new Error('Invalid executable size');
+  return executable;
+}
+
 export function extractExecutable(bytes, expectedName) {
   // Read one regular file into memory. No archive paths are written to disk.
-  let end = -1;
-  for (let cursor = bytes.length - 22; cursor >= Math.max(0, bytes.length - 65557); cursor--) {
-    if (bytes.readUInt32LE(cursor) === 0x06054b50) { end = cursor; break; }
-  }
-  if (end < 0) throw new Error('ZIP end record missing');
+  const end = findEndRecord(bytes);
   const count = bytes.readUInt16LE(end + 10);
   const centralSize = bytes.readUInt32LE(end + 12);
   let cursor = bytes.readUInt32LE(end + 16);
@@ -61,42 +106,12 @@ export function extractExecutable(bytes, expectedName) {
   }
   let executable;
   for (let index = 0; index < count; index++) {
-    bounds(bytes, cursor, 46);
-    if (bytes.readUInt32LE(cursor) !== 0x02014b50) throw new Error('Invalid ZIP directory');
-    const flags = bytes.readUInt16LE(cursor + 8);
-    const method = bytes.readUInt16LE(cursor + 10);
-    const compressed = bytes.readUInt32LE(cursor + 20);
-    const expanded = bytes.readUInt32LE(cursor + 24);
-    const nameSize = bytes.readUInt16LE(cursor + 28);
-    const extraSize = bytes.readUInt16LE(cursor + 30);
-    const commentSize = bytes.readUInt16LE(cursor + 32);
-    const mode = bytes.readUInt32LE(cursor + 38) >>> 16;
-    const localOffset = bytes.readUInt32LE(cursor + 42);
-    bounds(bytes, cursor + 46, nameSize + extraSize + commentSize);
-    const name = bytes.subarray(cursor + 46, cursor + 46 + nameSize).toString('utf8');
-    if (name.startsWith('/') || /^[A-Za-z]:/.test(name) || name.includes('\\') || name.includes('\0')
-        || name.split('/').includes('..') || (mode & 0xf000) === 0xa000 || flags & 1) {
-      throw new Error('Unsafe ZIP member');
+    const entry = centralEntry(bytes, cursor);
+    if (entry.name === expectedName) {
+      if (executable) throw new Error('Invalid executable entry');
+      executable = executableContent(bytes, entry);
     }
-    if (name === expectedName) {
-      if (executable || ![0, 0x8000].includes(mode & 0xf000) || ![0, 8].includes(method)
-          || expanded > 64 * 1024 * 1024) throw new Error('Invalid executable entry');
-      bounds(bytes, localOffset, 30);
-      if (bytes.readUInt32LE(localOffset) !== 0x04034b50
-          || bytes.readUInt16LE(localOffset + 6) !== flags
-          || bytes.readUInt16LE(localOffset + 8) !== method) throw new Error('Invalid ZIP local header');
-      const localNameSize = bytes.readUInt16LE(localOffset + 26);
-      const localExtraSize = bytes.readUInt16LE(localOffset + 28);
-      bounds(bytes, localOffset + 30, localNameSize + localExtraSize + compressed);
-      if (bytes.subarray(localOffset + 30, localOffset + 30 + localNameSize).toString('utf8') !== name) {
-        throw new Error('ZIP local path mismatch');
-      }
-      const start = localOffset + 30 + localNameSize + localExtraSize;
-      const content = bytes.subarray(start, start + compressed);
-      executable = method === 0 ? content : inflateRawSync(content, { maxOutputLength: 64 * 1024 * 1024 });
-      if (executable.length !== expanded) throw new Error('Invalid executable size');
-    }
-    cursor += 46 + nameSize + extraSize + commentSize;
+    cursor += entry.length;
   }
   if (!executable) throw new Error('Bootstrap executable missing');
   return executable;

@@ -146,7 +146,8 @@ def test_tag_build_leaves_public_acceptance_to_protected_publisher():
     assert "WORKBUDDY_TEST_UVX" not in workflow
     publisher = (ROOT / ".github/workflows/publish.yml").read_text(encoding="utf-8")
     assert "DIST_TEST_UVX=1" in publisher
-    assert "environment: pypi" in publisher and "environment: mcp-registry" in publisher
+    assert "environment: pypi" in publisher
+    assert "environment: mcp-registry" in publisher
 
 
 def test_launcher_pin_reports_unverified_when_unpublished(monkeypatch):

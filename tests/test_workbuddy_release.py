@@ -42,28 +42,32 @@ def test_validate_existing_tag_at_clean_merged_head(source):
 
 @pytest.mark.parametrize('tag', ['1.2.3', 'v01.2.3', 'v1.2.4', 'v1.2.3-other'])
 def test_invalid_or_mismatched_tag(source, tag):
+    release = module()
     with pytest.raises(ValueError):
-        module().validate_source(source, tag)
+        release.validate_source(source, tag)
 
 
 def test_dirty_tracked_tree_rejected(source):
     (source / 'pyproject.toml').write_text('[project]\nversion = "1.2.3"\n# dirty\n')
+    release = module()
     with pytest.raises(ValueError, match='tracked'):
-        module().validate_source(source, 'v1.2.3')
+        release.validate_source(source, 'v1.2.3')
 
 
 def test_tag_must_match_head(source):
     (source / 'other').write_text('new')
     git(source, 'add', '.')
     git(source, 'commit', '-m', 'next')
+    release = module()
     with pytest.raises(ValueError, match='checkout'):
-        module().validate_source(source, 'v1.2.3')
+        release.validate_source(source, 'v1.2.3')
 
 
 def test_commit_must_be_on_main(source):
     git(source, 'update-ref', '-d', 'refs/remotes/origin/main')
+    release = module()
     with pytest.raises(ValueError, match='main'):
-        module().validate_source(source, 'v1.2.3')
+        release.validate_source(source, 'v1.2.3')
 
 
 class API:
@@ -123,16 +127,18 @@ def test_all_assets_compared_before_any_upload(paths):
     api = API()
     api.assets = [{'id': 1, 'name': paths[1].name}]
     api.payloads[1] = b'wrong'
+    release = module()
     with pytest.raises(ValueError, match='differs'):
-        module().attach_assets(api, 'v1.2.3', 'sha', '', paths)
+        release.attach_assets(api, 'v1.2.3', 'sha', '', paths)
     assert not api.writes
 
 
 @pytest.mark.parametrize('draft,immutable', [(False, False), (True, True)])
 def test_missing_assets_on_published_or_immutable_release_fail(paths, draft, immutable):
     api = API(draft, immutable)
+    release = module()
     with pytest.raises(ValueError, match='new approved'):
-        module().attach_assets(api, 'v1.2.3', 'sha', '', paths)
+        release.attach_assets(api, 'v1.2.3', 'sha', '', paths)
     assert not api.writes
 
 
@@ -152,8 +158,9 @@ def test_release_rechecked_before_each_upload(paths):
         upload(current, path)
         api.release['draft'] = False
     api.upload_asset = publish
+    release = module()
     with pytest.raises(ValueError, match='Draft'):
-        module().attach_assets(api, 'v1.2.3', 'sha', '', paths)
+        release.attach_assets(api, 'v1.2.3', 'sha', '', paths)
     assert api.writes == ['test.zip']
 
 
@@ -231,8 +238,9 @@ def test_invalid_asset_directory_rejected_before_api(asset_source, problem):
             else:
                 output.writestr('../evil', '{}')
         checksum.write_text(hashlib.sha256(archive.read_bytes()).hexdigest() + '  ' + archive.name + '\n')
+    release = module()
     with pytest.raises(ValueError):
-        module().validate_assets(root, directory, 'v1.2.3')
+        release.validate_assets(root, directory, 'v1.2.3')
 
 
 def test_remote_tag_verified_before_create(paths):
@@ -241,8 +249,9 @@ def test_remote_tag_verified_before_create(paths):
     def mismatch(tag, sha):
         raise ValueError('Remote tag mismatch')
     api.verify_tag = mismatch
+    release = module()
     with pytest.raises(ValueError, match='Remote tag'):
-        module().attach_assets(api, 'v1.2.3', 'sha', '', paths)
+        release.attach_assets(api, 'v1.2.3', 'sha', '', paths)
     assert not api.writes
 
 
@@ -266,8 +275,9 @@ def test_post_upload_verification_detects_corruption(paths):
         upload(current, path)
         api.payloads[len(api.assets)] = b'corrupt'
     api.upload_asset = corrupt
+    release = module()
     with pytest.raises(ValueError, match='verification failed'):
-        module().attach_assets(api, 'v1.2.3', 'sha', '', paths)
+        release.attach_assets(api, 'v1.2.3', 'sha', '', paths)
 
 
 def test_archive_manifest_and_launch_config_must_match_inputs(asset_source):
@@ -281,8 +291,9 @@ def test_archive_manifest_and_launch_config_must_match_inputs(asset_source):
         for name, data in files.items():
             output.writestr(name, data)
     checksum.write_text(hashlib.sha256(archive.read_bytes()).hexdigest() + '  ' + archive.name + '\n')
+    release = module()
     with pytest.raises(ValueError, match='launch'):
-        module().validate_assets(root, directory, 'v1.2.3')
+        release.validate_assets(root, directory, 'v1.2.3')
 
 
 @pytest.mark.parametrize('annotated', [False, True])
@@ -312,8 +323,9 @@ def test_api_resolves_existing_remote_tag_without_writes(annotated):
 def test_duplicate_remote_assets_fail_without_mutation(paths):
     api = API()
     api.assets = [{'id': 1, 'name': paths[0].name}, {'id': 2, 'name': paths[0].name}]
+    release = module()
     with pytest.raises(ValueError, match='Duplicate'):
-        module().attach_assets(api, 'v1.2.3', 'sha', '', paths)
+        release.attach_assets(api, 'v1.2.3', 'sha', '', paths)
     assert not api.writes
 
 
@@ -328,8 +340,9 @@ def test_check_source_does_not_require_token_or_api(source, monkeypatch):
 def test_runtime_provenance_must_match_runtime_source(asset_source):
     root, directory, archive, checksum = asset_source
     (root / 'runtime-source.json').write_text('{"version": "9.9.9"}')
+    release = module()
     with pytest.raises(ValueError, match='runtime'):
-        module().validate_assets(root, directory, 'v1.2.3')
+        release.validate_assets(root, directory, 'v1.2.3')
 
 
 def test_release_readers_are_independent_of_windows_codepage(asset_source, source, monkeypatch):
@@ -348,7 +361,8 @@ def test_release_readers_are_independent_of_windows_codepage(asset_source, sourc
     release.validate_source(source, 'v1.2.3')
     root, directory, archive, checksum = asset_source
     release.validate_assets(root, directory, 'v1.2.3')
-    assert encodings and all(encoding == 'utf-8' for encoding in encodings)
+    assert encodings
+    assert all(encoding == 'utf-8' for encoding in encodings)
 
 
 @pytest.mark.parametrize('required', ['icon.svg', 'skills/qdrant-memory/LICENSE', 'skills/qdrant-memory/SKILL.md'])
@@ -361,8 +375,9 @@ def test_release_archive_requires_icon_skill_and_license(asset_source, required)
         for name, data in files.items():
             output.writestr(name, data)
     checksum.write_text(hashlib.sha256(archive.read_bytes()).hexdigest() + '  ' + archive.name + '\n')
+    release = module()
     with pytest.raises(ValueError):
-        module().validate_assets(root, directory, 'v1.2.3')
+        release.validate_assets(root, directory, 'v1.2.3')
 
 
 @pytest.mark.parametrize('mode,name', [(0o010644, 'fifo'), (0o020644, 'device'), (0o040755, 'directory'), (0o100644, 'empty//part'), (0o100644, 'trailing/')])
@@ -375,5 +390,6 @@ def test_archive_rejects_special_files_and_blank_path_parts(asset_source, mode, 
         entry.external_attr = mode << 16
         output.writestr(entry, b'unsafe')
     checksum.write_text(hashlib.sha256(archive.read_bytes()).hexdigest() + '  ' + archive.name + '\n')
+    release = module()
     with pytest.raises(ValueError):
-        module().validate_assets(root, directory, 'v1.2.3')
+        release.validate_assets(root, directory, 'v1.2.3')

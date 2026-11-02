@@ -7,8 +7,6 @@ import subprocess
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
-pytest_plugins = ["test_protocol"]
-
 
 def test_registry_default_profile_launch(sandbox):
     profile, _, _, env, launch, _, _ = sandbox

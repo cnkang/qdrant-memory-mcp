@@ -39,7 +39,8 @@ def test_bundle_manifest_and_patch_contract():
     # DSH provisioning stays an explicit prepare step; the probe must not
     # download, and the local preset needs no credential injection.
     assert "--auto-setup" not in patch
-    assert "!!js" not in patch and "env:" not in patch
+    assert "!!js" not in patch
+    assert "env:" not in patch
     assert "reconnect:" not in patch
     assert (ROOT / "integrations/dsh/bundle/LICENSE").read_bytes() == (ROOT / "LICENSE").read_bytes()
 

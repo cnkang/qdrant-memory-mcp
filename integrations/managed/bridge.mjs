@@ -22,7 +22,7 @@ export async function bridge(startBackend, input = process.stdin, output = proce
     if (closed) return;
     closed = true;
     abort.abort();
-    if (backend && backend.exitCode === null && backend.signalCode === null) {
+    if (backend?.exitCode === null && backend.signalCode === null) {
       backend.stdin.end();
       // Allow Runtime to close storage/lease normally before SDK-style escalation.
       const term = setTimeout(() => backend.kill('SIGTERM'), 3000);
@@ -36,28 +36,18 @@ export async function bridge(startBackend, input = process.stdin, output = proce
   process.once('SIGTERM', onSignal);
   process.once('SIGINT', onSignal);
   lines.on('close', shutdown);
-  lines.on('line', line => {
-    if (closed) return;
-    let message;
-    try { message = JSON.parse(line); } catch { send({ id: null, error: { code: -32700, message: 'Parse error' } }); return; }
-    if (!message || typeof message !== 'object' || Array.isArray(message) || message.jsonrpc !== '2.0') {
-      send({ id: null, error: { code: -32600, message: 'Invalid request' } }); return;
+  const dispatchNotification = message => {
+    if (ready && message.method === 'notifications/cancelled') {
+      const entry = [...pending].find(([, id]) => id === message.params?.requestId);
+      if (entry) wire({ method: message.method, params: { ...message.params, requestId: entry[0] } });
     }
-    const hasId = Object.hasOwn(message, 'id');
-    if (!hasId) {
-      if (ready && message.method === 'notifications/cancelled') {
-        const entry = [...pending].find(([, id]) => id === message.params?.requestId);
-        if (entry) wire({ method: message.method, params: { ...message.params, requestId: entry[0] } });
-      }
-      return;
-    }
+  };
+  const dispatchRequest = message => {
     const { id, method } = message;
     if ((typeof id !== 'string' && (typeof id !== 'number' || !Number.isSafeInteger(id)))
         || typeof method !== 'string') {
       send({ id: null, error: { code: -32600, message: 'Invalid request' } });
-      return;
-    }
-    if (method === 'initialize') {
+    } else if (method === 'initialize') {
       initialized = true;
       const version = message.params?.protocolVersion;
       send({ id, result: { protocolVersion: ['2024-11-05', '2025-03-26', '2025-06-18', '2025-11-25'].includes(version) ? version : '2025-11-25',
@@ -73,6 +63,16 @@ export async function bridge(startBackend, input = process.stdin, output = proce
         wire({ id: internal, method, params: message.params });
       }
     } else send({ id, error: { code: -32601, message: 'Method not found' } });
+  };
+  lines.on('line', line => {
+    if (closed) return;
+    let message;
+    try { message = JSON.parse(line); } catch { send({ id: null, error: { code: -32700, message: 'Parse error' } }); return; }
+    if (!message || typeof message !== 'object' || Array.isArray(message) || message.jsonrpc !== '2.0') {
+      send({ id: null, error: { code: -32600, message: 'Invalid request' } }); return;
+    }
+    if (Object.hasOwn(message, 'id')) dispatchRequest(message);
+    else dispatchNotification(message);
   });
   void (async () => {
     try {

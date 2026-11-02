@@ -9,7 +9,8 @@ import tarfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-FILES = {"package.json", "cordis.patch.yml", "README.md", "LICENSE"}
+PACKAGE_JSON = "package.json"
+FILES = {PACKAGE_JSON, "cordis.patch.yml", "README.md", "LICENSE"}
 
 
 def inspect(archive, source):
@@ -27,7 +28,7 @@ def inspect(archive, source):
                 raise ValueError("Bundle input must be a regular file")
             if package.extractfile(member).read() != path.read_bytes():
                 raise ValueError("Bundle package differs from source")
-    meta = json.loads((source / "package.json").read_text(encoding="utf-8"))
+    meta = json.loads((source / PACKAGE_JSON).read_text(encoding="utf-8"))
     if meta.get("dsh", {}).get("bundle", {}).get("patch") != "./cordis.patch.yml":
         raise ValueError("Bundle manifest must declare the reviewed patch file")
     if meta.get("private"):
@@ -58,7 +59,7 @@ def main():
         raise ValueError("Output symlink forbidden")
     output.mkdir(parents=True, exist_ok=True)
     # Pack in a fresh destination: never replace an existing release artifact.
-    meta = json.loads((source / "package.json").read_text(encoding="utf-8"))
+    meta = json.loads((source / PACKAGE_JSON).read_text(encoding="utf-8"))
     filename = meta["name"].removeprefix("@").replace("/", "-") + "-" + meta["version"] + ".tgz"
     if (output / filename).exists():
         raise ValueError("Package already exists; choose a fresh output directory")

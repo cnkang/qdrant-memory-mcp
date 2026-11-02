@@ -73,7 +73,7 @@ test('classify a subprocess timeout without exposing the spawn error', () => {
   });
 });
 
-for (const name of ['../uv', '/uv', 'C:\\uv', 'safe/../../uv']) {
+for (const name of ['../uv', '/uv', String.raw`C:\uv`, 'safe/../../uv']) {
   test(`reject unsafe archive path ${name}`, () => {
     assert.throws(() => extractExecutable(wheel(name), name));
   });
@@ -105,7 +105,7 @@ test('reject unsupported compression and oversized executable entries', () => {
 
 test('reject mismatched local file names and truncated archives', () => {
   const bytes = wheel();
-  bytes[30] = 'X'.charCodeAt(0);
+  bytes[30] = 'X'.codePointAt(0);
   assert.throws(() => extractExecutable(bytes, 'uv-0.13.1.data/scripts/uv'));
   assert.throws(() => extractExecutable(bytes.subarray(0, 50), 'uv-0.13.1.data/scripts/uv'));
 });

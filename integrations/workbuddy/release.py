@@ -18,7 +18,21 @@ import requests
 import tomllib
 
 ROOT = Path(__file__).resolve().parents[2]
-SEMVER = r'(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?'
+CONNECTOR_META = 'connector-meta.json'
+# ASCII-only \d keeps the accepted version language byte-identical to [0-9].
+CORE_VERSION = r'(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)'
+IDENTIFIERS = r'[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*'
+
+
+def is_semver(value: str) -> bool:
+    """Match SemVer 2.0.0 in three simple parts; one combined pattern is too complex."""
+    base, plus, build = value.partition('+')
+    core, dash, prerelease = base.partition('-')
+    if not re.fullmatch(CORE_VERSION, core, re.ASCII):
+        return False
+    if dash and not re.fullmatch(IDENTIFIERS, prerelease):
+        return False
+    return not plus or bool(re.fullmatch(IDENTIFIERS, build))
 
 
 def git(root: Path, *args: str) -> str:
@@ -27,7 +41,7 @@ def git(root: Path, *args: str) -> str:
 
 def validate_source(root: Path, tag: str, main_ref: str = 'refs/remotes/origin/main') -> tuple[str, str]:
     version = tomllib.loads((root / 'pyproject.toml').read_text(encoding='utf-8'))['project']['version']
-    if not re.fullmatch('v' + SEMVER, tag) or tag != 'v' + version:
+    if not tag.startswith('v') or not is_semver(tag[1:]) or tag != 'v' + version:
         raise ValueError('Release tag must be vSemVer matching pyproject.toml version')
     try:
         sha = git(root, 'rev-parse', '--verify', f'refs/tags/{tag}^{{commit}}')
@@ -42,28 +56,26 @@ def validate_source(root: Path, tag: str, main_ref: str = 'refs/remotes/origin/m
     return sha, f'WorkBuddy connector assets for {tag}. Publication remains a maintainer decision.'
 
 
-def validate_assets(root: Path, directory: Path, tag: str) -> list[Path]:
-    """Check the already-built artifact; never execute or import a builder."""
-    project = tomllib.loads((root / 'pyproject.toml').read_text(encoding='utf-8'))['project']
-    config = root / 'integrations/workbuddy'
-    meta = json.loads((config / 'connector-meta.json').read_text(encoding='utf-8'))
-    skill = json.loads((config / 'skill-source.json').read_text(encoding='utf-8'))
-    launcher = json.loads((root / 'launcher-source.json').read_text(encoding='utf-8'))
+def launcher_pin(launcher: dict) -> dict:
+    """Reject a launcher pin that is not the reviewed package and digest."""
     if set(launcher) != {'name', 'version', 'integrity'} or launcher['name'] != '@cnkang/qdrant-memory-launcher' \
-            or not re.fullmatch(SEMVER, launcher['version']) or not re.fullmatch(r'sha512-[A-Za-z0-9+/]+={0,2}', launcher['integrity']):
+            or not is_semver(launcher['version']) or not re.fullmatch(r'sha512-[A-Za-z0-9+/]+={0,2}', launcher['integrity']):
         raise ValueError('Launcher source pin is malformed')
-    version = project['version']
-    connector = meta['version']
-    if tag != 'v' + version or not re.fullmatch(SEMVER, connector):
-        raise ValueError('Asset versions do not match release metadata')
-    runtime = [re.fullmatch(r'hermes-plugin-qdrant-memory\[mcp\]==(.+)', dependency)
+    return launcher
+
+
+def runtime_pin(project: dict) -> str:
+    """Return the single runtime version pinned by the declared dependencies."""
+    matches = [re.fullmatch(r'hermes-plugin-qdrant-memory\[mcp\]==(.+)', dependency)
                for dependency in project.get('dependencies', [])]
-    runtime = [match.group(1) for match in runtime if match]
-    if len(runtime) != 1:
+    versions = [match.group(1) for match in matches if match]
+    if len(versions) != 1:
         raise ValueError('Expected exactly one pinned runtime dependency')
-    if json.loads((root / 'runtime-source.json').read_text(encoding='utf-8'))['version'] != runtime[0]:
-        raise ValueError('Pinned runtime does not match runtime-source.json')
-    name = f'qdrant-memory-workbuddy-connector-v{connector}-mcp-v{version}.zip'
+    return versions[0]
+
+
+def checked_assets(directory: Path, name: str) -> list[Path]:
+    """Return the ZIP and checksum after binding the directory, names and digest."""
     if any(path.is_symlink() for path in [directory, *directory.parents]) or not directory.is_dir():
         raise ValueError('Asset directory must be a real directory')
     paths = [directory / name, directory / (name + '.sha256')]
@@ -75,48 +87,77 @@ def validate_assets(root: Path, directory: Path, tag: str) -> list[Path]:
     digest = hashlib.sha256(paths[0].read_bytes()).hexdigest()
     if paths[1].read_text(encoding='utf-8') != f'{digest}  {name}\n':
         raise ValueError('Asset checksum or checksum filename does not match')
+    return paths
+
+
+def checked_members(members: list[zipfile.ZipInfo]) -> list[str]:
+    """Return member names after the root, file type and size review."""
+    names = [member.filename for member in members]
+    if len(names) != len(set(names)) or not names:
+        raise ValueError('Archive has duplicate or missing members')
+    for member in members:
+        parts = member.filename.split('/')
+        if (parts[0] != 'qdrant-memory-workbuddy' or len(parts) < 2
+                or any(part in ('', '.', '..') for part in parts)
+                or '\\' in member.filename
+                or stat.S_IFMT(member.external_attr >> 16) not in (0, stat.S_IFREG)):
+            raise ValueError('Archive must have a safe qdrant-memory-workbuddy/ root')
+    if sum(member.file_size for member in members) > 64 * 1024 * 1024:
+        raise ValueError('Archive uncompressed size is too large')
+    return names
+
+
+def checked_payload(archive: zipfile.ZipFile, names: list[str], expected: dict, config: Path, meta: dict) -> None:
+    """Bind the archived provenance and manifests to the checked-out inputs."""
+    required = ['icon.svg', 'skills/qdrant-memory/LICENSE', 'skills/qdrant-memory/SKILL.md']
+    if any('qdrant-memory-workbuddy/' + name not in names for name in required):
+        raise ValueError('Archive must include icon, Skill LICENSE and SKILL.md as regular files')
+    provenance_name = 'qdrant-memory-workbuddy/provenance.json'
+    if archive.getinfo(provenance_name).file_size > 65536:
+        raise ValueError('Archive provenance is too large')
+    if json.loads(archive.read(provenance_name)) != expected:
+        raise ValueError('Archive provenance does not match checked-out release inputs')
+    for filename in (CONNECTOR_META, 'mcp.json'):
+        member = 'qdrant-memory-workbuddy/' + filename
+        if archive.getinfo(member).file_size > 65536:
+            raise ValueError('Archive manifest is too large')
+        checked_in = config / filename
+        if checked_in.is_symlink():
+            raise ValueError('Archive launch inputs must not be symlinks')
+        if filename == CONNECTOR_META:
+            value = meta
+        else:
+            value = json.loads(checked_in.read_text(encoding='utf-8'))
+        if json.loads(archive.read(member)) != value:
+            raise ValueError('Archive manifest or launch config does not match checked-out inputs')
+
+
+def validate_assets(root: Path, directory: Path, tag: str) -> list[Path]:
+    """Check the already-built artifact; never execute or import a builder."""
+    project = tomllib.loads((root / 'pyproject.toml').read_text(encoding='utf-8'))['project']
+    config = root / 'integrations/workbuddy'
+    meta = json.loads((config / CONNECTOR_META).read_text(encoding='utf-8'))
+    skill = json.loads((config / 'skill-source.json').read_text(encoding='utf-8'))
+    launcher = launcher_pin(json.loads((root / 'launcher-source.json').read_text(encoding='utf-8')))
+    version = project['version']
+    connector = meta['version']
+    if tag != 'v' + version or not is_semver(connector):
+        raise ValueError('Asset versions do not match release metadata')
+    runtime = runtime_pin(project)
+    if json.loads((root / 'runtime-source.json').read_text(encoding='utf-8'))['version'] != runtime:
+        raise ValueError('Pinned runtime does not match runtime-source.json')
+    name = f'qdrant-memory-workbuddy-connector-v{connector}-mcp-v{version}.zip'
+    paths = checked_assets(directory, name)
     expected = {'connector_version': connector, 'mcp_version': version,
-                'runtime_version': runtime[0],
+                'runtime_version': runtime,
                 'launcher': {'name': launcher['name'], 'version': launcher['version'],
                              'integrity': launcher['integrity']},
                 'skill_version': skill['version'], 'skill_repository': skill['repository'],
                 'skill_commit': skill['commit'], 'release_tag': tag}
     try:
         with zipfile.ZipFile(paths[0]) as archive:
-            members = archive.infolist()
-            names = [member.filename for member in members]
-            if len(names) != len(set(names)) or not names:
-                raise ValueError('Archive has duplicate or missing members')
-            for member in members:
-                parts = member.filename.split('/')
-                if (parts[0] != 'qdrant-memory-workbuddy' or len(parts) < 2
-                        or any(part in ('', '.', '..') for part in parts)
-                        or '\\' in member.filename
-                        or stat.S_IFMT(member.external_attr >> 16) not in (0, stat.S_IFREG)):
-                    raise ValueError('Archive must have a safe qdrant-memory-workbuddy/ root')
-            if sum(member.file_size for member in members) > 64 * 1024 * 1024:
-                raise ValueError('Archive uncompressed size is too large')
-            required = ['icon.svg', 'skills/qdrant-memory/LICENSE', 'skills/qdrant-memory/SKILL.md']
-            if any('qdrant-memory-workbuddy/' + name not in names for name in required):
-                raise ValueError('Archive must include icon, Skill LICENSE and SKILL.md as regular files')
-            provenance_name = 'qdrant-memory-workbuddy/provenance.json'
-            if archive.getinfo(provenance_name).file_size > 65536:
-                raise ValueError('Archive provenance is too large')
-            if json.loads(archive.read(provenance_name)) != expected:
-                raise ValueError('Archive provenance does not match checked-out release inputs')
-            for filename in ('connector-meta.json', 'mcp.json'):
-                member = 'qdrant-memory-workbuddy/' + filename
-                if archive.getinfo(member).file_size > 65536:
-                    raise ValueError('Archive manifest is too large')
-                checked_in = config / filename
-                if checked_in.is_symlink():
-                    raise ValueError('Archive launch inputs must not be symlinks')
-                if filename == 'connector-meta.json':
-                    value = meta
-                else:
-                    value = json.loads(checked_in.read_text(encoding='utf-8'))
-                if json.loads(archive.read(member)) != value:
-                    raise ValueError('Archive manifest or launch config does not match checked-out inputs')
+            names = checked_members(archive.infolist())
+            checked_payload(archive, names, expected, config, meta)
     except (zipfile.BadZipFile, KeyError, json.JSONDecodeError) as exc:
         raise ValueError('Invalid release ZIP or provenance') from exc
     return paths
@@ -196,16 +237,9 @@ class GitHubAPI:
             self.request('POST', url, data=stream, headers={'Content-Type': 'application/octet-stream'})
 
 
-def attach_assets(api, tag: str, sha: str, notes: str, paths: list[Path], label: str = 'WorkBuddy assets') -> None:
-    api.verify_tag(tag, sha)
-    release = api.find_release(tag)
-    if release is None:
-        release = api.create_draft(tag, sha, notes)
-    if release['tag_name'] != tag:
-        raise ValueError('Release tag mismatch')
-    assets = api.list_assets(release['id'])
+def preflight_assets(api, assets, paths: list[Path]) -> list[Path]:
+    """Compare the whole remote catalog and return the assets still missing."""
     missing = []
-    # Preflight the entire catalog before uploading any missing asset.
     for path in paths:
         matches = [a for a in assets if a['name'] == path.name]
         if len(matches) > 1:
@@ -215,6 +249,27 @@ def attach_assets(api, tag: str, sha: str, notes: str, paths: list[Path], label:
                 raise ValueError(f'Release asset differs: {path.name}; preserve it and investigate source/toolchain; use a new approved snapshot if necessary')
         else:
             missing.append(path)
+    return missing
+
+
+def verify_assets(api, release, paths: list[Path]) -> None:
+    """Require exactly one byte-identical remote copy of every local asset."""
+    final = api.list_assets(release['id'])
+    for path in paths:
+        matches = [a for a in final if a['name'] == path.name]
+        if len(matches) != 1 or api.download_asset(matches[0]) != path.read_bytes():
+            raise ValueError(f'Uploaded asset verification failed: {path.name}; retry the same tag after investigating')
+
+
+def attach_assets(api, tag: str, sha: str, notes: str, paths: list[Path], label: str = 'WorkBuddy assets') -> None:
+    api.verify_tag(tag, sha)
+    release = api.find_release(tag)
+    if release is None:
+        release = api.create_draft(tag, sha, notes)
+    if release['tag_name'] != tag:
+        raise ValueError('Release tag mismatch')
+    # Preflight the entire catalog before uploading any missing asset.
+    missing = preflight_assets(api, api.list_assets(release['id']), paths)
     if missing and (not release['draft'] or release.get('immutable', False)):
         raise ValueError(f'Published release is missing {label}; do not overwrite or move its tag. Prepare a new approved snapshot and draft release')
     for path in missing:
@@ -224,11 +279,7 @@ def attach_assets(api, tag: str, sha: str, notes: str, paths: list[Path], label:
         if not current['draft'] or current.get('immutable', False) or current['tag_name'] != tag:
             raise ValueError('Release left Draft state during upload; inspect manually')
         api.upload_asset(current, path)
-    final = api.list_assets(release['id'])
-    for path in paths:
-        matches = [a for a in final if a['name'] == path.name]
-        if len(matches) != 1 or api.download_asset(matches[0]) != path.read_bytes():
-            raise ValueError(f'Uploaded asset verification failed: {path.name}; retry the same tag after investigating')
+    verify_assets(api, release, paths)
     print(f'All {len(paths)} release assets verified; publication remains a maintainer decision')
 
 
@@ -242,10 +293,10 @@ def main() -> int:
     sha, notes = validate_source(ROOT, args.release_tag)
     if args.check_source:
         print(f'Validated merged release: {args.release_tag} ({sha})')
-        return 0
-    paths = validate_assets(ROOT, args.asset_dir, args.release_tag)
-    api = GitHubAPI(os.environ['GITHUB_REPOSITORY'], os.environ['GITHUB_TOKEN'])
-    attach_assets(api, args.release_tag, sha, notes, paths)
+    else:
+        paths = validate_assets(ROOT, args.asset_dir, args.release_tag)
+        api = GitHubAPI(os.environ['GITHUB_REPOSITORY'], os.environ['GITHUB_TOKEN'])
+        attach_assets(api, args.release_tag, sha, notes, paths)
     return 0
 
 

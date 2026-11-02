@@ -21,7 +21,7 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: '3.11'
-      - run: python -m pip install 'ruff==0.15.1'
+      - run: "python -m pip install --only-binary=:all: 'ruff==0.15.1'"
       - name: Lint release scripts and acceptance tests
         run: ruff check scripts tests integrations/workbuddy
       - name: Require matching immutable CodeQL action pins
@@ -33,7 +33,7 @@ jobs:
         env:
           ACTIONLINT_ARCHIVE: ${{ runner.temp }}/actionlint.tar.gz
         run: |
-          curl --fail --silent --show-error --location --output "$ACTIONLINT_ARCHIVE" https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz
+          curl --fail --silent --show-error --location --proto "=https" --proto-redir "=https" --output "$ACTIONLINT_ARCHIVE" https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz
           echo "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  $ACTIONLINT_ARCHIVE" | sha256sum --check
           tar -xzf "$ACTIONLINT_ARCHIVE" -C "$RUNNER_TEMP" actionlint
       - name: Validate workflow syntax, expressions and shell steps

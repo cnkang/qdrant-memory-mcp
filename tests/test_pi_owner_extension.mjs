@@ -3,6 +3,10 @@ import test from "node:test";
 import { setImmediate } from "node:timers/promises";
 import { createOwnerMemoryExtension } from "../integrations/pi/owner-memory.mjs";
 
+// Ordered asynchronous steps: each promise waits for the previous one.
+const runSequentially = (items, action) => items.reduce(
+  (previous, item) => previous.then(() => action(item)), Promise.resolve());
+
 function controlledOutbox(env) {
   const hooks = {}, entries = [], calls = [];
   let release, enter;
@@ -86,9 +90,9 @@ test("a binding change during a drain cannot send old raw events using a new cre
   const statuses = () => h.entries.filter(row => row.customType === "qdrant-owner-status");
   assert.equal(statuses().length, 1);
   assert.equal(statuses()[0].data.retained_events, 2);
-  for (let index = 0; index < 20; index++) {
+  await runSequentially(Array.from({ length: 20 }, (_, index) => index), async index => {
     await h.hooks.before_agent_start({ prompt: `new authorized prompt ${index}` }, h.ctx);
-  }
+  });
   assert.equal(statuses().length, 1, "unchanged stale events must not grow the session per prompt");
   await h.hooks.session_start({}, h.ctx);
   await h.hooks.before_agent_start({ prompt: "resumed authorized prompt" }, h.ctx);
@@ -158,7 +162,13 @@ test("pending events cannot be replayed after a credential or Owner binding chan
   const env = { QDRANT_MEMORY_AUTO_CAPTURE: "1", QDRANT_MEMORY_OWNER_URL: "https://owner.test/mcp", QDRANT_MEMORY_REMOTE_TOKEN: "a".repeat(40) };
   let online = false;
   const pi = { on(name, callback) { hooks[name] = callback; }, appendEntry(customType, data) { entries.push({ type: "custom", customType, data }); } };
-  createOwnerMemoryExtension({ env, request: async (mode, value) => { sends.push(value); if (online) return { status: "COMMITTED" }; throw new Error("offline"); } })(pi);
+  createOwnerMemoryExtension({ env, request: async (mode, value) => {
+    sends.push(value);
+    if (online) {
+      return { status: "COMMITTED" };
+    }
+    throw new Error("offline");
+  } })(pi);
   const ctx = { sessionManager: { getSessionId: () => "session", getEntries: () => entries }, hasUI: false };
   await hooks.session_start({}, ctx);
   await hooks.before_agent_start({ prompt: "private original project" }, ctx);

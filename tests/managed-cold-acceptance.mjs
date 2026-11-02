@@ -48,6 +48,10 @@ assert.equal(dependencies.fastembed, runtime.fastembed_compat.version);
 assert.equal(dependencies['hermes-plugin-qdrant-memory'], runtime.version);
 const launcher = join(packageRoot, 'launcher.mjs');
 
+// Ordered asynchronous steps: each promise waits for the previous one.
+const runSequentially = (items, action) => items.reduce(
+  (previous, item) => previous.then(() => action(item)), Promise.resolve());
+
 async function session(host, action) {
   const child = spawn(process.execPath, [launcher, 'mcp', host], { env: process.env, stdio: ['pipe', 'pipe', 'pipe'] });
   const responses = new Map();
@@ -79,12 +83,14 @@ async function session(host, action) {
     await request('initialize', { protocolVersion: '2025-11-25', capabilities: {}, clientInfo: { name: 'cold-test', version: '1' } });
     child.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) + '\n');
     assert.equal((await request('tools/list', {})).result.tools.length, 4);
-    for (let count = 0; ; count++) {
+    async function waitForReady(count = 0) {
       const result = await call('search', { query: 'readiness' });
-      if (!result.isError) break;
+      if (!result.isError) return;
       assert.ok(count < 120 && result.content[0].text.includes('Preparing'));
       await new Promise(resolve => setTimeout(resolve, 250));
+      return waitForReady(count + 1);
     }
+    await waitForReady();
     return await action(async (name, args) => {
       const result = await call(name, args);
       assert.equal(result.isError, false);
@@ -99,7 +105,7 @@ async function session(host, action) {
   }
 }
 
-for (const host of ['dsh', 'workbuddy']) {
+await runSequentially(['dsh', 'workbuddy'], async host => {
   const text = `Synthetic ${host} cold-setup durable preference`;
   const id = await session(host, async call => (await call('add', { text })).id);
   await session(host, async call => {
@@ -111,7 +117,7 @@ for (const host of ['dsh', 'workbuddy']) {
     await call('delete', { id });
     assert.ok(!(await call('search', { query: text })).memories.some(m => m.id === id));
   });
-}
+});
 assert.equal(await installed(dsh), await installed(wb));
 const cfg = JSON.parse(await readFile(wb.profile + '/qdrant-memory.json', 'utf8'));
 assert.equal(cfg.scope.agent_id, 'workbuddy');

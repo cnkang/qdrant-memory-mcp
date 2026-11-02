@@ -4,8 +4,8 @@ import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { createAgentSession, DefaultResourceLoader, ModelRuntime, SessionManager, SettingsManager } from "../integrations/agent-hosts/node_modules/@earendil-works/pi-coding-agent/dist/index.js";
-import { createAssistantMessageEventStream } from "../integrations/agent-hosts/node_modules/@earendil-works/pi-ai/dist/utils/event-stream.js";
+import { createAgentSession, DefaultResourceLoader, ModelRuntime, SessionManager, SettingsManager,
+  createAssistantMessageEventStream } from "../integrations/agent-hosts/pi-sdk.mjs";
 import { createOwnerMemoryExtension, ownerRequest } from "../integrations/pi/owner-memory.mjs";
 
 test("actual Pi session automatically captures and recalls without tool calls", async () => {
