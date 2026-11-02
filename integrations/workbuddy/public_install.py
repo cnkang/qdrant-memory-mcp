@@ -37,10 +37,9 @@ def extra_gated(entry, optional):
     # This splits on top-level ` or ` only: a nested parenthesised `or` is
     # rejected rather than parsed, which keeps the guard fail-closed without
     # taking a third-party dependency in this job.
-    # The possessive quantifier keeps the whitespace run from being
-    # reconsidered: a separator match can only start at the run's first space,
-    # so the accepted input language is unchanged.
-    for branch in re.split(r"\s++or\s+", marker):
+    # Normalising the whitespace first keeps the split literal, so no
+    # backtracking expression is needed and the accepted input is unchanged.
+    for branch in " ".join(marker.split()).split(" or "):
         declared = EXTRA_EQUALS.findall(branch)
         if not declared or any(group not in optional for group in declared):
             return False
