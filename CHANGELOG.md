@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.9
+
+- Pin the metadata-only distribution to published Runtime 0.5.5 and its exact
+  source revision. This selects the FastEmbed/Pillow compatibility patch.
+- Update MCP Registry metadata, exact install examples and preparation contracts
+  to MCP 0.2.9 and Runtime 0.5.5.
+- MCP tools, schemas, transport, scope rules and persisted data are unchanged.
+  The launcher and DSH bundle packages do not change, so no npm release is needed.
+
 ## 0.2.8
 
 - Pin the metadata-only distribution to Runtime 0.5.4, the maintainability
