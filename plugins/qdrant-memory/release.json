@@ -1,0 +1,15 @@
+{
+  "format": "qdrant-codex-plugin-release",
+  "version": 1,
+  "plugin_version": "0.1.0",
+  "plugin_source_commit": "BUILD_FROM_GIT",
+  "mcp_distribution_version": "0.2.9",
+  "runtime_version": "0.5.5",
+  "runtime_commit": "f501a6d2891c641d22a47856a3193761df7a4557",
+  "runtime_repository": "https://github.com/cnkang/hermes-plugin-qdrant-memory",
+  "skill_commit": "60c3c55805a45040d829205654c3d246df9f6a75",
+  "skill_repository": "https://github.com/cnkang/skills",
+  "dependency_policy": "direct pins; transitive hashes NOT VERIFIED for public-directory bundle",
+  "test_evidence": "docs/codex-plugin-verification.md",
+  "public_directory_status": "NOT_SUBMITTED"
+}
