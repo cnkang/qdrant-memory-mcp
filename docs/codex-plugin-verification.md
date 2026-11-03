@@ -15,9 +15,9 @@ write support for every harness.
 
 | Component | Verified baseline / decision |
 |---|---|
-| Runtime | Public release 0.5.5; adapter pin `4b8fff620fabfe4392d99383bb23b916050d07d1` |
+| Runtime | Public release 0.5.5; merged adapter pin `e8d3b15ea2ce6be0a9e59563cf031b1987991a6d` |
 | MCP distribution | Public release 0.2.9; remains metadata-only on PyPI |
-| General skill | Source snapshot `60c3c55805a45040d829205654c3d246df9f6a75`, metadata 0.3.8 |
+| General skill | Merged source snapshot `c9f95154f217b8110c4081981d8be6f6083b3c91`, metadata 0.3.8 |
 | Official Codex source inspected | `616cab3a3529f572c3385098c12698278770ea98` |
 | Local client/runtime | Codex CLI 0.165.0; Node 22.23.2; fresh private Python 3.11.15 environment |
 | Native layouts | v1 MEMORY.md with summary fallback; v2 consolidated memory_summary.md; evidence/raw chats excluded |
