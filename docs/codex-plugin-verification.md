@@ -68,14 +68,14 @@ collection was used for destructive tests.
 
 | Evidence | Executed outcome |
 |---|---|
-| Runtime migration/standalone plus cloud-boundary suite | **350 passed** locally, real Qdrant/SQLite and Hermes import path |
+| Runtime migration/standalone, inventory and cloud-boundary suite | **401 passed** locally, real Qdrant/SQLite and Hermes import path |
 | Cloud workflow boundary test (included above) | **1 passed**, main-only/manual/environment/immutable code constraints |
-| MCP repository suite | **193 passed**; native Pi handoff was explicitly outside this run |
+| MCP repository suite | **218 passed**, including coverage collection; native Pi handoff was explicitly outside this run |
 | Package source boundary | Plugin skills allowed only in the four intended directories; wheel remains metadata-only; plugin excluded from sdist |
 | Build checks | Rebuilt wheel/sdist; metadata verifier and strict Twine checks passed |
 | Portable schemas | Root plugin.json and mcp.json validated against official Agent Plugins 1.0 JSON Schemas |
 | Lint | Changed Python passed Ruff lint/format; both Codex workflows passed actionlint |
-| Actual CLI install | Isolated CODEX_HOME; marketplace add, plugin add, setup file discovered, persisted disable, uninstall passed |
+| Actual CLI install | Isolated CODEX_HOME; marketplace add, plugin add, setup file present and declared in manifest, persisted disable, uninstall passed; client skill discovery is not inferred |
 | Actual subscription account | Existing local ChatGPT login; real Codex CLI model invoked add/search/update/delete on the plugin server; separate sessions retrieved persisted synthetic facts |
 | Native round trip | Synthetic v1/v2 source deduplicated to one imported record; combined with a newly added fact; exported two records; handoff verified before and after uninstall; source/export files preserved |
 | Source protection | Dry-run zero destination writes, symlink/corrupt/unknown input cases, code/credential exclusions, exact scope, interrupted migration retry, repeated resume and handoff checksum/no-clobber tests passed |
@@ -95,6 +95,54 @@ the already authorized synthetic operations. No persistent broad approval or
 production storage configuration is added. Initial failed probes are not counted
 as passes; they found environment filtering, source registration and tool-approval
 requirements that the final harness handles explicitly.
+
+## Review follow-up validation
+
+PR #67 review `5748890421` was checked against current source. All eleven inline
+comments and four follow-ups were valid on the reviewed revision; none were
+discarded based on their severity labels:
+
+| Reviewed concern | Fix and evidence |
+|---|---|
+| sdist excludes precede includes | Reordered directives; rebuilt actual wheel/sdist and asserted absence of Codex development files |
+| Chinese embedding-switch guidance | New collection/profile and preserved rollback collection now match English guidance |
+| Verification path base | Both READMEs identify the plugin ZIP root |
+| Bare migration commands | Skills and Chinese README use the full Runtime command and profile prefix |
+| Optimized Python skips validation | Explicit exceptions; invalid manifest rejected under `python -O` |
+| Evidence document missing from dirty check | Dirty check includes the document; test distinguishes clean build from evidence-only edit |
+| Untracked private files packaged | Select git-indexed files; synthetic ignored/untracked private files excluded |
+| Inherited Shared Owner route | Remove Owner URL/token from the test environment; regression asserts neither reaches commands |
+| Subscription test removes an existing install | Fail before any mutation; regression verifies no install/remove or cleanup call |
+| Install outside cleanup scope | Install after server/thread startup inside `try`; startup and setup failure regressions |
+| Windows path assertion | Native Node paths and both executable layouts; no platform skip |
+| Search accepts empty/wrong results | Parse MCP JSON and require actual stored ID, text and scope |
+| Update/delete can be no-ops or target neighbors | Check exact arguments/result IDs and live full scoped inventory after each operation |
+| Setup output overstates discovery | Report `setup_file_present`; workflow step and evidence use the same claim |
+| Launcher checks tool count only | Assert all four exact tool names through the real Node MCP entrypoint |
+
+Local CodeRabbit review also identified the acceptance function-name shadow and
+Unicode line-separator fence mismatch. Both were independently verified, fixed
+and covered by regressions. Runtime reads now use one no-follow descriptor and
+its metadata; handoff publication/verification share a separate 64 MiB per-file
+bound checked before directory creation.
+
+The hardened subscription acceptance passed again with Codex CLI 0.165.0 and the
+new `qdrant-memory@qdrant-memory` namespace. Add/search/update/delete used the same
+record ID, checked actual stored state, and preserved a same-scope control record.
+Native fixtures and handoff checks passed; native adoption remains unverified.
+Embeddings in this run were the explicitly labeled local synthetic HTTP fixture.
+
+The three new Codex Python scripts have 86% aggregate statement coverage in the
+local full-suite report. SonarCloud and the hosted Windows command-resolution
+fix require their current remote reruns; local coverage does not certify the
+remote quality gate. npm lifecycle scripts are disabled, Python CI dependencies
+use the existing hashed lock, and the builder permits only fixed Git operations
+with a canonical directory passed through `cwd`, never as a CLI argument.
+
+The cloud workflow preserves the plugin's fixed `requirements.txt`, then replaces
+only Runtime with the immutable main SHA admitted by preflight (`--no-deps`) and
+checks installed Git provenance. Its client pin includes these stronger checks.
+The complete approved naming contract is recorded in `codex-naming.md`.
 
 ## NOT VERIFIED
 
