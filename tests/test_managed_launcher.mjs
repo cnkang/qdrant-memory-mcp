@@ -312,6 +312,9 @@ for (const response of [null, [], { jsonrpc: '2.0', result: {} }, { jsonrpc: '2.
       const timer = setTimeout(() => reject(new Error('Malformed backend did not close')), 3000);
       done.finally(() => clearTimeout(timer)).catch(() => {});
     })]);
+    // A malformed backend response closes the transport instead of being
+    // forwarded to the host, so nothing reaches the output stream.
+    assert.equal(output.read(), null, 'a malformed backend response must not be forwarded');
     input.end();
   });
 }
