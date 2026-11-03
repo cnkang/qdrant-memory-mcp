@@ -79,6 +79,37 @@ def tool_payload(item):
     return value
 
 
+def verify_search_result(value, expected_memory):
+    memories = value.get("memories")
+    if not isinstance(memories, list):
+        raise RuntimeError("Search did not return the expected scoped record")
+    matches = [
+        memory
+        for memory in memories
+        if all(memory.get(k) == v for k, v in expected_memory.items())
+    ]
+    if len(matches) != 1:
+        raise RuntimeError("Search did not return the expected scoped record")
+
+
+def mutation_id(value, required_tool, expected_arguments):
+    action = {
+        "qdrant_memory_add": "ADD",
+        "qdrant_memory_update": "UPDATE",
+        "qdrant_memory_delete": "DELETE",
+    }[required_tool]
+    identifier = value.get("id")
+    if (
+        value.get("action") != action
+        or not isinstance(identifier, str)
+        or not identifier
+    ):
+        raise RuntimeError("Unexpected Runtime mutation result")
+    if required_tool != "qdrant_memory_add" and identifier != expected_arguments["id"]:
+        raise RuntimeError("Runtime mutation returned the wrong record ID")
+    return identifier
+
+
 def validate_calls(calls, required_tool, expected_arguments, expected_memory=None):
     """Verify the exact server, operation arguments and returned record IDs."""
     matched = [item for item in calls if item.get("tool") == required_tool]
@@ -92,43 +123,16 @@ def validate_calls(calls, required_tool, expected_arguments, expected_memory=Non
             raise RuntimeError("Unexpected MCP server or operation")
         value = tool_payload(item)
         if item.get("tool") == "qdrant_memory_search" and expected_memory is not None:
-            memories = value.get("memories")
-            if (
-                not isinstance(memories, list)
-                or len(
-                    [
-                        memory
-                        for memory in memories
-                        if all(memory.get(k) == v for k, v in expected_memory.items())
-                    ]
-                )
-                != 1
-            ):
-                raise RuntimeError("Search did not return the expected scoped record")
+            verify_search_result(value, expected_memory)
     item = matched[0]
     if item.get("arguments") != expected_arguments:
         raise RuntimeError("MCP operation arguments differ from the approved operation")
     value = tool_payload(item)
-    if required_tool == "qdrant_memory_search":
-        identifier = expected_memory["id"]
-    else:
-        action = {
-            "qdrant_memory_add": "ADD",
-            "qdrant_memory_update": "UPDATE",
-            "qdrant_memory_delete": "DELETE",
-        }[required_tool]
-        identifier = value.get("id")
-        if (
-            value.get("action") != action
-            or not isinstance(identifier, str)
-            or not identifier
-        ):
-            raise RuntimeError("Unexpected Runtime mutation result")
-        if (
-            required_tool != "qdrant_memory_add"
-            and identifier != expected_arguments["id"]
-        ):
-            raise RuntimeError("Runtime mutation returned the wrong record ID")
+    identifier = (
+        expected_memory["id"]
+        if required_tool == "qdrant_memory_search"
+        else mutation_id(value, required_tool, expected_arguments)
+    )
     return {
         "tool": required_tool,
         "server": item["server"],

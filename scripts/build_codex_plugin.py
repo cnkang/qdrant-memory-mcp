@@ -11,7 +11,9 @@ import zipfile
 from pathlib import Path, PurePosixPath
 
 ROOT = Path(__file__).resolve().parents[1]
-PLUGIN = ROOT / "plugins/qdrant-memory"
+PLUGIN_PATH = "plugins/qdrant-memory"
+VERIFICATION_PATH = "docs/codex-plugin-verification.md"
+PLUGIN = ROOT / PLUGIN_PATH
 
 
 def git(repo, *args):
@@ -26,9 +28,9 @@ def git(repo, *args):
             "--",
             "plugins",
             "scripts/build_codex_plugin.py",
-            "docs/codex-plugin-verification.md",
+            VERIFICATION_PATH,
         ),
-        ("ls-files", "-z", "--", "plugins/qdrant-memory"),
+        ("ls-files", "-z", "--", PLUGIN_PATH),
     }
     archive = (
         len(args) == 3
@@ -113,6 +115,41 @@ def validate(root=PLUGIN):
     return manifest
 
 
+def source_files():
+    """Read only tracked plugin files, rejecting symbolic links."""
+    files = {}
+    for name in sorted(
+        git(ROOT, "ls-files", "-z", "--", PLUGIN_PATH).decode().split("\0")
+    ):
+        if not name:
+            continue
+        path = ROOT / name
+        if path.is_symlink():
+            raise ValueError("Plugin source cannot contain symlinks")
+        if path.is_file():
+            files[str(path.relative_to(PLUGIN)).replace("\\", "/")] = path.read_bytes()
+    return files
+
+
+def skill_files(skill_repo, commit):
+    """Read the pinned skill archive without extracting paths to disk."""
+    files = {}
+    snapshot = git(skill_repo, "archive", commit, "qdrant-memory")
+    with tarfile.open(fileobj=io.BytesIO(snapshot)) as archive:
+        for member in archive:
+            if member.isdir():
+                continue
+            path = PurePosixPath(member.name)
+            if not member.isfile() or ".." in path.parts or path.is_absolute():
+                raise ValueError("Unsafe upstream skill archive")
+            relative = path.relative_to("qdrant-memory")
+            if "__pycache__" not in relative.parts:
+                files["skills/qdrant-memory/" + str(relative)] = archive.extractfile(
+                    member
+                ).read()
+    return files
+
+
 def build(output, skill_repo):
     """Bundle a precise upstream skill snapshot and content integrity manifest."""
     validate(PLUGIN)
@@ -126,35 +163,13 @@ def build(output, skill_repo):
             "--",
             "plugins",
             "scripts/build_codex_plugin.py",
-            "docs/codex-plugin-verification.md",
+            VERIFICATION_PATH,
         )
     )
-    files = {}
-    for name in sorted(
-        git(ROOT, "ls-files", "-z", "--", "plugins/qdrant-memory").decode().split("\0")
-    ):
-        if not name:
-            continue
-        path = ROOT / name
-        if path.is_symlink():
-            raise ValueError("Plugin source cannot contain symlinks")
-        if path.is_file():
-            files[str(path.relative_to(PLUGIN)).replace("\\", "/")] = path.read_bytes()
-    snapshot = git(skill_repo, "archive", release["skill_commit"], "qdrant-memory")
-    with tarfile.open(fileobj=io.BytesIO(snapshot)) as archive:
-        for member in archive:
-            if member.isdir():
-                continue
-            path = PurePosixPath(member.name)
-            if not member.isfile() or ".." in path.parts or path.is_absolute():
-                raise ValueError("Unsafe upstream skill archive")
-            relative = path.relative_to("qdrant-memory")
-            if "__pycache__" not in relative.parts:
-                files["skills/qdrant-memory/" + str(relative)] = archive.extractfile(
-                    member
-                ).read()
+    files = source_files()
+    files.update(skill_files(skill_repo, release["skill_commit"]))
     files["release.json"] = json.dumps(release, indent=2).encode() + b"\n"
-    files["VERIFICATION.md"] = (ROOT / "docs/codex-plugin-verification.md").read_bytes()
+    files["VERIFICATION.md"] = (ROOT / VERIFICATION_PATH).read_bytes()
     # Account hosts normalize publisher/compatibility metadata. The archive SHA
     # covers the complete source ZIP; immutable component hashes also survive
     # that host normalization.
