@@ -14,6 +14,18 @@ import jsonschema
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def check_source_layout(paths):
+    """Allow plugin skills only in their separate non-PyPI packaging boundary."""
+    allowed = {
+        f"plugins/qdrant-memory/skills/{name}/SKILL.md"
+        for name in ("setup", "memory-migration", "memory-backup", "qdrant-memory")
+    }
+    assert not (ROOT / "qdrant_memory").exists()
+    assert all(
+        Path(p).as_posix() in allowed for p in paths if Path(p).name == "SKILL.md"
+    )
+
+
 def verify():
     """Validate release metadata, launch configuration and source-free artifacts."""
     project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))[
@@ -43,8 +55,23 @@ def verify():
     assert project["scripts"] == {"qdrant-memory-mcp": "qdrant_memory.standalone:main"}
     marker = f"<!-- mcp-name: {server['name']} -->"
     assert marker in (ROOT / "README.md").read_text(encoding="utf-8")
-    tracked = subprocess.check_output(["git", "-C", str(ROOT), "ls-files", "--cached", "--others", "--exclude-standard", "-z"]).decode().split("\0")
-    assert not (ROOT / "qdrant_memory").exists() and not any(Path(p).name == "SKILL.md" for p in tracked)
+    tracked = (
+        subprocess.check_output(
+            [
+                "git",
+                "-C",
+                str(ROOT),
+                "ls-files",
+                "--cached",
+                "--others",
+                "--exclude-standard",
+                "-z",
+            ]
+        )
+        .decode()
+        .split("\0")
+    )
+    check_source_layout(tracked)
     wheels = list((ROOT / "dist").glob("*.whl"))
     sdists = list((ROOT / "dist").glob("*.tar.gz"))
     assert len(wheels) == len(sdists) == 1
@@ -63,7 +90,7 @@ def verify():
         expected = [Requirement(r) for r in project["dependencies"]]
         for group, deps in project.get("optional-dependencies", {}).items():
             for dep in deps:
-                expected.append(Requirement(f"{dep}; extra == \"{group}\""))
+                expected.append(Requirement(f'{dep}; extra == "{group}"'))
         assert len(actual) == len(expected)
         for req in expected:
             assert any(

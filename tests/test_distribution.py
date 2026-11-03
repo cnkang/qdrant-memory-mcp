@@ -41,8 +41,25 @@ def test_metadata_contract():
     marker = f"<!-- mcp-name: {server['name']} -->"
     assert marker in (ROOT / "README.md").read_text()
     assert not (ROOT / "qdrant_memory").exists()
-    paths = subprocess.check_output(["git", "-C", str(ROOT), "ls-files", "--cached", "--others", "--exclude-standard", "-z"]).decode().split("\0")
-    assert not any(Path(p).name == "SKILL.md" for p in paths)
+    paths = (
+        subprocess.check_output(
+            [
+                "git",
+                "-C",
+                str(ROOT),
+                "ls-files",
+                "--cached",
+                "--others",
+                "--exclude-standard",
+                "-z",
+            ]
+        )
+        .decode()
+        .split("\0")
+    )
+    from test_release_guards import load_script
+
+    load_script("verify_metadata").check_source_layout(paths)
 
 
 def test_artifacts_are_metadata_only():
