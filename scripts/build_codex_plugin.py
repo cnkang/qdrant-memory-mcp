@@ -22,7 +22,7 @@ def validate(root=PLUGIN):
     manifest = json.loads((root / "plugin.json").read_text())
     mcp = json.loads((root / "mcp.json").read_text())
     assert manifest["name"] == "qdrant-memory"
-    assert manifest["version"] == "0.1.0"
+    assert manifest["version"] == "0.1.1"
     assert not {"skills", "mcpServers", "apps", "interface"} & manifest.keys()
     extension = manifest["extensions"]["com.openai"]
     assert extension["onboardingSkill"] == "./skills/setup/SKILL.md"
@@ -96,10 +96,28 @@ def build(output, skill_repo):
                     member
                 ).read()
     files["release.json"] = json.dumps(release, indent=2).encode() + b"\n"
+    files["VERIFICATION.md"] = (ROOT / "docs/codex-plugin-verification.md").read_bytes()
+    # Account hosts normalize publisher/compatibility metadata. The archive SHA
+    # covers the complete source ZIP; immutable component hashes also survive
+    # that host normalization.
+    mutable_manifests = {"plugin.json", ".codex-plugin/plugin.json"}
     integrity = {
-        name: hashlib.sha256(data).hexdigest() for name, data in sorted(files.items())
+        name: hashlib.sha256(data).hexdigest()
+        for name, data in sorted(files.items())
+        if name not in mutable_manifests
     }
-    files["integrity.json"] = json.dumps(integrity, indent=2).encode() + b"\n"
+    files["integrity.json"] = (
+        json.dumps(
+            {
+                "format": "qdrant-plugin-components",
+                "version": 1,
+                "host_normalized_manifests": sorted(mutable_manifests),
+                "files": integrity,
+            },
+            indent=2,
+        ).encode()
+        + b"\n"
+    )
     output.parent.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as archive:
         for name, data in sorted(files.items()):
@@ -124,7 +142,7 @@ def build(output, skill_repo):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--output", type=Path, default=ROOT / "dist/qdrant-memory-codex-0.1.0.zip"
+        "--output", type=Path, default=ROOT / "dist/qdrant-memory-codex-0.1.1.zip"
     )
     parser.add_argument("--skill-repo", type=Path)
     parser.add_argument("--validate", action="store_true")

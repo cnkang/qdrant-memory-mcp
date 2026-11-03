@@ -1,3 +1,3 @@
 # Development candidate: immutable adapter source, no unreleased version claim.
 qdrant-memory-mcp==0.2.9
-hermes-plugin-qdrant-memory[mcp,local] @ git+https://github.com/cnkang/hermes-plugin-qdrant-memory.git@f501a6d2891c641d22a47856a3193761df7a4557
+hermes-plugin-qdrant-memory[mcp,local] @ git+https://github.com/cnkang/hermes-plugin-qdrant-memory.git@4b8fff620fabfe4392d99383bb23b916050d07d1

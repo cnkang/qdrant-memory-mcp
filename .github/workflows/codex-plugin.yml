@@ -45,5 +45,5 @@ jobs:
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: codex-plugin-${{ matrix.os }}
-          path: dist/qdrant-memory-codex-0.1.0.zip
+          path: dist/qdrant-memory-codex-0.1.1.zip
           if-no-files-found: error
