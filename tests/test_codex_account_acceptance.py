@@ -106,6 +106,33 @@ def test_cloud_provider_rejects_unapproved_routing(tmp_path):
             acceptance.cloud_provider(invalid, tmp_path)
 
 
+@pytest.mark.parametrize("still_installed", [True, False])
+def test_failed_plugin_cleanup_preserves_its_marketplace(
+    tmp_path, monkeypatch, still_installed
+):
+    from types import SimpleNamespace
+
+    acceptance = load_script("codex_account_acceptance")
+    calls = []
+
+    def remove(argv, **_):
+        calls.append(argv)
+        return SimpleNamespace(returncode=1 if "marketplace" not in argv else 0)
+
+    installed = [{"pluginId": acceptance.PLUGIN_ID}] if still_installed else []
+    monkeypatch.setattr(acceptance.subprocess, "run", remove)
+    monkeypatch.setattr(
+        acceptance, "command", lambda *_: json.dumps({"installed": installed})
+    )
+    if still_installed:
+        with pytest.raises(RuntimeError, match="marketplace preserved"):
+            acceptance.cleanup({}, tmp_path, True)
+        assert calls == [["codex", "plugin", "remove", acceptance.PLUGIN_ID]]
+    else:
+        acceptance.cleanup({}, tmp_path, True)
+        assert calls[-1] == ["codex", "plugin", "marketplace", "remove", "cnkang"]
+
+
 def test_search_requires_expected_id_text_and_scope():
     acceptance = load_script("codex_account_acceptance")
     expected = {"id": "target", "text": "approved", "user_id": "u", "agent_id": "a"}
@@ -119,7 +146,10 @@ def test_search_requires_expected_id_text_and_scope():
     )
     for key in expected:
         wrong = {**expected, key: "wrong"}
-        for rows in ([], [wrong], [expected, expected]):
+        rows_to_reject = [[], [wrong], [expected, expected]]
+        if key in {"user_id", "agent_id"}:
+            rows_to_reject.append([expected, wrong])
+        for rows in rows_to_reject:
             wrong_call = event("search", args, {"memories": rows})
             with pytest.raises(RuntimeError, match="expected scoped record"):
                 acceptance.validate_calls(
@@ -167,6 +197,8 @@ def test_mutation_checks_arguments_server_action_and_id(tool, action, args):
         ]
     )
     bad.append([event(tool, args, {"id": "target", "action": "SKIP"})])
+    search = event("search", {"query": "approved"}, {"memories": []})
+    bad.extend([[search, call], [call, search]])
     if tool != "add":
         bad.append([event(tool, args, {"id": "neighbor", "action": action})])
     for calls in bad:
@@ -252,7 +284,19 @@ def test_inventory_requires_complete_fixed_scope_snapshot(monkeypatch):
 
 
 @pytest.mark.parametrize(
-    "fault", [None, "update_noop", "update_neighbor", "delete_neighbor"]
+    "fault",
+    [
+        None,
+        "update_noop",
+        "update_neighbor",
+        "delete_neighbor",
+        "preview_counts",
+        "import_counts",
+        "native_text",
+        "handoff_count",
+        "post_uninstall_count",
+        "handoff_adoption",
+    ],
 )
 def test_run_only_passes_after_stored_state_checks(tmp_path, monkeypatch, fault):
     """Nominal tool success cannot hide a no-op or damage to another record."""
@@ -261,6 +305,7 @@ def test_run_only_passes_after_stored_state_checks(tmp_path, monkeypatch, fault)
 
     acceptance = load_script("codex_account_acceptance")
     state = {}
+    verification_calls = 0
     monkeypatch.setenv("QDRANT_MEMORY_CODEX_OWNER_URL", "http://existing-owner.invalid")
     monkeypatch.setenv("QDRANT_MEMORY_SHARED_TOKEN", "synthetic-test-token")
 
@@ -273,6 +318,7 @@ def test_run_only_passes_after_stored_state_checks(tmp_path, monkeypatch, fault)
         }
 
     def cli(argv, env, *_):
+        nonlocal verification_calls
         assert "QDRANT_MEMORY_CODEX_OWNER_URL" not in env
         assert "QDRANT_MEMORY_SHARED_TOKEN" not in env
         if argv[0] == "codex":
@@ -286,15 +332,40 @@ def test_run_only_passes_after_stored_state_checks(tmp_path, monkeypatch, fault)
             )
         if "migrate" in argv:
             if "--dry-run" in argv:
-                return '{"planned": 1, "skipped": 1}'
-            state["control"] = row("control", "native fixture control")
-            return '{"ok": true, "migration": {"processed": 1}}'
+                return json.dumps(
+                    {"planned": 0 if fault == "preview_counts" else 1, "skipped": 1}
+                )
+            state["control"] = row(
+                "control",
+                "wrong fixture text"
+                if fault == "native_text"
+                else "Prefer green notebooks.",
+            )
+            return json.dumps(
+                {
+                    "ok": True,
+                    "migration": {"processed": 0 if fault == "import_counts" else 1},
+                }
+            )
         if "export" in argv:
             output = Path(argv[argv.index("--output") + 1])
             output.mkdir()
             (output / "handoff.json").write_text("{}", encoding="utf-8")
         if "verify" in argv:
-            return '{"ok": true, "count": 2, "native_verified": false}'
+            verification_calls += 1
+            count = (
+                1
+                if fault == "handoff_count"
+                or (fault == "post_uninstall_count" and verification_calls == 2)
+                else 2
+            )
+            return json.dumps(
+                {
+                    "ok": True,
+                    "count": count,
+                    "native_verified": fault == "handoff_adoption",
+                }
+            )
         return "{}"
 
     def model(_prompt, tool, *_args, expected_arguments, **_kwargs):
@@ -312,7 +383,9 @@ def test_run_only_passes_after_stored_state_checks(tmp_path, monkeypatch, fault)
     monkeypatch.setattr(acceptance, "command", cli)
     monkeypatch.setattr(acceptance, "case", model)
     # Never invoke the production cleanup against the developer's installation.
-    monkeypatch.setattr(acceptance.subprocess, "run", lambda *a, **kw: None)
+    monkeypatch.setattr(
+        acceptance.subprocess, "run", lambda *a, **kw: SimpleNamespace(returncode=0)
+    )
     args = SimpleNamespace(
         mode="subscription",
         runtime=tmp_path / "runtime",
@@ -327,10 +400,19 @@ def test_run_only_passes_after_stored_state_checks(tmp_path, monkeypatch, fault)
         assert result["status"] == "PASS"
         assert result["stored_state_verified"]
         assert all(case["status"] == "PASS" for case in result["cases"])
-        assert state == {"control": row("control", "native fixture control")}
+        assert state == {"control": row("control", "Prefer green notebooks.")}
 
 
-@pytest.mark.parametrize("failure", ["existing", "server", "setup"])
+@pytest.mark.parametrize(
+    "failure",
+    [
+        "existing",
+        "server",
+        "setup",
+        "foreign_marketplace",
+        "setup_existing_marketplace",
+    ],
+)
 def test_subscription_install_guard_and_cleanup(tmp_path, monkeypatch, failure):
     from types import SimpleNamespace
 
@@ -344,6 +426,16 @@ def test_subscription_install_guard_and_cleanup(tmp_path, monkeypatch, failure):
                 [{"pluginId": "qdrant-memory@cnkang"}] if failure == "existing" else []
             )
             return json.dumps({"installed": installed})
+        if argv[:4] == ["codex", "plugin", "marketplace", "list"]:
+            entries = []
+            if failure in {"foreign_marketplace", "setup_existing_marketplace"}:
+                root = (
+                    tmp_path / "foreign"
+                    if failure == "foreign_marketplace"
+                    else acceptance.ROOT
+                )
+                entries = [{"name": "cnkang", "root": str(root)}]
+            return json.dumps({"marketplaces": entries})
         if "setup" in argv:
             raise RuntimeError("synthetic setup failure")
         return "{}"
@@ -352,9 +444,12 @@ def test_subscription_install_guard_and_cleanup(tmp_path, monkeypatch, failure):
         raise RuntimeError("synthetic server failure")
 
     monkeypatch.setattr(acceptance, "command", cli)
-    monkeypatch.setattr(
-        acceptance.subprocess, "run", lambda argv, **kw: cleanup.append(argv)
-    )
+
+    def remove(argv, **_):
+        cleanup.append(argv)
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr(acceptance.subprocess, "run", remove)
     if failure == "server":
         monkeypatch.setattr(acceptance, "ThreadingHTTPServer", broken_server)
     args = SimpleNamespace(
@@ -365,8 +460,8 @@ def test_subscription_install_guard_and_cleanup(tmp_path, monkeypatch, failure):
     )
     with pytest.raises(RuntimeError):
         acceptance.run(args)
-    if failure in {"existing", "server"}:
-        assert len(calls) == 1
+    if failure in {"existing", "server", "foreign_marketplace"}:
+        assert len(calls) == (1 if failure == "existing" else 2)
         assert cleanup == []
     else:
         assert [
@@ -376,4 +471,11 @@ def test_subscription_install_guard_and_cleanup(tmp_path, monkeypatch, failure):
             "qdrant-memory@cnkang",
             "--json",
         ] in calls
-        assert cleanup == [["codex", "plugin", "remove", "qdrant-memory@cnkang"]]
+        expected = [["codex", "plugin", "remove", "qdrant-memory@cnkang"]]
+        if failure == "setup":
+            expected.append(["codex", "plugin", "marketplace", "remove", "cnkang"])
+        else:
+            assert not any(
+                argv[:4] == ["codex", "plugin", "marketplace", "add"] for argv in calls
+            )
+        assert cleanup == expected

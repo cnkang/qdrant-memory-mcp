@@ -20,9 +20,11 @@ Marketplace 展示名为 **Kang's plugins**，标识为 `cnkang`；安装选择�
 128 token 以上输入明确失败，不静默截断，也不切换云服务。Ollama 和兼容 OpenAI
 的 embedding API 需显式选择，密钥只从环境读取。Codex 登录不等于 API Key。
 
-先运行 `qdrant-memory --home PROFILE codex inspect` 和
-`qdrant-memory --home PROFILE codex migrate --dry-run`，审核原文件内容、跳过项目、
-目标 Scope 后才以 `--confirm --verify` 导入。支持 `--resume --retry-failed`。
+先运行 `qdrant-memory --home PROFILE codex inspect --codex-home APPROVED_HOME` 和
+`qdrant-memory --home PROFILE codex migrate --codex-home APPROVED_HOME --dry-run`，
+审核原文件内容、跳过项目、目标 Scope 后，再运行
+`qdrant-memory --home PROFILE codex migrate --codex-home APPROVED_HOME --confirm --verify`。
+重试使用相同的 `--codex-home APPROVED_HOME`，并支持 `--resume --retry-failed`。
 默认排除原始聊天、支持证据、代码块和疑似凭据。敏感信息检测不能替代人工审核。
 原生文件不会移动、覆盖或删除。多 Agent 并发必须使用原有 Shared Owner，不能让
 多个独立 Ledger 直接写同一 Collection。受保护目的地不会被迁移 CLI 绕过。

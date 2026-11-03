@@ -11,6 +11,11 @@ ROOT = Path(__file__).resolve().parents[1]
 PLUGIN_ID = "qdrant-memory@cnkang"
 
 
+def check(condition, message):
+    if not condition:
+        raise RuntimeError(message)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--home", type=Path, required=True)
@@ -29,25 +34,31 @@ def main():
 
     run("plugin", "marketplace", "add", str(ROOT), "--json")
     installed = json.loads(run("plugin", "add", PLUGIN_ID, "--json"))
-    assert installed["version"] == "0.1.1"
+    check(installed["version"] == "0.1.1", "Installed plugin version mismatch")
     cache = Path(installed["installedPath"])
-    assert (cache / "skills/setup/SKILL.md").is_file()
-    assert (
+    check((cache / "skills/setup/SKILL.md").is_file(), "Setup skill is missing")
+    check(
         json.loads((cache / "plugin.json").read_text())["extensions"]["com.openai"][
             "onboardingSkill"
         ]
-        == "./skills/setup/SKILL.md"
+        == "./skills/setup/SKILL.md",
+        "Onboarding skill declaration mismatch",
     )
     config = home / "config.toml"
     content = config.read_text()
-    assert content.count("enabled = true") == 1
+    check(
+        content.count("enabled = true") == 1, "Expected exactly one enabled test plugin"
+    )
     config.write_text(content.replace("enabled = true", "enabled = false"))
     disabled = json.loads(run("plugin", "list", "--json"))
-    assert not next(p for p in disabled["installed"] if p["pluginId"] == PLUGIN_ID)[
-        "enabled"
-    ]
+    check(
+        not next(p for p in disabled["installed"] if p["pluginId"] == PLUGIN_ID)[
+            "enabled"
+        ],
+        "Test plugin remains enabled",
+    )
     run("plugin", "remove", PLUGIN_ID)
-    assert not cache.exists()
+    check(not cache.exists(), "Uninstall retained the plugin cache")
     print(
         json.dumps(
             {

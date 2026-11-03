@@ -20,6 +20,11 @@ ROOT = Path(__file__).resolve().parents[1]
 PLUGIN_ID = "qdrant-memory@cnkang"
 
 
+def require(condition, message):
+    if not condition:
+        raise RuntimeError(message)
+
+
 class Embeddings(BaseHTTPRequestHandler):
     def do_POST(self):
         body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
@@ -83,6 +88,12 @@ def verify_search_result(value, expected_memory):
     memories = value.get("memories")
     if not isinstance(memories, list):
         raise RuntimeError("Search did not return the expected scoped record")
+    if any(
+        memory.get(key) != expected_memory[key]
+        for memory in memories
+        for key in ("user_id", "agent_id")
+    ):
+        raise RuntimeError("Search did not return the expected scoped record")
     matches = [
         memory
         for memory in memories
@@ -116,10 +127,7 @@ def validate_calls(calls, required_tool, expected_arguments, expected_memory=Non
     if len(matched) != 1:
         raise RuntimeError("Expected exactly one requested MCP operation")
     for item in calls:
-        if item.get("server") != "qdrant-memory" or item.get("tool") not in {
-            required_tool,
-            "qdrant_memory_search",
-        }:
+        if item.get("server") != "qdrant-memory" or item.get("tool") != required_tool:
             raise RuntimeError("Unexpected MCP server or operation")
         value = tool_payload(item)
         if item.get("tool") == "qdrant_memory_search" and expected_memory is not None:
@@ -287,6 +295,63 @@ def cloud_provider(env, work):
     ]
 
 
+def existing_marketplace(env, work):
+    catalog = json.loads(
+        command(["codex", "plugin", "marketplace", "list", "--json"], env, work)
+    )
+    entries = [
+        entry
+        for entry in catalog.get("marketplaces", [])
+        if entry.get("name") == "cnkang"
+    ]
+    if not entries:
+        return False
+    require(
+        len(entries) == 1 and Path(entries[0]["root"]).resolve() == ROOT,
+        "The existing cnkang marketplace uses another source; preserve it and use a separate test home",
+    )
+    return True
+
+
+def verify_fixture_import(before, after):
+    added = set(after) - set(before)
+    require(
+        len(added) == 1 and all(after.get(key) == row for key, row in before.items()),
+        "Native fixture import changed unexpected records",
+    )
+    require(
+        "Prefer green notebooks." in after[next(iter(added))]["text"],
+        "Native fixture text was not preserved",
+    )
+
+
+def cleanup(env, work, remove_marketplace):
+    removed = subprocess.run(
+        ["codex", "plugin", "remove", PLUGIN_ID],
+        env=env,
+        cwd=work,
+        capture_output=True,
+        timeout=30,
+    )
+    if removed.returncode:
+        listing = json.loads(command(["codex", "plugin", "list", "--json"], env, work))
+        require(
+            not any(
+                p.get("pluginId") == PLUGIN_ID for p in listing.get("installed", [])
+            ),
+            "Cleanup failed: test plugin remains installed; marketplace preserved",
+        )
+    if remove_marketplace:
+        removed_marketplace = subprocess.run(
+            ["codex", "plugin", "marketplace", "remove", "cnkang"],
+            env=env,
+            cwd=work,
+            capture_output=True,
+            timeout=30,
+        )
+        require(removed_marketplace.returncode == 0, "Test marketplace cleanup failed")
+
+
 def run(args):
     work = args.workdir.expanduser().resolve()
     work.mkdir(mode=0o700, parents=True, exist_ok=False)
@@ -306,13 +371,19 @@ def run(args):
                 "Qdrant Memory is already installed in this Codex home; use a home without an existing installation for subscription acceptance"
             )
         command(["codex", "plugin", "remove", PLUGIN_ID], env, work)
+    marketplace_present = existing_marketplace(env, work)
+    marketplace_created = False
     server = ThreadingHTTPServer(("127.0.0.1", 0), Embeddings)
     worker = threading.Thread(target=server.serve_forever, daemon=True)
     worker.start()
     try:
-        command(
-            ["codex", "plugin", "marketplace", "add", str(ROOT), "--json"], env, work
-        )
+        if not marketplace_present:
+            marketplace_created = True
+            command(
+                ["codex", "plugin", "marketplace", "add", str(ROOT), "--json"],
+                env,
+                work,
+            )
         command(
             ["codex", "plugin", "add", PLUGIN_ID, "--json"],
             env,
@@ -395,7 +466,10 @@ def run(args):
                 cli + ["migrate", "--codex-home", str(native), "--dry-run"], env, work
             )
         )
-        assert preview["planned"] == 1 and preview["skipped"] == 1
+        require(
+            preview["planned"] == 1 and preview["skipped"] == 1,
+            "Native fixture preview counts differ",
+        )
         imported = json.loads(
             command(
                 cli + ["migrate", "--codex-home", str(native), "--confirm", "--verify"],
@@ -403,14 +477,24 @@ def run(args):
                 work,
             )
         )
-        assert imported["ok"] and imported["migration"]["processed"] == 1
+        require(
+            imported["ok"] and imported["migration"]["processed"] == 1,
+            "Native fixture import failed",
+        )
+        verify_fixture_import(after_add, inventory(runtime, profile, env, work))
         output = work / "handoff"
         command(cli + ["export", "--output", str(output), "--confirm"], env, work)
         verification = json.loads(
             command(cli + ["verify", "--output", str(output)], env, work)
         )
-        assert verification["ok"] and not verification["native_verified"]
-        assert verification["count"] == 2
+        require(
+            verification["ok"] and not verification["native_verified"],
+            "Handoff verification failed",
+        )
+        require(
+            verification["count"] == 2,
+            "Handoff count differs from the expected two records",
+        )
         before_update = inventory(runtime, profile, env, work)
         replacement = "Codex plugin acceptance preference: amber ceramic teacup."
         updated = case(
@@ -442,10 +526,16 @@ def run(args):
         after_delete = inventory(runtime, profile, env, work)
         verify_transition(after_update, after_delete, identifier, None, action="DELETE")
         command(["codex", "plugin", "remove", PLUGIN_ID], env, work)
-        assert (native / "memories/MEMORY.md").is_file()
-        assert (output / "handoff.json").is_file()
+        require(
+            (native / "memories/MEMORY.md").is_file(), "Uninstall removed native source"
+        )
+        require((output / "handoff.json").is_file(), "Uninstall removed handoff data")
         verification = json.loads(
             command(cli + ["verify", "--output", str(output)], env, work)
+        )
+        require(
+            verification["count"] == 2,
+            "Post-uninstall handoff does not report two records",
         )
         if inventory(runtime, profile, env, work) != after_delete:
             raise RuntimeError("Uninstall changed stored memories")
@@ -469,13 +559,7 @@ def run(args):
         worker.join(timeout=5)
         # This exact local candidate was installed by the test, not a pre-existing
         # unrelated plugin. Failure must not leave a dead test backend enabled.
-        subprocess.run(
-            ["codex", "plugin", "remove", PLUGIN_ID],
-            env=env,
-            cwd=work,
-            capture_output=True,
-            timeout=30,
-        )
+        cleanup(env, work, marketplace_created)
 
 
 def main():
