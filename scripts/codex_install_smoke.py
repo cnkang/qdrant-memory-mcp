@@ -53,7 +53,7 @@ def main():
                 "status": "PASS",
                 "cli": run("--version").strip(),
                 "install": True,
-                "setup_discovered": True,
+                "setup_file_present": True,
                 "disable": True,
                 "uninstall": True,
                 "model_tool_calls": "NOT_VERIFIED_WITHOUT_AUTH",

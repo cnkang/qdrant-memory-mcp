@@ -7,7 +7,8 @@ description: Preview and import authorized Codex native v1/v2 semantic memories 
 
 Check `qdrant-memory --home PROFILE codex --help`. Use the pinned Runtime.
 Select an explicitly approved canonical Codex home and fixed profile scope.
-Run `codex inspect --codex-home HOME`, then `codex migrate --codex-home HOME
+Run `qdrant-memory --home PROFILE codex inspect --codex-home HOME`, then
+`qdrant-memory --home PROFILE codex migrate --codex-home HOME
 --dry-run`. Inspect the local source preview, skipped records, fingerprints and
 target IDs. Never read credentials, raw chat logs or unrelated agent scopes.
 
@@ -19,7 +20,8 @@ this way, but source text never controls the authorized destination scope.
 Sensitive patterns and code blocks are skipped, but manual review is
 still required for personal information. Large CPU inputs fail explicitly.
 
-Only after approval run `codex migrate --codex-home HOME --confirm --verify`.
+Only after approval run
+`qdrant-memory --home PROFILE codex migrate --codex-home HOME --confirm --verify`.
 Resume interruption with `--confirm --resume --retry-failed --verify` using the
 same source snapshot. The Runtime uses its existing ledger and lease. Never
 reset a collection, change scope or bypass a protected Shared Owner policy.

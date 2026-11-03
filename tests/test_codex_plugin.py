@@ -194,7 +194,12 @@ def test_node_entrypoint_real_mcp(sandbox):
         async with stdio_client(params) as (read, write):
             async with ClientSession(read, write) as session:
                 await session.initialize()
-                assert len((await session.list_tools()).tools) == 4
+                assert {tool.name for tool in (await session.list_tools()).tools} == {
+                    "qdrant_memory_search",
+                    "qdrant_memory_add",
+                    "qdrant_memory_update",
+                    "qdrant_memory_delete",
+                }
                 result = await session.call_tool(
                     "qdrant_memory_add", {"text": "synthetic-codex-fixture"}
                 )
