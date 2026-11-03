@@ -9,6 +9,8 @@
 HANDOFF_PENDING，不能将文件生成成功当作原生接管成功。
 
 安装、平台命令和精确版本见 [英文操作手册](README.md) 与 `release.json`。
+Marketplace 展示名为 **Kang's plugins**，标识为 `cnkang`；安装选择器为
+`qdrant-memory@cnkang`。
 其中 `test_evidence` 路径相对于插件 ZIP 根目录（`VERIFICATION.md`）。
 采用可移植 Agent Plugins 格式、Node 20+ stdio 启动层和已有 Python 3.11+ Runtime。
 插件独立版本为 0.1.1。没有新增记忆引擎，也不修改 Hermes/DSH/WorkBuddy 集成。

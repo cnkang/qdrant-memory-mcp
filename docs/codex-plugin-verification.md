@@ -127,7 +127,9 @@ its metadata; handoff publication/verification share a separate 64 MiB per-file
 bound checked before directory creation.
 
 The hardened subscription acceptance passed again with Codex CLI 0.165.0 and the
-new `qdrant-memory@qdrant-memory` namespace. Add/search/update/delete used the same
+publisher namespace `qdrant-memory@cnkang` (Marketplace display: **Kang's plugins**).
+The publisher naming follow-up passed 30 focused tests and the real CLI install,
+disable and uninstall smoke check. Add/search/update/delete used the same
 record ID, checked actual stored state, and preserved a same-scope control record.
 Native fixtures and handoff checks passed; native adoption remains unverified.
 Embeddings in this run were the explicitly labeled local synthetic HTTP fixture.
