@@ -35,6 +35,15 @@ py-modules = []
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
+[tool.coverage.run]
+# Sonar only scans .github, integrations and scripts, so measure exactly the
+# Python that lands in that analysis; anything else would be ignored.
+source = ["integrations/workbuddy", "scripts"]
+branch = false
+
+[tool.coverage.report]
+skip_covered = false
+
 [tool.ruff]
 target-version = "py311"
 
