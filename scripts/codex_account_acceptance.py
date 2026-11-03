@@ -200,9 +200,9 @@ def case(
 ):
     config = [
         "plugins._default.enabled=false",
-        "plugins.qdrant-memory@cnkang-memory.enabled=true",
-        'marketplaces.cnkang-memory.source_type="local"',
-        "marketplaces.cnkang-memory.source=" + json.dumps(str(ROOT)),
+        "plugins.qdrant-memory@qdrant-memory.enabled=true",
+        'marketplaces.qdrant-memory.source_type="local"',
+        "marketplaces.qdrant-memory.source=" + json.dumps(str(ROOT)),
         "features.memories=false",
         "memories.generate_memories=false",
         "memories.use_memories=false",
@@ -215,7 +215,7 @@ def case(
     # four synthetic-data operations, never to the user's other plugin tools.
     for tool in ("search", "add", "update", "delete"):
         config.append(
-            "plugins.qdrant-memory@cnkang-memory.mcp_servers.qdrant-memory.tools."
+            "plugins.qdrant-memory@qdrant-memory.mcp_servers.qdrant-memory.tools."
             + "qdrant_memory_"
             + tool
             + '.approval_mode="approve"'
@@ -293,14 +293,14 @@ def run(args):
         ]
     plugin_list = json.loads(command(["codex", "plugin", "list", "--json"], env, work))
     if any(
-        p.get("pluginId") == "qdrant-memory@cnkang-memory"
+        p.get("pluginId") == "qdrant-memory@qdrant-memory"
         for p in plugin_list.get("installed", [])
     ):
         if args.mode == "subscription":
             raise RuntimeError(
                 "Qdrant Memory is already installed in this Codex home; use a home without an existing installation for subscription acceptance"
             )
-        command(["codex", "plugin", "remove", "qdrant-memory@cnkang-memory"], env, work)
+        command(["codex", "plugin", "remove", "qdrant-memory@qdrant-memory"], env, work)
     server = ThreadingHTTPServer(("127.0.0.1", 0), Embeddings)
     worker = threading.Thread(target=server.serve_forever, daemon=True)
     worker.start()
@@ -309,7 +309,7 @@ def run(args):
             ["codex", "plugin", "marketplace", "add", str(ROOT), "--json"], env, work
         )
         command(
-            ["codex", "plugin", "add", "qdrant-memory@cnkang-memory", "--json"],
+            ["codex", "plugin", "add", "qdrant-memory@qdrant-memory", "--json"],
             env,
             work,
         )
@@ -436,7 +436,7 @@ def run(args):
         )
         after_delete = inventory(runtime, profile, env, work)
         verify_transition(after_update, after_delete, identifier, None, action="DELETE")
-        command(["codex", "plugin", "remove", "qdrant-memory@cnkang-memory"], env, work)
+        command(["codex", "plugin", "remove", "qdrant-memory@qdrant-memory"], env, work)
         assert (native / "memories/MEMORY.md").is_file()
         assert (output / "handoff.json").is_file()
         verification = json.loads(
@@ -465,7 +465,7 @@ def run(args):
         # This exact local candidate was installed by the test, not a pre-existing
         # unrelated plugin. Failure must not leave a dead test backend enabled.
         subprocess.run(
-            ["codex", "plugin", "remove", "qdrant-memory@cnkang-memory"],
+            ["codex", "plugin", "remove", "qdrant-memory@qdrant-memory"],
             env=env,
             cwd=work,
             capture_output=True,

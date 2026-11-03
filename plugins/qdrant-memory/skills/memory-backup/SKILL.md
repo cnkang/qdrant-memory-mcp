@@ -20,7 +20,7 @@ and is project instruction, not native import. There is no verified public bulk
 native-write API in this release.
 
 After review, disable the plugin through Codex settings. `codex plugin remove
-qdrant-memory@cnkang-memory` uninstalls its cache. Neither operation may delete
+qdrant-memory@qdrant-memory` uninstalls its cache. Neither operation may delete
 Qdrant storage, native memory or export files. Reinstall the same pinned version
 to roll back; keep the old profile and embedding identity. Delete backups or
 collections only under a separate explicit deletion request.

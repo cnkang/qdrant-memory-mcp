@@ -24,7 +24,7 @@ def main():
 
     run("plugin", "marketplace", "add", str(ROOT), "--json")
     installed = json.loads(
-        run("plugin", "add", "qdrant-memory@cnkang-memory", "--json")
+        run("plugin", "add", "qdrant-memory@qdrant-memory", "--json")
     )
     assert installed["version"] == "0.1.1"
     cache = Path(installed["installedPath"])
@@ -43,9 +43,9 @@ def main():
     assert not next(
         p
         for p in disabled["installed"]
-        if p["pluginId"] == "qdrant-memory@cnkang-memory"
+        if p["pluginId"] == "qdrant-memory@qdrant-memory"
     )["enabled"]
-    run("plugin", "remove", "qdrant-memory@cnkang-memory")
+    run("plugin", "remove", "qdrant-memory@qdrant-memory")
     assert not cache.exists()
     print(
         json.dumps(

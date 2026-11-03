@@ -16,6 +16,7 @@ spec.loader.exec_module(package)
 def test_portable_package():
     assert package.validate()["version"] == "0.1.1"
     marketplace = json.loads((ROOT / ".agents/plugins/marketplace.json").read_text())
+    assert marketplace["name"] == "qdrant-memory"
     assert marketplace["plugins"][0]["source"]["path"] == "./plugins/qdrant-memory"
     release = json.loads((ROOT / "plugins/qdrant-memory/release.json").read_text())
     assert len(release["runtime_commit"]) == len(release["skill_commit"]) == 40
