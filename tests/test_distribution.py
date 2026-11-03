@@ -98,6 +98,14 @@ def test_artifacts_are_metadata_only():
             == "qdrant_memory.standalone:main"
         )
     with tarfile.open(sdists[0]) as archive:
+        codex_files = {
+            "build_codex_plugin.py",
+            "codex_account_acceptance.py",
+            "codex_install_smoke.py",
+            "test_codex_plugin.py",
+            "test_codex_account_acceptance.py",
+        }
+        assert not any(Path(name).name in codex_files for name in archive.getnames())
         assert not any("/docs/superpowers/" in n for n in archive.getnames())
         assert not any(
             "/qdrant_memory/" in n or n.endswith("/SKILL.md")

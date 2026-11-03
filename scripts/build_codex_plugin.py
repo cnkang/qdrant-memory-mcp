@@ -17,53 +17,81 @@ def git(repo, *args):
     return subprocess.check_output(["git", "-C", str(repo), *args])
 
 
+def require(condition, message):
+    if not condition:
+        raise ValueError(message)
+
+
 def validate(root=PLUGIN):
     """Apply offline invariants; optional official schema validation is separate."""
     manifest = json.loads((root / "plugin.json").read_text())
     mcp = json.loads((root / "mcp.json").read_text())
-    assert manifest["name"] == "qdrant-memory"
-    assert manifest["version"] == "0.1.1"
-    assert not {"skills", "mcpServers", "apps", "interface"} & manifest.keys()
+    require(manifest["name"] == "qdrant-memory", "Invalid plugin name")
+    require(manifest["version"] == "0.1.1", "Invalid plugin version")
+    require(
+        not {"skills", "mcpServers", "apps", "interface"} & manifest.keys(),
+        "Invalid manifest fields",
+    )
     extension = manifest["extensions"]["com.openai"]
-    assert extension["onboardingSkill"] == "./skills/setup/SKILL.md"
-    assert len(extension["interface"]["shortDescription"]) <= 30
-    assert extension["interface"]["category"] == "Productivity"
+    require(
+        extension["onboardingSkill"] == "./skills/setup/SKILL.md",
+        "Invalid onboarding skill",
+    )
+    require(
+        len(extension["interface"]["shortDescription"]) <= 30, "Description too long"
+    )
+    require(extension["interface"]["category"] == "Productivity", "Invalid category")
     overlay = json.loads((root / ".codex-plugin/plugin.json").read_text())
-    assert all(
-        overlay[key] == manifest[key] for key in ("name", "version", "description")
+    require(
+        all(
+            overlay[key] == manifest[key] for key in ("name", "version", "description")
+        ),
+        "Compatibility manifest mismatch",
     )
-    assert (
+    require(
         overlay["extensions"]["com.openai"]["onboardingSkill"]
-        == extension["onboardingSkill"]
+        == extension["onboardingSkill"],
+        "Compatibility onboarding mismatch",
     )
-    assert not (root / ".mcp.json").exists()
+    require(not (root / ".mcp.json").exists(), "Unsupported MCP manifest")
     server = mcp["mcpServers"]["qdrant-memory"]
     compatible = dict(overlay["mcpServers"]["qdrant-memory"])
-    assert set(compatible.pop("env_vars")) == {
-        "QDRANT_MEMORY_CODEX_ROOT",
-        "QDRANT_MEMORY_CODEX_PROFILE",
-        "QDRANT_MEMORY_CODEX_EXECUTABLE",
-        "QDRANT_MEMORY_CODEX_OWNER_URL",
-        "QDRANT_MEMORY_SHARED_TOKEN",
-        "QDRANT_API_KEY",
-        "EMBEDDING_API_KEY",
-    }
-    assert compatible == server
-    assert server == {
-        "type": "stdio",
-        "command": "node",
-        "args": ["${PLUGIN_ROOT}/launcher.mjs", "mcp"],
-        "cwd": "${PLUGIN_ROOT}",
-    }
+    require(
+        set(compatible.pop("env_vars"))
+        == {
+            "QDRANT_MEMORY_CODEX_ROOT",
+            "QDRANT_MEMORY_CODEX_PROFILE",
+            "QDRANT_MEMORY_CODEX_EXECUTABLE",
+            "QDRANT_MEMORY_CODEX_OWNER_URL",
+            "QDRANT_MEMORY_SHARED_TOKEN",
+            "QDRANT_API_KEY",
+            "EMBEDDING_API_KEY",
+        },
+        "Invalid environment passthrough",
+    )
+    require(compatible == server, "Compatibility MCP mismatch")
+    require(
+        server
+        == {
+            "type": "stdio",
+            "command": "node",
+            "args": ["${PLUGIN_ROOT}/launcher.mjs", "mcp"],
+            "cwd": "${PLUGIN_ROOT}",
+        },
+        "Invalid MCP command",
+    )
     for name in ("setup", "memory-migration", "memory-backup", "qdrant-memory"):
         text = (root / "skills" / name / "SKILL.md").read_text()
-        assert text.startswith("---\n") and f"name: {name}\n" in text
+        require(
+            text.startswith("---\n") and f"name: {name}\n" in text,
+            "Invalid skill: " + name,
+        )
     return manifest
 
 
 def build(output, skill_repo):
     """Bundle a precise upstream skill snapshot and content integrity manifest."""
-    validate()
+    validate(PLUGIN)
     release = json.loads((PLUGIN / "release.json").read_text())
     release["plugin_source_commit"] = git(ROOT, "rev-parse", "HEAD").decode().strip()
     release["source_dirty"] = bool(
@@ -74,10 +102,16 @@ def build(output, skill_repo):
             "--",
             "plugins",
             "scripts/build_codex_plugin.py",
+            "docs/codex-plugin-verification.md",
         )
     )
     files = {}
-    for path in sorted(PLUGIN.rglob("*")):
+    for name in sorted(
+        git(ROOT, "ls-files", "-z", "--", "plugins/qdrant-memory").decode().split("\0")
+    ):
+        if not name:
+            continue
+        path = ROOT / name
         if path.is_symlink():
             raise ValueError("Plugin source cannot contain symlinks")
         if path.is_file():
@@ -125,11 +159,12 @@ def build(output, skill_repo):
             info.external_attr = 0o100644 << 16
             archive.writestr(info, data, compress_type=zipfile.ZIP_DEFLATED)
     with zipfile.ZipFile(output) as archive:
-        assert archive.testzip() is None
+        require(archive.testzip() is None, "Corrupt plugin archive")
         for name, checksum in integrity.items():
-            assert (
+            require(
                 hashlib.sha256(archive.read("qdrant-memory/" + name)).hexdigest()
-                == checksum
+                == checksum,
+                "Archive checksum mismatch: " + name,
             )
     return {
         "path": str(output),
