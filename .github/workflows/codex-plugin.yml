@@ -32,7 +32,7 @@ jobs:
       - run: python -m pip install '.[dev]'
       - run: python scripts/build_codex_plugin.py --validate
       - run: python -m pytest -q tests/test_codex_plugin.py
-      - name: Install, discover setup, disable and uninstall without credentials
+      - name: Install, check setup file, disable and uninstall without credentials
         run: python scripts/codex_install_smoke.py --home "${{ runner.temp }}/codex-plugin-smoke"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:

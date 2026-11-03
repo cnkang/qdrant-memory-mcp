@@ -3,6 +3,7 @@
 import argparse
 import json
 import os
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -16,10 +17,13 @@ def main():
     home = args.home.resolve()
     home.mkdir(mode=0o700, parents=True, exist_ok=False)
     env = {**os.environ, "CODEX_HOME": str(home)}
+    codex = shutil.which("codex", path=env.get("PATH"))
+    if codex is None:
+        raise RuntimeError("Codex CLI is not installed on PATH")
 
     def run(*argv):
         return subprocess.check_output(
-            ["codex", *argv], env=env, cwd=ROOT, text=True, timeout=60
+            [codex, *argv], env=env, cwd=ROOT, text=True, timeout=60
         )
 
     run("plugin", "marketplace", "add", str(ROOT), "--json")
