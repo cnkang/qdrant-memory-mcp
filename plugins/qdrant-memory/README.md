@@ -17,7 +17,7 @@ Its `test_evidence` path is relative to the plugin ZIP root (`VERIFICATION.md`).
 
 ```sh
 codex plugin marketplace add cnkang/qdrant-memory-mcp --ref codex/qdrant-memory-plugin
-codex plugin add qdrant-memory@cnkang-memory
+codex plugin add qdrant-memory@qdrant-memory
 ```
 
 For a checked-out version, register its repository root instead. Pin a verified
@@ -88,7 +88,7 @@ AGENTS.md is not native memory. Keep Qdrant until adoption is confirmed.
 Disable the plugin in Codex settings, or remove its cache:
 
 ```sh
-codex plugin remove qdrant-memory@cnkang-memory
+codex plugin remove qdrant-memory@qdrant-memory
 ```
 
 Uninstall never deletes Qdrant, native data, model cache or exports. Roll back by
