@@ -122,6 +122,17 @@ requirements that the final harness handles explicitly.
 
 ## BLOCKED
 
+- Plugin Creator account normalization: the private 0.1.1 candidate was created
+  and saved successfully, then its actual files were read back. Creator generates
+  `.mcp.json` and replaces the supplied legacy inline MCP overlay, omitting its
+  `env_vars` allowlist. Deleting the generated file is explicitly rejected by the
+  service. The GitHub/source ZIP preserves that tested overlay. Custom profile,
+  executable, embedding-key and Shared Owner environment forwarding in the
+  Creator-normalized variant is therefore blocked; its default CPU path is
+  NOT VERIFIED. Do not transfer source/Marketplace test results to that variant.
+  The private candidate is [available for inspection](https://chatgpt.com/plugins/plugins_6ae987f759d88191a320279bcd6404fd),
+  while the repository Marketplace/source ZIP is the validated delivery path.
+
 - Automatic native bulk writeback: no stable public plugin API was verified in
   the inspected Codex source/docs. Internal note handlers and SQLite/generated
   file edits are not substitutes. The CLI reports native import UNSUPPORTED.
