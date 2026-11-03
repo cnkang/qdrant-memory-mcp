@@ -92,10 +92,15 @@ def main():
         assert len(urls) == 2 and {u["packagetype"] for u in urls} == {"bdist_wheel", "sdist"}
         for item in urls:
             assert not item["yanked"]
-            filename = item["filename"]
-            assert Path(filename).name == filename
+            # The payload never picks the name or the host: keep only the leaf
+            # name, and rebuild the URL on the constant host from the path the
+            # validated URL carries.
+            filename = os.path.basename(item["filename"])
+            assert filename == item["filename"] and filename
             target = artifact_path(filename)
-            with urllib.request.urlopen(artifact_url(item["url"]), timeout=30) as response:
+            url = artifact_url(item["url"])
+            download = f"https://{ARTIFACT_HOST}{urllib.parse.urlsplit(url).path}"
+            with urllib.request.urlopen(download, timeout=30) as response:
                 payload = response.read()
             assert hashlib.sha256(payload).hexdigest() == item["digests"]["sha256"]
             if args.download:
