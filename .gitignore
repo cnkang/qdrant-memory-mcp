@@ -55,3 +55,4 @@ node_modules/
 .sdist-env-*/
 .public-env-*/
 .public-sdist-env-*/
+coverage/
