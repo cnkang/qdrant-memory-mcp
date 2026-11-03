@@ -31,6 +31,10 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with:
           python-version: '3.11'
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          # The lcov test reporter needs a Node with built-in coverage reporting.
+          node-version: '22'
       - name: Measure coverage for the quality gate
         run: |
           python -m pip install --require-hashes --only-binary=:all: -r .github/requirements-sonar-ci.txt
@@ -39,6 +43,14 @@ jobs:
           # them first, exactly as the distribution job does.
           python -m build
           python -m pytest -q tests --cov --cov-report=xml
+      - name: Measure JavaScript coverage for the managed and Pi harnesses
+        run: |
+          mkdir -p coverage
+          node --test --experimental-test-coverage \
+            --test-reporter=lcov --test-reporter-destination=coverage/lcov.info \
+            tests/test_managed_launcher.mjs tests/test_managed_bootstrap.mjs \
+            tests/test_pi_owner_extension.mjs tests/test_pi_owner_host.mjs \
+            tests/test_pi_owner_transport.mjs
       - name: Analyze and wait for quality gate
         uses: SonarSource/sonarqube-scan-action@d209202bc7d53ff1cc128f7f907dac145c9d6ae9
         env:
