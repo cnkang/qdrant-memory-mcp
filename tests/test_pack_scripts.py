@@ -70,7 +70,8 @@ def test_main_packs_once_into_an_external_directory(name, tmp_path, monkeypatch,
     filename = meta["name"].removeprefix("@").replace("/", "-") + "-" + meta["version"] + ".tgz"
 
     def fake_pack(command, cwd, env, text, timeout):
-        assert command[0] in ("npm", "npm.cmd") and "--ignore-scripts" in command
+        assert command[0] in ("npm", "npm.cmd")
+        assert "--ignore-scripts" in command
         assert env["npm_config_pack_destination"] == str(tmp_path / "out")
         write_archive(Path(env["npm_config_pack_destination"]) / filename,
                       module, source, script["executable"])
