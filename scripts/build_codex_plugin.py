@@ -28,9 +28,27 @@ def validate(root=PLUGIN):
     assert extension["onboardingSkill"] == "./skills/setup/SKILL.md"
     assert len(extension["interface"]["shortDescription"]) <= 30
     assert extension["interface"]["category"] == "Productivity"
-    assert not (root / ".codex-plugin/plugin.json").exists()
+    overlay = json.loads((root / ".codex-plugin/plugin.json").read_text())
+    assert all(
+        overlay[key] == manifest[key] for key in ("name", "version", "description")
+    )
+    assert (
+        overlay["extensions"]["com.openai"]["onboardingSkill"]
+        == extension["onboardingSkill"]
+    )
     assert not (root / ".mcp.json").exists()
     server = mcp["mcpServers"]["qdrant-memory"]
+    compatible = dict(overlay["mcpServers"]["qdrant-memory"])
+    assert set(compatible.pop("env_vars")) == {
+        "QDRANT_MEMORY_CODEX_ROOT",
+        "QDRANT_MEMORY_CODEX_PROFILE",
+        "QDRANT_MEMORY_CODEX_EXECUTABLE",
+        "QDRANT_MEMORY_CODEX_OWNER_URL",
+        "QDRANT_MEMORY_SHARED_TOKEN",
+        "QDRANT_API_KEY",
+        "EMBEDDING_API_KEY",
+    }
+    assert compatible == server
     assert server == {
         "type": "stdio",
         "command": "node",

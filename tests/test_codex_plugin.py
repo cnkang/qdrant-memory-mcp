@@ -56,3 +56,39 @@ def test_missing_runtime_fails_without_writes(tmp_path):
     assert result.stdout == ""
     assert "No data was reset" in result.stderr
     assert not (tmp_path / "absent").exists()
+
+
+def test_node_entrypoint_real_mcp(sandbox):
+    import asyncio
+    import sysconfig
+
+    from mcp import ClientSession, StdioServerParameters
+    from mcp.client.stdio import stdio_client
+
+    profile, _, _, env, _, _, _ = sandbox
+    runtime = Path(sysconfig.get_path("scripts")) / (
+        "qdrant-memory.exe"
+        if __import__("sys").platform == "win32"
+        else "qdrant-memory"
+    )
+    env.update(
+        QDRANT_MEMORY_CODEX_PROFILE=str(profile),
+        QDRANT_MEMORY_CODEX_EXECUTABLE=str(runtime),
+    )
+
+    async def scenario():
+        params = StdioServerParameters(
+            command="node",
+            args=[str(ROOT / "plugins/qdrant-memory/launcher.mjs"), "mcp"],
+            env=env,
+        )
+        async with stdio_client(params) as (read, write):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                assert len((await session.list_tools()).tools) == 4
+                result = await session.call_tool(
+                    "qdrant_memory_add", {"text": "synthetic-codex-fixture"}
+                )
+                assert not result.model_dump(by_alias=True)["isError"]
+
+    asyncio.run(scenario())

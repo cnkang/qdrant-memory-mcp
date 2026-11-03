@@ -1,0 +1,24 @@
+{
+  "name": "qdrant-memory",
+  "version": "0.1.0",
+  "description": "One Memory. Multiple Agents. No Lock-in. Local durable memory with verified imports, portable exports and safe Codex handoff.",
+  "extensions": {"com.openai": {"onboardingSkill": "./skills/setup/SKILL.md"}},
+  "skills": "./skills",
+  "mcpServers": {
+    "qdrant-memory": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["${PLUGIN_ROOT}/launcher.mjs", "mcp"],
+      "cwd": "${PLUGIN_ROOT}",
+      "env_vars": [
+        "QDRANT_MEMORY_CODEX_ROOT",
+        "QDRANT_MEMORY_CODEX_PROFILE",
+        "QDRANT_MEMORY_CODEX_EXECUTABLE",
+        "QDRANT_MEMORY_CODEX_OWNER_URL",
+        "QDRANT_MEMORY_SHARED_TOKEN",
+        "QDRANT_API_KEY",
+        "EMBEDDING_API_KEY"
+      ]
+    }
+  }
+}

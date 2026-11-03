@@ -12,7 +12,12 @@ the interoperability floor; Codex adds a checksummed JSON/Markdown handoff.
 
 Use a root Agent Plugins 1.0 `plugin.json`, fixed-location `mcp.json`, four skill
 directories and a repository `.agents/plugins/marketplace.json`. No divergent
-legacy manifests or hooks. `extensions.com.openai.onboardingSkill` points at setup.
+legacy MCP files or hooks. A synchronized `.codex-plugin/plugin.json` overlay
+adds Codex's supported `env_vars` allowlist; source inspection and real-client
+testing confirmed Codex otherwise drops optional profile paths and credentials.
+Validation requires identical identity, onboarding and stdio command in both
+formats, so the overlay cannot select a different backend.
+`extensions.com.openai.onboardingSkill` points at setup.
 Portable plugin identity/version is independent of MCP and Runtime versions.
 
 The plugin boundary is a small dependency-free Node ESM process that starts the
