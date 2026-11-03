@@ -38,10 +38,17 @@ def test_skill_source_boundary_remains_narrow():
 def test_node_paths_do_not_reuse_hermes():
     script = """
 import { locations } from './plugins/qdrant-memory/launcher.mjs';
-const paths = locations({}, '/example/user', 'linux');
-if (paths.profile !== '/example/user/.qdrant-memory/codex/profile') process.exit(2);
-try { locations({QDRANT_MEMORY_CODEX_ROOT: 'relative'}, '/example/user', 'linux'); process.exit(3); }
-catch { console.log('PASS'); }
+import assert from 'node:assert/strict';
+import { join, resolve } from 'node:path';
+const home = resolve('synthetic-user');
+for (const platform of ['linux', 'win32']) {
+  const paths = locations({}, home, platform);
+  assert.equal(paths.profile, join(home, '.qdrant-memory', 'codex', 'profile'));
+  assert.equal(paths.executable, join(home, '.qdrant-memory', 'codex', 'runtime',
+    platform === 'win32' ? 'Scripts' : 'bin', platform === 'win32' ? 'qdrant-memory.exe' : 'qdrant-memory'));
+}
+assert.throws(() => locations({QDRANT_MEMORY_CODEX_ROOT: 'relative'}, home), /Absolute paths/);
+console.log('PASS');
 """
     result = subprocess.run(
         ["node", "--input-type=module", "-e", script],
