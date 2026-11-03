@@ -4,11 +4,15 @@ import argparse
 import hashlib
 import io
 import json
+import os
 import re
+import stat
 import subprocess
 import tarfile
 import zipfile
 from pathlib import Path, PurePosixPath
+from contextlib import ExitStack
+from functools import cache
 
 ROOT = Path(__file__).resolve().parents[1]
 PLUGIN_PATH = "plugins/qdrant-memory"
@@ -115,6 +119,115 @@ def validate(root=PLUGIN):
     return manifest
 
 
+@cache
+def _windows_api():
+    """Bind only the stdlib builder's missing no-reparse handle operations."""
+    import ctypes
+    from ctypes import wintypes
+
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel.CreateFileW.argtypes = [
+        wintypes.LPCWSTR,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        ctypes.c_void_p,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        wintypes.HANDLE,
+    ]
+    kernel.CreateFileW.restype = wintypes.HANDLE
+    kernel.GetFileInformationByHandleEx.argtypes = [
+        wintypes.HANDLE,
+        ctypes.c_int,
+        ctypes.c_void_p,
+        wintypes.DWORD,
+    ]
+    kernel.GetFileInformationByHandleEx.restype = wintypes.BOOL
+    kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+    kernel.CloseHandle.restype = wintypes.BOOL
+    return kernel
+
+
+def _windows_source_handle(path, directory):
+    import ctypes
+    from ctypes import wintypes
+
+    kernel = _windows_api()
+    flags = 0x200000 | (
+        0x2000000 if directory else 0
+    )  # OPEN_REPARSE_POINT / BACKUP_SEMANTICS
+    access = 0x80 if directory else 0x80000000  # READ_ATTRIBUTES / GENERIC_READ
+    # Deny write and delete sharing: checked ancestors cannot be changed while
+    # the next full pathname is opened. All directory handles stay held.
+    handle = kernel.CreateFileW(str(path), access, 1, None, 3, flags, None)
+    if handle == wintypes.HANDLE(-1).value:
+        raise ctypes.WinError(ctypes.get_last_error())
+    try:
+        attributes = (wintypes.DWORD * 2)()  # FILE_ATTRIBUTE_TAG_INFO
+        if not kernel.GetFileInformationByHandleEx(
+            handle, 9, attributes, ctypes.sizeof(attributes)
+        ):
+            raise ctypes.WinError(ctypes.get_last_error())
+        require(
+            not attributes[0] & 0x400,
+            "Plugin source cannot contain symlinks or reparse points",
+        )
+        require(
+            bool(attributes[0] & 0x10) == directory, "Invalid plugin source file type"
+        )
+    except BaseException:
+        kernel.CloseHandle(handle)
+        raise
+    return handle
+
+
+def _source_bytes(path):
+    """Read the checked file itself, with parents pinned until the read ends."""
+    with ExitStack() as resources:
+        if os.name == "nt":
+            import msvcrt
+
+            kernel = _windows_api()
+            for ancestor in reversed(path.parents):
+                handle = _windows_source_handle(ancestor, True)
+                resources.callback(kernel.CloseHandle, handle)
+            expected = path.lstat()
+            handle = _windows_source_handle(path, False)
+            try:
+                descriptor = msvcrt.open_osfhandle(handle, os.O_RDONLY | os.O_BINARY)
+            except BaseException:
+                kernel.CloseHandle(handle)
+                raise
+        else:
+            require(
+                bool(getattr(os, "O_NOFOLLOW", 0)) and os.open in os.supports_dir_fd,
+                "Secure plugin builds require no-follow directory-relative reads",
+            )
+            flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+            parent = os.open(path.anchor, flags)
+            resources.callback(os.close, parent)
+            for part in path.parts[1:-1]:
+                parent = os.open(part, flags, dir_fd=parent)
+                resources.callback(os.close, parent)
+            expected = os.stat(path.name, dir_fd=parent, follow_symlinks=False)
+            descriptor = os.open(
+                path.name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=parent
+            )
+        resources.callback(os.close, descriptor)
+        opened = os.fstat(descriptor)
+        require(
+            stat.S_ISREG(expected.st_mode),
+            "Tracked plugin source must be a regular file",
+        )
+        require(stat.S_ISREG(opened.st_mode), "Plugin source must be a regular file")
+        require(
+            opened.st_ino != 0 and os.path.samestat(expected, opened),
+            "Plugin source changed during open",
+        )
+        with os.fdopen(descriptor, "rb", closefd=False) as source:
+            return source.read()
+
+
 def source_files():
     """Read only tracked plugin files, rejecting symbolic links."""
     files = {}
@@ -132,7 +245,7 @@ def source_files():
             raise ValueError("Plugin source cannot contain symlinks")
         if not path.is_file():
             raise ValueError("Tracked plugin file is missing: " + name)
-        files[str(path.relative_to(PLUGIN)).replace("\\", "/")] = path.read_bytes()
+        files[str(path.relative_to(PLUGIN)).replace("\\", "/")] = _source_bytes(path)
     return files
 
 
