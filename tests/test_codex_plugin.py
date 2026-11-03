@@ -2,6 +2,7 @@
 
 import importlib.util
 import json
+import os
 import subprocess
 from pathlib import Path
 
@@ -105,6 +106,77 @@ def test_builder_rejects_missing_tracked_source(tmp_path, monkeypatch):
     monkeypatch.setattr(package, "ROOT", tmp_path)
     monkeypatch.setattr(package, "PLUGIN", plugin)
     with pytest.raises(ValueError, match="missing"):
+        package.source_files()
+
+
+def test_builder_reads_checked_descriptor(tmp_path, monkeypatch):
+    source = tmp_path / "source"
+    source.write_bytes(b"approved")
+    monkeypatch.setattr(
+        Path, "read_bytes", lambda *_: pytest.fail("path read fallback")
+    )
+    assert package._source_bytes(source) == b"approved"
+
+
+def test_builder_rejects_file_replacement_between_stat_and_open(tmp_path, monkeypatch):
+    source = tmp_path / "source"
+    source.write_bytes(b"approved")
+
+    def replace():
+        source.rename(tmp_path / "original")
+        source.write_bytes(b"unapproved")
+
+    if os.name == "nt":
+        original = package._windows_source_handle
+
+        def open_file(path, directory):
+            if not directory:
+                replace()
+            return original(path, directory)
+
+        monkeypatch.setattr(package, "_windows_source_handle", open_file)
+    else:
+        original = os.open
+
+        def open_file(path, *args, **kwargs):
+            if path == source.name:
+                replace()
+            return original(path, *args, **kwargs)
+
+        monkeypatch.setattr(os, "open", open_file)
+        monkeypatch.setattr(os, "supports_dir_fd", os.supports_dir_fd | {open_file})
+    with pytest.raises(ValueError, match="changed during open"):
+        package._source_bytes(source)
+
+
+def test_builder_rejects_parent_substitution_after_precheck(tmp_path, monkeypatch):
+    plugin = tmp_path / package.PLUGIN_PATH
+    plugin.mkdir(parents=True)
+    (plugin / "plugin.json").write_text("approved")
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "plugin.json").write_text("unapproved")
+    monkeypatch.setattr(package, "ROOT", tmp_path)
+    monkeypatch.setattr(package, "PLUGIN", plugin)
+    monkeypatch.setattr(
+        package, "git", lambda *_: (package.PLUGIN_PATH + "/plugin.json\0").encode()
+    )
+    original = package._source_bytes
+
+    def substitute(path):
+        plugin.rename(tmp_path / "original")
+        if os.name == "nt":
+            subprocess.run(
+                ["cmd.exe", "/d", "/c", "mklink", "/J", str(plugin), str(outside)],
+                check=True,
+                capture_output=True,
+            )
+        else:
+            plugin.symlink_to(outside, target_is_directory=True)
+        return original(path)
+
+    monkeypatch.setattr(package, "_source_bytes", substitute)
+    with pytest.raises((OSError, ValueError)):
         package.source_files()
 
 
