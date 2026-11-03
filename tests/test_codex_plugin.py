@@ -65,6 +65,46 @@ def test_builder_rejects_git_option_injection(tmp_path):
         package.git(tmp_path, "config", "alias.bad", "!unapproved")
 
 
+def test_builder_rejects_symlinked_source_parent(tmp_path, monkeypatch):
+    import pytest
+
+    plugin = tmp_path / package.PLUGIN_PATH
+    source = plugin / "skills/setup"
+    source.mkdir(parents=True)
+    (source / "SKILL.md").write_text("approved tracked content")
+    subprocess.run(["git", "init", str(tmp_path)], check=True, capture_output=True)
+    subprocess.run(["git", "-C", str(tmp_path), "add", "."], check=True)
+    outside = tmp_path / "unapproved"
+    source.rename(outside)
+    (outside / "SKILL.md").write_text("unapproved replacement")
+    try:
+        source.symlink_to(outside, target_is_directory=True)
+    except OSError as exc:
+        if getattr(exc, "winerror", None) == 1314:
+            pytest.skip("Windows account cannot create symlinks")
+        raise
+    monkeypatch.setattr(package, "ROOT", tmp_path)
+    monkeypatch.setattr(package, "PLUGIN", plugin)
+    with pytest.raises(ValueError, match="symlinks"):
+        package.source_files()
+
+
+def test_pinned_skill_archive_requires_entrypoint(monkeypatch):
+    import io
+    import tarfile
+    import pytest
+
+    snapshot = io.BytesIO()
+    with tarfile.open(fileobj=snapshot, mode="w") as archive:
+        data = b"reference without entrypoint"
+        member = tarfile.TarInfo("qdrant-memory/references/usage.md")
+        member.size = len(data)
+        archive.addfile(member, io.BytesIO(data))
+    monkeypatch.setattr(package, "git", lambda *args: snapshot.getvalue())
+    with pytest.raises(ValueError, match="lacks SKILL.md"):
+        package.skill_files(ROOT, "0" * 40)
+
+
 def test_install_smoke_uses_resolved_cli_and_checks_lifecycle(
     tmp_path, monkeypatch, capsys
 ):
@@ -155,15 +195,27 @@ def test_archive_uses_index_and_tracks_verification_edits(tmp_path, monkeypatch)
     real_git = package.git
     monkeypatch.setattr(package, "ROOT", tmp_path)
     monkeypatch.setattr(package, "PLUGIN", plugin)
-    monkeypatch.setattr(
-        package,
-        "git",
-        lambda repo, *args: (
-            snapshot.getvalue() if args[0] == "archive" else real_git(repo, *args)
-        ),
-    )
+    archived = []
+
+    def fake_git(repo, *args):
+        if args[0] == "archive":
+            archived.append(args[1])
+            return snapshot.getvalue()
+        return real_git(repo, *args)
+
+    monkeypatch.setattr(package, "git", fake_git)
     output = tmp_path / "plugin.zip"
     assert not package.build(output, tmp_path)["source_dirty"]
+    expected = json.loads((plugin / "release.json").read_text())["skill_commit"]
+    assert archived == [expected]
+    with zipfile.ZipFile(output) as archive:
+        assert archive.namelist() == sorted(archive.namelist())
+        assert {info.date_time for info in archive.infolist()} == {
+            (2026, 1, 1, 0, 0, 0)
+        }
+    first = output.read_bytes()
+    package.build(output, tmp_path)
+    assert output.read_bytes() == first
     verification.write_text("edited evidence")
     assert package.build(output, tmp_path)["source_dirty"]
     (plugin / ".env").write_text("synthetic-untracked-private-file")
@@ -269,5 +321,11 @@ def test_node_entrypoint_real_mcp(sandbox):
                     "qdrant_memory_add", {"text": "synthetic-codex-fixture"}
                 )
                 assert not result.model_dump(by_alias=True)["isError"]
+                search = await session.call_tool(
+                    "qdrant_memory_search", {"query": "synthetic-codex-fixture"}
+                )
+                assert not search.model_dump(by_alias=True)["isError"]
+                records = json.loads(search.content[0].text)["memories"]
+                assert any(row["text"] == "synthetic-codex-fixture" for row in records)
 
     asyncio.run(scenario())

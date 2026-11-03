@@ -98,6 +98,7 @@ def test_artifacts_are_metadata_only():
             == "qdrant_memory.standalone:main"
         )
     with tarfile.open(sdists[0]) as archive:
+        assert not any("plugins" in Path(name).parts for name in archive.getnames())
         codex_files = {
             "build_codex_plugin.py",
             "codex_account_acceptance.py",

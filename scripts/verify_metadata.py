@@ -20,10 +20,12 @@ def check_source_layout(paths):
         f"plugins/qdrant-memory/skills/{name}/SKILL.md"
         for name in ("setup", "memory-migration", "memory-backup", "qdrant-memory")
     }
-    assert not (ROOT / "qdrant_memory").exists()
-    assert all(
+    if (ROOT / "qdrant_memory").exists():
+        raise AssertionError("Runtime source cannot be part of this distribution")
+    if not all(
         Path(p).as_posix() in allowed for p in paths if Path(p).name == "SKILL.md"
-    )
+    ):
+        raise AssertionError("Skill source is outside the permitted plugin boundary")
 
 
 def verify():

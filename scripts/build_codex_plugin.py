@@ -124,7 +124,11 @@ def source_files():
         if not name:
             continue
         path = ROOT / name
-        if path.is_symlink():
+        parts = PurePosixPath(name).parts
+        if any(
+            ROOT.joinpath(*parts[:index]).is_symlink()
+            for index in range(1, len(parts) + 1)
+        ):
             raise ValueError("Plugin source cannot contain symlinks")
         if path.is_file():
             files[str(path.relative_to(PLUGIN)).replace("\\", "/")] = path.read_bytes()
@@ -147,6 +151,9 @@ def skill_files(skill_repo, commit):
                 files["skills/qdrant-memory/" + str(relative)] = archive.extractfile(
                     member
                 ).read()
+    require(
+        "skills/qdrant-memory/SKILL.md" in files, "Pinned upstream skill lacks SKILL.md"
+    )
     return files
 
 
