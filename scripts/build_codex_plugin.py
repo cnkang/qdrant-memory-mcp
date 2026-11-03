@@ -52,10 +52,17 @@ def require(condition, message):
         raise ValueError(message)
 
 
-def validate(root=PLUGIN):
+def validate(root=PLUGIN, files=None):
     """Apply offline invariants; optional official schema validation is separate."""
-    manifest = json.loads((root / "plugin.json").read_text())
-    mcp = json.loads((root / "mcp.json").read_text())
+
+    def read(name):
+        if files is None:
+            return (root / name).read_text(encoding="utf-8")
+        require(name in files, "Missing plugin file: " + name)
+        return files[name].decode("utf-8")
+
+    manifest = json.loads(read("plugin.json"))
+    mcp = json.loads(read("mcp.json"))
     require(manifest["name"] == "qdrant-memory", "Invalid plugin name")
     require(manifest["version"] == "0.1.1", "Invalid plugin version")
     require(
@@ -71,7 +78,7 @@ def validate(root=PLUGIN):
         len(extension["interface"]["shortDescription"]) <= 30, "Description too long"
     )
     require(extension["interface"]["category"] == "Productivity", "Invalid category")
-    overlay = json.loads((root / ".codex-plugin/plugin.json").read_text())
+    overlay = json.loads(read(".codex-plugin/plugin.json"))
     require(
         all(
             overlay[key] == manifest[key] for key in ("name", "version", "description")
@@ -83,7 +90,10 @@ def validate(root=PLUGIN):
         == extension["onboardingSkill"],
         "Compatibility onboarding mismatch",
     )
-    require(not (root / ".mcp.json").exists(), "Unsupported MCP manifest")
+    require(
+        not ((root / ".mcp.json").exists() if files is None else ".mcp.json" in files),
+        "Unsupported MCP manifest",
+    )
     server = mcp["mcpServers"]["qdrant-memory"]
     compatible = dict(overlay["mcpServers"]["qdrant-memory"])
     require(
@@ -111,7 +121,7 @@ def validate(root=PLUGIN):
         "Invalid MCP command",
     )
     for name in ("setup", "memory-migration", "memory-backup", "qdrant-memory"):
-        text = (root / "skills" / name / "SKILL.md").read_text()
+        text = read(f"skills/{name}/SKILL.md").replace("\r\n", "\n").replace("\r", "\n")
         require(
             text.startswith("---\n") and f"name: {name}\n" in text,
             "Invalid skill: " + name,
@@ -305,8 +315,8 @@ def skill_files(skill_repo, commit):
 
 def build(output, skill_repo):
     """Bundle a precise upstream skill snapshot and content integrity manifest."""
-    validate(PLUGIN)
-    release = json.loads((PLUGIN / "release.json").read_text())
+    files = source_files()
+    release = json.loads(files["release.json"])
     release["plugin_source_commit"] = git(ROOT, "rev-parse", "HEAD").decode().strip()
     release["source_dirty"] = bool(
         git(
@@ -319,10 +329,10 @@ def build(output, skill_repo):
             VERIFICATION_PATH,
         )
     )
-    files = source_files()
     files.update(skill_files(skill_repo, release["skill_commit"]))
+    validate(PLUGIN, files)
     files["release.json"] = json.dumps(release, indent=2).encode() + b"\n"
-    files["VERIFICATION.md"] = (ROOT / VERIFICATION_PATH).read_bytes()
+    files["VERIFICATION.md"] = _source_bytes(ROOT / VERIFICATION_PATH)
     # Account hosts normalize publisher/compatibility metadata. The archive SHA
     # covers the complete source ZIP; immutable component hashes also survive
     # that host normalization.
