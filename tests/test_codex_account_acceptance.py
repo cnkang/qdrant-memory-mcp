@@ -20,6 +20,91 @@ def event(tool, arguments, payload):
     }
 
 
+@pytest.mark.parametrize("missing", [False, True])
+def test_case_reads_events_and_isolates_client(tmp_path, monkeypatch, missing):
+    acceptance = load_script("codex_account_acceptance")
+    args = {"text": "approved"}
+
+    def cli(argv, *_):
+        assert "--ignore-user-config" in argv and "--ephemeral" in argv
+        assert "memories.use_memories=false" in argv
+        assert "features.shell_tool=false" in argv
+        assert sum('.approval_mode="approve"' in value for value in argv) == 4
+        item = (
+            {"type": "agent_message", "text": "claimed success"}
+            if missing
+            else {
+                "type": "mcp_tool_call",
+                **event("add", args, {"id": "target", "action": "ADD"}),
+            }
+        )
+        return "non-JSON startup message\n" + json.dumps(
+            {"type": "item.completed", "item": item}
+        )
+
+    monkeypatch.setattr(acceptance, "command", cli)
+    if missing:
+        with pytest.raises(RuntimeError, match="Required MCP call missing"):
+            acceptance.case(
+                "synthetic",
+                "qdrant_memory_add",
+                {},
+                tmp_path,
+                [],
+                expected_arguments=args,
+            )
+    else:
+        assert (
+            acceptance.case(
+                "synthetic",
+                "qdrant_memory_add",
+                {},
+                tmp_path,
+                [],
+                expected_arguments=args,
+            )["record_id"]
+            == "target"
+        )
+
+
+def test_command_redacts_external_errors(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    acceptance = load_script("codex_account_acceptance")
+    monkeypatch.setattr(
+        acceptance.subprocess,
+        "run",
+        lambda *a, **kw: SimpleNamespace(
+            returncode=1, stderr="remote error synthetic-secret", stdout=""
+        ),
+    )
+    with pytest.raises(RuntimeError) as error:
+        acceptance.command(
+            ["codex"], {"SOAK_LLM_API_KEY": "synthetic-secret"}, tmp_path
+        )
+    assert "synthetic-secret" not in str(error.value)
+    assert "[REDACTED]" in str(error.value)
+
+
+def test_cloud_provider_rejects_unapproved_routing(tmp_path):
+    acceptance = load_script("codex_account_acceptance")
+    env = {
+        "SOAK_LLM_BASE_URL": "https://ollama.com/v1",
+        "SOAK_LLM_MODEL": "synthetic-model",
+        "SOAK_LLM_API_KEY": "synthetic-key",
+    }
+    provider = acceptance.cloud_provider(env, tmp_path)
+    assert env["CODEX_HOME"] == str(tmp_path / "codex-home")
+    assert 'model_provider="soak-ollama"' in provider
+    for invalid in (
+        {},
+        {**env, "SOAK_LLM_BASE_URL": "https://other.invalid"},
+        {**env, "SOAK_LLM_MODEL": "gpt-fixture"},
+    ):
+        with pytest.raises(ValueError):
+            acceptance.cloud_provider(invalid, tmp_path)
+
+
 def test_search_requires_expected_id_text_and_scope():
     acceptance = load_script("codex_account_acceptance")
     expected = {"id": "target", "text": "approved", "user_id": "u", "agent_id": "a"}

@@ -17,6 +17,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+PLUGIN_ID = "qdrant-memory@qdrant-memory"
 
 
 class Embeddings(BaseHTTPRequestHandler):
@@ -33,6 +34,7 @@ class Embeddings(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def log_message(self, *_args):
+        # Fixture requests contain test facts; keep HTTP logging out of reports.
         pass
 
 
@@ -200,7 +202,7 @@ def case(
 ):
     config = [
         "plugins._default.enabled=false",
-        "plugins.qdrant-memory@qdrant-memory.enabled=true",
+        f"plugins.{PLUGIN_ID}.enabled=true",
         'marketplaces.qdrant-memory.source_type="local"',
         "marketplaces.qdrant-memory.source=" + json.dumps(str(ROOT)),
         "features.memories=false",
@@ -215,7 +217,7 @@ def case(
     # four synthetic-data operations, never to the user's other plugin tools.
     for tool in ("search", "add", "update", "delete"):
         config.append(
-            "plugins.qdrant-memory@qdrant-memory.mcp_servers.qdrant-memory.tools."
+            f"plugins.{PLUGIN_ID}.mcp_servers.qdrant-memory.tools."
             + "qdrant_memory_"
             + tool
             + '.approval_mode="approve"'
@@ -263,6 +265,24 @@ def case(
     return validate_calls(calls, required_tool, expected_arguments, expected_memory)
 
 
+def cloud_provider(env, work):
+    for key in ("SOAK_LLM_BASE_URL", "SOAK_LLM_MODEL", "SOAK_LLM_API_KEY"):
+        if not env.get(key):
+            raise ValueError("Missing required environment name: " + key)
+    if env["SOAK_LLM_BASE_URL"].rstrip("/") != "https://ollama.com/v1":
+        raise ValueError(
+            "Cloud acceptance is restricted to the approved Ollama endpoint"
+        )
+    if "gpt" in env["SOAK_LLM_MODEL"].lower():
+        raise ValueError("This CI lane requires a non-GPT Ollama model")
+    env["CODEX_HOME"] = str(work / "codex-home")
+    return [
+        'model_provider="soak-ollama"',
+        "model=" + json.dumps(env["SOAK_LLM_MODEL"]),
+        'model_providers.soak-ollama={name="Ollama Cloud",base_url="https://ollama.com/v1",wire_api="responses",env_key="SOAK_LLM_API_KEY"}',
+    ]
+
+
 def run(args):
     work = args.workdir.expanduser().resolve()
     work.mkdir(mode=0o700, parents=True, exist_ok=False)
@@ -274,33 +294,14 @@ def run(args):
         QDRANT_MEMORY_CODEX_PROFILE=str(profile),
         QDRANT_MEMORY_CODEX_EXECUTABLE=str(args.runtime.resolve()),
     )
-    provider = []
-    if args.mode == "cloud":
-        for key in ("SOAK_LLM_BASE_URL", "SOAK_LLM_MODEL", "SOAK_LLM_API_KEY"):
-            if not env.get(key):
-                raise ValueError("Missing required environment name: " + key)
-        if env["SOAK_LLM_BASE_URL"].rstrip("/") != "https://ollama.com/v1":
-            raise ValueError(
-                "Cloud acceptance is restricted to the approved Ollama endpoint"
-            )
-        if "gpt" in env["SOAK_LLM_MODEL"].lower():
-            raise ValueError("This CI lane requires a non-GPT Ollama model")
-        env["CODEX_HOME"] = str(work / "codex-home")
-        provider = [
-            'model_provider="soak-ollama"',
-            "model=" + json.dumps(env["SOAK_LLM_MODEL"]),
-            'model_providers.soak-ollama={name="Ollama Cloud",base_url="https://ollama.com/v1",wire_api="responses",env_key="SOAK_LLM_API_KEY"}',
-        ]
+    provider = cloud_provider(env, work) if args.mode == "cloud" else []
     plugin_list = json.loads(command(["codex", "plugin", "list", "--json"], env, work))
-    if any(
-        p.get("pluginId") == "qdrant-memory@qdrant-memory"
-        for p in plugin_list.get("installed", [])
-    ):
+    if any(p.get("pluginId") == PLUGIN_ID for p in plugin_list.get("installed", [])):
         if args.mode == "subscription":
             raise RuntimeError(
                 "Qdrant Memory is already installed in this Codex home; use a home without an existing installation for subscription acceptance"
             )
-        command(["codex", "plugin", "remove", "qdrant-memory@qdrant-memory"], env, work)
+        command(["codex", "plugin", "remove", PLUGIN_ID], env, work)
     server = ThreadingHTTPServer(("127.0.0.1", 0), Embeddings)
     worker = threading.Thread(target=server.serve_forever, daemon=True)
     worker.start()
@@ -309,7 +310,7 @@ def run(args):
             ["codex", "plugin", "marketplace", "add", str(ROOT), "--json"], env, work
         )
         command(
-            ["codex", "plugin", "add", "qdrant-memory@qdrant-memory", "--json"],
+            ["codex", "plugin", "add", PLUGIN_ID, "--json"],
             env,
             work,
         )
@@ -436,7 +437,7 @@ def run(args):
         )
         after_delete = inventory(runtime, profile, env, work)
         verify_transition(after_update, after_delete, identifier, None, action="DELETE")
-        command(["codex", "plugin", "remove", "qdrant-memory@qdrant-memory"], env, work)
+        command(["codex", "plugin", "remove", PLUGIN_ID], env, work)
         assert (native / "memories/MEMORY.md").is_file()
         assert (output / "handoff.json").is_file()
         verification = json.loads(
@@ -465,7 +466,7 @@ def run(args):
         # This exact local candidate was installed by the test, not a pre-existing
         # unrelated plugin. Failure must not leave a dead test backend enabled.
         subprocess.run(
-            ["codex", "plugin", "remove", "qdrant-memory@qdrant-memory"],
+            ["codex", "plugin", "remove", PLUGIN_ID],
             env=env,
             cwd=work,
             capture_output=True,

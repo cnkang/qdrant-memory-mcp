@@ -8,6 +8,7 @@ import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+PLUGIN_ID = "qdrant-memory@qdrant-memory"
 
 
 def main():
@@ -27,9 +28,7 @@ def main():
         )
 
     run("plugin", "marketplace", "add", str(ROOT), "--json")
-    installed = json.loads(
-        run("plugin", "add", "qdrant-memory@qdrant-memory", "--json")
-    )
+    installed = json.loads(run("plugin", "add", PLUGIN_ID, "--json"))
     assert installed["version"] == "0.1.1"
     cache = Path(installed["installedPath"])
     assert (cache / "skills/setup/SKILL.md").is_file()
@@ -44,12 +43,10 @@ def main():
     assert content.count("enabled = true") == 1
     config.write_text(content.replace("enabled = true", "enabled = false"))
     disabled = json.loads(run("plugin", "list", "--json"))
-    assert not next(
-        p
-        for p in disabled["installed"]
-        if p["pluginId"] == "qdrant-memory@qdrant-memory"
-    )["enabled"]
-    run("plugin", "remove", "qdrant-memory@qdrant-memory")
+    assert not next(p for p in disabled["installed"] if p["pluginId"] == PLUGIN_ID)[
+        "enabled"
+    ]
+    run("plugin", "remove", PLUGIN_ID)
     assert not cache.exists()
     print(
         json.dumps(
