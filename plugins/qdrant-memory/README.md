@@ -78,7 +78,9 @@ repeat `--heading 'Exact Topic'` to select source topics/categories, including
 project-named headings, while retaining the profile's fixed destination scope.
 Configuration flags do not establish effective per-client memory enablement.
 Output paths must be inside the invocation directory. Existing bundles cannot
-be overwritten. Standard Runtime JSON export/import stays available for other
+be overwritten. Handoff creation requires directory-relative filesystem APIs;
+platforms without them, including Windows, refuse the export instead of writing
+by path. Standard Runtime JSON export/import stays available for other
 harnesses; new native adapters should use their documented interfaces.
 
 To return to Codex native memory, verify the bundle, review facts, enable native
