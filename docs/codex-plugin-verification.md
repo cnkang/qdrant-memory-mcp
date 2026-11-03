@@ -37,7 +37,12 @@ rather than claims that every model run used the refreshed pins.
 - The MCP source reader now holds checked ancestors until descriptor reads end
   and compares opened-file identity with the preceding no-follow stat. The local
   source/acceptance follow-up passed CodeRabbit CLI review with zero findings.
-- The local MCP suite passed 237 tests with one environment-dependent skip.
+- The final local MCP suite passed 245 tests with one environment-dependent skip.
+  The follow-up CodeRabbit CLI review of the archive snapshot, workflow failure
+  propagation, isolated preview and export-fidelity fixes completed with zero
+  findings. Dry-run checks now assert unchanged records and zero embedding calls;
+  handoffs must preserve every exported ID, text and scope before and after
+  uninstall.
 - Real Codex CLI 0.165.0 subscription acceptance against merged Runtime
   `e8d3b15ea2ce6be0a9e59563cf031b1987991a6d` passed all four scoped tools using
   synthetic local HTTP embeddings. v1 and v2 imported distinct green/amber facts;
