@@ -57,7 +57,147 @@ def command(argv, env, cwd):
     return result.stdout
 
 
-def case(prompt, required_tool, env, work, provider):
+def tool_payload(item):
+    """Decode the Runtime's JSON tool result, not the model's narrative."""
+    if item.get("status") != "completed" or item.get("error"):
+        raise RuntimeError("Actual Codex MCP invocation failed")
+    result = item.get("result") or {}
+    if result.get("isError") or result.get("is_error"):
+        raise RuntimeError("Actual Runtime tool returned isError")
+    blocks = [
+        block.get("text")
+        for block in result.get("content", [])
+        if block.get("type") == "text"
+    ]
+    if len(blocks) != 1:
+        raise RuntimeError("Expected one JSON Runtime result")
+    value = json.loads(blocks[0])
+    if not isinstance(value, dict) or "error" in value:
+        raise RuntimeError("Invalid Runtime result")
+    return value
+
+
+def validate_calls(calls, required_tool, expected_arguments, expected_memory=None):
+    """Verify the exact server, operation arguments and returned record IDs."""
+    matched = [item for item in calls if item.get("tool") == required_tool]
+    if len(matched) != 1:
+        raise RuntimeError("Expected exactly one requested MCP operation")
+    for item in calls:
+        if item.get("server") != "qdrant-memory" or item.get("tool") not in {
+            required_tool,
+            "qdrant_memory_search",
+        }:
+            raise RuntimeError("Unexpected MCP server or operation")
+        value = tool_payload(item)
+        if item.get("tool") == "qdrant_memory_search" and expected_memory is not None:
+            memories = value.get("memories")
+            if (
+                not isinstance(memories, list)
+                or len(
+                    [
+                        memory
+                        for memory in memories
+                        if all(memory.get(k) == v for k, v in expected_memory.items())
+                    ]
+                )
+                != 1
+            ):
+                raise RuntimeError("Search did not return the expected scoped record")
+    item = matched[0]
+    if item.get("arguments") != expected_arguments:
+        raise RuntimeError("MCP operation arguments differ from the approved operation")
+    value = tool_payload(item)
+    if required_tool == "qdrant_memory_search":
+        identifier = expected_memory["id"]
+    else:
+        action = {
+            "qdrant_memory_add": "ADD",
+            "qdrant_memory_update": "UPDATE",
+            "qdrant_memory_delete": "DELETE",
+        }[required_tool]
+        identifier = value.get("id")
+        if (
+            value.get("action") != action
+            or not isinstance(identifier, str)
+            or not identifier
+        ):
+            raise RuntimeError("Unexpected Runtime mutation result")
+        if (
+            required_tool != "qdrant_memory_add"
+            and identifier != expected_arguments["id"]
+        ):
+            raise RuntimeError("Runtime mutation returned the wrong record ID")
+    return {
+        "tool": required_tool,
+        "server": item["server"],
+        "record_id": identifier,
+        "actual_client_calls": 1,
+        "status": "CALL_VERIFIED",
+    }
+
+
+def inventory(runtime, profile, env, work):
+    """Read actual stored state in the fixed test scope after each model session."""
+    result = json.loads(
+        command(
+            [
+                str(runtime),
+                "--home",
+                str(profile),
+                "list",
+                "--user",
+                "codex-fixture",
+                "--agent",
+                "codex-fixture",
+                "--limit",
+                "100",
+            ],
+            env,
+            work,
+        )
+    )
+    records = {row["point_id"]: row for row in result["memories"]}
+    if result["count"]["truncated"] or len(records) != result["count"]["total"]:
+        raise RuntimeError("Incomplete stored-state snapshot")
+    if any(
+        row.get("user_id") != "codex-fixture" or row.get("agent_id") != "codex-fixture"
+        for row in records.values()
+    ):
+        raise RuntimeError("Stored-state scope mismatch")
+    return records
+
+
+def verify_transition(before, after, identifier, text, *, action):
+    """Require the intended final record and unchanged neighboring views."""
+    expected_ids = set(before)
+    if action == "ADD":
+        if identifier in before:
+            raise RuntimeError("ADD reused an existing record ID")
+        expected_ids.add(identifier)
+    elif action == "DELETE":
+        if identifier not in before:
+            raise RuntimeError("DELETE target was not present")
+        expected_ids.remove(identifier)
+    elif action != "UPDATE" or identifier not in before:
+        raise RuntimeError("Invalid update target or action")
+    if set(after) != expected_ids:
+        raise RuntimeError("Operation changed the wrong set of records")
+    if action != "DELETE" and after[identifier].get("text") != text:
+        raise RuntimeError("Target record does not contain the approved text")
+    if any(after.get(key) != row for key, row in before.items() if key != identifier):
+        raise RuntimeError("Operation changed another record in the same scope")
+
+
+def case(
+    prompt,
+    required_tool,
+    env,
+    work,
+    provider,
+    *,
+    expected_arguments,
+    expected_memory=None,
+):
     config = [
         "plugins._default.enabled=false",
         "plugins.qdrant-memory@cnkang-memory.enabled=true",
@@ -106,7 +246,7 @@ def case(prompt, required_tool, env, work, provider):
             and event.get("type") == "item.completed"
         ):
             calls.append(item)
-    matched = [item for item in calls if required_tool in item.get("tool", "")]
+    matched = [item for item in calls if required_tool == item.get("tool", "")]
     if not matched:
         types = sorted(
             {event.get("item", {}).get("type", event.get("type")) for event in events}
@@ -120,26 +260,7 @@ def case(prompt, required_tool, env, work, provider):
             f"Required MCP call missing: {required_tool}; observed event types: {types}; "
             + " ".join(messages)[-1200:]
         )
-    for item in matched:
-        if item.get("status") != "completed" or item.get("error"):
-            raise RuntimeError(
-                "Actual Codex MCP invocation failed: "
-                + json.dumps(
-                    {
-                        key: item.get(key)
-                        for key in ("server", "tool", "status", "error")
-                    }
-                )
-            )
-        value = item.get("result") or {}
-        if value.get("isError"):
-            raise RuntimeError("Actual Runtime tool returned isError")
-    return {
-        "tool": required_tool,
-        "server": matched[0].get("server"),
-        "actual_client_calls": len(matched),
-        "status": "PASS",
-    }
+    return validate_calls(calls, required_tool, expected_arguments, expected_memory)
 
 
 def run(args):
@@ -147,6 +268,8 @@ def run(args):
     work.mkdir(mode=0o700, parents=True, exist_ok=False)
     profile = work / "profile"
     env = dict(os.environ)
+    for name in ("QDRANT_MEMORY_CODEX_OWNER_URL", "QDRANT_MEMORY_SHARED_TOKEN"):
+        env.pop(name, None)
     env.update(
         QDRANT_MEMORY_CODEX_PROFILE=str(profile),
         QDRANT_MEMORY_CODEX_EXECUTABLE=str(args.runtime.resolve()),
@@ -168,20 +291,28 @@ def run(args):
             "model=" + json.dumps(env["SOAK_LLM_MODEL"]),
             'model_providers.soak-ollama={name="Ollama Cloud",base_url="https://ollama.com/v1",wire_api="responses",env_key="SOAK_LLM_API_KEY"}',
         ]
-    inventory = json.loads(command(["codex", "plugin", "list", "--json"], env, work))
+    plugin_list = json.loads(command(["codex", "plugin", "list", "--json"], env, work))
     if any(
         p.get("pluginId") == "qdrant-memory@cnkang-memory"
-        for p in inventory.get("installed", [])
+        for p in plugin_list.get("installed", [])
     ):
+        if args.mode == "subscription":
+            raise RuntimeError(
+                "Qdrant Memory is already installed in this Codex home; use a home without an existing installation for subscription acceptance"
+            )
         command(["codex", "plugin", "remove", "qdrant-memory@cnkang-memory"], env, work)
-    command(["codex", "plugin", "marketplace", "add", str(ROOT), "--json"], env, work)
-    command(
-        ["codex", "plugin", "add", "qdrant-memory@cnkang-memory", "--json"], env, work
-    )
     server = ThreadingHTTPServer(("127.0.0.1", 0), Embeddings)
     worker = threading.Thread(target=server.serve_forever, daemon=True)
     worker.start()
     try:
+        command(
+            ["codex", "plugin", "marketplace", "add", str(ROOT), "--json"], env, work
+        )
+        command(
+            ["codex", "plugin", "add", "qdrant-memory@cnkang-memory", "--json"],
+            env,
+            work,
+        )
         setup = [
             str(args.runtime.resolve()),
             "setup",
@@ -211,6 +342,8 @@ def run(args):
                 f"http://127.0.0.1:{server.server_port}",
             ]
         command(setup, env, work)
+        runtime = args.runtime.resolve()
+        before_add = inventory(runtime, profile, env, work)
         fact = "Codex plugin acceptance preference: blue ceramic teacup."
         first = case(
             f"Call the qdrant-memory plugin's qdrant_memory_add tool once to save exactly: {fact} "
@@ -219,15 +352,29 @@ def run(args):
             env,
             work,
             provider,
+            expected_arguments={"text": fact},
         )
+        identifier = first["record_id"]
+        after_add = inventory(runtime, profile, env, work)
+        verify_transition(before_add, after_add, identifier, fact, action="ADD")
+        expected_memory = {
+            "id": identifier,
+            "text": fact,
+            "user_id": "codex-fixture",
+            "agent_id": "codex-fixture",
+        }
         second = case(
-            "In the qdrant-memory plugin, call qdrant_memory_search for blue ceramic teacup. "
+            "In the qdrant-memory plugin, call qdrant_memory_search once with query exactly: blue ceramic teacup. "
             "Do not save anything. Report the retrieved fact and ID.",
             "qdrant_memory_search",
             env,
             work,
             provider,
+            expected_arguments={"query": "blue ceramic teacup"},
+            expected_memory=expected_memory,
         )
+        if inventory(runtime, profile, env, work) != after_add:
+            raise RuntimeError("Search changed stored memories")
         # Read-only native fixtures, never the operator's actual native directory.
         native = work / "native-fixture"
         for directory, filename in (
@@ -259,36 +406,54 @@ def run(args):
         )
         assert verification["ok"] and not verification["native_verified"]
         assert verification["count"] == 2
+        before_update = inventory(runtime, profile, env, work)
+        replacement = "Codex plugin acceptance preference: amber ceramic teacup."
         updated = case(
-            "Using only qdrant-memory, search for the synthetic blue ceramic teacup "
-            "acceptance fact and update that exact ID to: Codex plugin acceptance preference: amber ceramic teacup. "
+            f"Using only qdrant-memory, call qdrant_memory_update once for ID {identifier} "
+            f"with text exactly: {replacement} "
             "This update to the synthetic test fact is approved. Do not change other records.",
             "qdrant_memory_update",
             env,
             work,
             provider,
+            expected_arguments={"id": identifier, "text": replacement},
+            expected_memory=expected_memory,
+        )
+        after_update = inventory(runtime, profile, env, work)
+        verify_transition(
+            before_update, after_update, identifier, replacement, action="UPDATE"
         )
         deleted = case(
-            "Using only qdrant-memory, search for the synthetic amber ceramic teacup "
-            "acceptance fact and delete that exact ID. This deletion of the synthetic test fact "
+            f"Using only qdrant-memory, call qdrant_memory_delete once for ID {identifier}. "
+            "This deletion of the synthetic test fact "
             "is approved. Do not delete any other record.",
             "qdrant_memory_delete",
             env,
             work,
             provider,
+            expected_arguments={"id": identifier},
+            expected_memory={**expected_memory, "text": replacement},
         )
+        after_delete = inventory(runtime, profile, env, work)
+        verify_transition(after_update, after_delete, identifier, None, action="DELETE")
         command(["codex", "plugin", "remove", "qdrant-memory@cnkang-memory"], env, work)
         assert (native / "memories/MEMORY.md").is_file()
         assert (output / "handoff.json").is_file()
         verification = json.loads(
             command(cli + ["verify", "--output", str(output)], env, work)
         )
+        if inventory(runtime, profile, env, work) != after_delete:
+            raise RuntimeError("Uninstall changed stored memories")
+        cases = [first, second, updated, deleted]
+        for verified in cases:
+            verified["status"] = "PASS"
         return {
             "status": "PASS",
             "harness": command(["codex", "--version"], env, work).strip(),
             "mode": args.mode,
             "embedding": "cpu" if args.cpu_cache else "synthetic-local-http",
-            "cases": [first, second, updated, deleted],
+            "cases": cases,
+            "stored_state_verified": True,
             "v1_v2_fixture_import": "PASS",
             "handoff": verification,
             "uninstall_preserves_data": True,
