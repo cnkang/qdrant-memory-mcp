@@ -180,6 +180,44 @@ def test_builder_rejects_parent_substitution_after_precheck(tmp_path, monkeypatc
         package.source_files()
 
 
+def test_builder_rejects_redirected_file_even_if_precheck_metadata_matches(
+    tmp_path, monkeypatch
+):
+    source, outside = tmp_path / "source", tmp_path / "outside"
+    source.write_bytes(b"approved")
+    outside.write_bytes(b"unapproved")
+    if os.name == "nt":
+        redirected = outside.lstat()
+        original_stat = Path.lstat
+        original_open = package._windows_source_handle
+        monkeypatch.setattr(
+            Path,
+            "lstat",
+            lambda path: redirected if path == source else original_stat(path),
+        )
+        monkeypatch.setattr(
+            package,
+            "_windows_source_handle",
+            lambda path, directory: original_open(
+                path if directory else outside, directory
+            ),
+        )
+    else:
+        original_open = os.open
+
+        def redirect(path, *args, **kwargs):
+            return original_open(
+                str(outside) if path == source.name else path, *args, **kwargs
+            )
+
+        monkeypatch.setattr(os, "open", redirect)
+        monkeypatch.setattr(os, "supports_dir_fd", os.supports_dir_fd | {redirect})
+    with pytest.raises(
+        ValueError, match="outside its checked path|changed during open"
+    ):
+        package._source_bytes(source)
+
+
 def test_pinned_skill_archive_requires_entrypoint(monkeypatch):
     import io
     import tarfile

@@ -145,7 +145,34 @@ def _windows_api():
     kernel.GetFileInformationByHandleEx.restype = wintypes.BOOL
     kernel.CloseHandle.argtypes = [wintypes.HANDLE]
     kernel.CloseHandle.restype = wintypes.BOOL
+    kernel.GetFinalPathNameByHandleW.argtypes = [
+        wintypes.HANDLE,
+        wintypes.LPWSTR,
+        wintypes.DWORD,
+        wintypes.DWORD,
+    ]
+    kernel.GetFinalPathNameByHandleW.restype = wintypes.DWORD
     return kernel
+
+
+def _windows_normal_name(name):
+    if name.startswith("\\\\?\\UNC\\"):
+        name = "\\\\" + name[8:]
+    elif name.startswith("\\\\?\\"):
+        name = name[4:]
+    return os.path.normcase(os.path.normpath(name))
+
+
+def _windows_file_name(handle):
+    """Check the opened object, rather than re-resolving its input pathname."""
+    import ctypes
+
+    name = ctypes.create_unicode_buffer(32768)
+    length = _windows_api().GetFinalPathNameByHandleW(handle, name, len(name), 0)
+    if not length:
+        raise ctypes.WinError(ctypes.get_last_error())
+    require(length < len(name), "Plugin source path is too long")
+    return _windows_normal_name(name.value)
 
 
 def _windows_source_handle(path, directory):
@@ -224,6 +251,11 @@ def _source_bytes(path):
             opened.st_ino != 0 and os.path.samestat(expected, opened),
             "Plugin source changed during open",
         )
+        if os.name == "nt":
+            require(
+                _windows_file_name(handle) == _windows_normal_name(str(path)),
+                "Plugin source resolved outside its checked path",
+            )
         with os.fdopen(descriptor, "rb", closefd=False) as source:
             return source.read()
 
