@@ -24,6 +24,17 @@ def test_portable_package():
     assert "qdrant-memory-mcp==" + release["mcp_distribution_version"] in requirements
 
 
+def test_skill_source_boundary_remains_narrow():
+    import pytest
+    from test_release_guards import load_script
+
+    metadata = load_script("verify_metadata")
+    metadata.check_source_layout(["plugins/qdrant-memory/skills/setup/SKILL.md"])
+    for forbidden in ("SKILL.md", "qdrant_memory/SKILL.md", "plugins/other/SKILL.md"):
+        with pytest.raises(AssertionError):
+            metadata.check_source_layout([forbidden])
+
+
 def test_node_paths_do_not_reuse_hermes():
     script = """
 import { locations } from './plugins/qdrant-memory/launcher.mjs';

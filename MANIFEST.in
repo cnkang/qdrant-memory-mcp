@@ -1,4 +1,8 @@
 include server.json runtime-source.json README.zh-CN.md THIRD_PARTY_NOTICES.md
+# Codex plugin is a separate archive/Marketplace product, never PyPI payload.
+prune plugins
+exclude scripts/build_codex_plugin.py scripts/codex_account_acceptance.py scripts/codex_install_smoke.py
+exclude tests/test_codex_plugin.py
 recursive-include schemas *.json
 include schemas/LICENSE schemas/README.md
 recursive-include scripts *.py

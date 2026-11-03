@@ -71,6 +71,15 @@ def case(prompt, required_tool, env, work, provider):
         'web_search="disabled"',
         'approval_policy="never"',
     ]
+    # Explicit authorization applies only to this disposable profile and these
+    # four synthetic-data operations, never to the user's other plugin tools.
+    for tool in ("search", "add", "update", "delete"):
+        config.append(
+            "plugins.qdrant-memory@cnkang-memory.mcp_servers.qdrant-memory.tools."
+            + "qdrant_memory_"
+            + tool
+            + '.approval_mode="approve"'
+        )
     argv = [
         "codex",
         "--no-daemon",
