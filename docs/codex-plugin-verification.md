@@ -68,9 +68,9 @@ collection was used for destructive tests.
 
 | Evidence | Executed outcome |
 |---|---|
-| Runtime migration/standalone, inventory and cloud-boundary suite | **401 passed** locally, real Qdrant/SQLite and Hermes import path |
+| Runtime migration/standalone, inventory and cloud-boundary suite | **410 passed** locally, real Qdrant/SQLite and Hermes import path |
 | Cloud workflow boundary test (included above) | **1 passed**, main-only/manual/environment/immutable code constraints |
-| MCP repository suite | **218 passed**, including coverage collection; native Pi handoff was explicitly outside this run |
+| MCP repository suite | **231 passed**, including coverage collection; native Pi handoff was explicitly outside this run |
 | Package source boundary | Plugin skills allowed only in the four intended directories; wheel remains metadata-only; plugin excluded from sdist |
 | Build checks | Rebuilt wheel/sdist; metadata verifier and strict Twine checks passed |
 | Portable schemas | Root plugin.json and mcp.json validated against official Agent Plugins 1.0 JSON Schemas |
@@ -120,6 +120,23 @@ discarded based on their severity labels:
 | Setup output overstates discovery | Report `setup_file_present`; workflow step and evidence use the same claim |
 | Launcher checks tool count only | Assert all four exact tool names through the real Node MCP entrypoint |
 
+The subsequent MCP review (5749701789) added eight inline findings and six
+follow-ups. Verified fixes cover approved native-source arguments, symlinked
+parent directories, a required pinned skill entrypoint, exact archive commit,
+fixed ZIP timestamps/order/bytes, launcher search read-back, complete sdist
+exclusion, mixed-scope search rejection, one requested operation per session,
+native-import text fidelity, post-uninstall handoff count and optimized-Python
+validation. Marketplace cleanup removes only a registration created by the test;
+an existing registration is preserved, and a conflicting source fails before
+installation. A local follow-up caught failed plugin removal; cleanup now checks
+the exit result and preserves the registration while that plugin remains installed.
+
+Runtime review 5749611122 added canonical profile reads in the export helper and
+Markdown/JSON record-set consistency verification. The public CLI already expands
+tilde paths; the direct helper now uses the same canonical path for configuration,
+lease and recovery checks. Regressions cover reset and scope-delete intents, plus
+missing/changed Markdown records with recomputed matching manifest hashes.
+
 Local CodeRabbit review also identified the acceptance function-name shadow and
 Unicode line-separator fence mismatch. Both were independently verified, fixed
 and covered by regressions. Runtime reads now use one no-follow descriptor and
@@ -134,7 +151,7 @@ record ID, checked actual stored state, and preserved a same-scope control recor
 Native fixtures and handoff checks passed; native adoption remains unverified.
 Embeddings in this run were the explicitly labeled local synthetic HTTP fixture.
 
-The three new Codex Python scripts have 86% aggregate statement coverage in the
+The three new Codex Python scripts have 88% aggregate statement coverage in the
 local full-suite report. SonarCloud and the hosted Windows command-resolution
 fix require their current remote reruns; local coverage does not certify the
 remote quality gate. npm lifecycle scripts are disabled, Python CI dependencies
@@ -145,6 +162,14 @@ The cloud workflow preserves the plugin's fixed `requirements.txt`, then replace
 only Runtime with the immutable main SHA admitted by preflight (`--no-deps`) and
 checks installed Git provenance. Its client pin includes these stronger checks.
 The complete approved naming contract is recorded in `codex-naming.md`.
+
+Publication is paused until the current PR commits pass their hosted checks,
+SonarCloud findings are cleared, and CodeRabbit follow-up review completes.
+Candidate builds, PR pushes and review-ready status do not authorize a release.
+After acceptance, release the required Runtime first, update pinned MCP/plugin
+dependencies and skill metadata, verify the released install, then publish the
+Marketplace candidate. No new version, release tag or registry upload has been
+performed during review remediation.
 
 ## NOT VERIFIED
 

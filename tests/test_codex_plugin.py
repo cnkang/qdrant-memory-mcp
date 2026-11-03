@@ -5,6 +5,8 @@ import json
 import subprocess
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location(
     "codex_package", ROOT / "scripts/build_codex_plugin.py"
@@ -105,8 +107,9 @@ def test_pinned_skill_archive_requires_entrypoint(monkeypatch):
         package.skill_files(ROOT, "0" * 40)
 
 
+@pytest.mark.parametrize("wrong_version", [False, True])
 def test_install_smoke_uses_resolved_cli_and_checks_lifecycle(
-    tmp_path, monkeypatch, capsys
+    tmp_path, monkeypatch, capsys, wrong_version
 ):
     import sys
     from test_release_guards import load_script
@@ -133,7 +136,12 @@ def test_install_smoke_uses_resolved_cli_and_checks_lifecycle(
         calls.append(argv[1:])
         if argv[1:3] == ["plugin", "add"]:
             (home / "config.toml").write_text("enabled = true\n")
-            return json.dumps({"version": "0.1.1", "installedPath": str(cache)})
+            return json.dumps(
+                {
+                    "version": "invalid" if wrong_version else "0.1.1",
+                    "installedPath": str(cache),
+                }
+            )
         if argv[1:3] == ["plugin", "list"]:
             assert (home / "config.toml").read_text() == "enabled = false\n"
             return json.dumps(
@@ -148,6 +156,11 @@ def test_install_smoke_uses_resolved_cli_and_checks_lifecycle(
     monkeypatch.setattr(smoke.shutil, "which", lambda *a, **kw: resolved)
     monkeypatch.setattr(smoke.subprocess, "check_output", cli)
     monkeypatch.setattr(sys, "argv", ["smoke", "--home", str(home)])
+    if wrong_version:
+        with pytest.raises(RuntimeError, match="version mismatch"):
+            smoke.main()
+        assert capsys.readouterr().out == ""
+        return
     smoke.main()
     report = json.loads(capsys.readouterr().out)
     assert report["setup_file_present"]
