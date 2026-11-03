@@ -46,6 +46,8 @@ jobs:
       - name: Measure JavaScript coverage for the managed and Pi harnesses
         run: |
           mkdir -p coverage
+          # The Pi host test imports the real SDK from this locked tree.
+          npm ci --prefix integrations/agent-hosts --ignore-scripts --no-audit --no-fund
           node --test --experimental-test-coverage \
             --test-reporter=lcov --test-reporter-destination=coverage/lcov.info \
             tests/test_managed_launcher.mjs tests/test_managed_bootstrap.mjs \
