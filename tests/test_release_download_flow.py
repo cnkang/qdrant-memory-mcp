@@ -125,7 +125,10 @@ def test_an_artifact_that_fails_its_digest_is_not_written(release_project, tmp_p
 
     with pytest.raises(AssertionError):
         module.main()
-    assert not (tmp_path / "dist").exists() or not any((tmp_path / "dist").iterdir())
+    dist = tmp_path / "dist"
+    # Nothing may be written when the digest does not match.
+    written = list(dist.iterdir()) if dist.exists() else []
+    assert written == []
 
 
 def test_a_yanked_artifact_is_rejected(release_project, monkeypatch):
