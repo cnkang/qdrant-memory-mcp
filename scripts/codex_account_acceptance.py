@@ -18,6 +18,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PLUGIN_ID = "qdrant-memory@cnkang"
+SEARCH_RESULT_ERROR = "Search did not return the expected scoped record"
 
 
 def require(condition, message):
@@ -87,20 +88,20 @@ def tool_payload(item):
 def verify_search_result(value, expected_memory):
     memories = value.get("memories")
     if not isinstance(memories, list):
-        raise RuntimeError("Search did not return the expected scoped record")
+        raise RuntimeError(SEARCH_RESULT_ERROR)
     if any(
         memory.get(key) != expected_memory[key]
         for memory in memories
         for key in ("user_id", "agent_id")
     ):
-        raise RuntimeError("Search did not return the expected scoped record")
+        raise RuntimeError(SEARCH_RESULT_ERROR)
     matches = [
         memory
         for memory in memories
         if all(memory.get(k) == v for k, v in expected_memory.items())
     ]
     if len(matches) != 1:
-        raise RuntimeError("Search did not return the expected scoped record")
+        raise RuntimeError(SEARCH_RESULT_ERROR)
 
 
 def mutation_id(value, required_tool, expected_arguments):
@@ -352,6 +353,18 @@ def cleanup(env, work, remove_marketplace):
         require(removed_marketplace.returncode == 0, "Test marketplace cleanup failed")
 
 
+def prepare_installation(mode, env, work):
+    """Preserve subscription installs and admit only the intended catalog."""
+    plugin_list = json.loads(command(["codex", "plugin", "list", "--json"], env, work))
+    if any(p.get("pluginId") == PLUGIN_ID for p in plugin_list.get("installed", [])):
+        if mode == "subscription":
+            raise RuntimeError(
+                "Qdrant Memory is already installed in this Codex home; use a home without an existing installation for subscription acceptance"
+            )
+        command(["codex", "plugin", "remove", PLUGIN_ID], env, work)
+    return existing_marketplace(env, work)
+
+
 def run(args):
     work = args.workdir.expanduser().resolve()
     work.mkdir(mode=0o700, parents=True, exist_ok=False)
@@ -364,14 +377,7 @@ def run(args):
         QDRANT_MEMORY_CODEX_EXECUTABLE=str(args.runtime.resolve()),
     )
     provider = cloud_provider(env, work) if args.mode == "cloud" else []
-    plugin_list = json.loads(command(["codex", "plugin", "list", "--json"], env, work))
-    if any(p.get("pluginId") == PLUGIN_ID for p in plugin_list.get("installed", [])):
-        if args.mode == "subscription":
-            raise RuntimeError(
-                "Qdrant Memory is already installed in this Codex home; use a home without an existing installation for subscription acceptance"
-            )
-        command(["codex", "plugin", "remove", PLUGIN_ID], env, work)
-    marketplace_present = existing_marketplace(env, work)
+    marketplace_present = prepare_installation(args.mode, env, work)
     marketplace_created = False
     server = ThreadingHTTPServer(("127.0.0.1", 0), Embeddings)
     worker = threading.Thread(target=server.serve_forever, daemon=True)
