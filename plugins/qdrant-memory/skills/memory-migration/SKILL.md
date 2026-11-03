@@ -13,7 +13,10 @@ target IDs. Never read credentials, raw chat logs or unrelated agent scopes.
 
 v1 reads MEMORY.md (summary fallback); v2 reads consolidated memory_summary.md.
 Unknown formats fail or report EMPTY_OR_UNKNOWN_LAYOUT. Duplicates preserve source
-mappings. Sensitive patterns and code blocks are skipped, but manual review is
+mappings. Select a source version with `--source-version` and exact topic/category
+headings with repeated `--heading` options. Project-named sections can be selected
+this way, but source text never controls the authorized destination scope.
+Sensitive patterns and code blocks are skipped, but manual review is
 still required for personal information. Large CPU inputs fail explicitly.
 
 Only after approval run `codex migrate --codex-home HOME --confirm --verify`.

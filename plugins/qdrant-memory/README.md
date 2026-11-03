@@ -10,7 +10,7 @@ until the native client actually adopts the facts; no unsupported native writes.
 ## Install this candidate
 
 Requirements: Codex with portable plugins, Node 20+, uv, Python 3.11+.
-The plugin is 0.1.0; MCP distribution 0.2.9 and Runtime 0.5.5 have separate versions.
+The plugin is 0.1.1; MCP distribution 0.2.9 and Runtime 0.5.5 have separate versions.
 This development candidate uses an immutable Runtime adapter source commit recorded
 in `release.json`; it is not a new PyPI release. Read that file before installing.
 
@@ -71,7 +71,9 @@ Read-only v1/v2 imports retain source provenance and deterministic IDs. Code,
 likely credentials, raw chats and supporting logs are excluded. Review sensitive
 content manually; pattern detection is not a complete privacy classifier. Use
 `--source-version v1` or `v2` to narrow sources. Unknown layouts are reported;
-configuration flags do not establish effective per-client memory enablement.
+repeat `--heading 'Exact Topic'` to select source topics/categories, including
+project-named headings, while retaining the profile's fixed destination scope.
+Configuration flags do not establish effective per-client memory enablement.
 Output paths must be inside the invocation directory. Existing bundles cannot
 be overwritten. Standard Runtime JSON export/import stays available for other
 harnesses; new native adapters should use their documented interfaces.

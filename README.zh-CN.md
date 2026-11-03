@@ -1,6 +1,11 @@
 # Qdrant Memory MCP
 
-**One Memory. Multiple Agents.**
+**One Memory. Multiple Agents. No Lock-in.**
+
+[Codex 插件候选版](plugins/qdrant-memory/README.zh-CN.md)提供隔离安装向导、原生记忆
+只读导入和可校验的 JSON/Markdown 交接，独立版本，不新增 Runtime。
+[验证记录和限制](docs/codex-plugin-verification.md)区分实际测试与未验证项目。
+退出后无需插件或订阅也能读取导出；文件创建不等于原生系统已经接管。
 
 面向 AI Agent 的持久化、可移植、权限感知记忆，以 MCP 适配层分发 Qdrant Memory Runtime。
 

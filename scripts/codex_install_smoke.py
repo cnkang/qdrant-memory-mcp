@@ -26,7 +26,7 @@ def main():
     installed = json.loads(
         run("plugin", "add", "qdrant-memory@cnkang-memory", "--json")
     )
-    assert installed["version"] == "0.1.0"
+    assert installed["version"] == "0.1.1"
     cache = Path(installed["installedPath"])
     assert (cache / "skills/setup/SKILL.md").is_file()
     assert (

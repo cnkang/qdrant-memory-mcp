@@ -1,6 +1,13 @@
 # Qdrant Memory MCP
 
-**One Memory. Multiple Agents.**
+**One Memory. Multiple Agents. No Lock-in.**
+
+The [Codex plugin candidate](plugins/qdrant-memory/README.md) adds guided local
+setup, read-only native-memory import and verified JSON/Markdown handoff. It is
+versioned independently and does not add a second Runtime. See the
+[executed validation and limits](docs/codex-plugin-verification.md). Exports remain
+readable without this plugin or a subscription; native adoption is verified
+separately from file creation.
 
 Durable, portable, and permission-aware memory for AI agents — distributed as
 an MCP adapter over the Qdrant Memory Runtime.
