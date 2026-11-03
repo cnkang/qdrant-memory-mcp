@@ -291,6 +291,8 @@ def test_inventory_requires_complete_fixed_scope_snapshot(monkeypatch):
         "update_neighbor",
         "delete_neighbor",
         "preview_counts",
+        "preview_write",
+        "preview_embeddings",
         "import_counts",
         "native_text",
         "native_v2_missing",
@@ -298,6 +300,9 @@ def test_inventory_requires_complete_fixed_scope_snapshot(monkeypatch):
         "handoff_count",
         "post_uninstall_count",
         "handoff_adoption",
+        "handoff_substitution",
+        "handoff_duplicate",
+        "post_uninstall_text",
     ],
 )
 def test_run_only_passes_after_stored_state_checks(tmp_path, monkeypatch, fault):
@@ -308,6 +313,16 @@ def test_run_only_passes_after_stored_state_checks(tmp_path, monkeypatch, fault)
     acceptance = load_script("codex_account_acceptance")
     state = {}
     verification_calls = 0
+    servers = []
+    create_server = acceptance.ThreadingHTTPServer
+
+    def track_server(*args):
+        server = create_server(*args)
+        servers.append(server)
+        return server
+
+    monkeypatch.setattr(acceptance, "ThreadingHTTPServer", track_server)
+    monkeypatch.setenv("QDRANT_MEMORY_CODEX_ROOT", "relative-operator-root")
     monkeypatch.setenv("QDRANT_MEMORY_CODEX_OWNER_URL", "http://existing-owner.invalid")
     monkeypatch.setenv("QDRANT_MEMORY_SHARED_TOKEN", "synthetic-test-token")
 
@@ -323,6 +338,7 @@ def test_run_only_passes_after_stored_state_checks(tmp_path, monkeypatch, fault)
         nonlocal verification_calls
         assert "QDRANT_MEMORY_CODEX_OWNER_URL" not in env
         assert "QDRANT_MEMORY_SHARED_TOKEN" not in env
+        assert "QDRANT_MEMORY_CODEX_ROOT" not in env
         if argv[0] == "codex":
             return '{"installed": []}'
         if "list" in argv:
@@ -334,6 +350,10 @@ def test_run_only_passes_after_stored_state_checks(tmp_path, monkeypatch, fault)
             )
         if "migrate" in argv:
             if "--dry-run" in argv:
+                if fault == "preview_write":
+                    state["unapproved"] = row("unapproved", "unexpected preview write")
+                if fault == "preview_embeddings":
+                    servers[0].embedding_requests += 1
                 return json.dumps(
                     {"planned": 0 if fault == "preview_counts" else 2, "skipped": 0}
                 )
@@ -359,9 +379,29 @@ def test_run_only_passes_after_stored_state_checks(tmp_path, monkeypatch, fault)
         if "export" in argv:
             output = Path(argv[argv.index("--output") + 1])
             output.mkdir()
-            (output / "handoff.json").write_text("{}", encoding="utf-8")
+            records = [
+                {
+                    "id": key,
+                    "memory": value["text"],
+                    "user_id": value["user_id"],
+                    "agent_id": value["agent_id"],
+                }
+                for key, value in state.items()
+            ]
+            if fault == "handoff_substitution":
+                records[0]["memory"] = "substituted fact"
+            if fault == "handoff_duplicate":
+                records[1] = records[0]
+            (output / "handoff.json").write_text(
+                json.dumps({"memories": records}), encoding="utf-8"
+            )
         if "verify" in argv:
             verification_calls += 1
+            if fault == "post_uninstall_text" and verification_calls == 2:
+                output = Path(argv[argv.index("--output") + 1]) / "handoff.json"
+                document = json.loads(output.read_text(encoding="utf-8"))
+                document["memories"][0]["memory"] = "substituted after uninstall"
+                output.write_text(json.dumps(document), encoding="utf-8")
             count = (
                 1
                 if fault == "handoff_count"

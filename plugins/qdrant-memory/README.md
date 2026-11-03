@@ -11,14 +11,14 @@ until the native client actually adopts the facts; no unsupported native writes.
 
 Marketplace: **Kang's plugins** (`cnkang`). Plugin: **Qdrant Memory for Codex**.
 
-Requirements: Codex with portable plugins, Node 20+, uv, Python 3.11+.
+Requirements: Codex with portable plugins, Node 20+, uv, Python 3.11+, Git on PATH.
 The plugin is 0.1.1; MCP distribution 0.2.9 and Runtime 0.5.5 have separate versions.
 This development candidate uses an immutable Runtime adapter source commit recorded
 in `release.json`; it is not a new PyPI release. Read that file before installing.
 Its `test_evidence` path is relative to the plugin ZIP root (`VERIFICATION.md`).
 
 ```sh
-codex plugin marketplace add cnkang/qdrant-memory-mcp --ref codex/qdrant-memory-plugin
+codex plugin marketplace add cnkang/qdrant-memory-mcp --ref main
 codex plugin add qdrant-memory@cnkang
 ```
 

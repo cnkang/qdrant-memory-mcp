@@ -28,6 +28,7 @@ def require(condition, message):
 
 class Embeddings(BaseHTTPRequestHandler):
     def do_POST(self):
+        self.server.embedding_requests += 1
         body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
         vectors = [
             [v / 255 + 0.01 for v in hashlib.sha256(t.encode()).digest()[:3]]
@@ -329,6 +330,23 @@ def verify_fixture_import(before, after):
     )
 
 
+def verify_handoff_snapshot(output, expected):
+    """Match the portable export to the stored snapshot it was meant to preserve."""
+    records = json.loads((output / "handoff.json").read_text(encoding="utf-8"))[
+        "memories"
+    ]
+    require(len(records) == len(expected), "Handoff snapshot record count differs")
+    require({r["id"] for r in records} == set(expected), "Handoff snapshot IDs differ")
+    for record in records:
+        stored = expected[record["id"]]
+        require(
+            record["memory"] == stored["text"]
+            and record["user_id"] == stored["user_id"]
+            and record["agent_id"] == stored["agent_id"],
+            "Handoff snapshot content or scope differs",
+        )
+
+
 def cleanup(env, work, remove_marketplace):
     removed = subprocess.run(
         ["codex", "plugin", "remove", PLUGIN_ID],
@@ -373,7 +391,11 @@ def run(args):
     work.mkdir(mode=0o700, parents=True, exist_ok=False)
     profile = work / "profile"
     env = dict(os.environ)
-    for name in ("QDRANT_MEMORY_CODEX_OWNER_URL", "QDRANT_MEMORY_SHARED_TOKEN"):
+    for name in (
+        "QDRANT_MEMORY_CODEX_ROOT",
+        "QDRANT_MEMORY_CODEX_OWNER_URL",
+        "QDRANT_MEMORY_SHARED_TOKEN",
+    ):
         env.pop(name, None)
     env.update(
         QDRANT_MEMORY_CODEX_PROFILE=str(profile),
@@ -383,6 +405,7 @@ def run(args):
     marketplace_present = prepare_installation(args.mode, env, work)
     marketplace_created = False
     server = ThreadingHTTPServer(("127.0.0.1", 0), Embeddings)
+    server.embedding_requests = 0
     worker = threading.Thread(target=server.serve_forever, daemon=True)
     worker.start()
     try:
@@ -472,6 +495,8 @@ def run(args):
                 f"# Fixture\n{fact}\n", encoding="utf-8", newline="\n"
             )
         cli = [str(args.runtime.resolve()), "--home", str(profile), "codex"]
+        before_preview = inventory(runtime, profile, env, work)
+        before_embeddings = server.embedding_requests
         preview = json.loads(
             command(
                 cli + ["migrate", "--codex-home", str(native), "--dry-run"], env, work
@@ -480,6 +505,14 @@ def run(args):
         require(
             preview["planned"] == 2 and preview["skipped"] == 0,
             "Native fixture preview counts differ",
+        )
+        require(
+            server.embedding_requests == before_embeddings,
+            "Dry run requested embeddings",
+        )
+        require(
+            inventory(runtime, profile, env, work) == before_preview,
+            "Dry run changed stored memories",
         )
         imported = json.loads(
             command(
@@ -493,6 +526,7 @@ def run(args):
             "Native fixture import failed",
         )
         verify_fixture_import(after_add, inventory(runtime, profile, env, work))
+        pre_export = inventory(runtime, profile, env, work)
         output = work / "handoff"
         command(cli + ["export", "--output", str(output), "--confirm"], env, work)
         verification = json.loads(
@@ -506,6 +540,7 @@ def run(args):
             verification["count"] == 3,
             "Handoff count differs from the expected three records",
         )
+        verify_handoff_snapshot(output, pre_export)
         before_update = inventory(runtime, profile, env, work)
         replacement = "Codex plugin acceptance preference: amber ceramic teacup."
         updated = case(
@@ -548,6 +583,7 @@ def run(args):
             verification["count"] == 3,
             "Post-uninstall handoff does not report three records",
         )
+        verify_handoff_snapshot(output, pre_export)
         if inventory(runtime, profile, env, work) != after_delete:
             raise RuntimeError("Uninstall changed stored memories")
         cases = [first, second, updated, deleted]
