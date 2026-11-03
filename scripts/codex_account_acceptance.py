@@ -317,11 +317,14 @@ def existing_marketplace(env, work):
 def verify_fixture_import(before, after):
     added = set(after) - set(before)
     require(
-        len(added) == 1 and all(after.get(key) == row for key, row in before.items()),
+        len(added) == 2 and all(after.get(key) == row for key, row in before.items()),
         "Native fixture import changed unexpected records",
     )
     require(
-        "Prefer green notebooks." in after[next(iter(added))]["text"],
+        sorted(after[key]["text"] for key in added)
+        == sorted(
+            ["# Fixture\nPrefer green notebooks.", "# Fixture\nPrefer amber notebooks."]
+        ),
         "Native fixture text was not preserved",
     )
 
@@ -459,13 +462,15 @@ def run(args):
             raise RuntimeError("Search changed stored memories")
         # Read-only native fixtures, never the operator's actual native directory.
         native = work / "native-fixture"
-        for directory, filename in (
-            ("memories", "MEMORY.md"),
-            ("memories_v2", "memory_summary.md"),
+        for directory, filename, fact in (
+            ("memories", "MEMORY.md", "Prefer green notebooks."),
+            ("memories_v2", "memory_summary.md", "Prefer amber notebooks."),
         ):
             path = native / directory
             path.mkdir(parents=True)
-            (path / filename).write_text("# Fixture\nPrefer green notebooks.\n")
+            (path / filename).write_text(
+                f"# Fixture\n{fact}\n", encoding="utf-8", newline="\n"
+            )
         cli = [str(args.runtime.resolve()), "--home", str(profile), "codex"]
         preview = json.loads(
             command(
@@ -473,7 +478,7 @@ def run(args):
             )
         )
         require(
-            preview["planned"] == 1 and preview["skipped"] == 1,
+            preview["planned"] == 2 and preview["skipped"] == 0,
             "Native fixture preview counts differ",
         )
         imported = json.loads(
@@ -484,7 +489,7 @@ def run(args):
             )
         )
         require(
-            imported["ok"] and imported["migration"]["processed"] == 1,
+            imported["ok"] and imported["migration"]["processed"] == 2,
             "Native fixture import failed",
         )
         verify_fixture_import(after_add, inventory(runtime, profile, env, work))
@@ -498,8 +503,8 @@ def run(args):
             "Handoff verification failed",
         )
         require(
-            verification["count"] == 2,
-            "Handoff count differs from the expected two records",
+            verification["count"] == 3,
+            "Handoff count differs from the expected three records",
         )
         before_update = inventory(runtime, profile, env, work)
         replacement = "Codex plugin acceptance preference: amber ceramic teacup."
@@ -540,8 +545,8 @@ def run(args):
             command(cli + ["verify", "--output", str(output)], env, work)
         )
         require(
-            verification["count"] == 2,
-            "Post-uninstall handoff does not report two records",
+            verification["count"] == 3,
+            "Post-uninstall handoff does not report three records",
         )
         if inventory(runtime, profile, env, work) != after_delete:
             raise RuntimeError("Uninstall changed stored memories")

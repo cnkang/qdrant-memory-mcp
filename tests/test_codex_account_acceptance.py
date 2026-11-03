@@ -293,6 +293,8 @@ def test_inventory_requires_complete_fixed_scope_snapshot(monkeypatch):
         "preview_counts",
         "import_counts",
         "native_text",
+        "native_v2_missing",
+        "native_v2_duplicate",
         "handoff_count",
         "post_uninstall_count",
         "handoff_adoption",
@@ -333,18 +335,25 @@ def test_run_only_passes_after_stored_state_checks(tmp_path, monkeypatch, fault)
         if "migrate" in argv:
             if "--dry-run" in argv:
                 return json.dumps(
-                    {"planned": 0 if fault == "preview_counts" else 1, "skipped": 1}
+                    {"planned": 0 if fault == "preview_counts" else 2, "skipped": 0}
                 )
             state["control"] = row(
                 "control",
                 "wrong fixture text"
                 if fault == "native_text"
-                else "Prefer green notebooks.",
+                else "# Fixture\nPrefer green notebooks.",
             )
+            if fault != "native_v2_missing":
+                state["control_v2"] = row(
+                    "control_v2",
+                    "# Fixture\nPrefer green notebooks."
+                    if fault == "native_v2_duplicate"
+                    else "# Fixture\nPrefer amber notebooks.",
+                )
             return json.dumps(
                 {
                     "ok": True,
-                    "migration": {"processed": 0 if fault == "import_counts" else 1},
+                    "migration": {"processed": 0 if fault == "import_counts" else 2},
                 }
             )
         if "export" in argv:
@@ -357,7 +366,7 @@ def test_run_only_passes_after_stored_state_checks(tmp_path, monkeypatch, fault)
                 1
                 if fault == "handoff_count"
                 or (fault == "post_uninstall_count" and verification_calls == 2)
-                else 2
+                else 3
             )
             return json.dumps(
                 {
@@ -400,7 +409,10 @@ def test_run_only_passes_after_stored_state_checks(tmp_path, monkeypatch, fault)
         assert result["status"] == "PASS"
         assert result["stored_state_verified"]
         assert all(case["status"] == "PASS" for case in result["cases"])
-        assert state == {"control": row("control", "Prefer green notebooks.")}
+        assert state == {
+            "control": row("control", "# Fixture\nPrefer green notebooks."),
+            "control_v2": row("control_v2", "# Fixture\nPrefer amber notebooks."),
+        }
 
 
 @pytest.mark.parametrize(
