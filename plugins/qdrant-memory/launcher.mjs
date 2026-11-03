@@ -63,7 +63,8 @@ export async function launch(mode, env = process.env) {
 if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {
   try { process.exitCode = await launch(process.argv[2] || 'mcp'); }
   catch {
-    console.error('Qdrant Memory is not ready. Run the plugin setup skill; check Node, the pinned Runtime, profile and WriterLease. No data was reset.');
+    console.error('Qdrant Memory is not ready. Run the plugin setup skill; check Node, the pinned Runtime, profile and WriterLease. No data was reset.'
+      + ` Explicit executable: ${Boolean(process.env.QDRANT_MEMORY_CODEX_EXECUTABLE)}; explicit profile: ${Boolean(process.env.QDRANT_MEMORY_CODEX_PROFILE)}.`);
     process.exitCode = 1;
   }
 }

@@ -1,0 +1,49 @@
+name: Codex plugin
+on:
+  push:
+    branches: [main, 'codex/**']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: codex-plugin-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  portable:
+    name: Portable package and real CLI (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
+        with:
+          python-version: '3.11'
+      - run: npm install --global @openai/codex@0.165.0
+      - run: python -m pip install '.[dev]'
+      - run: python scripts/build_codex_plugin.py --validate
+      - run: python -m pytest -q tests/test_codex_plugin.py
+      - name: Install, discover setup, disable and uninstall without credentials
+        run: python scripts/codex_install_smoke.py --home "${{ runner.temp }}/codex-plugin-smoke"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: cnkang/skills
+          ref: 60c3c55805a45040d829205654c3d246df9f6a75
+          path: .skill-source
+          persist-credentials: false
+      - name: Build immutable upstream skill snapshot
+        run: python scripts/build_codex_plugin.py --skill-repo .skill-source
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: codex-plugin-${{ matrix.os }}
+          path: dist/qdrant-memory-codex-0.1.0.zip
+          if-no-files-found: error
