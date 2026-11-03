@@ -13,6 +13,10 @@ write support for every harness.
 
 ## Inventory and architecture
 
+The source pins below now identify merged upstream main commits. Earlier
+acceptance entries retain their original revisions; they are historical evidence
+rather than claims that every model run used the refreshed pins.
+
 | Component | Verified baseline / decision |
 |---|---|
 | Runtime | Public release 0.5.5; merged adapter pin `e8d3b15ea2ce6be0a9e59563cf031b1987991a6d` |
@@ -23,6 +27,24 @@ write support for every harness.
 | Native layouts | v1 MEMORY.md with summary fallback; v2 consolidated memory_summary.md; evidence/raw chats excluded |
 | Plugin format | Portable Agent Plugins 1.0 plus synchronized Codex env_vars overlay; one stdio backend |
 | Implementation | Dependency-free Node host boundary; existing Python Runtime owns embedding, scope, schema, ledger, lease and recovery |
+
+## Merge-gate follow-up (2026-11-04, UTC+8)
+
+- Runtime PR #119 and skill PR #46 were rebase-merged after their hosted checks
+  and SonarCloud gates passed. Runtime's final reviewed tree had zero open Sonar
+  findings and a CodeRabbit approval; native Windows ran 41 checks without skips
+  for Python 3.11/pywin32 312 and Python 3.14/pywin32 311/312.
+- The MCP source reader now holds checked ancestors until descriptor reads end
+  and compares opened-file identity with the preceding no-follow stat. The local
+  source/acceptance follow-up passed CodeRabbit CLI review with zero findings.
+- The local MCP suite passed 237 tests with one environment-dependent skip.
+- Real Codex CLI 0.165.0 subscription acceptance against merged Runtime
+  `e8d3b15ea2ce6be0a9e59563cf031b1987991a6d` passed all four scoped tools using
+  synthetic local HTTP embeddings. v1 and v2 imported distinct green/amber facts;
+  the three-record handoff verified before and after uninstall, and stored data
+  was preserved. No subscription credentials entered GitHub CI.
+- The refreshed MCP candidate's hosted gates remain pending. No registry,
+  Marketplace or tagged release was published by this follow-up.
 
 Node is a project choice for the host boundary. Official plugin/MCP packaging is
 language-neutral; no requirement to rewrite the existing Python Runtime was found.
