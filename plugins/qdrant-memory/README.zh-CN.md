@@ -31,6 +31,8 @@ Marketplace 展示名为 **Kang's plugins**，标识为 `cnkang`；安装选择�
 
 退出时用 `qdrant-memory --home PROFILE codex export --output ./新目录 --confirm`，
 再用 `qdrant-memory --home PROFILE codex verify --output ./新目录` 校验。
+交接目录创建依赖目录相对文件系统 API；Windows 等不支持该能力的平台直接拒绝
+导出，不退回按路径写入。标准 Runtime JSON 导出/导入仍可用于其他接入方。
 审核交接文件，通过当前 Codex 支持的交互要求保存获准事实，启用原生记忆并在新
 会话确认实际接管。涉及云端模型处理需先批准。AGENTS.md 属于项目指令，不是
 原生记忆导入。保留 Qdrant 直至确认迁移结果；禁用/卸载不删除数据和备份。
