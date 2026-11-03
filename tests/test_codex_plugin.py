@@ -91,6 +91,23 @@ def test_builder_rejects_symlinked_source_parent(tmp_path, monkeypatch):
         package.source_files()
 
 
+def test_builder_rejects_missing_tracked_source(tmp_path, monkeypatch):
+    """A tracked plugin file absent from the tree cannot be silently dropped."""
+    plugin = tmp_path / package.PLUGIN_PATH
+    plugin.mkdir(parents=True)
+    tracked = plugin / "plugin.json"
+    tracked.write_text("{}")
+    subprocess.run(["git", "init", str(tmp_path)], check=True, capture_output=True)
+    subprocess.run(
+        ["git", "-C", str(tmp_path), "add", "."], check=True, capture_output=True
+    )
+    tracked.unlink()
+    monkeypatch.setattr(package, "ROOT", tmp_path)
+    monkeypatch.setattr(package, "PLUGIN", plugin)
+    with pytest.raises(ValueError, match="missing"):
+        package.source_files()
+
+
 def test_pinned_skill_archive_requires_entrypoint(monkeypatch):
     import io
     import tarfile

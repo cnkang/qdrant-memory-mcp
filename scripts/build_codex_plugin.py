@@ -130,8 +130,9 @@ def source_files():
             for index in range(1, len(parts) + 1)
         ):
             raise ValueError("Plugin source cannot contain symlinks")
-        if path.is_file():
-            files[str(path.relative_to(PLUGIN)).replace("\\", "/")] = path.read_bytes()
+        if not path.is_file():
+            raise ValueError("Tracked plugin file is missing: " + name)
+        files[str(path.relative_to(PLUGIN)).replace("\\", "/")] = path.read_bytes()
     return files
 
 
