@@ -328,7 +328,7 @@ def test_archive_uses_index_and_tracks_verification_edits(tmp_path, monkeypatch)
     )
     snapshot = io.BytesIO()
     with tarfile.open(fileobj=snapshot, mode="w") as archive:
-        data = b"upstream skill"
+        data = b"---\nname: qdrant-memory\n---\nupstream skill\n"
         member = tarfile.TarInfo("qdrant-memory/SKILL.md")
         member.size = len(data)
         archive.addfile(member, io.BytesIO(data))
@@ -370,6 +370,16 @@ def test_archive_uses_index_and_tracks_verification_edits(tmp_path, monkeypatch)
         )
         assert archive.read("qdrant-memory/VERIFICATION.md") == b"edited evidence"
         assert json.loads(archive.read("qdrant-memory/release.json"))["source_dirty"]
+    checked_read = package._source_bytes
+
+    def refuse_evidence(path):
+        if path == verification:
+            raise ValueError("evidence must use the checked source reader")
+        return checked_read(path)
+
+    monkeypatch.setattr(package, "_source_bytes", refuse_evidence)
+    with pytest.raises(ValueError, match="checked source reader"):
+        package.build(output, tmp_path)
 
 
 def test_skill_source_boundary_remains_narrow():
@@ -381,6 +391,69 @@ def test_skill_source_boundary_remains_narrow():
     for forbidden in ("SKILL.md", "qdrant_memory/SKILL.md", "plugins/other/SKILL.md"):
         with pytest.raises(AssertionError):
             metadata.check_source_layout([forbidden])
+
+
+@pytest.mark.parametrize("filename", ["plugin.json", "mcp.json"])
+def test_archive_validates_the_collected_manifest_bytes(
+    tmp_path, monkeypatch, filename
+):
+    import shutil
+
+    plugin = tmp_path / package.PLUGIN_PATH
+    shutil.copytree(package.PLUGIN, plugin)
+    (tmp_path / "docs").mkdir()
+    (tmp_path / package.VERIFICATION_PATH).write_text("fixture evidence")
+    subprocess.run(["git", "init", str(tmp_path)], check=True, capture_output=True)
+    subprocess.run(["git", "-C", str(tmp_path), "add", "."], check=True)
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(tmp_path),
+            "-c",
+            "user.name=Fixture",
+            "-c",
+            "user.email=fixture@example.invalid",
+            "commit",
+            "-m",
+            "fixture",
+        ],
+        check=True,
+        capture_output=True,
+    )
+    package.validate(plugin)
+    target = plugin / filename
+    original = package._source_bytes
+    changed = []
+
+    def edit_in_place(path):
+        if path == target:
+            document = json.loads(path.read_text(encoding="utf-8"))
+            if filename == "plugin.json":
+                document["name"] = "invalid-name"
+            else:
+                document["mcpServers"]["qdrant-memory"]["command"] = "unapproved"
+            path.write_text(json.dumps(document), encoding="utf-8")
+            changed.append(path)
+        return original(path)
+
+    monkeypatch.setattr(package, "ROOT", tmp_path)
+    monkeypatch.setattr(package, "PLUGIN", plugin)
+    monkeypatch.setattr(package, "_source_bytes", edit_in_place)
+    monkeypatch.setattr(
+        package,
+        "skill_files",
+        lambda *_: {
+            "skills/qdrant-memory/SKILL.md": b"---\nname: qdrant-memory\n---\nfixture\n",
+        },
+    )
+    with pytest.raises(
+        ValueError,
+        match="Invalid plugin name|Compatibility MCP mismatch|Invalid MCP command",
+    ):
+        package.build(tmp_path / "plugin.zip", tmp_path)
+    assert changed == [target]
+    assert not (tmp_path / "plugin.zip").exists()
 
 
 def test_node_paths_do_not_reuse_hermes():
