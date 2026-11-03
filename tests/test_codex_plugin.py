@@ -24,6 +24,97 @@ def test_portable_package():
     assert "qdrant-memory-mcp==" + release["mcp_distribution_version"] in requirements
 
 
+def test_validation_survives_python_optimization(tmp_path):
+    import shutil
+    import sys
+
+    plugin = tmp_path / "plugin"
+    shutil.copytree(package.PLUGIN, plugin)
+    manifest = json.loads((plugin / "plugin.json").read_text())
+    manifest["name"] = "invalid-name"
+    (plugin / "plugin.json").write_text(json.dumps(manifest))
+    script = (
+        "import runpy,sys; "
+        "from pathlib import Path; "
+        "runpy.run_path(sys.argv[1])['validate'](Path(sys.argv[2]))"
+    )
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-O",
+            "-c",
+            script,
+            str(ROOT / "scripts/build_codex_plugin.py"),
+            str(plugin),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode != 0 and "Invalid plugin name" in result.stderr
+
+
+def test_archive_uses_index_and_tracks_verification_edits(tmp_path, monkeypatch):
+    import io
+    import shutil
+    import tarfile
+    import zipfile
+
+    plugin = tmp_path / "plugins/qdrant-memory"
+    shutil.copytree(package.PLUGIN, plugin)
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    verification = docs / "codex-plugin-verification.md"
+    verification.write_text("committed evidence")
+    subprocess.run(["git", "init", str(tmp_path)], check=True, capture_output=True)
+    subprocess.run(["git", "-C", str(tmp_path), "add", "."], check=True)
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(tmp_path),
+            "-c",
+            "user.name=Fixture",
+            "-c",
+            "user.email=fixture@example.invalid",
+            "commit",
+            "-m",
+            "fixture",
+        ],
+        check=True,
+        capture_output=True,
+    )
+    (plugin / ".env").write_text("synthetic-untracked-private-file")
+    (plugin / ".gitignore").write_text("ignored-private\n")
+    (plugin / "ignored-private").write_text("synthetic-ignored-private-file")
+    verification.write_text("edited evidence")
+    snapshot = io.BytesIO()
+    with tarfile.open(fileobj=snapshot, mode="w") as archive:
+        data = b"upstream skill"
+        member = tarfile.TarInfo("qdrant-memory/SKILL.md")
+        member.size = len(data)
+        archive.addfile(member, io.BytesIO(data))
+    real_git = package.git
+    monkeypatch.setattr(package, "ROOT", tmp_path)
+    monkeypatch.setattr(package, "PLUGIN", plugin)
+    monkeypatch.setattr(
+        package,
+        "git",
+        lambda repo, *args: (
+            snapshot.getvalue() if args[0] == "archive" else real_git(repo, *args)
+        ),
+    )
+    output = tmp_path / "plugin.zip"
+    assert package.build(output, tmp_path)["source_dirty"]
+    with zipfile.ZipFile(output) as archive:
+        names = archive.namelist()
+        assert not any(
+            name.endswith(("/.env", "/ignored-private", "/.gitignore"))
+            for name in names
+        )
+        assert archive.read("qdrant-memory/VERIFICATION.md") == b"edited evidence"
+        assert json.loads(archive.read("qdrant-memory/release.json"))["source_dirty"]
+
+
 def test_skill_source_boundary_remains_narrow():
     import pytest
     from test_release_guards import load_script
