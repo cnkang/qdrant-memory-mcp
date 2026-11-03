@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import io
 import json
+import re
 import subprocess
 import tarfile
 import zipfile
@@ -14,7 +15,30 @@ PLUGIN = ROOT / "plugins/qdrant-memory"
 
 
 def git(repo, *args):
-    return subprocess.check_output(["git", "-C", str(repo), *args])
+    directory = Path(repo).expanduser().resolve(strict=True)
+    if not directory.is_dir():
+        raise ValueError("Git repository must be a directory")
+    fixed = {
+        ("rev-parse", "HEAD"),
+        (
+            "status",
+            "--porcelain",
+            "--",
+            "plugins",
+            "scripts/build_codex_plugin.py",
+            "docs/codex-plugin-verification.md",
+        ),
+        ("ls-files", "-z", "--", "plugins/qdrant-memory"),
+    }
+    archive = (
+        len(args) == 3
+        and args[0] == "archive"
+        and re.fullmatch(r"[0-9a-f]{40}", args[1])
+        and args[2] == "qdrant-memory"
+    )
+    if args not in fixed and not archive:
+        raise ValueError("Unsupported plugin build Git operation")
+    return subprocess.check_output(["git", *args], cwd=directory)
 
 
 def require(condition, message):

@@ -54,6 +54,65 @@ def test_validation_survives_python_optimization(tmp_path):
     assert result.returncode != 0 and "Invalid plugin name" in result.stderr
 
 
+def test_builder_rejects_git_option_injection(tmp_path):
+    import pytest
+
+    with pytest.raises(ValueError, match="Unsupported"):
+        package.git(tmp_path, "archive", "--output=unapproved", "qdrant-memory")
+    with pytest.raises(ValueError, match="Unsupported"):
+        package.git(tmp_path, "config", "alias.bad", "!unapproved")
+
+
+def test_install_smoke_uses_resolved_cli_and_checks_lifecycle(
+    tmp_path, monkeypatch, capsys
+):
+    import sys
+    from test_release_guards import load_script
+
+    smoke = load_script("codex_install_smoke")
+    home, cache = tmp_path / "home", tmp_path / "cache"
+    (cache / "skills/setup").mkdir(parents=True)
+    (cache / "skills/setup/SKILL.md").write_text("fixture")
+    (cache / "plugin.json").write_text(
+        json.dumps(
+            {
+                "extensions": {
+                    "com.openai": {"onboardingSkill": "./skills/setup/SKILL.md"}
+                }
+            }
+        )
+    )
+    resolved = str(tmp_path / "npm-bin/codex.cmd")
+    calls = []
+
+    def cli(argv, *, env, **_):
+        assert argv[0] == resolved
+        assert env["CODEX_HOME"] == str(home)
+        calls.append(argv[1:])
+        if argv[1:3] == ["plugin", "add"]:
+            (home / "config.toml").write_text("enabled = true\n")
+            return json.dumps({"version": "0.1.1", "installedPath": str(cache)})
+        if argv[1:3] == ["plugin", "list"]:
+            assert (home / "config.toml").read_text() == "enabled = false\n"
+            return json.dumps(
+                {"installed": [{"pluginId": smoke.PLUGIN_ID, "enabled": False}]}
+            )
+        if argv[1:3] == ["plugin", "remove"]:
+            import shutil
+
+            shutil.rmtree(cache)
+        return "codex fixture" if argv[1:] == ["--version"] else "{}"
+
+    monkeypatch.setattr(smoke.shutil, "which", lambda *a, **kw: resolved)
+    monkeypatch.setattr(smoke.subprocess, "check_output", cli)
+    monkeypatch.setattr(sys, "argv", ["smoke", "--home", str(home)])
+    smoke.main()
+    report = json.loads(capsys.readouterr().out)
+    assert report["setup_file_present"] and "setup_discovered" not in report
+    assert report["status"] == "PASS"
+    assert ["plugin", "remove", smoke.PLUGIN_ID] in calls
+
+
 def test_archive_uses_index_and_tracks_verification_edits(tmp_path, monkeypatch):
     import io
     import shutil
@@ -84,10 +143,6 @@ def test_archive_uses_index_and_tracks_verification_edits(tmp_path, monkeypatch)
         check=True,
         capture_output=True,
     )
-    (plugin / ".env").write_text("synthetic-untracked-private-file")
-    (plugin / ".gitignore").write_text("ignored-private\n")
-    (plugin / "ignored-private").write_text("synthetic-ignored-private-file")
-    verification.write_text("edited evidence")
     snapshot = io.BytesIO()
     with tarfile.open(fileobj=snapshot, mode="w") as archive:
         data = b"upstream skill"
@@ -105,6 +160,12 @@ def test_archive_uses_index_and_tracks_verification_edits(tmp_path, monkeypatch)
         ),
     )
     output = tmp_path / "plugin.zip"
+    assert not package.build(output, tmp_path)["source_dirty"]
+    verification.write_text("edited evidence")
+    assert package.build(output, tmp_path)["source_dirty"]
+    (plugin / ".env").write_text("synthetic-untracked-private-file")
+    (plugin / ".gitignore").write_text("ignored-private\n")
+    (plugin / "ignored-private").write_text("synthetic-ignored-private-file")
     assert package.build(output, tmp_path)["source_dirty"]
     with zipfile.ZipFile(output) as archive:
         names = archive.namelist()
