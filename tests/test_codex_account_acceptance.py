@@ -26,7 +26,8 @@ def test_case_reads_events_and_isolates_client(tmp_path, monkeypatch, missing):
     args = {"text": "approved"}
 
     def cli(argv, *_):
-        assert "--ignore-user-config" in argv and "--ephemeral" in argv
+        assert "--ignore-user-config" in argv
+        assert "--ephemeral" in argv
         assert "memories.use_memories=false" in argv
         assert "features.shell_tool=false" in argv
         assert sum('.approval_mode="approve"' in value for value in argv) == 4
@@ -119,9 +120,10 @@ def test_search_requires_expected_id_text_and_scope():
     for key in expected:
         wrong = {**expected, key: "wrong"}
         for rows in ([], [wrong], [expected, expected]):
+            wrong_call = event("search", args, {"memories": rows})
             with pytest.raises(RuntimeError, match="expected scoped record"):
                 acceptance.validate_calls(
-                    [event("search", args, {"memories": rows})],
+                    [wrong_call],
                     "qdrant_memory_search",
                     args,
                     expected,
@@ -322,7 +324,8 @@ def test_run_only_passes_after_stored_state_checks(tmp_path, monkeypatch, fault)
             acceptance.run(args)
     else:
         result = acceptance.run(args)
-        assert result["status"] == "PASS" and result["stored_state_verified"]
+        assert result["status"] == "PASS"
+        assert result["stored_state_verified"]
         assert all(case["status"] == "PASS" for case in result["cases"])
         assert state == {"control": row("control", "native fixture control")}
 
@@ -338,9 +341,7 @@ def test_subscription_install_guard_and_cleanup(tmp_path, monkeypatch, failure):
         calls.append(argv)
         if argv[:3] == ["codex", "plugin", "list"]:
             installed = (
-                [{"pluginId": "qdrant-memory@cnkang"}]
-                if failure == "existing"
-                else []
+                [{"pluginId": "qdrant-memory@cnkang"}] if failure == "existing" else []
             )
             return json.dumps({"installed": installed})
         if "setup" in argv:

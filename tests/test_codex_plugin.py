@@ -52,7 +52,8 @@ def test_validation_survives_python_optimization(tmp_path):
         capture_output=True,
         text=True,
     )
-    assert result.returncode != 0 and "Invalid plugin name" in result.stderr
+    assert result.returncode != 0
+    assert "Invalid plugin name" in result.stderr
 
 
 def test_builder_rejects_git_option_injection(tmp_path):
@@ -109,7 +110,8 @@ def test_install_smoke_uses_resolved_cli_and_checks_lifecycle(
     monkeypatch.setattr(sys, "argv", ["smoke", "--home", str(home)])
     smoke.main()
     report = json.loads(capsys.readouterr().out)
-    assert report["setup_file_present"] and "setup_discovered" not in report
+    assert report["setup_file_present"]
+    assert "setup_discovered" not in report
     assert report["status"] == "PASS"
     assert ["plugin", "remove", smoke.PLUGIN_ID] in calls
 
