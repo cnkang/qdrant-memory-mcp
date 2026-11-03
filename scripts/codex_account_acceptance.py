@@ -17,7 +17,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-PLUGIN_ID = "qdrant-memory@qdrant-memory"
+PLUGIN_ID = "qdrant-memory@cnkang"
 
 
 class Embeddings(BaseHTTPRequestHandler):
@@ -203,8 +203,8 @@ def case(
     config = [
         "plugins._default.enabled=false",
         f"plugins.{PLUGIN_ID}.enabled=true",
-        'marketplaces.qdrant-memory.source_type="local"',
-        "marketplaces.qdrant-memory.source=" + json.dumps(str(ROOT)),
+        'marketplaces.cnkang.source_type="local"',
+        "marketplaces.cnkang.source=" + json.dumps(str(ROOT)),
         "features.memories=false",
         "memories.generate_memories=false",
         "memories.use_memories=false",

@@ -338,7 +338,7 @@ def test_subscription_install_guard_and_cleanup(tmp_path, monkeypatch, failure):
         calls.append(argv)
         if argv[:3] == ["codex", "plugin", "list"]:
             installed = (
-                [{"pluginId": "qdrant-memory@qdrant-memory"}]
+                [{"pluginId": "qdrant-memory@cnkang"}]
                 if failure == "existing"
                 else []
             )
@@ -372,7 +372,7 @@ def test_subscription_install_guard_and_cleanup(tmp_path, monkeypatch, failure):
             "codex",
             "plugin",
             "add",
-            "qdrant-memory@qdrant-memory",
+            "qdrant-memory@cnkang",
             "--json",
         ] in calls
-        assert cleanup == [["codex", "plugin", "remove", "qdrant-memory@qdrant-memory"]]
+        assert cleanup == [["codex", "plugin", "remove", "qdrant-memory@cnkang"]]

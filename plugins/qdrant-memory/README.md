@@ -9,6 +9,8 @@ until the native client actually adopts the facts; no unsupported native writes.
 
 ## Install this candidate
 
+Marketplace: **Kang's plugins** (`cnkang`). Plugin: **Qdrant Memory for Codex**.
+
 Requirements: Codex with portable plugins, Node 20+, uv, Python 3.11+.
 The plugin is 0.1.1; MCP distribution 0.2.9 and Runtime 0.5.5 have separate versions.
 This development candidate uses an immutable Runtime adapter source commit recorded
@@ -17,7 +19,7 @@ Its `test_evidence` path is relative to the plugin ZIP root (`VERIFICATION.md`).
 
 ```sh
 codex plugin marketplace add cnkang/qdrant-memory-mcp --ref codex/qdrant-memory-plugin
-codex plugin add qdrant-memory@qdrant-memory
+codex plugin add qdrant-memory@cnkang
 ```
 
 For a checked-out version, register its repository root instead. Pin a verified
@@ -88,7 +90,7 @@ AGENTS.md is not native memory. Keep Qdrant until adoption is confirmed.
 Disable the plugin in Codex settings, or remove its cache:
 
 ```sh
-codex plugin remove qdrant-memory@qdrant-memory
+codex plugin remove qdrant-memory@cnkang
 ```
 
 Uninstall never deletes Qdrant, native data, model cache or exports. Roll back by

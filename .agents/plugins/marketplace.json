@@ -1,5 +1,6 @@
 {
-  "name": "qdrant-memory",
+  "name": "cnkang",
+  "interface": {"displayName": "Kang's plugins"},
   "plugins": [
     {
       "name": "qdrant-memory",
