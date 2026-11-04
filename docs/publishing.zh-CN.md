@@ -1,4 +1,4 @@
-# 0.2.9 发布清单
+# 0.3.0 发布清单
 
 [English](publishing.md) | [简体中文](publishing.zh-CN.md)
 
@@ -10,7 +10,7 @@ dispatch。
 示例仅标识目标发行版本，不能证明该版本已公开可用。使用安装命令前，须核实准确的公开
 版本。只有下列检查确认两个公开端点后，才可宣布发布已可用。
 
-1. 核验已公开的 Runtime 0.5.5 发行版及准确依赖。不要为本次分发重新创建其 tag，
+1. 核验已公开的 Runtime 0.6.0 发行版及准确依赖。不要为本次分发重新创建其 tag，
    也不要再次发布。
 2. 复核已有的 PyPI Trusted Publisher（PyPI 账号步骤）：
    - `hermes-plugin-qdrant-memory`：owner `cnkang`，仓库
@@ -18,13 +18,13 @@ dispatch。
    - `qdrant-memory-mcp`：owner `cnkang`，仓库 `qdrant-memory-mcp`，
      workflow `publish.yml`，环境 `pypi`。
 3. 在提示时批准受保护的 GitHub 环境。版本 tag 必须指向 main 分支的提交，并与包元数据
-   一致。发行不能覆盖已有版本。复用已验证的公开 Runtime 0.5.5 文件。
+   一致。发行不能覆盖已有版本。复用已验证的公开 Runtime 0.6.0 文件。
 4. 在公开依赖模式下运行分发验收：在新环境中仅使用准确的公开 Runtime PyPI 发行版
    构建并测试 wheel 和 sdist。
-5. 确认后创建分发 tag v0.2.9。其 workflow 先构建和测试，再执行受保护的 PyPI 发布，
+5. 确认后创建分发 tag v0.3.0。其 workflow 先构建和测试，再执行受保护的 PyPI 发布，
    核验公开元数据，用官方 publisher 验证，然后用 `github-oidc` 发布 Registry。
 6. 核验 PyPI 所有权标记和公开 Registry 条目 `io.github.cnkang/qdrant-memory`
-   的 0.2.9 版本。只有在公开端点和公开安装验收确认该发行后，才发布公告。
+   的 0.3.0 版本。只有在公开端点和公开安装验收确认该发行后，才发布公告。
 
 分发 workflow 有一个仅限 tag 的手动 `registry_only` 重试模式。它下载并验证已发布的
 PyPI 文件并对之测试，然后重跑 Registry 校验/发布。此过程不上传 PyPI。普通重试同样
@@ -35,7 +35,32 @@ PyPI 文件并对之测试，然后重跑 Registry 校验/发布。此过程不�
 `pypi`、分发 `pypi` 和 `mcp-registry`。发布前核验这些控制，不要绕过。两个项目都已
 有发布版本，应复核现有 Trusted Publisher 和必要审核者，不要创建重复的 publisher。
 
-## 后续版本的适配器附件
+## 0.3.0 的协同适配器发布
+
+版本组合为 Runtime 0.6.0、Python MCP 0.3.0、通用 Skill 0.4.0、托管 launcher
+0.1.0-rc.8、WorkBuddy connector 0.2.5 和 DSH bundle 0.1.6。它们独立发布，源码
+中的版本表不等于发布凭据，须分别核验公开端点。
+
+1. 先发布并核验 Runtime 0.6.0，记录真实 release commit、wheel URL、大小和
+   SHA-256，再生成 Python 哈希锁。
+2. 合并审核通过的 Skill 更新，将真实提交固定到 connector、工作流 checkout 和
+   Codex release manifest；保留历史验收记录。
+3. 使用 `python scripts/pack_launcher.py --output-dir dist/launcher` 打包，并在最终
+   审核前将真实 SHA-512 integrity 写入 `launcher-source.json`。解决问题后合并 MCP
+   发布 PR。
+4. 发布 MCP v0.3.0 并核验 PyPI、Registry；通过独立工作流发布审核后的 Skills
+   快照。先完成 Python 包发布，再执行 npm 发布。
+5. 使用 `npm publish
+   dist/launcher/cnkang-qdrant-memory-launcher-0.1.0-rc.8.tgz --access public --tag next`
+   发布审核过的同一文件。把实际 npm 网页授权 URL 交给操作者，由其完成授权，
+   不提交 token。核验 npm 的准确版本和 integrity，重跑 Linux、macOS、Windows 的公开 launcher
+   验收。源码包测试不能替代公开文件验收。
+6. 固定 launcher 已公开后再完成 WorkBuddy draft 附件。最后通过独立工作流和 npm
+   授权发布审核后 main 的 DSH bundle，核验公开包后再宣布可用。
+7. 使用最终固定引用重建 Codex 源码 ZIP 并重跑受保护云端验收，同步三个仓库的当前
+   安装文档和证据。Codex Marketplace 正式提交继续暂停。
+
+## 适配器附件
 
 [WorkBuddy 适配器](../integrations/workbuddy/README.md)增加一个独立的、由 tag 触发的
 只读构建和 Draft Release 附件任务。当固定版本的 launcher 尚未在 npm registry 上以

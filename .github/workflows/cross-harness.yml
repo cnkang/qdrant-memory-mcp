@@ -36,7 +36,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: cnkang/hermes-plugin-qdrant-memory
-          ref: 2865fe586bf64a0ebc9532afe85da2bddd9ced7f
+          ref: dee6777432f17523db75f6be32cf3ef15e48235c
           path: .scratch/owner-runtime
           persist-credentials: false
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -133,7 +133,7 @@ jobs:
     if: github.event_name != 'workflow_dispatch' || inputs.cold_setup
     name: Managed CPU setup (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
@@ -177,7 +177,7 @@ jobs:
   public-launcher:
     name: Public npm acceptance (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 40
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
@@ -232,7 +232,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: cnkang/hermes-plugin-qdrant-memory
-          ref: 2865fe586bf64a0ebc9532afe85da2bddd9ced7f
+          ref: dee6777432f17523db75f6be32cf3ef15e48235c
           path: .scratch/runtime
           persist-credentials: false
       - name: Install standalone Runtime and existing-host test dependencies

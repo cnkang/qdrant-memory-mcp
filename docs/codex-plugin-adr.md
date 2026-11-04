@@ -71,12 +71,13 @@ portability remains subject to the Runtime destination enrollment boundary.
 
 ## Release constraints
 
-Runtime Issue #115 remains open; PR #116 (diagnostics/bounded infra retry) and
-PR #117 (compatibility release gate) were open during inventory. Latest public
-Runtime/MCP releases were 0.5.5/0.2.9. No public tag or registry publication is
-authorized. This candidate pins the Runtime adapter commit until an approved
-Runtime release can replace it. Transitive resolver installs are not equivalent
-to a fully hash-locked desktop-only runtime bundle.
+This paragraph records the inventory when the ADR was drafted: Runtime Issue
+#115 remained open, PRs #116 and #117 were under review, and the latest public
+Runtime/MCP versions were 0.5.5/0.2.9. That status is historical. Runtime 0.6.0
+is now public, and this release candidate pins its immutable main commit; see
+`runtime-source.json` and `docs/publishing.md` for the current pin and release
+sequence. Transitive resolver installs are not equivalent to a fully
+hash-locked desktop-only runtime bundle.
 
 P1 automatic capture remains deferred, off by default. It requires independent
 consent, exclusions, processing disclosure and duplicate-injection analysis.

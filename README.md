@@ -12,11 +12,11 @@ separately from file creation.
 Durable, portable, and permission-aware memory for AI agents — distributed as
 an MCP adapter over the Qdrant Memory Runtime.
 
-For shared production deployments, read the [deployment security guide](docs/shared-deployment-security.md). Owner-only database write credentials are required independently of MCP grants. Runtime 0.5.0 includes destination protection and shared doctor. The operator must configure these controls. See the [Owner support record](docs/universal-owner-status.md) for support limits.
+For shared production deployments, read the [deployment security guide](docs/shared-deployment-security.md). Owner-only database write credentials are required independently of MCP grants. Configure destination protection and shared doctor before deployment. See the [Owner support record](docs/universal-owner-status.md) for support limits.
 
 ## One Memory, Multiple Agents — opt-in shared owner
 
-The distribution adds an opt-in single-owner service and stdio bridge. Install Runtime 0.5.5 to use them. See [shared integration guide](integrations/shared/README.md). Private defaults are unchanged. Native Provider automatic shared extraction is deferred.
+The distribution adds an opt-in single-owner service and stdio bridge. Install Runtime 0.6.0 to use them. See [shared integration guide](integrations/shared/README.md). Private defaults are unchanged. Native Provider automatic shared extraction is deferred.
 
 <!-- mcp-name: io.github.cnkang/qdrant-memory -->
 
@@ -30,17 +30,19 @@ Persistent, scoped memory for AI agents through four explicit **stdio MCP** tool
 This repository distributes the existing [Python Runtime](https://github.com/cnkang/hermes-plugin-qdrant-memory).
 Its metadata-only wheel contains no Python business implementation. The console
 script points directly to `qdrant_memory.standalone:main` and depends on
-`hermes-plugin-qdrant-memory[mcp]==0.5.5`.
+`hermes-plugin-qdrant-memory[mcp]==0.6.0`.
 
-See [0.2.9 release notes](docs/releases/0.2.9.md) for the Runtime pin and upgrade guidance.
+See [0.3.0 release notes](docs/releases/0.3.0.md) for the Runtime pin and upgrade guidance.
 
 Before using an exact-version installation command, confirm that version on
-the [PyPI release page](https://pypi.org/project/qdrant-memory-mcp/0.2.9/).
+the [PyPI release page](https://pypi.org/project/qdrant-memory-mcp/0.3.0/).
+If unavailable, these package commands cannot run yet. Use the
+[published 0.2.9 guide](https://github.com/cnkang/qdrant-memory-mcp/blob/v0.2.9/README.md)
+until publication; a source candidate does not establish PyPI or npm availability.
 
-**Versions:** MCP distribution 0.2.9 pins Runtime 0.5.5, which supports MCP
+**Versions:** MCP distribution 0.3.0 pins Runtime 0.6.0, which supports MCP
 Python SDK 1.x and 2.x (`mcp>=1.30,<3`). The four scoped tools and stdio
-launch arguments are the same for both SDK majors. It retains the fix for explicit
-writes of distinct, highly similar texts without an LLM. The commands below use
+launch arguments are the same for both SDK majors. The commands below use
 these exact versions. Release
 artifacts are available through the [distribution PyPI page](https://pypi.org/project/qdrant-memory-mcp/)
 and [Runtime PyPI page](https://pypi.org/project/hermes-plugin-qdrant-memory/).
@@ -64,10 +66,13 @@ SDK/CLI tested, real host tested, real desktop GUI tested, not verified.
 | Pi | No | Yes (extension) | Opt-in adapter | Opt-in adapter | Via Owner | Yes | Real host tested |
 | DeepSeek Harness | No | Yes (DSH bundle) | No | No | Via Owner | Yes | Real host tested |
 | WorkBuddy | No | Yes (connector) | No | No | Via Owner | Yes | Real desktop GUI tested |
-| Codex | No | Yes | No | No | Via Owner | Yes | Configuration example only |
+| Codex | No | Yes | No | No | Via Owner | Yes | Official CLI tested |
 
 This distribution does not auto-extract conversations for any MCP host. Automatic
 capture and recall require a native provider or a lifecycle adapter.
+See the [Codex validation record](docs/codex-plugin-verification.md) for the
+tested CLI, source revisions and model providers; desktop GUI and native-memory
+adoption are separate verification boundaries.
 
 ## Install and initialize
 
@@ -101,13 +106,13 @@ Create an operator-owned profile directory and save `qdrant-memory.json` inside:
 Initialize, then launch (replace `/path/to/profile` with your absolute path):
 
 ```bash
-uvx --from qdrant-memory-mcp==0.2.9 qdrant-memory-mcp --home /path/to/profile init
-uvx --from qdrant-memory-mcp==0.2.9 qdrant-memory-mcp --home /path/to/profile mcp
+uvx --from qdrant-memory-mcp==0.3.0 qdrant-memory-mcp --home /path/to/profile init
+uvx --from qdrant-memory-mcp==0.3.0 qdrant-memory-mcp --home /path/to/profile mcp
 ```
 
 The command without `--home` uses `~/.qdrant-memory`, independent of Hermes.
 Configure and initialize that directory before letting a Registry client launch
-`uvx --from qdrant-memory-mcp==0.2.9 qdrant-memory-mcp mcp`.
+`uvx --from qdrant-memory-mcp==0.3.0 qdrant-memory-mcp mcp`.
 The executable name matches the package name.
 The Registry's positional `mcp` selects protocol mode. Its optional named
 `--home` precedes `mcp` when a client supplies a custom profile.
@@ -116,7 +121,7 @@ Alternatively:
 
 ```bash
 python3 -m venv .venv
-.venv/bin/python -m pip install qdrant-memory-mcp==0.2.9
+.venv/bin/python -m pip install qdrant-memory-mcp==0.3.0
 .venv/bin/qdrant-memory-mcp --home /path/to/profile init
 .venv/bin/qdrant-memory-mcp --home /path/to/profile mcp
 ```
@@ -138,7 +143,7 @@ Codex `config.toml` example:
 ```toml
 [mcp_servers.qdrant_memory]
 command = "uvx"
-args = ["--from", "qdrant-memory-mcp==0.2.9", "qdrant-memory-mcp", "--home", "/path/to/profile", "mcp"]
+args = ["--from", "qdrant-memory-mcp==0.3.0", "qdrant-memory-mcp", "--home", "/path/to/profile", "mcp"]
 ```
 
 OpenCode `opencode.json` example:
@@ -149,7 +154,7 @@ OpenCode `opencode.json` example:
   "mcp": {
     "qdrant_memory": {
       "type": "local",
-      "command": ["uvx", "--from", "qdrant-memory-mcp==0.2.9", "qdrant-memory-mcp", "--home", "/path/to/profile", "mcp"],
+      "command": ["uvx", "--from", "qdrant-memory-mcp==0.3.0", "qdrant-memory-mcp", "--home", "/path/to/profile", "mcp"],
       "enabled": true
     }
   }
@@ -159,8 +164,9 @@ OpenCode `opencode.json` example:
 Pi needs a separately installed MCP client/extension. In that extension, use
 `command: uvx` and the same argument list. No built-in Pi MCP support or universal
 extension config format is claimed. These are configuration examples. This
-distribution's acceptance tests use the official Python MCP SDK, not live agent
-applications. See the Runtime's [client evidence and limits](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/mcp.md).
+protocol acceptance tests use the official Python MCP SDK. Host-specific evidence
+is recorded separately in the [architecture and support boundaries](docs/cross-harness-architecture.md)
+and the Runtime's [client evidence and limits](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/mcp.md).
 
 ## Tools and boundaries
 
@@ -198,7 +204,9 @@ from Hermes. It preserves the Runtime's ledger, IDs and recovery semantics.
 - Shared Owner status: [docs/universal-owner-status.md](docs/universal-owner-status.md)
 - Validation limits: [docs/dsh-validation.md](docs/dsh-validation.md)
 
-Long-running 24-hour acceptance: pending / not yet verified.
+Validation reports apply to their recorded versions, workloads and host
+environments. Short protocol or cloud runs do not establish 24-hour acceptance
+for a new release.
 
 ## Verification and development
 

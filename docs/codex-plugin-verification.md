@@ -1,8 +1,10 @@
 # Qdrant Memory for Codex: engineering and acceptance record
 
-Date: 2026-11-03 (Asia/Singapore). Candidate: plugin 0.1.1. This is an engineering
-candidate, not an approved OpenAI public-directory release. No release tag,
-PyPI/npm/MCP Registry publication or GitHub Release was performed.
+Date: 2026-11-04 (Asia/Singapore). Candidate: plugin 0.1.1. This is an engineering
+candidate, not an approved OpenAI public-directory release. Runtime, MCP and
+adapter publications follow their separate versioned release gates; they do not
+constitute Codex Marketplace submission. Earlier dated entries retain their
+original source versions and evidence.
 
 **One Memory. Multiple Agents. No Lock-in.** Standard readable exports and
 harness adapters belong to the product contract. Supported native APIs should
@@ -36,6 +38,17 @@ The first Runtime-hosted cloud run, `41744250983`, failed before model calls
 because the isolated `CODEX_HOME` did not exist. The harness now creates that
 private directory before invoking Codex. This failure does not establish an
 Ollama/model compatibility result.
+
+The MCP-hosted [run 41768867472](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/41768867472)
+passed at source `2da4ec66255467e28867b589e2b61895d0debe16`, using Codex CLI
+0.165.0 and Ollama Cloud `deepseek-v4.1-flash`. It installed the declared
+Runtime adapter source `e8d3b15ea2ce6be0a9e59563cf031b1987991a6d` with metadata
+0.5.5; this does not establish native support in the older public 0.5.5 wheel.
+The result verified one actual call for each add/search/update/delete, target
+identity and final stored state, distinct v1/v2 fixtures, three-record handoff
+fidelity and data preservation after uninstall. Handoff remained HANDOFF_PENDING
+with native_verified=false. This is cloud CLI acceptance, not Desktop UI or
+native adoption evidence. Repeat acceptance after final release pins change.
 
 The synthetic MCP call-count lane disables the automatic skills instruction
 block (`skills.include_instructions=false`) so the model is evaluated only on
