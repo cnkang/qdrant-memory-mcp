@@ -63,18 +63,19 @@ Never remove locks or change fingerprints to force compatibility.
 
 | Component | Pin | Availability |
 | --- | --- | --- |
-| Python MCP | 0.2.9 | Python/uvx distribution. Confirm the exact version on PyPI |
-| Runtime | 0.5.5 | Public PyPI wheel. Optional CPU provider |
-| Node launcher | 0.1.0-rc.7 | Release candidate pinned by the connector and Bundle. It installs Runtime 0.5.2 for standalone MCP use |
-| DSH bundle | 0.1.5 | Configuration-only npm bundle, public on npm. It installs the launcher through the official MCP client |
+| Python MCP | 0.3.0 | Python/uvx distribution. Confirm the exact version on PyPI |
+| Runtime | 0.6.0 | Public PyPI wheel. Optional CPU provider |
+| Node launcher | 0.1.0-rc.8 | Release candidate pinned by the connector and Bundle. It installs Runtime 0.6.0 for standalone MCP use; verify this exact version on npm |
+| DSH bundle | 0.1.6 | Configuration-only npm bundle. Verify this exact version on npm; it installs the launcher through the official MCP client |
 | Bootstrap | uv 0.13.1 / Python 3.11.15 | Fixed platform artifacts, verified uv hash |
-| Canonical Skill | 0.3.5 | See connector `skill-source.json` for exact commit |
+| Canonical Skill | 0.4.0 | See connector `skill-source.json` for exact commit |
 | DSH contract-test packages | 0.2.1-rc.2 | Exact npm test pins and lockfile |
 
-The managed Node launcher remains at 0.1.0-rc.7 with Runtime 0.5.2. Its
+The managed Node launcher selects Runtime 0.6.0 with official FastEmbed 0.9.1
+and Pillow 13.0.0, replacing the temporary compatibility builder. Its
 WorkBuddy/DSH child process runs the standalone MCP entrypoint and does not
-construct Hermes' native MemoryProvider. Runtime 0.5.5 retains the provider lifecycle fix
-does not require a launcher or DSH bundle npm release.
+construct Hermes' native MemoryProvider. This coordinated update requires new
+launcher and DSH bundle npm artifacts; old immutable versions stay unchanged.
 
 The managed installer verifies its uv executable and public Runtime wheel
 before execution. uv verifies its managed Python artifacts. Runtime verifies

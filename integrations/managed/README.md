@@ -85,6 +85,16 @@ installed from the hash-pinned upstream wheel. Preparation no longer downloads
 or executes a compatibility builder. `uv pip check` and CPU model acceptance
 remain required. Existing profiles and model caches are retained.
 
+Runtime 0.6.0 allows 15 minutes per model file and 30 minutes for all network
+downloads during explicit preparation. The launcher allows 40 minutes for
+profile/model setup, while bootstrap and
+dependency subprocesses keep their separate 10-minute bounds. Cold/public npm
+CI jobs allow 90 minutes for installation and actual CPU acceptance. Size and
+hash checks remain mandatory; a longer wait never marks a partial cache ready.
+Public npm acceptance allows 60 minutes to become ready. MCP initialize and
+tool discovery retain their 60-second handshake budget while preparation runs
+in the background.
+
 FastEmbed 0.9.1 has a different pipeline identity from the former 0.9.0
 compatibility build. New installations use a version-qualified model-cache
 directory. Existing profiles retain their original cache path and are not

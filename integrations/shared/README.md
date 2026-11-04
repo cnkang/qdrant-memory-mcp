@@ -14,7 +14,7 @@ Install the Runtime in an isolated environment:
 
 ```sh
 python3 -m venv /absolute/path/shared-runtime-env
-/absolute/path/shared-runtime-env/bin/pip install 'hermes-plugin-qdrant-memory[remote]==0.5.5'
+/absolute/path/shared-runtime-env/bin/pip install 'hermes-plugin-qdrant-memory[remote]==0.6.0'
 ```
 
 Follow the [Runtime operations and Hermes/DSH walkthrough](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/shared-memory/README.md).

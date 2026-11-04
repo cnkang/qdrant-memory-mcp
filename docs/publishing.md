@@ -1,4 +1,4 @@
-# 0.2.9 publication checklist
+# 0.3.0 publication checklist
 
 [English](publishing.md) | [简体中文](publishing.zh-CN.md)
 
@@ -12,7 +12,7 @@ An example identifies the intended release. It does not prove public availabilit
 Verify the exact public version before using its installation command. Announce
 the release as available only after the checks below confirm both public endpoints.
 
-1. Verify the existing public Runtime 0.5.5 release and exact dependency.
+1. Verify the existing public Runtime 0.6.0 release and exact dependency.
    Do not recreate its tag or publish it again for this distribution.
 2. Recheck existing PyPI Trusted Publishers (PyPI account step):
    - `hermes-plugin-qdrant-memory`: owner `cnkang`, repository
@@ -21,14 +21,14 @@ the release as available only after the checks below confirm both public endpoin
      workflow `publish.yml`, environment `pypi`.
 3. Approve protected GitHub environments when prompted. A version tag must point
    to a main-branch commit and match package metadata. Releases cannot overwrite
-   an existing version. Reuse the verified public Runtime 0.5.5 artifacts.
+   an existing version. Reuse the verified public Runtime 0.6.0 artifacts.
 4. Run distribution acceptance in public dependency mode. Build/test wheel and
    sdist from a new environment using only the exact Runtime PyPI release.
-5. Create distribution tag v0.2.9 after confirmation. Its workflow builds and
+5. Create distribution tag v0.3.0 after confirmation. Its workflow builds and
    tests before protected PyPI publication, verifies public metadata, validates
    with the official publisher, then uses `github-oidc` for Registry publication.
 6. Verify PyPI ownership marker and the public Registry entry
-   `io.github.cnkang/qdrant-memory` version 0.2.9. Publish the release announcement
+   `io.github.cnkang/qdrant-memory` version 0.3.0. Publish the release announcement
    only after the public endpoints and public-install acceptance confirm the release.
 
 The distribution workflow has a tag-only manual `registry_only` retry mode.
@@ -43,7 +43,35 @@ and `mcp-registry`. Verify these controls before publication. Do not bypass them
 Both projects have published versions. Recheck the existing Trusted Publishers
 and required reviewers. Do not create duplicate publishers.
 
-## Adapter attachments for future versions
+## Coordinated 0.3.0 adapter release
+
+The release set is Runtime 0.6.0, Python MCP 0.3.0, canonical Skill 0.4.0,
+managed launcher 0.1.0-rc.8, WorkBuddy connector 0.2.5 and DSH bundle 0.1.6.
+These versions are independent. Verify public endpoints rather than treating
+the source table as a publication receipt.
+
+1. Publish and verify Runtime 0.6.0 first. Record its actual immutable release
+   commit, wheel URL, size and SHA-256; regenerate the Python hash locks.
+2. Merge the reviewed Skill update and pin its actual commit in the connector,
+   workflow checkouts and Codex release manifest. Preserve historical evidence.
+3. Pack the reviewed launcher with `python scripts/pack_launcher.py --output-dir
+   dist/launcher`. Record the resulting SHA-512 integrity in `launcher-source.json`
+   before final review. Resolve findings and merge the MCP release PR.
+4. Publish MCP v0.3.0 and verify PyPI plus Registry. Publish the reviewed Skills
+   snapshot through its own workflow. Complete Python package publication before npm.
+5. Publish the reviewed launcher bytes with `npm publish
+   dist/launcher/cnkang-qdrant-memory-launcher-0.1.0-rc.8.tgz --access public --tag next`.
+   Give the operator the actual npm web authorization URL; they complete that step.
+   Never commit its token. Verify npm version/integrity and rerun public launcher acceptance on Linux,
+   macOS and Windows. Source-package tests cannot certify the public artifact.
+6. Finish WorkBuddy draft attachments only after the pinned launcher is public.
+   Publish the DSH bundle last, from the reviewed main commit using its own workflow
+   and npm authorization. Verify the public package before announcing it.
+7. Rebuild the Codex source ZIP and rerun protected cloud acceptance with final
+   pins. Update current installation docs and evidence in all three repositories.
+   Official Codex Marketplace submission stays paused.
+
+## Adapter attachments
 
 The [WorkBuddy adapter](../integrations/workbuddy/README.md) adds a separate
 tag-triggered read-only build and Draft Release attachment job. The tag build

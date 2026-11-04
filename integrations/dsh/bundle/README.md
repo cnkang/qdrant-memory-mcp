@@ -35,7 +35,7 @@ The DSH MCP probe is temporary and must never run installation or downloads.
 Prepare the shared backend explicitly, once:
 
 ```sh
-npx -y @cnkang/qdrant-memory-launcher@0.1.0-rc.7 prepare dsh
+npx -y @cnkang/qdrant-memory-launcher@0.1.0-rc.8 prepare dsh
 ```
 
 Preparation downloads the private Python environment, the Runtime wheel and a
@@ -79,7 +79,10 @@ profile. One profile has one owner for embedded storage.
 dsh plugin --profile <name> update @cnkang/qdrant-memory-dsh-bundle
 ```
 
-Disconnect the profile before an upgrade. Program versions install alongside
+Disconnect the profile before an upgrade. FastEmbed 0.9.0-to-0.9.1 upgrades require an authorized export and
+re-embedding into a new profile/collection; keep the previous launcher and data
+until verification. See [pipeline upgrade guidance](../../managed/README.md#package-integrity).
+For upgrades within the same pipeline, program versions install alongside
 earlier versions. Profile, ledger and collection files remain in place. After
 an upgrade, run `prepare dsh` again to refresh shared programs and the model
 cache. A profile never migrates or resets itself. Incompatible data fails

@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.3.0
+
+- Pin Runtime 0.6.0 for Codex native v1/v2 inspection, authorized import and
+  portable JSON/Markdown handoff, with descriptor-anchored file security on
+  macOS/Linux and dedicated Windows local-volume/ACL validation.
+- Keep handoff status HANDOFF_PENDING and native_verified=false until native
+  client adoption is confirmed. Uninstall preserves memory, backups and originals.
+- Refresh the canonical Skill to 0.4.0 and align the Codex candidate source pins.
+  Codex Marketplace submission remains paused.
+- Update managed launcher 0.1.0-rc.8 to the public Runtime wheel, official
+  FastEmbed 0.9.1 and Pillow 13.0.0. Remove the temporary compatibility builder;
+  retain hash locks, wheel-only installation and CPU acceptance.
+- Prepare WorkBuddy connector 0.2.5 and DSH bundle 0.1.6 for the new launcher.
+  Verify public npm availability and acceptance after separate npm authorization.
+- Allow forty minutes for explicit profile/model preparation and sixty
+  minutes for public acceptance readiness, with ninety-minute cold CI jobs.
+  Retain the MCP handshake deadline and all model integrity checks.
+- Validate the real Codex CLI through protected Ollama Cloud CI. Account-backed
+  GPT/ChatGPT acceptance remains local; synthetic fixtures do not prove native
+  memory adoption or Desktop UI behavior.
+
 ## 0.2.9
 
 - Pin the metadata-only distribution to published Runtime 0.5.5 and its exact

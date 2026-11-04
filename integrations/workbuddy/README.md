@@ -19,7 +19,7 @@ WorkBuddy's managed Node.js runtime. `mcp.json` declares:
     "qdrant-memory": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "@cnkang/qdrant-memory-launcher@0.1.0-rc.7", "mcp", "workbuddy", "--auto-setup"],
+      "args": ["-y", "@cnkang/qdrant-memory-launcher@0.1.0-rc.8", "mcp", "workbuddy", "--auto-setup"],
       "runtime": {"type": "node", "version": "20"},
       "npmRegistries": ["https://registry.npmjs.org"],
       "timeout": 60000
@@ -99,12 +99,19 @@ program's `.provision.lock`. Never remove profile files or Runtime data locks.
 
 ## Update and versioning
 
-The last published connector archive is 0.2.4; it recorded MCP 0.2.6,
-Runtime 0.5.2, launcher 0.1.0-rc.7 and Skill 0.3.4. The current Python MCP
-distribution is 0.2.9 and pins Runtime 0.5.5. The managed WorkBuddy route
-continues to use the standalone launcher, which does not instantiate Hermes'
-native MemoryProvider; the P0 lifecycle fix does not require a launcher npm
-release. `provenance.json` inside each ZIP records its versions, launcher
+Older managed CPU profiles use the FastEmbed 0.9.0 pipeline. Launcher rc.8 uses
+0.9.1 and must not silently relabel that data or cache. Keep the previous
+launcher for the old profile; follow the [authorized export/re-embedding
+upgrade](../managed/README.md#package-integrity) into a new profile and collection,
+verify, then switch WorkBuddy. Preserve the old store for rollback.
+
+Connector 0.2.5 selects MCP 0.3.0, Runtime 0.6.0, launcher 0.1.0-rc.8 and
+Skill 0.4.0. Verify the exact launcher version on npm and the connector assets
+on the corresponding GitHub Release before installing. Previous connector
+0.2.4 archives retain their original per-release provenance and immutable bytes.
+The managed WorkBuddy route runs the
+standalone launcher, which does not instantiate Hermes' native MemoryProvider.
+`provenance.json` inside each ZIP records its versions, launcher
 integrity and Skill source commit. The builder rejects drift from checked-in pins:
 
 - The launcher pin lives in `launcher-source.json` at the repository root and
@@ -123,7 +130,7 @@ integrity and Skill source commit. The builder rejects drift from checked-in pin
 their own Python backend instead of the managed launcher:
 
 ```sh
-uvx --from qdrant-memory-mcp==0.2.9 qdrant-memory-mcp mcp
+uvx --from qdrant-memory-mcp==0.3.0 qdrant-memory-mcp mcp
 ```
 
 Add `--home <private-profile-path>` before `mcp` to bind an explicit private
