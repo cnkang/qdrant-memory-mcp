@@ -39,7 +39,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: cnkang/skills
-          ref: c9f95154f217b8110c4081981d8be6f6083b3c91
+          ref: cc592289f126c786fd6c11038fcaa966c6de2b40
           path: .skill-source
           persist-credentials: false
       - name: Build immutable upstream skill snapshot
