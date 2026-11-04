@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def packer():
+    """Load the managed launcher packaging module."""
     spec = importlib.util.spec_from_file_location("pack_launcher", ROOT / "scripts/pack_launcher.py")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -20,6 +21,7 @@ def packer():
 
 @pytest.mark.parametrize("bad", ["extra", "symlink", "changed", "entry-mode", "missing"])
 def test_distribution_rejects_unreviewed_payload(tmp_path, bad):
+    """Reject launcher archives with unreviewed or unsafe files."""
     module = packer()
     archive = tmp_path / "package.tgz"
     with tarfile.open(archive, "w:gz") as output:
@@ -44,6 +46,7 @@ def test_distribution_rejects_unreviewed_payload(tmp_path, bad):
 
 
 def test_launcher_manifest_and_license_match_distribution():
+    """Keep launcher metadata, packaged files, and license aligned."""
     module = packer()
     source = ROOT / "integrations/managed"
     meta = json.loads((source / "package.json").read_text())

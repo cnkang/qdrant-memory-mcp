@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def builder():
+    """Load the WorkBuddy connector builder module."""
     spec = importlib.util.spec_from_file_location("connector_build", ROOT / "integrations/workbuddy/build.py")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -42,6 +43,7 @@ def test_connector_metadata_and_generated_pin():
 
 
 def test_uvx_alternative_config_pinned_to_project_version():
+    """Pin the advanced uvx configuration to the project version."""
     module = builder()
     project = module.inputs(ROOT)[3]
     alternative = json.loads((ROOT / "integrations/workbuddy/mcp.uvx.json").read_text(encoding="utf-8"))
@@ -52,6 +54,7 @@ def test_uvx_alternative_config_pinned_to_project_version():
 
 @pytest.mark.parametrize("field,value", [("name", "other-package"), ("version", "latest"), ("version", "0.1"), ("integrity", "sha256-abc"), ("integrity", "sha512-")])
 def test_launcher_pin_fails_closed(field, value):
+    """Reject launcher pins with invalid identity, version, or integrity."""
     module = builder()
     launcher = json.loads((ROOT / "launcher-source.json").read_text(encoding="utf-8"))
     launcher[field] = value
@@ -60,6 +63,7 @@ def test_launcher_pin_fails_closed(field, value):
 
 
 def test_managed_mcp_must_match_launcher_source_pin():
+    """Reject MCP metadata that does not use the reviewed launcher pin."""
     module = builder()
     launcher = json.loads((ROOT / "launcher-source.json").read_text(encoding="utf-8"))
     floating = module.expected_mcp(launcher)
@@ -70,10 +74,12 @@ def test_managed_mcp_must_match_launcher_source_pin():
 
 @pytest.mark.parametrize("name", ["/etc/passwd", "../secret", "qdrant-memory/../secret", "qdrant-memory/.env", "qdrant-memory/data.db", "qdrant-memory/scripts/secret.py", "qdrant-memory\\SKILL.md"])
 def test_unsafe_resource_rejected(name):
+    """Reject archive paths that escape or expose private resources."""
     assert not builder().safe_resource(name)
 
 
 def test_archive_determinism_and_safe_writes(tmp_path):
+    """Write deterministic archives and refuse unsafe output replacement."""
     module = builder()
     files = {"qdrant-memory-workbuddy/icon.svg": (b"svg", 0o644)}
     data = module.archive_bytes(files)
@@ -98,8 +104,10 @@ def test_archive_determinism_and_safe_writes(tmp_path):
 
 @pytest.mark.parametrize("field,value", [("source", "Bad ID"), ("version", "01.0.0"), ("version", "0.2.0-rc.1"), ("minWorkbuddyVersion", "4.24.0"), ("examples_en", ["one"]), ("type", "cli"), ("auth_mode", "token")])
 def test_invalid_metadata_fails_closed(tmp_path, monkeypatch, field, value):
+    """Reject invalid connector metadata even with legacy Windows reads."""
     read = Path.read_text
     def legacy_windows_read(path, *args, **kwargs):
+        """Read fixture paths with the legacy Windows text encoding."""
         kwargs.setdefault("encoding", "cp1252")
         return read(path, *args, **kwargs)
     monkeypatch.setattr(Path, "read_text", legacy_windows_read)
@@ -111,6 +119,7 @@ def test_invalid_metadata_fails_closed(tmp_path, monkeypatch, field, value):
 
 
 def test_release_tag_must_match_current_package():
+    """Require release tags to match the built connector package version."""
     module = builder()
     with pytest.raises(ValueError, match="tag"):
         module.package_name("0.1.0", "0.1.2", "v0.1.4")
@@ -118,6 +127,7 @@ def test_release_tag_must_match_current_package():
 
 
 def test_multiple_servers_and_unreviewed_launch_fields_rejected():
+    """Reject extra MCP servers and unreviewed launch fields."""
     module = builder()
     launcher = module.inputs(ROOT)[5]
     valid = module.inputs(ROOT)[1]
@@ -132,8 +142,10 @@ def test_multiple_servers_and_unreviewed_launch_fields_rejected():
 
 
 def test_skill_source_checkout_identity_and_dirty_tree(tmp_path):
+    """Require the pinned Skill checkout to have the expected clean identity."""
     module = builder()
     def git(*args):
+        """Run Git commands against the temporary Skill checkout."""
         return subprocess.check_output(["git", "-C", str(tmp_path), *args], text=True).strip()
     git("init")
     git("config", "user.name", "Fixture")
@@ -158,6 +170,7 @@ def test_skill_source_checkout_identity_and_dirty_tree(tmp_path):
 
 
 def test_package_manifest_provenance_and_output_guard(tmp_path, monkeypatch):
+    """Verify package provenance and reject unapproved output paths."""
     module = builder()
     monkeypatch.setattr(module, "skill_files", lambda *a: {"skills/qdrant-memory/SKILL.md": (b"generated", 0o644), "skills/qdrant-memory/LICENSE": (b"MIT", 0o644)})
     paths = module.build(ROOT, tmp_path, tmp_path / "one")
@@ -176,6 +189,7 @@ def test_package_manifest_provenance_and_output_guard(tmp_path, monkeypatch):
 
 
 def test_workflow_skill_pins_and_readonly_preview():
+    """Keep workflows pinned to the reviewed Skill commit and preview policy."""
     source = builder().inputs(ROOT)[2]
     for name in ("workbuddy-preview.yml", "workbuddy-release.yml"):
         workflow = (ROOT / ".github/workflows" / name).read_text(encoding="utf-8")
@@ -188,6 +202,7 @@ def test_workflow_skill_pins_and_readonly_preview():
 
 
 def test_upstream_body_comparison_uses_git_blob_on_crlf_checkout(tmp_path, monkeypatch):
+    """Compare generated Skill content correctly from a CRLF checkout."""
     module = builder()
     skill = tmp_path / "qdrant-memory"
     skill.mkdir()
@@ -198,9 +213,11 @@ def test_upstream_body_comparison_uses_git_blob_on_crlf_checkout(tmp_path, monke
     monkeypatch.setattr(module, "git", lambda *a: canonical.decode().strip())
     # Keep source blob byte-exact, including the final newline.
     def source_blob(*args, **kwargs):
+        """Return canonical Skill bytes without checkout newline conversion."""
         return canonical
     monkeypatch.setattr(module.subprocess, "check_output", source_blob)
     def upstream_builder(command, **kwargs):
+        """Write the generated upstream Skill into a temporary archive."""
         output = Path(command[-1]) / "skill.zip"
         output.write_bytes(module.archive_bytes({"qdrant-memory/SKILL.md": (generated, 0o644), "qdrant-memory/LICENSE": (b"MIT", 0o644)}))
     monkeypatch.setattr(module.subprocess, "run", upstream_builder)
@@ -209,6 +226,7 @@ def test_upstream_body_comparison_uses_git_blob_on_crlf_checkout(tmp_path, monke
 
 
 def test_connector_bytes_ignore_checkout_line_ending_translation(tmp_path, monkeypatch):
+    """Keep generated connector bytes stable across LF and CRLF checkouts."""
     module = builder()
     monkeypatch.setattr(module, "skill_files", lambda *a: {"skills/qdrant-memory/SKILL.md": (b"generated\n", 0o644), "skills/qdrant-memory/LICENSE": (b"MIT\n", 0o644)})
     roots = [tmp_path / "lf", tmp_path / "crlf"]
