@@ -13,7 +13,7 @@ are tracked separately for each operating system.
 For a client that already supplies Node.js 20 or newer:
 
 ```sh
-npm install --global @cnkang/qdrant-memory-launcher@0.1.0-rc.7
+npm install --global @cnkang/qdrant-memory-launcher@0.1.0-rc.8
 qdrant-memory-launcher prepare dsh
 qdrant-memory-launcher mcp dsh
 ```
@@ -76,21 +76,24 @@ processes have stopped before inspecting only that program's
 ## Package integrity
 
 The launcher contains no third-party JavaScript dependencies or downloaded
-models. It verifies bootstrap and public Runtime 0.5.0 wheel bytes before execution.
+models. It verifies bootstrap and public Runtime wheel bytes before execution.
 All Python dependencies are pinned with hashes and installed as wheels. No
 dependency source code is compiled. Runtime verifies model revisions and artifacts.
 
-Pillow stays at 13.0.0. FastEmbed 0.9.0 still declares an upper bound below 13,
-so preparation uses the Runtime's existing metadata-only compatibility builder.
-The builder source is pinned by immutable commit, size and SHA-256 in
-`runtime.json` and verified before the private Python executes it. Its output
-`0.9.0+qm.pillow13` wheel is also checked against a fixed size and hash before
-installation. Inference files stay unchanged. `uv pip check` remains required.
-The verified wheel is reused when an interrupted installation resumes.
+Pillow stays at 13.0.0. Official FastEmbed 0.9.1 supports Pillow 13 and is
+installed from the hash-pinned upstream wheel. Preparation no longer downloads
+or executes a compatibility builder. `uv pip check` and CPU model acceptance
+remain required. Existing profiles and model caches are retained.
 
-Remove this temporary path after an official FastEmbed release supports Pillow
-13 and passes the same CPU model and dependency checks. Do not lower Pillow to
-resolve its upstream constraint. Existing profiles and model caches are retained.
+FastEmbed 0.9.1 has a different pipeline identity from the former 0.9.0
+compatibility build. New installations use a version-qualified model-cache
+directory. Existing profiles retain their original cache path and are not
+silently upgraded or relabelled. An old CPU profile can therefore refuse setup
+with the new Runtime. Keep its previous launcher available. For an authorized
+upgrade, export through the old Runtime, choose a new managed root/profile and
+collection, import with re-embedding and verify before switching clients.
+Retain the old store and cache for rollback. Never edit ready markers, stored
+fingerprints or ownership records to force compatibility.
 
 `runtime.json`, `requirements.lock` and `bootstrap.mjs` record the exact
 versions and integrity checks. See [third-party notices](THIRD_PARTY_NOTICES.md).

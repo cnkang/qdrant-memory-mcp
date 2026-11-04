@@ -44,7 +44,7 @@ const versions = spawnSync(managedPython, ['-I', '-c',
 assert.equal(versions.status, 0, 'Managed dependency metadata must be readable');
 const dependencies = JSON.parse(versions.stdout);
 assert.equal(dependencies.Pillow, '13.0.0');
-assert.equal(dependencies.fastembed, runtime.fastembed_compat.version);
+assert.equal(dependencies.fastembed, runtime.fastembed_version);
 assert.equal(dependencies['hermes-plugin-qdrant-memory'], runtime.version);
 const launcher = join(packageRoot, 'launcher.mjs');
 
