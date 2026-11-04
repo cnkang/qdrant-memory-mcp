@@ -130,7 +130,17 @@ def validate_calls(calls, required_tool, expected_arguments, expected_memory=Non
         raise RuntimeError("Expected exactly one requested MCP operation")
     for item in calls:
         if item.get("server") != "qdrant-memory" or item.get("tool") != required_tool:
-            raise RuntimeError("Unexpected MCP server or operation")
+            observed = [
+                {
+                    "server": call.get("server"),
+                    "tool": call.get("tool"),
+                    "status": call.get("status"),
+                }
+                for call in calls
+            ]
+            raise RuntimeError(
+                f"Unexpected MCP server or operation for {required_tool}: {observed}"
+            )
         value = tool_payload(item)
         if item.get("tool") == "qdrant_memory_search" and expected_memory is not None:
             verify_search_result(value, expected_memory)
@@ -226,6 +236,9 @@ def case(
         "features.code_mode=false",
         'web_search="disabled"',
         'approval_policy="never"',
+        # Isolate the explicit MCP operation from plugin skill guidance such as
+        # "search before saving"; this lane verifies one requested call only.
+        "skills.include_instructions=false",
     ]
     # Explicit authorization applies only to this disposable profile and these
     # four synthetic-data operations, never to the user's other plugin tools.
@@ -456,8 +469,10 @@ def run(args):
         before_add = inventory(runtime, profile, env, work)
         fact = "Codex plugin acceptance preference: blue ceramic teacup."
         first = case(
-            f"Call the qdrant-memory plugin's qdrant_memory_add tool once to save exactly: {fact} "
-            "This is approved synthetic test data. Do not use shell or other memory tools. Report the tool result.",
+            f"Call the qdrant-memory plugin's qdrant_memory_add tool exactly once to save exactly: {fact} "
+            "Use only that tool. Do not call qdrant_memory_search, qdrant_memory_update, "
+            "qdrant_memory_delete, shell, or any other tool before or after. "
+            "This is approved synthetic test data. Report the tool result.",
             "qdrant_memory_add",
             env,
             work,
@@ -474,8 +489,9 @@ def run(args):
             "agent_id": "codex-fixture",
         }
         second = case(
-            "In the qdrant-memory plugin, call qdrant_memory_search once with query exactly: blue ceramic teacup. "
-            "Do not save anything. Report the retrieved fact and ID.",
+            "In the qdrant-memory plugin, call qdrant_memory_search exactly once with query exactly: "
+            "blue ceramic teacup. Use only that tool. Do not save, update, delete, or call any "
+            "other memory tool. Report the retrieved fact and ID.",
             "qdrant_memory_search",
             env,
             work,
@@ -546,9 +562,11 @@ def run(args):
         before_update = inventory(runtime, profile, env, work)
         replacement = "Codex plugin acceptance preference: amber ceramic teacup."
         updated = case(
-            f"Using only qdrant-memory, call qdrant_memory_update once for ID {identifier} "
+            f"Using only qdrant-memory, call qdrant_memory_update exactly once for ID {identifier} "
             f"with text exactly: {replacement} "
-            "This update to the synthetic test fact is approved. Do not change other records.",
+            "Do not call qdrant_memory_search, qdrant_memory_add, qdrant_memory_delete, shell, "
+            "or any other tool before or after. This update to the synthetic test fact is "
+            "approved. Do not change other records.",
             "qdrant_memory_update",
             env,
             work,
@@ -561,9 +579,10 @@ def run(args):
             before_update, after_update, identifier, replacement, action="UPDATE"
         )
         deleted = case(
-            f"Using only qdrant-memory, call qdrant_memory_delete once for ID {identifier}. "
-            "This deletion of the synthetic test fact "
-            "is approved. Do not delete any other record.",
+            f"Using only qdrant-memory, call qdrant_memory_delete exactly once for ID {identifier}. "
+            "Do not call qdrant_memory_search, qdrant_memory_add, qdrant_memory_update, shell, "
+            "or any other tool before or after. This deletion of the synthetic test fact is "
+            "approved. Do not delete any other record.",
             "qdrant_memory_delete",
             env,
             work,
