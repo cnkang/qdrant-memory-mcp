@@ -139,7 +139,7 @@ function launch(host, extra = []) {
 }
 
 async function waitReady(session, label) {
-  const budget = Number(process.env.QDRANT_PUBLIC_ACCEPTANCE_WAIT_MS || 30 * 60 * 1000);
+  const budget = Number(process.env.QDRANT_PUBLIC_ACCEPTANCE_WAIT_MS || 60 * 60 * 1000);
   const deadline = performance.now() + budget;
   async function poll() {
     const result = await session.call('search', { query: 'readiness' });

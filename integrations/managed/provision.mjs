@@ -280,7 +280,7 @@ export async function prepare(paths, host, signal, onStage = () => {}) {
     await privateDirectory(models);
     enter('setup-profile');
     await run(executable, ['setup', '--profile', paths.profile, '--embedding-provider', 'fastembed',
-      '--model-cache-dir', models, '--agent-id', host], { env, signal });
+      '--model-cache-dir', models, '--agent-id', host], { env, signal, timeout: 40 * 60 * 1000 });
     return executable;
   } catch (error) {
     error.stage = stage;
