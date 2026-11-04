@@ -54,6 +54,7 @@ def test_launcher_manifest_and_license_match_distribution():
 
 
 def test_managed_lock_uses_official_fastembed_and_pillow_security_version():
+    """Keep the managed lock on reviewed FastEmbed and Pillow releases."""
     source = ROOT / "integrations/managed"
     lock = (source / "requirements.lock").read_text()
     assert "pillow==13.0.0 \\\n" in lock

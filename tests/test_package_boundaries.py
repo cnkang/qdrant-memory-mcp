@@ -28,6 +28,7 @@ def test_manifest_excludes_test_only_harness_artifacts():
 
 
 def test_pyproject_declares_dev_dependencies_separately():
+    """Keep development tools out of the published runtime dependencies."""
     metadata = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     project = metadata["project"]
     # Test-only dependencies live in the optional dev group, not in runtime.

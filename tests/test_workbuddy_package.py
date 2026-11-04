@@ -20,6 +20,7 @@ def builder():
 
 
 def test_connector_metadata_and_generated_pin():
+    """Keep WorkBuddy connector metadata and generated package pins aligned."""
     module = builder()
     meta, mcp, source, project, runtime, launcher = module.inputs(ROOT)
     assert meta["minWorkbuddyVersion"] == "5.0.0"

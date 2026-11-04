@@ -19,6 +19,7 @@ def packer():
 
 
 def test_bundle_manifest_and_patch_contract():
+    """Validate the DSH package manifest, files, and patch contract."""
     meta = json.loads((ROOT / "integrations/dsh/bundle/package.json").read_text(encoding="utf-8"))
     launcher = json.loads((ROOT / "launcher-source.json").read_text(encoding="utf-8"))
     assert meta["name"] == "@cnkang/qdrant-memory-dsh-bundle"
