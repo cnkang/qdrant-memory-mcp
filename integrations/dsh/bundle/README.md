@@ -50,11 +50,11 @@ dsh plugin --profile <name> add @cnkang/qdrant-memory-dsh-bundle
 ```
 
 If the npm registry has not served this package yet, install the release
-tarball instead. Download `cnkang-qdrant-memory-dsh-bundle-0.1.1.tgz` from
+tarball instead. Download `cnkang-qdrant-memory-dsh-bundle-0.1.6.tgz` from
 the repository release and run:
 
 ```sh
-dsh plugin --profile <name> add ./cnkang-qdrant-memory-dsh-bundle-0.1.1.tgz
+dsh plugin --profile <name> add ./cnkang-qdrant-memory-dsh-bundle-0.1.6.tgz
 ```
 
 Verify the layer without booting:
@@ -81,7 +81,7 @@ dsh plugin --profile <name> update @cnkang/qdrant-memory-dsh-bundle
 
 Disconnect the profile before an upgrade. FastEmbed 0.9.0-to-0.9.1 upgrades require an authorized export and
 re-embedding into a new profile/collection; keep the previous launcher and data
-until verification. See [pipeline upgrade guidance](../../managed/README.md#package-integrity).
+until verification. See [pipeline upgrade guidance](https://github.com/cnkang/qdrant-memory-mcp/blob/main/integrations/managed/README.md#package-integrity).
 For upgrades within the same pipeline, program versions install alongside
 earlier versions. Profile, ledger and collection files remain in place. After
 an upgrade, run `prepare dsh` again to refresh shared programs and the model

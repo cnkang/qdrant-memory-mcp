@@ -101,9 +101,23 @@ program's `.provision.lock`. Never remove profile files or Runtime data locks.
 
 Older managed CPU profiles use the FastEmbed 0.9.0 pipeline. Launcher rc.8 uses
 0.9.1 and must not silently relabel that data or cache. Keep the previous
-launcher for the old profile; follow the [authorized export/re-embedding
-upgrade](../managed/README.md#package-integrity) into a new profile and collection,
-verify, then switch WorkBuddy. Preserve the old store for rollback.
+launcher for the old profile. Export from that profile, then preview re-embedding
+into a new profile and collection before importing. Preserve the old store for
+rollback and switch WorkBuddy only after verifying the new profile. The pinned
+[Runtime 0.6.0 standalone guide](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/dee6777432f17523db75f6be32cf3ef15e48235c/docs/standalone.md)
+documents the migration grammar. For example:
+
+```sh
+qdrant-memory --home /path/to/old-profile export \
+  --user my-user --agent my-agent --output /path/to/memories.json
+qdrant-memory --home /path/to/new-profile migrate mem0 \
+  --source-json /path/to/memories.json --dry-run
+qdrant-memory --home /path/to/new-profile migrate mem0 \
+  --source-json /path/to/memories.json --verify
+```
+
+Replace `my-user` and `my-agent` with the scope values used by the old profile,
+and review the dry-run before performing the verified import.
 
 Connector 0.2.5 selects MCP 0.3.0, Runtime 0.6.0, launcher 0.1.0-rc.8 and
 Skill 0.4.0. Verify the exact launcher version on npm and the connector assets
@@ -206,7 +220,7 @@ build environment (the Skill builder needs PyYAML):
 
 ```sh
 git clone --no-checkout https://github.com/cnkang/skills.git .workbuddy-skill
-git -C .workbuddy-skill checkout --detach da19b4b68ea8454abdcceebd9066b7add9969427
+git -C .workbuddy-skill checkout --detach cc592289f126c786fd6c11038fcaa966c6de2b40
 python3 -m venv .workbuddy-env
 .workbuddy-env/bin/python -m pip install 'PyYAML==6.0.3'
 .workbuddy-env/bin/python integrations/workbuddy/build.py --check

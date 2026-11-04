@@ -252,9 +252,11 @@ performed during review remediation.
   out remote transfers failed closed. An older cached pipeline marker was also
   rejected rather than relabeled as compatible. Hosted fresh CPU tests passed
   independently as described above.
-- Ollama Cloud model-driven CI execution. The lane must first reach reviewed
-  upstream main and receive the existing environment's human approval. No
-  subscription credential was copied to GitHub and no cloud pass is claimed.
+- Ollama Cloud acceptance with the final release pins. Protected run
+  `41768867472` passed at source `2da4ec66255467e28867b589e2b61895d0debe16`
+  with `deepseek-v4.1-flash`, but that source predates these release pins.
+  Repeat the protected acceptance after the pins change. This CLI run does not
+  establish native support or Desktop UI acceptance.
 - New-plugin Shared Owner end-to-end/model-driven multi-agent tests. The existing
   Runtime protected-owner security workflow passed for the adapter commit; that
   core evidence does not prove every new launcher configuration was exercised.
