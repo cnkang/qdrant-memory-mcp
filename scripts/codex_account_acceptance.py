@@ -62,7 +62,7 @@ def command(argv, env, cwd, *, capture_stderr=False):
             print(line, file=sys.stderr)
     if result.returncode:
         # Do not echo external service error text or credential-bearing stderr.
-        diagnostic = redact(result.stderr[-1600:], env)
+        diagnostic = redact(result.stderr, env)[-1600:]
         raise RuntimeError(
             f"{Path(argv[0]).name} failed with exit {result.returncode}: {diagnostic}"
         )
@@ -294,9 +294,9 @@ def case(
             if e.get("item", {}).get("type") == "agent_message"
         ]
         errors = [
-            e.get("item", {}).get("message", "")
+            e.get("item", {}).get("message", "") or e.get("message", "")
             for e in events
-            if e.get("item", {}).get("type") == "error"
+            if "error" in (e.get("item", {}).get("type"), e.get("type"))
         ]
         observed = [
             {
@@ -311,10 +311,10 @@ def case(
             f"observed event types: {types}; observed MCP calls: {observed}"
         )
         if errors:
-            detail += "; client errors: " + " | ".join(errors)[-800:]
+            detail += "; client errors: " + redact(" | ".join(errors), env)[-800:]
         detail += "; " + " ".join(messages)[-1200:]
         if stderr.strip():
-            detail += "; stderr: " + redact(stderr[-800:], env)
+            detail += "; stderr: " + redact(stderr, env)[-800:]
         raise RuntimeError(detail)
     return validate_calls(calls, required_tool, expected_arguments, expected_memory)
 

@@ -239,6 +239,7 @@ def test_missing_call_diagnostic_reports_client_error_and_redacts_stderr(
                 "type": "item.completed",
                 "item": {"type": "error", "message": "MCP startup failed"},
             },
+            {"type": "error", "message": "client super-secret failed"},
             {
                 "type": "item.completed",
                 "item": {"type": "agent_message", "text": "tool unavailable"},
@@ -258,6 +259,7 @@ def test_missing_call_diagnostic_reports_client_error_and_redacts_stderr(
         )
     message = str(error.value)
     assert "MCP startup failed" in message
+    assert "client [REDACTED] failed" in message
     assert "tool unavailable" in message
     assert "stderr" in message
     assert "super-secret" not in message
