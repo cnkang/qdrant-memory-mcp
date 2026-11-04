@@ -1,6 +1,6 @@
 # Managed Qdrant Memory launcher
 
-The launcher installs a private Python environment, Runtime 0.5.0 and a
+The launcher installs a private Python environment, Runtime 0.6.0 and a
 verified multilingual CPU embedding model. WorkBuddy and DeepSeek Harness use
 separate embedded memory profiles. Existing Hermes installations keep their
 configuration and data.
@@ -57,8 +57,13 @@ The default root is `qdrant-memory-managed` under:
 | Windows | `%LOCALAPPDATA%` |
 | Linux | `$XDG_DATA_HOME` or `~/.local/share` |
 
-Program environments live under `programs/`, models under `models/`, and
-host data under `profiles/workbuddy/local/` or `profiles/dsh/local/`.
+Program environments live under
+`programs/<runtime-revision>/<dependency-lock-prefix>/<platform-arch>/env/`;
+the revision is the Runtime source commit and the lock prefix is the first 12
+characters of the dependency digest. The CLI executable is `bin/qdrant-memory`
+on macOS and Linux or `Scripts/qdrant-memory.exe` on Windows. Models live under
+`models/`, and host data under `profiles/workbuddy/local/` or
+`profiles/dsh/local/`.
 The optional `QDRANT_MEMORY_MANAGED_ROOT` must be an absolute path.
 Program versions and dependency locks select separate installation directories.
 Existing profiles retain their model-cache settings during an upgrade.
