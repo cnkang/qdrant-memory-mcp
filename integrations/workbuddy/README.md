@@ -105,16 +105,52 @@ launcher for the old profile. Export from that profile, then preview re-embeddin
 into a new profile and collection before importing. Preserve the old store for
 rollback and switch WorkBuddy only after verifying the new profile. The pinned
 [Runtime 0.6.0 standalone guide](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/dee6777432f17523db75f6be32cf3ef15e48235c/docs/standalone.md)
-documents the migration grammar. For example:
+documents the migration grammar. Use the procedure below:
+
+The managed launcher does not add `qdrant-memory` to the shell `PATH`. The
+managed root is `QDRANT_MEMORY_MANAGED_ROOT` when set, or `qdrant-memory-managed`
+under the platform data directory: `~/Library/Application Support` on macOS,
+`%LOCALAPPDATA%` on Windows, or `$XDG_DATA_HOME` / `~/.local/share` on Linux.
+Each executable is under
+`programs/<runtime-revision>/<12-character-dependency-lock-prefix>/<platform>-<architecture>/env/`.
+Use the old launcher's pinned Runtime revision for the old profile and the
+current revision for the new profile. The executable is `bin/qdrant-memory` on
+macOS/Linux and `Scripts/qdrant-memory.exe` on Windows.
+
+Runtime confines explicit `--output` and `--source-json` files to the current
+working directory. Run the migration from a private directory so both files
+stay inside that boundary. On macOS/Linux:
 
 ```sh
-qdrant-memory --home /path/to/old-profile export \
-  --user my-user --agent my-agent --output /path/to/memories.json
-qdrant-memory --home /path/to/new-profile migrate mem0 \
-  --source-json /path/to/memories.json --dry-run
-qdrant-memory --home /path/to/new-profile migrate mem0 \
-  --source-json /path/to/memories.json --verify
+umask 077
+mkdir -p "$HOME/qdrant-memory-migration"
+cd "$HOME/qdrant-memory-migration"
+# Set these to the full executable paths under the old and new managed revisions.
+OLD_RUNTIME='/absolute/path/to/old/env/bin/qdrant-memory'
+NEW_RUNTIME='/absolute/path/to/new/env/bin/qdrant-memory'
+"$OLD_RUNTIME" --home /path/to/old-profile export \
+  --user my-user --agent my-agent --output memories.json
+"$NEW_RUNTIME" --home /path/to/new-profile migrate mem0 \
+  --source-json memories.json --dry-run
+"$NEW_RUNTIME" --home /path/to/new-profile migrate mem0 \
+  --source-json memories.json --verify
 ```
+
+On Windows, use a private PowerShell working directory and the managed
+executables under `env\Scripts\qdrant-memory.exe`:
+
+```powershell
+$MigrationDir = Join-Path $HOME 'qdrant-memory-migration'
+New-Item -ItemType Directory -Force -Path $MigrationDir | Out-Null
+Set-Location $MigrationDir
+$OldRuntime = '<managed-root>\programs\<old-revision>\<dependency-lock-prefix>\<platform-arch>\env\Scripts\qdrant-memory.exe'
+$NewRuntime = '<managed-root>\programs\<current-revision>\<dependency-lock-prefix>\<platform-arch>\env\Scripts\qdrant-memory.exe'
+& $OldRuntime --home '<old-profile>' export --user my-user --agent my-agent --output memories.json
+& $NewRuntime --home '<new-profile>' migrate mem0 --source-json memories.json --dry-run
+& $NewRuntime --home '<new-profile>' migrate mem0 --source-json memories.json --verify
+```
+
+Keep `memories.json` in the current directory in both examples.
 
 Replace `my-user` and `my-agent` with the scope values used by the old profile,
 and review the dry-run before performing the verified import.
