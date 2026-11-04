@@ -45,7 +45,15 @@ class Embeddings(BaseHTTPRequestHandler):
         pass
 
 
-def command(argv, env, cwd):
+def redact(text, env):
+    """Remove environment secrets before diagnostics leave the runner."""
+    for name, value in env.items():
+        if value and any(word in name.lower() for word in ("token", "key", "secret")):
+            text = text.replace(value, "[REDACTED]")
+    return text
+
+
+def command(argv, env, cwd, *, capture_stderr=False):
     result = subprocess.run(
         argv, env=env, cwd=cwd, capture_output=True, text=True, timeout=240
     )
@@ -54,15 +62,12 @@ def command(argv, env, cwd):
             print(line, file=sys.stderr)
     if result.returncode:
         # Do not echo external service error text or credential-bearing stderr.
-        diagnostic = result.stderr[-1600:]
-        for name, value in env.items():
-            if value and any(
-                word in name.lower() for word in ("token", "key", "secret")
-            ):
-                diagnostic = diagnostic.replace(value, "[REDACTED]")
+        diagnostic = redact(result.stderr, env)[-1600:]
         raise RuntimeError(
             f"{Path(argv[0]).name} failed with exit {result.returncode}: {diagnostic}"
         )
+    if capture_stderr:
+        return result.stdout, result.stderr
     return result.stdout
 
 
@@ -239,6 +244,9 @@ def case(
         # Isolate the explicit MCP operation from plugin skill guidance such as
         # "search before saving"; this lane verifies one requested call only.
         "skills.include_instructions=false",
+        # Codex otherwise waits only one second for an optional MCP server and
+        # silently omits it on a cold runner. Wait for its own startup timeout.
+        "mcp_optional_startup_grace_ms=0",
     ]
     # Explicit authorization applies only to this disposable profile and these
     # four synthetic-data operations, never to the user's other plugin tools.
@@ -263,7 +271,7 @@ def case(
     for item in config + provider:
         argv += ["-c", item]
     argv += [prompt]
-    output = command(argv, env, work)
+    output, stderr = command(argv, env, work, capture_stderr=True)
     events = [
         json.loads(line) for line in output.splitlines() if line.strip().startswith("{")
     ]
@@ -285,10 +293,29 @@ def case(
             for e in events
             if e.get("item", {}).get("type") == "agent_message"
         ]
-        raise RuntimeError(
-            f"Required MCP call missing: {required_tool}; observed event types: {types}; "
-            + " ".join(messages)[-1200:]
+        errors = [
+            e.get("item", {}).get("message", "") or e.get("message", "")
+            for e in events
+            if "error" in (e.get("item", {}).get("type"), e.get("type"))
+        ]
+        observed = [
+            {
+                "server": call.get("server"),
+                "tool": call.get("tool"),
+                "status": call.get("status"),
+            }
+            for call in calls
+        ]
+        detail = (
+            f"Required MCP call missing: {required_tool}; "
+            f"observed event types: {types}; observed MCP calls: {observed}"
         )
+        if errors:
+            detail += "; client errors: " + redact(" | ".join(errors), env)[-800:]
+        detail += "; " + " ".join(messages)[-1200:]
+        if stderr.strip():
+            detail += "; stderr: " + redact(stderr, env)[-800:]
+        raise RuntimeError(detail)
     return validate_calls(calls, required_tool, expected_arguments, expected_memory)
 
 
