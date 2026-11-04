@@ -96,6 +96,7 @@ def test_cloud_provider_rejects_unapproved_routing(tmp_path):
     }
     provider = acceptance.cloud_provider(env, tmp_path)
     assert env["CODEX_HOME"] == str(tmp_path / "codex-home")
+    assert (tmp_path / "codex-home").is_dir()
     assert 'model_provider="soak-ollama"' in provider
     for invalid in (
         {},
