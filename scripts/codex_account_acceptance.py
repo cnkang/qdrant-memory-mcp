@@ -289,7 +289,9 @@ def cloud_provider(env, work):
         )
     if "gpt" in env["SOAK_LLM_MODEL"].lower():
         raise ValueError("This CI lane requires a non-GPT Ollama model")
-    env["CODEX_HOME"] = str(work / "codex-home")
+    home = work / "codex-home"
+    home.mkdir(mode=0o700)
+    env["CODEX_HOME"] = str(home)
     return [
         'model_provider="soak-ollama"',
         "model=" + json.dumps(env["SOAK_LLM_MODEL"]),
