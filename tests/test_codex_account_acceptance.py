@@ -2,6 +2,7 @@
 
 import copy
 import json
+import os
 
 import pytest
 from test_release_guards import load_script
@@ -97,6 +98,8 @@ def test_cloud_provider_rejects_unapproved_routing(tmp_path):
     provider = acceptance.cloud_provider(env, tmp_path)
     assert env["CODEX_HOME"] == str(tmp_path / "codex-home")
     assert (tmp_path / "codex-home").is_dir()
+    if os.name == "posix":
+        assert (tmp_path / "codex-home").stat().st_mode & 0o777 == 0o700
     assert 'model_provider="soak-ollama"' in provider
     for invalid in (
         {},
