@@ -26,12 +26,13 @@ def test_case_reads_events_and_isolates_client(tmp_path, monkeypatch, missing):
     acceptance = load_script("codex_account_acceptance")
     args = {"text": "approved"}
 
-    def cli(argv, *_):
+    def cli(argv, *_args, **_kwargs):
         assert "--ignore-user-config" in argv
         assert "--ephemeral" in argv
         assert "memories.use_memories=false" in argv
         assert "features.shell_tool=false" in argv
         assert "skills.include_instructions=false" in argv
+        assert "mcp_optional_startup_grace_ms=0" in argv
         assert sum('.approval_mode="approve"' in value for value in argv) == 4
         item = (
             {"type": "agent_message", "text": "claimed success"}
@@ -41,8 +42,10 @@ def test_case_reads_events_and_isolates_client(tmp_path, monkeypatch, missing):
                 **event("add", args, {"id": "target", "action": "ADD"}),
             }
         )
-        return "non-JSON startup message\n" + json.dumps(
-            {"type": "item.completed", "item": item}
+        return (
+            "non-JSON startup message\n"
+            + json.dumps({"type": "item.completed", "item": item}),
+            "",
         )
 
     monkeypatch.setattr(acceptance, "command", cli)
@@ -222,6 +225,43 @@ def test_unexpected_call_diagnostic_names_operation_without_arguments():
     message = str(error.value)
     assert "qdrant_memory_search" in message
     assert "secret query" not in message
+
+
+def test_missing_call_diagnostic_reports_client_error_and_redacts_stderr(
+    tmp_path, monkeypatch
+):
+    acceptance = load_script("codex_account_acceptance")
+    env = {"SOAK_LLM_API_KEY": "super-secret"}
+
+    def cli(argv, *_args, **_kwargs):
+        events = [
+            {
+                "type": "item.completed",
+                "item": {"type": "error", "message": "MCP startup failed"},
+            },
+            {
+                "type": "item.completed",
+                "item": {"type": "agent_message", "text": "tool unavailable"},
+            },
+        ]
+        return "\n".join(json.dumps(event) for event in events), "stderr super-secret"
+
+    monkeypatch.setattr(acceptance, "command", cli)
+    with pytest.raises(RuntimeError) as error:
+        acceptance.case(
+            "synthetic",
+            "qdrant_memory_add",
+            env,
+            tmp_path,
+            [],
+            expected_arguments={"text": "approved"},
+        )
+    message = str(error.value)
+    assert "MCP startup failed" in message
+    assert "tool unavailable" in message
+    assert "stderr" in message
+    assert "super-secret" not in message
+    assert "[REDACTED]" in message
 
 
 @pytest.mark.parametrize(

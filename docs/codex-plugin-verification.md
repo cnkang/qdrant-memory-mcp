@@ -41,7 +41,9 @@ The synthetic MCP call-count lane disables the automatic skills instruction
 block (`skills.include_instructions=false`) so the model is evaluated only on
 the explicitly requested operation. Plugin skills remain shipped and are
 covered by their own build checks; this lane does not claim skill-following
-behavior.
+behavior. The lane also disables the one-second optional-MCP startup grace
+(`mcp_optional_startup_grace_ms=0`) so a cold Runtime launch is not silently
+omitted from the tool catalog.
 
 ## Inventory and architecture
 
