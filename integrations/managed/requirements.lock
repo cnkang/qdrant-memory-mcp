@@ -350,8 +350,9 @@ cryptography==50.0.2 \
     --hash=sha256:f9f6143a8c75945eb960d9eb98905a441394abfa24afaae239d514ffb2586480 \
     --hash=sha256:fa8f5efb344d6908a1ce62f4a24e2e5780f825d6f53f5f50ec5ffacac72936cb \
     --hash=sha256:fdd28f912fccfec1846a94e2e1e8f9b0012f557f0c46fe4f3eb0d7a87afcf90b
-fastembed==0.9.0+qm.pillow13 \
-    --hash=sha256:93a08d8f50c7f29d93b65e3f18fdbfaf317ab8ecbe661ec4106f054087fc798d
+fastembed==0.9.1 \
+    --hash=sha256:8b4b2881ea85a4d36e8f284466671437b3fed869c33cdc71d6f6c48ddff115c7 \
+    --hash=sha256:95042ac7f685bda6697861066d49f8b119fbde8b75ed5162bbb7e84e2dad0e1d
 filelock==4.2.0 \
     --hash=sha256:2ff5690882e8cdb00ef31fb3d01a3094c29f30985426c59495afb1733f3b7238 \
     --hash=sha256:7a60906c75227cf04d0c273afadc8219400f11aeb13cc69591d4f6cdc6c8036e
@@ -428,8 +429,9 @@ h11==0.16.0 \
 h2==4.4.1 \
     --hash=sha256:0e25f1462b23c9cb82d9eb02e28bc706dac2a68cb457c6a0d74d63c8a2a5d0e6 \
     --hash=sha256:4e866ffb1a869ae14dd9b5e6beb5c24a13da0495ad72b65925ded182521c1516
-hermes-plugin-qdrant-memory==0.5.2 \
-    --hash=sha256:e0070c05d0223072351fdf87e7e4afc5b4e72ecc6e25c1c78b1437fd03787f20
+hermes-plugin-qdrant-memory==0.5.5 \
+    --hash=sha256:13bb11b5a189dbe50bc6362347962ea356d59ce034878e35259221127aede268 \
+    --hash=sha256:5623e2df0576dbe26335511134b7681adf98cd5aff9d8b08b41a2957aab6de57
 hf-xet==1.7.0 ; platform_machine == 'AMD64' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'arm64' or platform_machine == 'x86_64' \
     --hash=sha256:0a9e802f33bf50c851abe45fc5380e61f959e2d369647d6742b79ad9d6c27cab \
     --hash=sha256:19c0e64f14175ccb6a1aff69e0d2ab9ec5269a560e6687abaf2b3fa4f73de7cd \

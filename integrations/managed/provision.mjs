@@ -36,16 +36,6 @@ export function runtimeRequirement(artifact, metadata = runtime, lock = requirem
   return lock.replace(matches[0][0], `hermes-plugin-qdrant-memory @ ${pathToFileURL(artifact).href} \\\n    --hash=sha256:${metadata.sha256}\n`);
 }
 
-export function fastembedRequirement(artifact, metadata = runtime.fastembed_compat, lock = requirements) {
-  lock = lock.replaceAll('\r\n', '\n');
-  const requirement = `fastembed==${metadata.version}`;
-  const matches = [...lock.matchAll(/^fastembed[^\n]*\n(?:[ \t]+--hash=sha256:[0-9a-f]+(?: \\)?\n)+/gm)];
-  if (matches.length !== 1 || !matches[0][0].startsWith(requirement + ' \\\n')
-      || !matches[0][0].split(/\s+/).includes(`--hash=sha256:${metadata.wheel_sha256}`)) throw new Error('FastEmbed dependency lock mismatch');
-  // Only the verified metadata-only build can satisfy this local version.
-  return lock.replace(matches[0][0], `fastembed @ ${pathToFileURL(artifact).href} \\\n    --hash=sha256:${metadata.wheel_sha256}\n`);
-}
-
 export function locations(host, env = process.env, home = homedir(), platform = process.platform) {
   if (!hosts.has(host)) throw new Error('Choose workbuddy or dsh');
   const data = dataRoot(env, home, platform);
@@ -53,7 +43,8 @@ export function locations(host, env = process.env, home = homedir(), platform = 
   const root = env.QDRANT_MEMORY_MANAGED_ROOT || join(data, 'qdrant-memory-managed');
   if (!isAbsolute(root)) throw new Error('Managed root must be absolute');
   return { root, program: join(root, 'programs', runtime.revision, dependencyDigest.slice(0, 12), `${platform}-${process.arch}`),
-    profile: join(root, 'profiles', host, 'local'), models: join(root, 'models', runtime.model_revision || runtime.revision) };
+    profile: join(root, 'profiles', host, 'local'),
+    models: join(root, 'models', `fastembed-${runtime.fastembed_version}`, runtime.model_revision) };
 }
 
 export async function modelCache(paths) {
@@ -234,31 +225,6 @@ async function ensureRuntimeArchive(paths, signal) {
   return archive;
 }
 
-async function ensureFastembedCompat(paths, python, env, signal) {
-  const compat = runtime.fastembed_compat;
-  const wheels = join(paths.program, 'compat-wheels');
-  await privateDirectory(wheels);
-  const wheel = join(wheels, `fastembed-${compat.version}-py3-none-any.whl`);
-  const wheelSpec = { size: compat.wheel_size, sha256: compat.wheel_sha256 };
-  try { await regularFile(wheel); verifyArtifact(await readFile(wheel), wheelSpec); }
-  catch (error) {
-    if (error.code !== 'ENOENT') throw error;
-    // Reuse the Runtime's reviewed builder. Verify its immutable source
-    // before execution and its wheel before passing any input to pip.
-    const builder = join(paths.program, 'build_fastembed_compat.py');
-    await publishSnapshot(builder, (await download(compat, signal)).toString('utf8'));
-    const pending = join(paths.program, 'compat-wheels.pending');
-    await privateDirectory(pending);
-    const pendingWheel = join(pending, basename(wheel));
-    await rm(pendingWheel, { force: true });
-    await run(python, ['-I', builder, '--output-dir', pending], { env, signal });
-    await regularFile(pendingWheel);
-    verifyArtifact(await readFile(pendingWheel), wheelSpec);
-    await publishRename(pendingWheel, wheel, signal);
-  }
-  return { compat, wheel };
-}
-
 async function installRuntime(paths, env, signal, enter) {
   const spec = BOOTSTRAPS[`${process.platform}-${process.arch}`];
   if (!spec) throw new Error('Unsupported managed platform');
@@ -283,10 +249,8 @@ async function installRuntime(paths, env, signal, enter) {
   enter('download-runtime');
   const archive = await ensureRuntimeArchive(paths, signal);
   const environmentPython = join(paths.program, 'env', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python');
-  enter('build-fastembed-compat');
-  const { compat, wheel } = await ensureFastembedCompat(paths, python, env, signal);
-  // Install wheels only. The compatibility build changes no inference code.
-  const resolvedRequirements = fastembedRequirement(wheel, compat, runtimeRequirement(archive));
+  // Official FastEmbed wheels support the pinned Pillow security version.
+  const resolvedRequirements = runtimeRequirement(archive);
   const lockfile = join(paths.program, 'requirements.lock');
   await publishSnapshot(lockfile, resolvedRequirements);
   enter('install-runtime');

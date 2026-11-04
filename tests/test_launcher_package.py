@@ -53,12 +53,14 @@ def test_launcher_manifest_and_license_match_distribution():
     assert (source / "LICENSE").read_bytes() == (ROOT / "LICENSE").read_bytes()
 
 
-def test_managed_lock_keeps_pillow_security_version_and_compatibility_hash():
+def test_managed_lock_uses_official_fastembed_and_pillow_security_version():
     source = ROOT / "integrations/managed"
     lock = (source / "requirements.lock").read_text()
     assert "pillow==13.0.0 \\\n" in lock
     metadata = json.loads((source / "runtime.json").read_text())
-    compat = metadata["fastembed_compat"]
-    assert "fastembed==0.9.0+qm.pillow13 \\\n" in lock
-    assert "--hash=sha256:" + compat["wheel_sha256"] in lock
-    assert metadata["version"] == "0.5.2"
+    assert "fastembed==" + metadata["fastembed_version"] + " \\\n" in lock
+    assert metadata["fastembed_version"] == "0.9.1"
+    assert "fastembed_compat" not in metadata
+    assert "+qm.pillow13" not in lock
+    assert "--hash=sha256:" + metadata["sha256"] in lock
+    assert "hermes-plugin-qdrant-memory==" + metadata["version"] + " \\\n" in lock
