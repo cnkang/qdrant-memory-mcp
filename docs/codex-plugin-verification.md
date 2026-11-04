@@ -11,6 +11,32 @@ their sources, Qdrant data and exports after uninstalling. Current adapters are
 Runtime/Mem0 JSON and Codex semantic artifacts, not a claim of universal native
 write support for every harness.
 
+## Protected cloud acceptance
+
+The MCP repository's `codex-plugin-cloud.yml` workflow validates its own reviewed
+`main` with the Runtime revision declared in the plugin's fixed requirements.
+It is manual-only, checks the exact event/repository/ref before checkout, and
+uses the protected `soak-cloud` environment. The Runtime repository's separate
+lane validates its own exact `main` implementation against a pinned client.
+
+Configure the MCP repository environment with these values:
+
+| Type | Name | Value |
+|---|---|---|
+| Variable | `SOAK_LLM_BASE_URL` | `https://ollama.com/v1` |
+| Variable | `SOAK_LLM_MODEL` | A non-GPT cloud model ID, for example `deepseek-v4.1-flash` |
+| Secret | `SOAK_LLM_API_KEY` | Ollama Cloud API key |
+
+Restrict deployment branches to `main` and retain required reviewers. Qdrant and
+embedding fixtures are local and synthetic; no Qdrant Cloud or OpenAI credentials
+are needed. A normal credential-free PR check does not establish a cloud pass:
+the manual workflow publishes its explicit outcome as a result artifact.
+
+The first Runtime-hosted cloud run, `41744250983`, failed before model calls
+because the isolated `CODEX_HOME` did not exist. The harness now creates that
+private directory before invoking Codex. This failure does not establish an
+Ollama/model compatibility result.
+
 ## Inventory and architecture
 
 The source pins below now identify merged upstream main commits. Earlier
