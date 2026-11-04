@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_manifest_excludes_test_only_harness_artifacts():
+    """Exclude test-only harness files from the published source archive."""
     manifest = (ROOT / "MANIFEST.in").read_text(encoding="utf-8")
     # Test/acceptance harness lockfiles must not ship to end users.
     assert "integrations/agent-hosts/package" not in manifest
@@ -39,6 +40,7 @@ def test_pyproject_declares_dev_dependencies_separately():
 
 
 def test_dev_security_audits_live_outside_shipped_tests():
+    """Keep development security audits out of published test artifacts."""
     sdists = list((ROOT / "dist").glob("*.tar.gz"))
     if sdists:
         with tarfile.open(sdists[0]) as archive:

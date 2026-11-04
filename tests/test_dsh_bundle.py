@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def packer():
+    """Load the DSH bundle packaging module."""
     spec = importlib.util.spec_from_file_location("pack_dsh_bundle", ROOT / "scripts/pack_dsh_bundle.py")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -48,6 +49,7 @@ def test_bundle_manifest_and_patch_contract():
 
 @pytest.mark.parametrize("bad", ["extra", "symlink", "changed", "missing"])
 def test_bundle_distribution_rejects_unreviewed_payload(tmp_path, bad):
+    """Reject DSH archives with unreviewed, missing, or unsafe files."""
     module = packer()
     archive = tmp_path / "package.tgz"
     with tarfile.open(archive, "w:gz") as output:
@@ -70,6 +72,7 @@ def test_bundle_distribution_rejects_unreviewed_payload(tmp_path, bad):
 
 
 def test_bundle_inspect_rejects_manifest_without_reviewed_patch(tmp_path, monkeypatch):
+    """Reject an archive whose manifest selects an unreviewed patch."""
     module = packer()
     source = tmp_path / "bundle"
     source.mkdir()

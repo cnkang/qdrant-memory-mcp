@@ -103,7 +103,9 @@ Older managed CPU profiles use the FastEmbed 0.9.0 pipeline. Launcher rc.8 uses
 0.9.1 and must not silently relabel that data or cache. Keep the previous
 launcher for the old profile. Export from that profile, then preview re-embedding
 into a new profile and collection before importing. Preserve the old store for
-rollback and switch WorkBuddy only after verifying the new profile. The pinned
+rollback and switch WorkBuddy only after verifying the new profile. The managed
+launcher always starts WorkBuddy with `profiles/workbuddy/local`; importing into
+another profile alone does not change the profile WorkBuddy uses. The pinned
 [Runtime 0.6.0 standalone guide](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/dee6777432f17523db75f6be32cf3ef15e48235c/docs/standalone.md)
 documents the migration grammar. Use the procedure below:
 
@@ -119,41 +121,129 @@ macOS/Linux and `Scripts/qdrant-memory.exe` on Windows.
 
 Runtime confines explicit `--output` and `--source-json` files to the current
 working directory. Run the migration from a private directory so both files
-stay inside that boundary. On macOS/Linux:
+stay inside that boundary. Disconnect WorkBuddy before starting and leave it
+disconnected until the profile switch is complete. Wait for its connector
+process to exit so no process has the embedded store open. On macOS/Linux:
 
 ```sh
+set -eu
 umask 077
-mkdir -p "$HOME/qdrant-memory-migration"
-cd "$HOME/qdrant-memory-migration"
-# Set these to the full executable paths under the old and new managed revisions.
-OLD_RUNTIME='/absolute/path/to/old/env/bin/qdrant-memory'
-NEW_RUNTIME='/absolute/path/to/new/env/bin/qdrant-memory'
-"$OLD_RUNTIME" --home /path/to/old-profile export \
+ROOT='/absolute/path/to/qdrant-memory-managed'
+STAMP="$(date +%Y%m%d%H%M%S)"
+OLD_PROFILE="$ROOT/profiles/workbuddy/local"
+NEW_PROFILE="$ROOT/profiles/workbuddy/migration-$STAMP"
+BACKUP_PROFILE="$ROOT/profiles/workbuddy/local-backup-$STAMP"
+MIGRATION_DIR="$HOME/qdrant-memory-migration-$STAMP"
+OLD_RUNTIME="$ROOT/programs/<old-revision>/<dependency-lock-prefix>/<platform>-<architecture>/env/bin/qdrant-memory"
+NEW_RUNTIME="$ROOT/programs/<current-revision>/<dependency-lock-prefix>/<platform>-<architecture>/env/bin/qdrant-memory"
+test -d "$OLD_PROFILE"
+test ! -e "$NEW_PROFILE"
+test ! -e "$BACKUP_PROFILE"
+test -x "$OLD_RUNTIME"
+test -x "$NEW_RUNTIME"
+mkdir -m 700 "$MIGRATION_DIR"
+cd "$MIGRATION_DIR"
+"$OLD_RUNTIME" --home "$OLD_PROFILE" export \
   --user my-user --agent my-agent --output memories.json
-"$NEW_RUNTIME" --home /path/to/new-profile migrate mem0 \
+"$NEW_RUNTIME" --home "$NEW_PROFILE" migrate mem0 \
   --source-json memories.json --dry-run
-"$NEW_RUNTIME" --home /path/to/new-profile migrate mem0 \
+"$NEW_RUNTIME" --home "$NEW_PROFILE" migrate mem0 \
   --source-json memories.json --verify
+test -d "$NEW_PROFILE"
+mv "$OLD_PROFILE" "$BACKUP_PROFILE"
+if ! mv "$NEW_PROFILE" "$OLD_PROFILE"; then
+  mv "$BACKUP_PROFILE" "$OLD_PROFILE"
+  exit 1
+fi
+test -d "$OLD_PROFILE"
+test -d "$BACKUP_PROFILE"
+printf 'Profile switched. Keep this rollback stamp: %s\n' "$STAMP"
 ```
 
 On Windows, use a private PowerShell working directory and the managed
 executables under `env\Scripts\qdrant-memory.exe`:
 
 ```powershell
-$MigrationDir = Join-Path $HOME 'qdrant-memory-migration'
-New-Item -ItemType Directory -Force -Path $MigrationDir | Out-Null
+$ErrorActionPreference = 'Stop'
+$Root = '<absolute-path-to-qdrant-memory-managed>'
+$Stamp = Get-Date -Format 'yyyyMMddHHmmss'
+$OldProfile = Join-Path $Root 'profiles\workbuddy\local'
+$NewProfile = Join-Path $Root "profiles\workbuddy\migration-$Stamp"
+$BackupProfile = Join-Path $Root "profiles\workbuddy\local-backup-$Stamp"
+$MigrationDir = Join-Path $HOME "qdrant-memory-migration-$Stamp"
+$OldRuntime = Join-Path $Root 'programs\<old-revision>\<dependency-lock-prefix>\<platform>-<architecture>\env\Scripts\qdrant-memory.exe'
+$NewRuntime = Join-Path $Root 'programs\<current-revision>\<dependency-lock-prefix>\<platform>-<architecture>\env\Scripts\qdrant-memory.exe'
+if (-not (Test-Path -LiteralPath $OldProfile -PathType Container)) { throw 'Old WorkBuddy profile does not exist.' }
+if ((Test-Path -LiteralPath $NewProfile) -or (Test-Path -LiteralPath $BackupProfile)) { throw 'Migration profile path already exists.' }
+if (-not (Test-Path -LiteralPath $OldRuntime -PathType Leaf)) { throw 'Old Runtime executable does not exist.' }
+if (-not (Test-Path -LiteralPath $NewRuntime -PathType Leaf)) { throw 'Current Runtime executable does not exist.' }
+New-Item -ItemType Directory -Path $MigrationDir | Out-Null
 Set-Location $MigrationDir
-$OldRuntime = '<managed-root>\programs\<old-revision>\<dependency-lock-prefix>\<platform-arch>\env\Scripts\qdrant-memory.exe'
-$NewRuntime = '<managed-root>\programs\<current-revision>\<dependency-lock-prefix>\<platform-arch>\env\Scripts\qdrant-memory.exe'
-& $OldRuntime --home '<old-profile>' export --user my-user --agent my-agent --output memories.json
-& $NewRuntime --home '<new-profile>' migrate mem0 --source-json memories.json --dry-run
-& $NewRuntime --home '<new-profile>' migrate mem0 --source-json memories.json --verify
+& $OldRuntime --home $OldProfile export --user my-user --agent my-agent --output memories.json
+if ($LASTEXITCODE -ne 0) { throw "Runtime export failed with exit code $LASTEXITCODE." }
+& $NewRuntime --home $NewProfile migrate mem0 --source-json memories.json --dry-run
+if ($LASTEXITCODE -ne 0) { throw "Migration dry run failed with exit code $LASTEXITCODE." }
+& $NewRuntime --home $NewProfile migrate mem0 --source-json memories.json --verify
+if ($LASTEXITCODE -ne 0) { throw "Verified migration failed with exit code $LASTEXITCODE." }
+if (-not (Test-Path -LiteralPath $NewProfile -PathType Container)) { throw 'Imported profile was not created.' }
+Move-Item -LiteralPath $OldProfile -Destination $BackupProfile
+try {
+  Move-Item -LiteralPath $NewProfile -Destination $OldProfile
+} catch {
+  if (-not (Test-Path -LiteralPath $OldProfile) -and (Test-Path -LiteralPath $BackupProfile)) {
+    Move-Item -LiteralPath $BackupProfile -Destination $OldProfile
+  }
+  throw
+}
+if (-not (Test-Path -LiteralPath $OldProfile -PathType Container)) { throw 'Switched WorkBuddy profile does not exist.' }
+if (-not (Test-Path -LiteralPath $BackupProfile -PathType Container)) { throw 'Original WorkBuddy profile backup does not exist.' }
+Write-Output "Profile switched. Keep this rollback stamp: $Stamp"
 ```
 
-Keep `memories.json` in the current directory in both examples.
-
 Replace `my-user` and `my-agent` with the scope values used by the old profile,
-and review the dry-run before performing the verified import.
+replace each path placeholder with the installed Runtime location, and review
+the dry-run output. The migration and backup profiles are siblings under the
+managed root so the profile moves stay on the same volume. Keep the original
+profile backup until WorkBuddy reconnects and the migrated memories are
+verified.
+
+To roll back on macOS/Linux, disconnect WorkBuddy, reuse `ROOT` and `STAMP`
+from the migration shell, and run:
+
+```sh
+set -eu
+OLD_PROFILE="$ROOT/profiles/workbuddy/local"
+BACKUP_PROFILE="$ROOT/profiles/workbuddy/local-backup-$STAMP"
+FAILED_PROFILE="$ROOT/profiles/workbuddy/migration-failed-$STAMP"
+test -d "$OLD_PROFILE"
+test -d "$BACKUP_PROFILE"
+test ! -e "$FAILED_PROFILE"
+mv "$OLD_PROFILE" "$FAILED_PROFILE"
+if ! mv "$BACKUP_PROFILE" "$OLD_PROFILE"; then
+  mv "$FAILED_PROFILE" "$OLD_PROFILE"
+  exit 1
+fi
+```
+
+On Windows, disconnect WorkBuddy, reuse `$Root` and `$Stamp`, then run:
+
+```powershell
+$OldProfile = Join-Path $Root 'profiles\workbuddy\local'
+$BackupProfile = Join-Path $Root "profiles\workbuddy\local-backup-$Stamp"
+$FailedProfile = Join-Path $Root "profiles\workbuddy\migration-failed-$Stamp"
+if (-not (Test-Path -LiteralPath $OldProfile -PathType Container)) { throw 'Current profile does not exist.' }
+if (-not (Test-Path -LiteralPath $BackupProfile -PathType Container)) { throw 'Profile backup does not exist.' }
+if (Test-Path -LiteralPath $FailedProfile) { throw 'Rollback destination already exists.' }
+Move-Item -LiteralPath $OldProfile -Destination $FailedProfile
+try {
+  Move-Item -LiteralPath $BackupProfile -Destination $OldProfile
+} catch {
+  if (-not (Test-Path -LiteralPath $OldProfile) -and (Test-Path -LiteralPath $FailedProfile)) {
+    Move-Item -LiteralPath $FailedProfile -Destination $OldProfile
+  }
+  throw
+}
+```
 
 Connector 0.2.5 selects MCP 0.3.0, Runtime 0.6.0, launcher 0.1.0-rc.8 and
 Skill 0.4.0. Verify the exact launcher version on npm and the connector assets
