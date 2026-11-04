@@ -123,7 +123,9 @@ Runtime confines explicit `--output` and `--source-json` files to the current
 working directory. Run the migration from a private directory so both files
 stay inside that boundary. Disconnect WorkBuddy before starting and leave it
 disconnected until the profile switch is complete. Wait for its connector
-process to exit so no process has the embedded store open. On macOS/Linux:
+process to exit so no process has the embedded store open. A new Runtime profile
+defaults to Ollama, so initialize the staging profile with the managed
+FastEmbed provider before importing. On macOS/Linux:
 
 ```sh
 set -eu
@@ -133,16 +135,20 @@ STAMP="$(date +%Y%m%d%H%M%S)"
 OLD_PROFILE="$ROOT/profiles/workbuddy/local"
 NEW_PROFILE="$ROOT/profiles/workbuddy/migration-$STAMP"
 BACKUP_PROFILE="$ROOT/profiles/workbuddy/local-backup-$STAMP"
+MODEL_CACHE="$ROOT/models/workbuddy-migration-$STAMP"
 MIGRATION_DIR="$HOME/qdrant-memory-migration-$STAMP"
 OLD_RUNTIME="$ROOT/programs/<old-revision>/<dependency-lock-prefix>/<platform>-<architecture>/env/bin/qdrant-memory"
 NEW_RUNTIME="$ROOT/programs/<current-revision>/<dependency-lock-prefix>/<platform>-<architecture>/env/bin/qdrant-memory"
 test -d "$OLD_PROFILE"
 test ! -e "$NEW_PROFILE"
 test ! -e "$BACKUP_PROFILE"
+test ! -e "$MODEL_CACHE"
 test -x "$OLD_RUNTIME"
 test -x "$NEW_RUNTIME"
 mkdir -m 700 "$MIGRATION_DIR"
 cd "$MIGRATION_DIR"
+"$NEW_RUNTIME" setup --profile "$NEW_PROFILE" --embedding-provider fastembed \
+  --model-cache-dir "$MODEL_CACHE" --user-id my-user --agent-id my-agent
 "$OLD_RUNTIME" --home "$OLD_PROFILE" export \
   --user my-user --agent my-agent --output memories.json
 "$NEW_RUNTIME" --home "$NEW_PROFILE" migrate mem0 \
@@ -170,15 +176,19 @@ $Stamp = Get-Date -Format 'yyyyMMddHHmmss'
 $OldProfile = Join-Path $Root 'profiles\workbuddy\local'
 $NewProfile = Join-Path $Root "profiles\workbuddy\migration-$Stamp"
 $BackupProfile = Join-Path $Root "profiles\workbuddy\local-backup-$Stamp"
+$ModelCache = Join-Path $Root "models\workbuddy-migration-$Stamp"
 $MigrationDir = Join-Path $HOME "qdrant-memory-migration-$Stamp"
 $OldRuntime = Join-Path $Root 'programs\<old-revision>\<dependency-lock-prefix>\<platform>-<architecture>\env\Scripts\qdrant-memory.exe'
 $NewRuntime = Join-Path $Root 'programs\<current-revision>\<dependency-lock-prefix>\<platform>-<architecture>\env\Scripts\qdrant-memory.exe'
 if (-not (Test-Path -LiteralPath $OldProfile -PathType Container)) { throw 'Old WorkBuddy profile does not exist.' }
 if ((Test-Path -LiteralPath $NewProfile) -or (Test-Path -LiteralPath $BackupProfile)) { throw 'Migration profile path already exists.' }
+if (Test-Path -LiteralPath $ModelCache) { throw 'Migration model cache path already exists.' }
 if (-not (Test-Path -LiteralPath $OldRuntime -PathType Leaf)) { throw 'Old Runtime executable does not exist.' }
 if (-not (Test-Path -LiteralPath $NewRuntime -PathType Leaf)) { throw 'Current Runtime executable does not exist.' }
 New-Item -ItemType Directory -Path $MigrationDir | Out-Null
 Set-Location $MigrationDir
+& $NewRuntime setup --profile $NewProfile --embedding-provider fastembed --model-cache-dir $ModelCache --user-id my-user --agent-id my-agent
+if ($LASTEXITCODE -ne 0) { throw "FastEmbed profile setup failed with exit code $LASTEXITCODE." }
 & $OldRuntime --home $OldProfile export --user my-user --agent my-agent --output memories.json
 if ($LASTEXITCODE -ne 0) { throw "Runtime export failed with exit code $LASTEXITCODE." }
 & $NewRuntime --home $NewProfile migrate mem0 --source-json memories.json --dry-run
@@ -202,10 +212,11 @@ Write-Output "Profile switched. Keep this rollback stamp: $Stamp"
 
 Replace `my-user` and `my-agent` with the scope values used by the old profile,
 replace each path placeholder with the installed Runtime location, and review
-the dry-run output. The migration and backup profiles are siblings under the
-managed root so the profile moves stay on the same volume. Keep the original
-profile backup until WorkBuddy reconnects and the migrated memories are
-verified.
+the dry-run output. `MODEL_CACHE` is a unique FastEmbed cache directory under
+the managed root's `models/` directory. The migration and backup profiles are
+siblings under the managed root so the profile moves stay on the same volume.
+Keep the original profile backup until WorkBuddy reconnects and the migrated
+memories are verified.
 
 To roll back on macOS/Linux, disconnect WorkBuddy, reuse `ROOT` and `STAMP`
 from the migration shell, and run:
