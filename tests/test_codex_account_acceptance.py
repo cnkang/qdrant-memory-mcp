@@ -31,6 +31,7 @@ def test_case_reads_events_and_isolates_client(tmp_path, monkeypatch, missing):
         assert "--ephemeral" in argv
         assert "memories.use_memories=false" in argv
         assert "features.shell_tool=false" in argv
+        assert "skills.include_instructions=false" in argv
         assert sum('.approval_mode="approve"' in value for value in argv) == 4
         item = (
             {"type": "agent_message", "text": "claimed success"}
@@ -208,6 +209,19 @@ def test_mutation_checks_arguments_server_action_and_id(tool, action, args):
     for calls in bad:
         with pytest.raises(RuntimeError):
             acceptance.validate_calls(calls, "qdrant_memory_" + tool, args)
+
+
+def test_unexpected_call_diagnostic_names_operation_without_arguments():
+    acceptance = load_script("codex_account_acceptance")
+    call = event("add", {"text": "approved"}, {"id": "target", "action": "ADD"})
+    extra = event("search", {"query": "secret query"}, {"memories": []})
+    with pytest.raises(RuntimeError) as error:
+        acceptance.validate_calls(
+            [extra, call], "qdrant_memory_add", {"text": "approved"}
+        )
+    message = str(error.value)
+    assert "qdrant_memory_search" in message
+    assert "secret query" not in message
 
 
 @pytest.mark.parametrize(

@@ -37,6 +37,12 @@ because the isolated `CODEX_HOME` did not exist. The harness now creates that
 private directory before invoking Codex. This failure does not establish an
 Ollama/model compatibility result.
 
+The synthetic MCP call-count lane disables the automatic skills instruction
+block (`skills.include_instructions=false`) so the model is evaluated only on
+the explicitly requested operation. Plugin skills remain shipped and are
+covered by their own build checks; this lane does not claim skill-following
+behavior.
+
 ## Inventory and architecture
 
 The source pins below now identify merged upstream main commits. Earlier
