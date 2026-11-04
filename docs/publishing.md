@@ -64,9 +64,11 @@ the source table as a publication receipt.
    Give the operator the actual npm web authorization URL; they complete that step.
    Never commit its token. Verify npm version/integrity and rerun public launcher acceptance on Linux,
    macOS and Windows. Source-package tests cannot certify the public artifact.
-6. Finish WorkBuddy draft attachments only after the pinned launcher is public.
-   Publish the DSH bundle last, from the reviewed main commit using its own workflow
-   and npm authorization. Verify the public package before announcing it.
+6. After the pinned launcher is public, rerun the `Prepare WorkBuddy draft release
+   assets` workflow with `workflow_dispatch` on tag `v0.3.0`. Finish the WorkBuddy
+   draft attachments only after that run succeeds. Publish the DSH bundle last,
+   from the reviewed main commit using its own workflow and npm authorization.
+   Verify the public package before announcing it.
 7. Rebuild the Codex source ZIP and rerun protected cloud acceptance with final
    pins. Update current installation docs and evidence in all three repositories.
    Official Codex Marketplace submission stays paused.

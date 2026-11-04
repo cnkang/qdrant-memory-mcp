@@ -55,8 +55,10 @@ PyPI 文件并对之测试，然后重跑 Registry 校验/发布。此过程不�
    发布审核过的同一文件。把实际 npm 网页授权 URL 交给操作者，由其完成授权，
    不提交 token。核验 npm 的准确版本和 integrity，重跑 Linux、macOS、Windows 的公开 launcher
    验收。源码包测试不能替代公开文件验收。
-6. 固定 launcher 已公开后再完成 WorkBuddy draft 附件。最后通过独立工作流和 npm
-   授权发布审核后 main 的 DSH bundle，核验公开包后再宣布可用。
+6. 固定 launcher 已公开后，在 tag `v0.3.0` 上用 `workflow_dispatch` 重新运行
+   `Prepare WorkBuddy draft release assets` 工作流。仅在这次运行成功后完成
+   WorkBuddy draft 附件。最后通过独立工作流和 npm 授权发布审核后 main 的 DSH
+   bundle，核验公开包后再宣布可用。
 7. 使用最终固定引用重建 Codex 源码 ZIP 并重跑受保护云端验收，同步三个仓库的当前
    安装文档和证据。Codex Marketplace 正式提交继续暂停。
 
