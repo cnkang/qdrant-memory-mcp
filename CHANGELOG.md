@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.1
+
+- Pin managed launcher 0.1.0-rc.8 to its verified public npm integrity and
+  refresh the PyPI/Registry release metadata and adapter pins. MCP tools,
+  transport and persisted memory formats are unchanged.
+
 ## 0.3.0
 
 - Pin Runtime 0.6.0 for Codex native v1/v2 inspection, authorized import and

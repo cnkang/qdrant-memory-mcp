@@ -1,4 +1,4 @@
-# 0.3.0 publication checklist
+# 0.3.1 publication checklist
 
 [English](publishing.md) | [简体中文](publishing.zh-CN.md)
 
@@ -24,11 +24,11 @@ the release as available only after the checks below confirm both public endpoin
    an existing version. Reuse the verified public Runtime 0.6.0 artifacts.
 4. Run distribution acceptance in public dependency mode. Build/test wheel and
    sdist from a new environment using only the exact Runtime PyPI release.
-5. Create distribution tag v0.3.0 after confirmation. Its workflow builds and
+5. Create distribution tag v0.3.1 after confirmation. Its workflow builds and
    tests before protected PyPI publication, verifies public metadata, validates
    with the official publisher, then uses `github-oidc` for Registry publication.
 6. Verify PyPI ownership marker and the public Registry entry
-   `io.github.cnkang/qdrant-memory` version 0.3.0. Publish the release announcement
+   `io.github.cnkang/qdrant-memory` version 0.3.1. Publish the release announcement
    only after the public endpoints and public-install acceptance confirm the release.
 
 The distribution workflow has a tag-only manual `registry_only` retry mode.
@@ -43,41 +43,43 @@ and `mcp-registry`. Verify these controls before publication. Do not bypass them
 Both projects have published versions. Recheck the existing Trusted Publishers
 and required reviewers. Do not create duplicate publishers.
 
-## Coordinated 0.3.0 adapter release
+## Coordinated 0.3.1 adapter release
 
-The release set is Runtime 0.6.0, Python MCP 0.3.0, canonical Skill 0.4.0,
+The release set is Runtime 0.6.0, Python MCP 0.3.1, canonical Skill 0.4.0,
 managed launcher 0.1.0-rc.8, WorkBuddy connector 0.2.5 and DSH bundle 0.1.6.
-These versions are independent. Verify public endpoints rather than treating
-the source table as a publication receipt.
+These versions are independent. Check each public endpoint before describing a
+candidate as published.
 
-1. Publish and verify Runtime 0.6.0 first. Record its actual immutable release
-   commit, wheel URL, size and SHA-256; regenerate the Python hash locks.
-2. Merge the reviewed Skill update and pin its actual commit in the connector,
-   workflow checkouts and Codex release manifest. Preserve historical evidence.
-3. Before checkout, set Git's `core.autocrlf=false` so launcher files stay LF;
-   CRLF bytes change the tarball and its SHA-512. Pack the reviewed launcher on
-   Ubuntu or macOS with `python
-   scripts/pack_launcher.py --output-dir dist/launcher`. The packer compares its
-   SHA-512 with `launcher-source.json` and fails on a mismatch. Keep that exact
-   tarball for publication. Windows npm pack output has a different integrity
-   and is not the release artifact. Review the pin and tarball together, then
-   merge the MCP release PR.
-4. Verify MCP v0.3.0 is available on PyPI and the official MCP Registry. Publish
-   the reviewed Skills snapshot through its own workflow. Complete any required
-   Python package publication before npm.
-5. Publish the reviewed launcher bytes with `npm publish
-   dist/launcher/cnkang-qdrant-memory-launcher-0.1.0-rc.8.tgz --access public --tag next`.
-   Give the operator the actual npm web authorization URL; they complete that step.
-   Never commit its token. Verify npm version/integrity and rerun public launcher acceptance on Linux,
-   macOS and Windows. Source-package tests cannot certify the public artifact.
-6. After the pinned launcher is public, rerun the `Prepare WorkBuddy draft release
-   assets` workflow with `workflow_dispatch` on tag `v0.3.0`. Finish the WorkBuddy
-   draft attachments only after that run succeeds. Publish the DSH bundle last,
-   from the reviewed main commit using its own workflow and npm authorization.
-   Verify the public package before announcing it.
-7. Rebuild the Codex source ZIP and rerun protected cloud acceptance with final
-   pins. Update current installation docs and evidence in all three repositories.
-   Official Codex Marketplace submission stays paused.
+1. Verify the already-published Runtime 0.6.0 and its exact dependency. Do not
+   recreate its tag or publish the same version again.
+2. Verify `qdrant-memory` Skill 0.4.0 in the published `skills-20261105.1`
+   snapshot. This MCP release does not change Skill source, so it does not need
+   another Skills snapshot. Publish a separate snapshot only when that source
+   changes, and pin its actual commit in connector and Codex release metadata.
+3. Verify launcher 0.1.0-rc.8 on npm against the SHA-512 in
+   `launcher-source.json`. Its public Linux, macOS and Windows acceptance passed
+   in [Cross-harness run 41994236149](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/41994236149).
+   Do not republish this immutable npm version.
+4. After the MCP 0.3.1 release PR is merged and its checks pass, create tag
+   `v0.3.1`. Its workflow builds and tests the distribution, then publishes to
+   protected PyPI and MCP Registry environments. The release tag must include
+   the corrected launcher integrity pin. Keep the older `v0.3.0` tag immutable;
+   its stale pin failed the public WorkBuddy release gate.
+5. Verify MCP 0.3.1 on PyPI and the official MCP Registry. Complete Python
+   publication before the final npm package publication.
+6. The `v0.3.1` tag starts WorkBuddy draft asset preparation. Confirm its build
+   and attachments succeed before treating connector 0.2.5 as ready. Use
+   `workflow_dispatch` only for an intentional rerun after inspecting the first
+   run.
+7. From merged main, create `dsh-bundle-v0.1.6` and wait for its pack and tests
+   to attach the tarball and checksum to a Draft Release. Publish
+   `@cnkang/qdrant-memory-dsh-bundle` last, with its own npm web authorization.
+   Verify the public version and integrity before announcing it.
+8. Keep the Codex plugin candidate's existing immutable pin and acceptance
+   record. Rebuild its source ZIP and rerun protected cloud acceptance only if
+   its plugin manifest or pins change. Update current installation docs and
+   evidence in all three repositories. Official Codex Marketplace submission
+   stays paused.
 
 ## Adapter attachments
 

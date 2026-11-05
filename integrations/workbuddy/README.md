@@ -296,7 +296,7 @@ try {
 }
 ```
 
-Connector 0.2.5 selects MCP 0.3.0, Runtime 0.6.0, launcher 0.1.0-rc.8 and
+Connector 0.2.5 selects MCP 0.3.1, Runtime 0.6.0, launcher 0.1.0-rc.8 and
 Skill 0.4.0. Verify the exact launcher version on npm and the connector assets
 on the corresponding GitHub Release before installing. Previous connector
 0.2.4 archives retain their original per-release provenance and immutable bytes.
@@ -321,7 +321,7 @@ integrity and Skill source commit. The builder rejects drift from checked-in pin
 their own Python backend instead of the managed launcher:
 
 ```sh
-uvx --from qdrant-memory-mcp==0.3.0 qdrant-memory-mcp mcp
+uvx --from qdrant-memory-mcp==0.3.1 qdrant-memory-mcp mcp
 ```
 
 Add `--home <private-profile-path>` before `mcp` to bind an explicit private
