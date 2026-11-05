@@ -248,9 +248,9 @@ def case(
         # Isolate the explicit MCP operation from plugin skill guidance such as
         # "search before saving"; this lane verifies one requested call only.
         "skills.include_instructions=false",
-        # Codex otherwise waits only one second for an optional MCP server and
-        # silently omits it on a cold runner. Wait for its own startup timeout.
-        "mcp_optional_startup_grace_ms=10000",
+        # Disable the shared grace so Codex waits for each server's configured
+        # startup timeout before omitting tools from the catalog.
+        "mcp_optional_startup_grace_ms=0",
     ]
     # Explicit authorization applies only to this disposable profile and these
     # four synthetic-data operations, never to the user's other plugin tools.
