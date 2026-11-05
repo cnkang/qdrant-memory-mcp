@@ -51,8 +51,8 @@ PyPI 文件并对之测试，然后重跑 Registry 校验/发布。此过程不�
    打包脚本会将输出的 SHA-512 与 `launcher-source.json` 比对，若不一致则失败。
    发布时保留并使用这个确切 tarball。Windows 上 npm pack 得到的 integrity 不同，不能作为正式发布文件。
    将 pin 和 tarball 一并审核，然后合并 MCP 发布 PR。
-4. 发布 MCP v0.3.0 并核验 PyPI、Registry；通过独立工作流发布审核后的 Skills
-   快照。先完成 Python 包发布，再执行 npm 发布。
+4. 确认 MCP v0.3.0 已在 PyPI 和官方 MCP Registry 发布；通过独立工作流发布审核后的
+   Skills 快照。先完成必要的 Python 包发布，再执行 npm 发布。
 5. 使用 `npm publish
    dist/launcher/cnkang-qdrant-memory-launcher-0.1.0-rc.8.tgz --access public --tag next`
    发布审核过的同一文件。把实际 npm 网页授权 URL 交给操作者，由其完成授权，
