@@ -15,13 +15,16 @@ docs do not confirm that one plugin release can supply and select separate
 archives per platform. Confirm one of these host behaviors through an approved
 test route before implementing the final packaging target.
 
-If a platform-specific archive is supported, the lowest-risk candidate is a
-per-platform bundle containing a standalone Python interpreter, the existing
-Runtime and MCP distributions, all resolved dependency wheels and their hashes.
-If only one universal ZIP is supported and Desktop guarantees a local Node
-command, the same bundle contents could be selected by a small Node launcher.
-Neither condition is verified. Do not implement or label either as a chosen
-submission architecture until the launch and Creator configuration are tested.
+For the dependency payload, choose a bundled standalone Python interpreter,
+the existing Runtime and MCP distributions, and every resolved dependency
+wheel with hashes. Do not install server dependencies on first launch. The
+release layout is still blocked: the current Portable MCP schema exposes one
+stdio command and does not document an OS/architecture selector or a
+multiple-archive release. A single universal ZIP therefore needs a dispatcher;
+its Node runtime availability on a clean Desktop install is unverified. The
+read-only Creator 0.1.1 inspection showed a normalized `.mcp.json` with
+`env: {}` while the Codex source overlay declares eight `env_vars` names; there
+is no verified configuration mapping for the current candidate.
 The read-only Creator 0.1.1 file inspection showed a normalized `.mcp.json`
 with `env: {}` while the Codex source overlay declares eight `env_vars` names;
 there is no verified configuration mapping for the current candidate.
@@ -30,7 +33,7 @@ there is no verified configuration mapping for the current candidate.
 
 | Option | Compliance and reliability | Platform and size | Decision |
 |---|---|---|---|
-| Bundled Python + pinned wheels | Includes the local server and Python dependencies; can run offline; requires per-platform native wheels and a supported launch route | One interpreter/wheel set per platform; actual archive size is not measured | Preferred bundle contents only after platform selection is confirmed |
+| Bundled Python + pinned wheels | Includes the local server and Python dependencies; can run offline; requires per-platform native wheels and a supported launch route | Every candidate ZIP must stay at or below the official 100 MB compressed limit; runtime/wheel bundle size is not measured | Selected dependency payload; release layout remains blocked |
 | Separate prebuilt Runtime per platform | Reuses the existing Runtime and can minimize irrelevant binaries per download | Lowest platform-specific archive size; the portal's per-platform selection behavior is unconfirmed | Viable only if the official package flow supports multiple platform archives |
 | `uv` / lockfile installation on first run | Exact pins and hashes can improve provenance | Still downloads server dependencies after install and is not offline; does not satisfy the conservative reading of “include the server and its dependencies” | Reject for the submitted ZIP |
 | Existing managed Node launcher | Reuses secure bootstrap, hash checks and private environment patterns | Its purpose is to download Python, wheels and the model during setup; that is not a bundled server package | Reuse design patterns only; do not reuse its download-at-install behavior |
@@ -46,15 +49,15 @@ there is no verified configuration mapping for the current candidate.
 | Windows x64 | Windows embeddable/standalone Python, Windows native wheels and launcher dispatch | Runtime CI contracts and standalone MCP tests passed on Windows x64; no bundled Desktop ZIP or GUI install was tested. |
 | Linux x64 | Linux standalone Python and glibc-compatible wheels | Runtime CI passed on Ubuntu x64; this is a development target and does not establish ChatGPT Desktop support. |
 | Offline launch | Server, interpreter and all Python dependencies must be in the archive | The proposed bundle can meet this. Current source ZIP depends on installed Python and external package pins, so offline Desktop launch is **NOT VERIFIED**. |
-| Artifact size | One runtime and wheel set per supported OS/architecture; model data considered separately | No Desktop archive size exists. CPU model weights alone total 252,138,706 bytes; do not add them to ZIP until OpenAI's model-asset requirement is clarified and package size is measured. |
+| Artifact size | One runtime and wheel set per supported OS/architecture; model data considered separately | Submission ZIPs have a **100 MB compressed maximum** ([submission errors](https://developers.openai.com/plugins/deploy/submission-errors)). CPU model assets total 252,138,706 raw bytes; no compressed model archive has been measured, so an in-ZIP model cannot be assumed to fit. The server/wheel bundle size has not been measured. |
 | Reproducibility and supply chain | Immutable source commits, wheel hashes, interpreter hashes, SBOM, licenses and archive hash | The source package pins component commits, but no full wheel lock, runtime hashes, SBOM or reproducible Desktop build exists. |
 | Security and upgrades | Private staging, no secret arguments, strict platform selection, data directory outside plugin root | Existing launcher patterns can be reused, but final archive path safety, upgrade, rollback and uninstall have not been verified. |
 | Runtime compatibility | Keep existing Python Runtime and four tool schemas | This avoids a second Qdrant/embedding/ledger implementation. No Runtime changes are required for the proposed bundle. |
 
 The separate `build-desktop-only-plugin` target has **not been implemented**.
 Only the existing source Marketplace archive target is available today. Its
-78,831-byte macOS build has no Python executable, wheel or model; this size is
-not representative of a Desktop bundle.
+178,139-byte build contains 34 files and no Python executable, wheel or model;
+it meets the archive-size limit but is not a Desktop bundle.
 
 ## Model delivery
 
@@ -67,12 +70,17 @@ exact sizes and SHA-256 values, stages privately, and atomically publishes the
 complete cache. Setup is explicit and a missing model does not trigger cloud
 fallback.
 
-The current official Desktop-only wording requires the server and its
-dependencies in the package but does not say whether model weights must also be
-inside the ZIP. Keep model preparation as a separate, user-approved step only
-if Directory review accepts immutable model assets as runtime data. Record this
-as a review uncertainty, not as a verified exception. Do not call the existing
-lightweight Marketplace ZIP a Desktop-only package.
+The official Desktop-only guide requires the server and its dependencies in
+the package; submission validation also rejects ZIPs above 100 MB compressed.
+Runtime 0.6.0's pinned CPU model assets total 252,138,706 raw bytes. No ZIP
+compression measurement exists, so an in-package model cannot be assumed to fit
+the limit. Keep it as a separately downloaded, explicitly approved data asset,
+with the existing source, size, SHA-256 and atomic-cache checks, unless a
+measured package under 100 MB is produced. Whether that model data is outside
+the official "server and dependencies" requirement is **UNRESOLVED**; the
+archive-size rule does not itself grant an exception. Do not claim Desktop-only
+compliance until that interpretation and the clean launch route are confirmed.
+Do not call the lightweight Marketplace ZIP a Desktop-only package.
 
 ## Reproducibility and supply chain
 
@@ -92,5 +100,6 @@ resolved package architecture or claim package readiness.
 
 - [Plugin structure and bundled MCP servers](https://developers.openai.com/plugins/build/plugins)
 - [Local MCP server packaging](https://developers.openai.com/plugins/deploy/desktop-only)
+- [ZIP upload size and submission errors](https://developers.openai.com/plugins/deploy/submission-errors)
 - [Portable MCP schema 1.0.0](https://agent-plugins.org/schemas/1.0.0/mcp.schema.json)
 - [Portable plugin schema 1.0.0](https://agent-plugins.org/schemas/1.0.0/plugin.schema.json)
