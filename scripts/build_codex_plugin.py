@@ -52,6 +52,37 @@ def require(condition, message):
         raise ValueError(message)
 
 
+_TEXT_SUFFIXES = {
+    ".json",
+    ".md",
+    ".mjs",
+    ".py",
+    ".sh",
+    ".svg",
+    ".toml",
+    ".txt",
+    ".xml",
+    ".yaml",
+    ".yml",
+}
+
+
+def _normalize_text_bytes(name, data):
+    """Make packaged UTF-8 text independent of checkout/archive EOL rules."""
+    path = PurePosixPath(str(name).replace("\\", "/"))
+    if path.suffix.lower() not in _TEXT_SUFFIXES and path.name.upper() not in {
+        "COPYING",
+        "LICENSE",
+        "NOTICE",
+    }:
+        return data
+    try:
+        data.decode("utf-8")
+    except UnicodeDecodeError as error:
+        raise ValueError("Packaged text source is not UTF-8: " + str(name)) from error
+    return data.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+
+
 def validate(root=PLUGIN, files=None):
     """Apply offline invariants; optional official schema validation is separate."""
 
@@ -288,7 +319,8 @@ def source_files():
             raise ValueError("Plugin source cannot contain symlinks")
         if not path.is_file():
             raise ValueError("Tracked plugin file is missing: " + name)
-        files[str(path.relative_to(PLUGIN)).replace("\\", "/")] = _source_bytes(path)
+        relative = str(path.relative_to(PLUGIN)).replace("\\", "/")
+        files[relative] = _normalize_text_bytes(relative, _source_bytes(path))
     return files
 
 
@@ -305,9 +337,10 @@ def skill_files(skill_repo, commit):
                 raise ValueError("Unsafe upstream skill archive")
             relative = path.relative_to("qdrant-memory")
             if "__pycache__" not in relative.parts:
-                files["skills/qdrant-memory/" + str(relative)] = archive.extractfile(
-                    member
-                ).read()
+                packaged_path = "skills/qdrant-memory/" + str(relative)
+                files[packaged_path] = _normalize_text_bytes(
+                    packaged_path, archive.extractfile(member).read()
+                )
     require(
         "skills/qdrant-memory/SKILL.md" in files, "Pinned upstream skill lacks SKILL.md"
     )
@@ -336,13 +369,27 @@ def build(output, skill_repo):
         for name, data in files.items()
         if name.startswith("skills/qdrant-memory/")
     }
-    require(
-        repository_skills == pinned_skills,
-        "Repository marketplace Skill does not match its pinned snapshot",
-    )
+    if repository_skills != pinned_skills:
+        missing = sorted(pinned_skills.keys() - repository_skills.keys())
+        extra = sorted(repository_skills.keys() - pinned_skills.keys())
+        changed = sorted(
+            name
+            for name in repository_skills.keys() & pinned_skills.keys()
+            if repository_skills[name] != pinned_skills[name]
+        )
+        details = []
+        for label, paths in (("missing", missing), ("extra", extra), ("changed", changed)):
+            if paths:
+                details.append(label + "=" + ",".join(paths[:5]))
+        raise ValueError(
+            "Repository marketplace Skill does not match its pinned snapshot: "
+            + "; ".join(details)
+        )
     validate(PLUGIN, files)
     files["release.json"] = json.dumps(release, indent=2).encode() + b"\n"
-    files["VERIFICATION.md"] = _source_bytes(ROOT / VERIFICATION_PATH)
+    files["VERIFICATION.md"] = _normalize_text_bytes(
+        "VERIFICATION.md", _source_bytes(ROOT / VERIFICATION_PATH)
+    )
     # Account hosts normalize publisher/compatibility metadata. The archive SHA
     # covers the complete source ZIP; immutable component hashes also survive
     # that host normalization.
