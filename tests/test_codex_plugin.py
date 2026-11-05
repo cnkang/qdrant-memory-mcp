@@ -33,6 +33,20 @@ def test_portable_package():
     assert "qdrant-memory-mcp==" + release["mcp_distribution_version"] in requirements
 
 
+def test_packaged_text_sources_use_lf_line_endings():
+    """Keep source ZIP bytes stable when Windows checkout enables autocrlf."""
+    attributes = (ROOT / ".gitattributes").read_text(encoding="utf-8")
+    assert "plugins/qdrant-memory/** text eol=lf" in attributes
+    assert "docs/codex-plugin-verification.md text eol=lf" in attributes
+    files = package.source_files()
+    text_suffixes = {".json", ".md", ".mjs", ".py", ".txt", ".svg"}
+    for name, data in files.items():
+        if Path(name).suffix in text_suffixes or name.endswith("/LICENSE"):
+            assert b"\r\n" not in data, name
+    verification = package._source_bytes(ROOT / package.VERIFICATION_PATH)
+    assert b"\r\n" not in verification
+
+
 def test_validation_survives_python_optimization(tmp_path):
     import shutil
     import sys

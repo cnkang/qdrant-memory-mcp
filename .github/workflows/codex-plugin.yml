@@ -29,6 +29,11 @@ jobs:
         with:
           python-version: '3.11'
       - run: npm install --global --ignore-scripts @openai/codex@0.165.0
+      - name: Report package test environment
+        run: |
+          python -c "import platform,sys; print('os='+platform.system()); print('arch='+platform.machine()); print('python='+sys.version); print('implementation='+platform.python_implementation()); print('sys.executable='+sys.executable)"
+          node -e "console.log('node='+process.version); console.log('node_platform='+process.platform); console.log('node_arch='+process.arch)"
+          codex --version
       - run: |
           python -m pip install --require-hashes --only-binary=:all: -r .github/requirements-sonar-ci.txt
           python -m pip install --only-binary=:all: --no-deps .
