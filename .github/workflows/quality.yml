@@ -169,16 +169,22 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -eu
-          scan_range="$HEAD_SHA"
-          if [ "$EVENT_NAME" = pull_request ] || [ "$EVENT_NAME" = push ]; then
-            case "${BASE_SHA:-}" in
-              "" | 0000000000000000000000000000000000000000) ;;
-              *)
-                if git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null; then
-                  scan_range="$BASE_SHA..$HEAD_SHA"
-                fi
-                ;;
-            esac
+          base="${BASE_SHA:-}"
+          case "$base" in
+            "" | 0000000000000000000000000000000000000000) base="" ;;
+          esac
+          if [ -n "$base" ] && ! git cat-file -e "${base}^{commit}" 2>/dev/null; then
+            base=""
+          fi
+          if [ -z "$base" ] && git rev-parse --verify --quiet origin/main >/dev/null; then
+            base=$(git merge-base origin/main "$HEAD_SHA" 2>/dev/null || true)
+          fi
+          if [ -n "$base" ] && [ "$base" != "$HEAD_SHA" ]; then
+            scan_range="$base..$HEAD_SHA"
+          else
+            # A new branch has no base commit. `git log <sha>` would walk the
+            # whole history, so limit the walk to the pushed tip.
+            scan_range="$HEAD_SHA -1"
           fi
           echo "Scanning $scan_range"
           "$RUNNER_TEMP/gitleaks" git --no-banner --redact --exit-code 1 --log-opts="$scan_range" .
