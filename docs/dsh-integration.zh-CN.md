@@ -37,7 +37,10 @@ DSH 会先运行临时探测进程，再启动常驻连接。探测进程不会�
 写入不会被排队。DSH 的数据目录（`<managed-root>/profiles/dsh/local`）与 WorkBuddy、
 Hermes 相互独立。更新、卸载与恢复说明见 [Bundle 说明](../integrations/dsh/bundle/README.md)。
 
-## 备选：已发布的 Python/uvx overlay
+## 备选：Python/uvx overlay
+
+仅在 [PyPI 已提供 qdrant-memory-mcp 0.3.1](https://pypi.org/project/qdrant-memory-mcp/0.3.1/) 后运行下列固定版本命令。
+发布前请先按[已发布的 0.3.0 DSH 指南](https://github.com/cnkang/qdrant-memory-mcp/blob/v0.3.0/docs/dsh-integration.zh-CN.md)操作。
 
 需要 Python 3.11+、uv/uvx 和可用的嵌入服务（例如 Ollama）。按照
 [快速入门](quickstart.zh-CN.md) 配置，但把 profile 改为独立的
