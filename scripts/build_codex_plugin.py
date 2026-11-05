@@ -418,6 +418,7 @@ def build(output, skill_repo):
     with zipfile.ZipFile(output, "w", zipfile.ZIP_STORED) as archive:
         for name, data in sorted(files.items()):
             info = zipfile.ZipInfo("qdrant-memory/" + name, (2026, 1, 1, 0, 0, 0))
+            info.create_system = 3
             info.external_attr = 0o100644 << 16
             archive.writestr(info, data, compress_type=zipfile.ZIP_STORED)
     with zipfile.ZipFile(output) as archive:
