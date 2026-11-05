@@ -44,6 +44,19 @@ def write_archive(destination, module, source, executable):
             package.addfile(member, io.BytesIO(data))
 
 
+def prepare_launcher_pin(tmp_path, module, source):
+    repo_root = tmp_path / "repo"
+    managed_source = repo_root / "integrations" / "managed"
+    managed_source.parent.mkdir(parents=True)
+    managed_source.symlink_to(source, target_is_directory=True)
+    fixture_archive = tmp_path / "launcher-fixture.tgz"
+    write_archive(fixture_archive, module, source, "launcher.mjs")
+    integrity = module.sha512_integrity(fixture_archive)
+    (repo_root / "launcher-source.json").write_text(
+        json.dumps({"integrity": integrity}), encoding="utf-8")
+    return fixture_archive, integrity, repo_root
+
+
 @pytest.mark.parametrize("name", sorted(SCRIPTS))
 def test_normalize_accepts_both_npm_report_shapes(name):
     module = load(name)
@@ -69,15 +82,21 @@ def test_main_packs_once_into_an_external_directory(name, tmp_path, monkeypatch,
     meta = json.loads((source / "package.json").read_text(encoding="utf-8"))
     filename = meta["name"].removeprefix("@").replace("/", "-") + "-" + meta["version"] + ".tgz"
     integrity = "sha512-abc"
+    fixture_archive = None
     if name == "pack_launcher":
-        integrity = json.loads((ROOT / "launcher-source.json").read_text(encoding="utf-8"))["integrity"]
+        fixture_archive, integrity, repo_root = prepare_launcher_pin(tmp_path, module, source)
+        monkeypatch.setattr(module, "ROOT", repo_root)
 
     def fake_pack(command, cwd, env, text, timeout):
         assert command[0] in ("npm", "npm.cmd")
         assert "--ignore-scripts" in command
         assert env["npm_config_pack_destination"] == str(tmp_path / "out")
-        write_archive(Path(env["npm_config_pack_destination"]) / filename,
-                      module, source, script["executable"])
+        archive = Path(env["npm_config_pack_destination"]) / filename
+        if fixture_archive:
+            archive.parent.mkdir(parents=True, exist_ok=True)
+            archive.write_bytes(fixture_archive.read_bytes())
+        else:
+            write_archive(archive, module, source, script["executable"])
         return json.dumps([{"filename": filename, "integrity": integrity}])
 
     monkeypatch.setattr(module.subprocess, "check_output", fake_pack)
@@ -99,13 +118,42 @@ def test_launcher_pack_rejects_integrity_mismatch(tmp_path, monkeypatch):
     meta = json.loads((source / "package.json").read_text(encoding="utf-8"))
     filename = meta["name"].removeprefix("@").replace("/", "-") + "-" + meta["version"] + ".tgz"
     archive = tmp_path / "out" / filename
+    fixture_archive, pinned_integrity, repo_root = prepare_launcher_pin(tmp_path, module, source)
     wrong_integrity = "sha512-" + "A" * 86 + "=="
+    monkeypatch.setattr(module, "ROOT", repo_root)
 
     def fake_pack(command, cwd, env, text, timeout):
         assert command[0] in ("npm", "npm.cmd")
         assert "--ignore-scripts" in command
-        write_archive(archive, module, source, script["executable"])
+        archive.parent.mkdir(parents=True, exist_ok=True)
+        archive.write_bytes(fixture_archive.read_bytes())
         return json.dumps([{"filename": filename, "integrity": wrong_integrity}])
+
+    monkeypatch.setattr(module.subprocess, "check_output", fake_pack)
+    monkeypatch.setattr(sys, "argv", [name + ".py", "--output-dir", str(tmp_path / "out")])
+    with pytest.raises(ValueError, match="integrity differs"):
+        module.main()
+
+    assert not archive.exists()
+
+
+def test_launcher_pack_rejects_modified_archive_bytes(tmp_path, monkeypatch):
+    name = "pack_launcher"
+    script = SCRIPTS[name]
+    module = load(name)
+    source = script["source"]
+    meta = json.loads((source / "package.json").read_text(encoding="utf-8"))
+    filename = meta["name"].removeprefix("@").replace("/", "-") + "-" + meta["version"] + ".tgz"
+    archive = tmp_path / "out" / filename
+    fixture_archive, pinned_integrity, repo_root = prepare_launcher_pin(tmp_path, module, source)
+    monkeypatch.setattr(module, "ROOT", repo_root)
+
+    def fake_pack(command, cwd, env, text, timeout):
+        assert command[0] in ("npm", "npm.cmd")
+        assert "--ignore-scripts" in command
+        archive.parent.mkdir(parents=True, exist_ok=True)
+        archive.write_bytes(fixture_archive.read_bytes() + b"tampered")
+        return json.dumps([{"filename": filename, "integrity": pinned_integrity}])
 
     monkeypatch.setattr(module.subprocess, "check_output", fake_pack)
     monkeypatch.setattr(sys, "argv", [name + ".py", "--output-dir", str(tmp_path / "out")])

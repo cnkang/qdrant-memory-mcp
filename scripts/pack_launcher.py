@@ -1,6 +1,7 @@
 """Build and inspect the npm launcher archive without publishing it."""
 
 import argparse
+import base64
 import hashlib
 import json
 import os
@@ -35,6 +36,12 @@ def inspect(archive, source):
             if member.name == "package/launcher.mjs" and not member.mode & stat.S_IXUSR:
                 raise ValueError("Launcher CLI must be executable")
     return hashlib.sha256(archive.read_bytes()).hexdigest()
+
+
+def sha512_integrity(archive):
+    """Return npm's SHA-512 SRI value for the final archive bytes."""
+    digest = hashlib.sha512(archive.read_bytes()).digest()
+    return "sha512-" + base64.b64encode(digest).decode("ascii")
 
 
 def normalize(report):
@@ -75,10 +82,12 @@ def main():
     if packed["filename"] != filename:
         raise ValueError("Unexpected npm package identity")
     archive = output / filename
-    if packed.get("integrity") != pin.get("integrity"):
+    archive_integrity = sha512_integrity(archive)
+    if (packed.get("integrity") != pin.get("integrity")
+            or archive_integrity != pin.get("integrity")):
         archive.unlink(missing_ok=True)
         raise ValueError("Packed launcher integrity differs from launcher-source.json")
-    print(json.dumps({"archive": str(archive), "sha256": inspect(archive, source), "integrity": packed["integrity"]}))
+    print(json.dumps({"archive": str(archive), "sha256": inspect(archive, source), "integrity": archive_integrity}))
 
 
 if __name__ == "__main__":
