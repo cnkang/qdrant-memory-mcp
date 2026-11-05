@@ -40,6 +40,10 @@ Trigger policy:
 | --- | --- | --- |
 | `SonarCloud quality gate` | push to `main`/`codex/**`, same-repository PR, dispatch | one analysis |
 
+A `codex/**` push and its open same-repository pull request use different
+workflow refs, so both can analyze the same commit when neither run is
+cancelled. That commit then consumes two SonarCloud analyses.
+
 A fork pull request skips the job, and `ci.yml` does not aggregate it, so a
 skipped analysis cannot be confused with a passing one. The quality gate is a
 required check by name, so a fork pull request is covered by the other required
@@ -73,8 +77,9 @@ open source. Neither is a required check; both are advisory reviewers.
 
 `dsh-next.yml` resolves `@deepseek-ai/dsh@next` weekly. It writes the resolution
 into a runner-only lock and installs from that lock; nothing is committed. The
-job holds no repository or publishing credential, so an unwanted upstream
-release can fail a compatibility probe but cannot publish or merge anything.
+job has only the automatic read-only `GITHUB_TOKEN` (`contents: read`), and both
+checkouts disable credential persistence. It has no publishing credential, so
+an unwanted upstream release cannot publish or merge anything.
 
 ## What only the maintainer can verify
 

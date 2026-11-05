@@ -185,9 +185,8 @@ jobs:
             # No usable base: every commit reachable from the tip is new here.
             scan_range="$HEAD_SHA"
           fi
-          # A merge commit has no patch by default, so a secret added while
-          # resolving a conflict would pass. `remerge` reports only the
-          # conflict resolution, never content merged in from another branch.
-          scan_range="$scan_range --diff-merges=remerge"
+          # A merge commit has no patch by default. Compare it with its first
+          # parent so conflict resolutions and octopus-merge additions are scanned.
+          scan_range="$scan_range --diff-merges=first-parent"
           echo "Scanning $scan_range"
           "$RUNNER_TEMP/gitleaks" git --no-banner --redact --exit-code 1 --log-opts="$scan_range" .

@@ -1,7 +1,7 @@
 name: Scorecard supply-chain security
 
-# Governance scoring only. It never gates a pull request: the job needs a
-# read-only token, publishes results with OIDC, and runs on the trusted branch.
+# Governance scoring only. It runs on main, uses a read-only GITHUB_TOKEN, and
+# requests an OIDC token only to publish results. It never gates pull requests.
 on:
   push:
     branches: [main]
@@ -19,12 +19,12 @@ concurrency:
 jobs:
   analysis:
     name: Scorecard analysis
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
       contents: read
       actions: read
-      security-events: write
       id-token: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1

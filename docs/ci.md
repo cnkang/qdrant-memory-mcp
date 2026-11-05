@@ -43,8 +43,9 @@ Both jobs reject skipped tests.
   Updates remain reviewed PRs.
   There is no automatic merge or publication.
 - OpenSSF Scorecard publishes a governance score on `main` pushes, weekly, and
-  on dispatch.
-  It uses the workflow's own OIDC identity and a read-only token.
+  dispatches targeting `main`. The job's `GITHUB_TOKEN` is read-only
+  (`contents: read`, `actions: read`); `id-token: write` separately allows it
+  to request an OIDC token for publication.
   It never gates a pull request and creates no long-lived token.
 
 Actions use immutable commit pins. Dependabot updates both occurrences of the
@@ -106,8 +107,10 @@ The build job first verifies that `Distribution CI`, `Cross-harness integration`
 for the exact tagged commit.
 A failed, cancelled, skipped or missing run blocks the build before any
 distribution exists.
-The job then attests `dist/*` with GitHub artifact attestations, in addition to
-the provenance that PyPI Trusted Publishing records.
+The job attests newly built `dist/*` with GitHub artifact attestations, in
+addition to the provenance that PyPI Trusted Publishing records. When it reuses
+already-published PyPI bytes, it skips attestation so those downloaded files
+are not described as build outputs of that run.
 Release workflows read no Actions cache.
 New checks do not trigger a release.
 The trust boundaries, the findings and the 30-day run baseline are in
