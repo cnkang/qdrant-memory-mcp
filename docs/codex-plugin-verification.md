@@ -7,9 +7,14 @@ Plugin 0.1.3 pins MCP 0.3.1, Runtime 0.6.0 at
 at draft Skills PR #54 commit
 `d42985ba9011edc48d7c103f79cf40709fd979e5`. The tracked marketplace plugin
 includes the complete 21-file Skill snapshot; the archive builder compares it
-with the pinned commit and rejects drift. Plugin 0.1.3 has not yet passed the
-exact-candidate build or Codex CLI acceptance; the evidence below for plugin
-0.1.2 is historical and does not certify 0.1.3.
+with the pinned commit and rejects drift. A local 0.1.3 source Marketplace ZIP
+was built from commit `0ae3a0e5434c6feb19773e1990d6bd60a5d151e9` (34 files,
+77,872 bytes, SHA-256
+`824295e83ee833abdc29e5512d24893fedcf63c1df96f4ad97834fb6821d7072`). Codex
+CLI 0.165.0 installed that exact ZIP through an isolated temporary Marketplace;
+version 0.1.3 was visible, disable and uninstall passed, and the ZIP remained.
+This did not invoke the four memory tools through a Codex CLI conversation.
+The evidence below for plugin 0.1.2 remains historical.
 
 ## Desktop-only engineering update (2026-11-06)
 
@@ -21,10 +26,18 @@ to build the source Marketplace form only.
 
 The previous 0.1.2 snapshot used Skill 0.4.0. The 0.1.3 candidate adds the
 operator workflows from the Skills repository's draft PR #54 and pins its exact
-commit. The CI checkout and archive name were updated to match that candidate;
-the first CI run still used the former checkout pin and failed before producing
-an artifact. The corrected run must pass before the 0.1.3 source ZIP is treated
-as validated.
+commit. The first CI run used the former Skill checkout pin and failed before
+producing an artifact. The corrected exact-SHA source workflow
+[42069609457](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/42069609457)
+passed on Ubuntu, macOS and Windows. However, the Windows ZIP differed from the
+Ubuntu/macOS ZIP because 32 text files were checked out with CRLF. The two
+non-Windows archives were identical (77,870 bytes,
+`4527e53da8eb0e1f6b234e95e7759b9001069508511d19509f98dd655165b55c`); the
+Windows archive was 78,705 bytes with SHA-256
+`e3eca41e6796415cfbe100c92e8a34fef1a210bd0b998507afdf58b371f217fc`. A
+follow-up adds explicit LF attributes and a regression test. That fix still
+requires a new exact-SHA cross-platform CI run before the source ZIP is called
+reproducible. None of these source ZIP checks certify a Desktop-only package.
 
 On 2026-11-06, Codex CLI `0.165.0` installed the local source Marketplace into
 an isolated `CODEX_HOME` using `codex plugin marketplace add` and
@@ -49,7 +62,13 @@ versions, plus passing standalone MCP and CPU-model jobs. The latest-main
 Python 3.11 behavior job failed because host integration tests could not import
 `dotenv`; one macOS/Python 3.14/MCP SDK 1.x job was cancelled. The required
 security gate also failed because tests failed and SonarCloud was skipped on
-this trusted PR. Issue #118 remains open until the exact-SHA gate is green.
+this trusted PR. The Python 3.11 behavior failure is in host compatibility
+coverage: Hermes upstream `main` at commit
+`84a0301415edd6d1385207ec96e4d7f2b6c1fcd9` declares
+`python-dotenv==1.2.4` only for Python >=3.14 in `pyproject.toml`, while
+`hermes_cli.env_loader.py` imports `dotenv` unconditionally at line 17. This is separate from
+the corrected Runtime interpreter selection. Issue #118 remains open until the
+trusted exact-SHA gate is green.
 Runtime Issue #115 remains open; no root cause or full failure-path recovery
 proof is established.
 
@@ -102,6 +121,25 @@ response contract, and does not constitute a live external provider test. No
 API key or external embedding service was used. Runtime issue #115's writer
 drain failure-path tests, low-disk model behavior and unsupported CPU case
 remain **NOT VERIFIED**.
+
+## Codex memory migration regression (2026-11-06)
+
+On Runtime branch commit `4ca2950f0bfac20cd7e10081320c207b90fdbc16`, the
+isolated Python 3.11.15 command
+
+```text
+/tmp/qdrant-ci-py311/bin/python -m pytest -q tests/test_codex_memory.py -k 'not test_cli_confirmed_import_and_handoff_use_real_profile and not test_handoff_tilde_profile_checks_actual_recovery_ledger and not test_deleted_import_reports_conflict_without_verify'
+```
+
+returned **64 passed, 4 deselected**. The selected cases exercise supported
+semantic layouts, dry-run zero writes, de-duplication, durable import resume,
+handoff checksums and path-race protections. The four deselected CLI/profile
+cases require the Hermes host's top-level `utils` module, which is not installed
+in this isolated Runtime venv. `tests/test_inventory_export.py` also could not
+collect locally because `agent.memory_provider` was unavailable. The
+Windows-only file tests were skipped on macOS; the exact Runtime CI run's
+Windows security jobs passed on Python 3.11 and 3.14. This is not a full
+Desktop migration or post-uninstall test.
 
 ## MCP distribution suite
 

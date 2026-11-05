@@ -1,0 +1,2 @@
+plugins/qdrant-memory/** text eol=lf
+docs/codex-plugin-verification.md text eol=lf

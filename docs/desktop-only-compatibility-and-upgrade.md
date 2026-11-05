@@ -12,7 +12,7 @@ development changes. No host adapter release is synchronized by this task.
 | Runtime | 0.6.0, release commit `dee6777432f17523db75f6be32cf3ef15e48235c` | Authoritative Qdrant, embedding, scope, SQLite ledger, recovery and WriterLease implementation. |
 | Skill | 0.4.1 candidate, repository commit `d42985ba9011edc48d7c103f79cf40709fd979e5` | Guided operator workflows added in Skills draft PR #54; the plugin snapshot is refreshed to match all 21 source files. |
 | Launcher | Plugin 0.1.3 source | Dependency-free Node ESM host adapter. The Desktop-only ZIP still requires a bundled or confirmed host Node runtime. |
-| Python test matrix | 3.11 / 3.14 | Runtime Issue #118 correction is in PR #127; GitHub exact-SHA jobs have not yet completed. |
+| Python test matrix | 3.11 / 3.14 | Runtime PR #127 exact-SHA run 42058051902 completed with passing Local Contracts on macOS/Windows/Ubuntu for both versions; latest-main Python 3.11 behavior failed on Hermes' conditional `python-dotenv` dependency. Issue #118 remains open. |
 | Model | FastEmbed 0.9.1; MiniLM-L12-v2, 384 dimensions | 252,138,706 bytes of immutable verified model files. Model cache is separate from plugin code. |
 
 The Skill source change is limited to onboarding instructions; Runtime, tool
