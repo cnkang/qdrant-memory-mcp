@@ -59,13 +59,15 @@ PyPI 文件并对之测试，然后重跑 Registry 校验/发布。此过程不�
    附加到 Draft Release。最后通过单独的 npm 网页授权发布
    `@cnkang/qdrant-memory-dsh-bundle`。发布后核验公开版本和完整性，再宣布发布完成。
 8. Codex 仓库源 Marketplace 插件独立于 PyPI、MCP Registry 和 npm 发布。0.1.2 候选版固定
-   MCP 0.3.1、Runtime 0.6.0 和未变更的 Skill 快照。PR 通过审核并合并后，针对准确的
-   `main` 重建源码 ZIP，然后用这份 ZIP 运行受保护云端验收。只有结果为 `PASS` 且其中的
-   `plugin_archive_sha256` 与 ZIP 的 SHA-256 一致时，才能将其保留为发布证据。
-   `codex-ollama-synthetic-result` 工件包含记录验收状态和 ZIP SHA-256 的
-   `codex-plugin-result.json`；单独的 `codex-plugin-verified-source-<sha>` 工件包含 ZIP
-   和 `codex-plugin-build.json`。即使验收失败，工作流也会上传 ZIP；因此只有匹配的 `PASS`
-   结果才能作为归档提交依据，并且必须提交同一份 ZIP。验收后不得重新构建。
+   MCP 0.3.1、Runtime 0.6.0 和未变更的 Skill 快照。仓库 Marketplace 目录必须包含完整固定版
+   Skill 树，构建器会拒绝与 pin 不一致的源码。PR 通过审核并合并后，针对准确的
+   `main` 重建源码 ZIP，然后分别针对仓库 Marketplace 源码和这份 ZIP 运行受保护云端验收。
+   只有两项验收都为 `PASS`，且结果中的 `plugin_archive_sha256` 与 ZIP 的 SHA-256 一致，
+   才能将其保留为发布证据。`codex-ollama-synthetic-result` 工件中的
+   `codex-plugin-result.json` 包含两项验收结果和 ZIP SHA-256；单独的
+   `codex-plugin-verified-source-<sha>` 工件包含 ZIP 和 `codex-plugin-build.json`。
+   即使验收失败，工作流也会上传 ZIP；只有匹配的 `PASS` 结果才能作为归档提交依据，
+   并且必须提交同一份 ZIP。验收后不得重新构建。
    `plugins/qdrant-memory`、
    `scripts/build_codex_plugin.py` 或 `docs/codex-plugin-verification.md` 下的内容变更后，
    都要重建 ZIP 并用这份 ZIP 重跑受保护云端验收。公开 GitHub 仓库就是 `cnkang` Codex

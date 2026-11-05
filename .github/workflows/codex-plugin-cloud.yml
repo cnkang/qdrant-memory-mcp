@@ -30,7 +30,7 @@ jobs:
     needs: preflight
     runs-on: ubuntu-24.04
     environment: soak-cloud
-    timeout-minutes: 20
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -89,7 +89,21 @@ jobs:
           python -m venv "$RUNNER_TEMP/codex-runtime"
           "$RUNNER_TEMP/codex-runtime/bin/python" -m pip install -r plugins/qdrant-memory/requirements.txt
           "$RUNNER_TEMP/codex-runtime/bin/python" -c 'import importlib.metadata as m,json,pathlib; expected=json.loads(pathlib.Path("plugins/qdrant-memory/release.json").read_text())["runtime_commit"]; source=json.loads(m.distribution("hermes-plugin-qdrant-memory").read_text("direct_url.json")); assert source["vcs_info"]["commit_id"] == expected; print(json.dumps({"runtime_commit":expected}))'
-      - name: Run actual Codex with the protected Ollama model
+      - name: Test repository-backed marketplace with protected Ollama
+        id: source_acceptance
+        continue-on-error: true
+        env:
+          SOAK_LLM_BASE_URL: ${{ vars.SOAK_LLM_BASE_URL }}
+          SOAK_LLM_MODEL: ${{ vars.SOAK_LLM_MODEL }}
+          SOAK_LLM_API_KEY: ${{ secrets.SOAK_LLM_API_KEY }}
+        run: |
+          python scripts/codex_account_acceptance.py --mode cloud \
+            --runtime "$RUNNER_TEMP/codex-runtime/bin/qdrant-memory" \
+            --workdir "$RUNNER_TEMP/codex-source-synthetic-window" \
+            > "$RUNNER_TEMP/codex-plugin-source-result.json"
+      - name: Test exact rebuilt plugin ZIP with protected Ollama
+        id: zip_acceptance
+        continue-on-error: true
         env:
           SOAK_LLM_BASE_URL: ${{ vars.SOAK_LLM_BASE_URL }}
           SOAK_LLM_MODEL: ${{ vars.SOAK_LLM_MODEL }}
@@ -99,8 +113,8 @@ jobs:
           python scripts/codex_account_acceptance.py --mode cloud \
             --runtime "$RUNNER_TEMP/codex-runtime/bin/qdrant-memory" \
             --plugin-zip "$CODEX_PLUGIN_ZIP" \
-            --workdir "$RUNNER_TEMP/codex-synthetic-window" \
-            > "$RUNNER_TEMP/codex-plugin-result.json"
+            --workdir "$RUNNER_TEMP/codex-zip-synthetic-window" \
+            > "$RUNNER_TEMP/codex-plugin-zip-result.json"
       - name: Summarize explicit outcome
         if: always()
         shell: python
@@ -108,18 +122,59 @@ jobs:
           import json
           import os
           from pathlib import Path
-          path = Path(os.environ["RUNNER_TEMP"]) / "codex-plugin-result.json"
+          temp = Path(os.environ["RUNNER_TEMP"])
+          path = temp / "codex-plugin-result.json"
+
+          def read_result(name):
+              try:
+                  value = json.loads((temp / name).read_text(encoding="utf-8"))
+                  if isinstance(value, dict) and value.get("status") in ("PASS", "FAIL", "NOT VERIFIED"):
+                      return value
+              except (OSError, UnicodeError, ValueError):
+                  pass
+              return {"status": "NOT VERIFIED", "reason": "acceptance result missing or invalid"}
+
+          source = read_result("codex-plugin-source-result.json")
+          archive = read_result("codex-plugin-zip-result.json")
           try:
-              result = json.loads(path.read_text(encoding="utf-8"))
-              if not isinstance(result, dict) or result.get("status") not in ("PASS", "FAIL", "NOT VERIFIED"):
-                  raise ValueError("Invalid acceptance result")
+              build = json.loads((temp / "codex-plugin-build.json").read_text(encoding="utf-8"))
+              build_sha256 = build.get("sha256") if isinstance(build, dict) else None
           except (OSError, UnicodeError, ValueError):
-              result = {"status": "NOT VERIFIED", "reason": "acceptance result missing or invalid"}
-              replacement = path.with_name(path.name + ".fallback")
-              replacement.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
-              replacement.replace(path)
+              build_sha256 = None
+          archive_sha256 = archive.get("plugin_archive_sha256")
+          archive_matches_build = (
+              isinstance(build_sha256, str)
+              and len(build_sha256) == 64
+              and archive_sha256 == build_sha256
+          )
+          source_passed = (
+              source.get("status") == "PASS"
+              and source.get("installation_source") == "repository"
+          )
+          archive_passed = (
+              archive.get("status") == "PASS"
+              and archive.get("installation_source") == "zip"
+              and archive_matches_build
+          )
+          missing_evidence = (
+              source.get("status") == "NOT VERIFIED"
+              or archive.get("status") == "NOT VERIFIED"
+              or not isinstance(build_sha256, str)
+          )
+          result = {
+              "status": "PASS" if source_passed and archive_passed else "NOT VERIFIED" if missing_evidence else "FAIL",
+              "repository_source_commit": os.environ["GITHUB_SHA"],
+              "repository_marketplace_acceptance": source,
+              "zip_acceptance": archive,
+              "plugin_archive_sha256": archive_sha256,
+              "build_metadata_sha256": build_sha256,
+              "archive_matches_build_metadata": archive_matches_build,
+          }
+          path.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
           with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a", encoding="utf-8") as summary:
               summary.write(json.dumps(result, indent=2) + "\n")
+          if result["status"] != "PASS":
+              raise SystemExit("Both repository marketplace and exact ZIP acceptance must pass")
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:

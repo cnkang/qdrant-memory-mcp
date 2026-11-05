@@ -77,12 +77,15 @@ candidate as published.
    Verify the public version and integrity before announcing it.
 8. Release the repository-backed Codex Marketplace plugin independently from
    PyPI, MCP Registry and npm. Candidate 0.1.2 pins MCP 0.3.1, Runtime 0.6.0
-   and the unchanged Skill snapshot. Merge its reviewed PR, rebuild the source
-   ZIP from that exact `main`, then run protected cloud acceptance against that
-   exact ZIP. Retain it as release evidence only when the result reports `PASS`
-   and its `plugin_archive_sha256` matches the ZIP. The
+   and the unchanged Skill snapshot. Keep that complete pinned Skill tree in
+   the repository marketplace directory; the builder rejects snapshot drift.
+   Merge its reviewed PR, rebuild the source
+   ZIP from that exact `main`, then run protected cloud acceptance against both
+   the repository-backed marketplace source and that exact ZIP. Retain it as
+   release evidence only when both acceptances report `PASS` and the result's
+   `plugin_archive_sha256` matches the ZIP. The
    `codex-ollama-synthetic-result` artifact contains `codex-plugin-result.json`
-   with the status and archive SHA-256; the separate
+   with both acceptance results and the archive SHA-256; the separate
    `codex-plugin-verified-source-<sha>` artifact contains the ZIP and
    `codex-plugin-build.json`. The ZIP is uploaded even when acceptance fails,
    so require the matching `PASS` result before using it for any archive-based

@@ -330,7 +330,16 @@ def build(output, skill_repo):
             VERIFICATION_PATH,
         )
     )
-    files.update(skill_files(skill_repo, release["skill_commit"]))
+    pinned_skills = skill_files(skill_repo, release["skill_commit"])
+    repository_skills = {
+        name: data
+        for name, data in files.items()
+        if name.startswith("skills/qdrant-memory/")
+    }
+    require(
+        repository_skills == pinned_skills,
+        "Repository marketplace Skill does not match its pinned snapshot",
+    )
     validate(PLUGIN, files)
     files["release.json"] = json.dumps(release, indent=2).encode() + b"\n"
     files["VERIFICATION.md"] = _source_bytes(ROOT / VERIFICATION_PATH)

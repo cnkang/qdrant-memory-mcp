@@ -308,6 +308,11 @@ def test_archive_uses_index_and_tracks_verification_edits(tmp_path, monkeypatch)
 
     plugin = tmp_path / "plugins/qdrant-memory"
     shutil.copytree(package.PLUGIN, plugin)
+    source_skill = plugin / "skills/qdrant-memory"
+    shutil.rmtree(source_skill)
+    source_skill.mkdir(parents=True)
+    data = b"---\nname: qdrant-memory\n---\nupstream skill\n"
+    (source_skill / "SKILL.md").write_bytes(data)
     docs = tmp_path / "docs"
     docs.mkdir()
     verification = docs / "codex-plugin-verification.md"
@@ -332,7 +337,6 @@ def test_archive_uses_index_and_tracks_verification_edits(tmp_path, monkeypatch)
     )
     snapshot = io.BytesIO()
     with tarfile.open(fileobj=snapshot, mode="w") as archive:
-        data = b"---\nname: qdrant-memory\n---\nupstream skill\n"
         member = tarfile.TarInfo("qdrant-memory/SKILL.md")
         member.size = len(data)
         archive.addfile(member, io.BytesIO(data))
@@ -352,6 +356,10 @@ def test_archive_uses_index_and_tracks_verification_edits(tmp_path, monkeypatch)
     assert not package.build(output, tmp_path)["source_dirty"]
     expected = json.loads((plugin / "release.json").read_text())["skill_commit"]
     assert archived == [expected]
+    (source_skill / "SKILL.md").write_bytes(data + b"mismatch\n")
+    with pytest.raises(ValueError, match="does not match its pinned snapshot"):
+        package.build(output, tmp_path)
+    (source_skill / "SKILL.md").write_bytes(data)
     with zipfile.ZipFile(output) as archive:
         assert archive.namelist() == sorted(archive.namelist())
         assert {info.date_time for info in archive.infolist()} == {
@@ -405,6 +413,11 @@ def test_archive_validates_the_collected_manifest_bytes(
 
     plugin = tmp_path / package.PLUGIN_PATH
     shutil.copytree(package.PLUGIN, plugin)
+    skill_root = plugin / "skills/qdrant-memory"
+    shutil.rmtree(skill_root)
+    skill_root.mkdir(parents=True)
+    skill_bytes = b"---\nname: qdrant-memory\n---\nfixture\n"
+    (skill_root / "SKILL.md").write_bytes(skill_bytes)
     (tmp_path / "docs").mkdir()
     (tmp_path / package.VERIFICATION_PATH).write_text("fixture evidence")
     subprocess.run(["git", "init", str(tmp_path)], check=True, capture_output=True)
@@ -448,7 +461,7 @@ def test_archive_validates_the_collected_manifest_bytes(
         package,
         "skill_files",
         lambda *_: {
-            "skills/qdrant-memory/SKILL.md": b"---\nname: qdrant-memory\n---\nfixture\n",
+            "skills/qdrant-memory/SKILL.md": skill_bytes,
         },
     )
     with pytest.raises(

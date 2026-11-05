@@ -732,6 +732,7 @@ def run(args):
             "status": "PASS",
             "harness": command(["codex", "--version"], env, work).strip(),
             "mode": args.mode,
+            "installation_source": "zip" if plugin_zip else "repository",
             "plugin_archive_sha256": (
                 hashlib.sha256(plugin_zip.read_bytes()).hexdigest() if plugin_zip else None
             ),
