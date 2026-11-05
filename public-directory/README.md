@@ -10,8 +10,8 @@ official approval, Desktop-only allowlist, or published release.
 - Slogan: **One Memory. Multiple Agents. No Lock-in.**
 - Public repository / current support issue tracker:
   https://github.com/cnkang/qdrant-memory-mcp/issues
-- Current source Marketplace candidate: plugin 0.1.2, MCP 0.3.1, Runtime 0.6.0,
-  Skill 0.4.0.
+- Current source Marketplace candidate: plugin 0.1.3, MCP 0.3.1, Runtime 0.6.0,
+  Skill 0.4.1.
 - Desktop-only package: **NOT READY / NO ZIP GENERATED**.
 - Codex Desktop and ChatGPT Desktop: **NOT VERIFIED**.
 - Creator-normalized package: **NOT VERIFIED**.

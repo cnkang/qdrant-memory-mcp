@@ -56,6 +56,9 @@ candidate as published.
    snapshot. This MCP release does not change Skill source, so it does not need
    another Skills snapshot. Publish a separate snapshot only when that source
    changes, and pin its actual commit in connector and Codex release metadata.
+   The separate Codex 0.1.3 candidate pins draft Skills PR #54 commit
+   `d42985ba9011edc48d7c103f79cf40709fd979e5`; that is not a published
+   Skills snapshot and must not be described as released.
 3. Verify launcher 0.1.0-rc.8 on npm against the SHA-512 in
    `launcher-source.json`. Its public Linux, macOS and Windows acceptance passed
    in [Cross-harness run 41994236149](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/41994236149).
@@ -76,8 +79,8 @@ candidate as published.
    `@cnkang/qdrant-memory-dsh-bundle` last, with its own npm web authorization.
    Verify the public version and integrity before announcing it.
 8. Release the repository-backed Codex Marketplace plugin independently from
-   PyPI, MCP Registry and npm. Candidate 0.1.2 pins MCP 0.3.1, Runtime 0.6.0
-   and the unchanged Skill snapshot. Keep that complete pinned Skill tree in
+   PyPI, MCP Registry and npm. Candidate 0.1.3 pins MCP 0.3.1, Runtime 0.6.0
+   and the draft Skill 0.4.1 snapshot. Keep that complete pinned Skill tree in
    the repository marketplace directory; the builder rejects snapshot drift.
    Merge its reviewed PR, rebuild the source
    ZIP from that exact `main`, then run protected cloud acceptance against both

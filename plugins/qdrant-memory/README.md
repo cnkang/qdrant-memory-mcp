@@ -12,7 +12,7 @@ until the native client actually adopts the facts; no unsupported native writes.
 Marketplace: **Kang's plugins** (`cnkang`). Plugin: **Qdrant Memory for Codex**.
 
 Requirements: Codex with portable plugins, Node 20+, uv, Python 3.11+, Git on PATH.
-The plugin is 0.1.2; MCP distribution 0.3.1 and Runtime 0.6.0 have separate versions.
+The plugin candidate is 0.1.3; MCP distribution 0.3.1, Runtime 0.6.0 and Skill 0.4.1 have separate versions.
 This candidate pins the immutable Runtime release source commit recorded
 in `release.json`. Verify the exact MCP and Runtime versions are public before
 installing. This is the GitHub-backed Codex source marketplace. Submission to the

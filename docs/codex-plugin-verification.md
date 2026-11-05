@@ -2,11 +2,14 @@
 
 ## Current repository-marketplace candidate (2026-11-06)
 
-Plugin 0.1.2 pins MCP 0.3.1, Runtime 0.6.0 at
-`dee6777432f17523db75f6be32cf3ef15e48235c`, and the unchanged `qdrant-memory`
-Skill snapshot at `811d71756c6a49e8268cbbc7afd9c9e41e0348e4`.
-The tracked marketplace plugin includes that complete 20-file Skill snapshot;
-the archive builder compares it with the pinned commit and rejects any drift.
+Plugin 0.1.3 pins MCP 0.3.1, Runtime 0.6.0 at
+`dee6777432f17523db75f6be32cf3ef15e48235c`, and `qdrant-memory` Skill 0.4.1
+at draft Skills PR #54 commit
+`d42985ba9011edc48d7c103f79cf40709fd979e5`. The tracked marketplace plugin
+includes the complete 21-file Skill snapshot; the archive builder compares it
+with the pinned commit and rejects drift. Plugin 0.1.3 has not yet passed the
+exact-candidate build or Codex CLI acceptance; the evidence below for plugin
+0.1.2 is historical and does not certify 0.1.3.
 
 ## Desktop-only engineering update (2026-11-06)
 
@@ -16,11 +19,12 @@ archive. `docs/desktop-only-adr.md` records the proposed bundle direction;
 project gates and platform blockers. The current plugin ZIP builder continues
 to build the source Marketplace form only.
 
-The Skills repository checkout had advanced to `811d71756c6a49e8268cbbc7afd9c9e41e0348e4`,
-while the former pinned commit `cc592289f126c786fd6c11038fcaa966c6de2b40` was not
-present in that checkout. The 20 tracked Skill files in the current repository
-were byte-for-byte equal to upstream; `release.json` now pins the current commit.
-No Skill source content was changed.
+The previous 0.1.2 snapshot used Skill 0.4.0. The 0.1.3 candidate adds the
+operator workflows from the Skills repository's draft PR #54 and pins its exact
+commit. The CI checkout and archive name were updated to match that candidate;
+the first CI run still used the former checkout pin and failed before producing
+an artifact. The corrected run must pass before the 0.1.3 source ZIP is treated
+as validated.
 
 On 2026-11-06, Codex CLI `0.165.0` installed the local source Marketplace into
 an isolated `CODEX_HOME` using `codex plugin marketplace add` and
@@ -133,8 +137,15 @@ rc.8. This Codex plugin uses its bundled local launcher and does not depend on
 the managed npm launcher.
 
 The OpenAI public directory is a separate submission. The Plugin Creator copy
-is a private USER-scoped 0.1.1 plugin, and this local stdio package has not been
-submitted to the public directory.
+is a private USER-scoped 0.1.1 plugin and was inspected read-only. Its stored
+`plugin.json` references a Creator-normalized `.mcp.json` whose server has
+`env: {}`; the source Codex overlay instead declares eight `env_vars` names for
+Profile, Qdrant/Embedding credentials, executable paths and Shared Owner
+configuration. This confirms a manifest-shape mismatch in the existing 0.1.1
+Creator copy. No Creator-normalized 0.1.3 archive was generated or executed, and
+no claim is made that the mismatch is resolved. The 0.1.1 file inspection is
+not a current-candidate or Desktop GUI test. The local stdio package has not
+been submitted to the public directory.
 
 ## Historical 0.1.1 verification record
 
