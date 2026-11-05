@@ -278,6 +278,7 @@ fi
 On Windows, disconnect WorkBuddy, reuse `$Root` and `$Stamp`, then run:
 
 ```powershell
+$ErrorActionPreference = 'Stop'
 $OldProfile = Join-Path $Root 'profiles\workbuddy\local'
 $BackupProfile = Join-Path $Root "profiles\workbuddy\local-backup-$Stamp"
 $FailedProfile = Join-Path $Root "profiles\workbuddy\migration-failed-$Stamp"
