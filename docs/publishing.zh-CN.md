@@ -57,10 +57,11 @@ PyPI 文件并对之测试，然后重跑 Registry 校验/发布。此过程不�
    0.2.5 视为准备就绪。仅在检查首次运行后确有需要时，才通过 `workflow_dispatch` 重跑。
 7. 从已合并的 main 创建 `dsh-bundle-v0.1.6`，等待 pack 和测试把 tarball 与 checksum
    附加到 Draft Release。最后通过单独的 npm 网页授权发布
-   `@cnkang/qdrant-memory-dsh-bundle`。发布前核验公开版本和 integrity。
-8. 保留 Codex 插件候选版的现有不可变固定值和验收记录。只有插件 manifest 或固定引用改动时，
-   才重建源码 ZIP 并重跑受保护云端验收。同步三个仓库的当前安装文档和证据。Codex
-   Marketplace 正式提交继续暂停。
+   `@cnkang/qdrant-memory-dsh-bundle`。发布后核验公开版本和完整性，再宣布发布完成。
+8. 仅当 plugins/qdrant-memory 下没有已跟踪文件变更时，才沿用 Codex 插件候选版当前 ZIP
+   和云端验收证据。该目录下任意文件变更后都要重建 ZIP 并重新运行受保护云端验收；
+   scripts/build_codex_plugin.py 或 docs/codex-plugin-verification.md 变更后也要重建 ZIP。
+   同步三个仓库的当前安装文档和证据。Codex Marketplace 正式提交继续暂停。
 
 ## 适配器附件
 

@@ -75,9 +75,11 @@ candidate as published.
    to attach the tarball and checksum to a Draft Release. Publish
    `@cnkang/qdrant-memory-dsh-bundle` last, with its own npm web authorization.
    Verify the public version and integrity before announcing it.
-8. Keep the Codex plugin candidate's existing immutable pin and acceptance
-   record. Rebuild its source ZIP and rerun protected cloud acceptance only if
-   its plugin manifest or pins change. Update current installation docs and
+8. Keep the Codex plugin candidate's current ZIP and cloud acceptance evidence
+   only while no tracked file under plugins/qdrant-memory changes. Rebuild the
+   ZIP after any change under plugins/qdrant-memory, scripts/build_codex_plugin.py,
+   or docs/codex-plugin-verification.md; rerun protected cloud acceptance after
+   any change under plugins/qdrant-memory. Update current installation docs and
    evidence in all three repositories. Official Codex Marketplace submission
    stays paused.
 

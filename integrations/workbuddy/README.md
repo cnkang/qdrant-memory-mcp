@@ -296,12 +296,14 @@ try {
 }
 ```
 
-Connector 0.2.5 selects MCP 0.3.1, Runtime 0.6.0, launcher 0.1.0-rc.8 and
-Skill 0.4.0. Verify the exact launcher version on npm and the connector assets
-on the corresponding GitHub Release before installing. Previous connector
-0.2.4 archives retain their original per-release provenance and immutable bytes.
-The managed WorkBuddy route runs the
-standalone launcher, which does not instantiate Hermes' native MemoryProvider.
+Connector 0.2.5 records MCP distribution 0.3.1, Runtime 0.6.0, launcher
+0.1.0-rc.8 and Skill 0.4.0 in its release provenance. The managed WorkBuddy
+route runs launcher 0.1.0-rc.8 to install Runtime 0.6.0 and ships Skill 0.4.0;
+it does not install the Python MCP distribution or instantiate Hermes' native
+MemoryProvider. The separate Python/uvx alternative below installs MCP
+distribution 0.3.1. Verify the exact launcher version on npm and the connector
+assets on the corresponding GitHub Release before installing. Previous
+connector 0.2.4 archives retain their original per-release provenance and immutable bytes.
 `provenance.json` inside each ZIP records its versions, launcher
 integrity and Skill source commit. The builder rejects drift from checked-in pins:
 

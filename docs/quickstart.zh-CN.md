@@ -71,6 +71,10 @@ uvx --from qdrant-memory-mcp==0.3.1 qdrant-memory-mcp --home "/path/to/workbuddy
 
 ## 4. 在客户端连接 MCP
 
+使用此精确版本配置前，请确认 [PyPI 已列出
+qdrant-memory-mcp 0.3.1](https://pypi.org/project/qdrant-memory-mcp/0.3.1/)。
+发布前请先按[已发布的 0.3.0 快速入门](https://github.com/cnkang/qdrant-memory-mcp/blob/v0.3.0/docs/quickstart.zh-CN.md)操作。
+
 WorkBuddy 中添加自定义 stdio MCP，使用以下配置；将路径替换为步骤 3 的同一个目录。
 受管连接器使用其数据根目录下的 `profiles/workbuddy/local`，不会自动选择这里的
 自定义 profile。直接运行不带 `--home` 的 uvx 接口才默认使用 `~/.qdrant-memory`。

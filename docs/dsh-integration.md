@@ -44,7 +44,11 @@ Writes are never queued. The DSH profile
 profiles. See the [Bundle README](../integrations/dsh/bundle/README.md) for
 update, uninstall and recovery details.
 
-## Alternative: the published Python/uvx overlay
+## Alternative: Python/uvx overlay
+
+Run the pinned 0.3.1 commands below only after [PyPI lists qdrant-memory-mcp
+0.3.1](https://pypi.org/project/qdrant-memory-mcp/0.3.1/). Until then, follow
+the [published 0.3.0 DSH guide](https://github.com/cnkang/qdrant-memory-mcp/blob/v0.3.0/docs/dsh-integration.md).
 
 This path requires Python 3.11+, uv/uvx, and a working embedding service, such
 as Ollama. Follow the [quickstart](quickstart.md), using a new dedicated profile
