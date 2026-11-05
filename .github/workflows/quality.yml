@@ -118,12 +118,15 @@ jobs:
           SONAR_HOST_URL: https://sonarcloud.io
 
   lint:
+    # The job name is a required branch check. Keep it stable.
     name: Python and workflow lint
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
+          # The secret scan walks the commits that the event introduced.
+          fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
@@ -145,3 +148,45 @@ jobs:
           tar -xzf "$ACTIONLINT_ARCHIVE" -C "$RUNNER_TEMP" actionlint
       - name: Validate workflow syntax, expressions and shell steps
         run: '"$RUNNER_TEMP/actionlint" -color'
+      - name: Audit workflow security with zizmor 1.32.0
+        uses: zizmorcore/zizmor-action@45d7276c9ca790aabd705e31ca99c6185c3e76dd # v0.8.1
+        with:
+          advanced-security: false
+          online-audits: false
+          version: 1.32.0
+          persona: regular
+      - name: Install verified gitleaks 8.30.1
+        env:
+          GITLEAKS_ARCHIVE: ${{ runner.temp }}/gitleaks.tar.gz
+        run: |
+          curl --fail --silent --show-error --location --proto "=https" --proto-redir "=https" --output "$GITLEAKS_ARCHIVE" https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz
+          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  $GITLEAKS_ARCHIVE" | sha256sum --check
+          tar -xzf "$GITLEAKS_ARCHIVE" -C "$RUNNER_TEMP" gitleaks
+      - name: Scan the commits introduced by this event
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -eu
+          base="${BASE_SHA:-}"
+          case "$base" in
+            "" | 0000000000000000000000000000000000000000) base="" ;;
+          esac
+          if [ -n "$base" ] && ! git cat-file -e "${base}^{commit}" 2>/dev/null; then
+            base=""
+          fi
+          if [ -z "$base" ] && git rev-parse --verify --quiet origin/main >/dev/null; then
+            base=$(git merge-base origin/main "$HEAD_SHA" 2>/dev/null || true)
+          fi
+          if [ -n "$base" ] && [ "$base" != "$HEAD_SHA" ]; then
+            scan_range="$base..$HEAD_SHA"
+          else
+            # No usable base: every commit reachable from the tip is new here.
+            scan_range="$HEAD_SHA"
+          fi
+          # A merge commit has no patch by default. Compare it with its first
+          # parent so conflict resolutions and octopus-merge additions are scanned.
+          scan_range="$scan_range --diff-merges=first-parent"
+          echo "Scanning $scan_range"
+          "$RUNNER_TEMP/gitleaks" git --no-banner --redact --exit-code 1 --log-opts="$scan_range" .
