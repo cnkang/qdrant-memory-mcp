@@ -17,6 +17,7 @@ def check(condition, message):
 
 
 def main():
+    """Install the plugin in an isolated Codex home and verify its lifecycle."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--home", type=Path, required=True)
     args = parser.parse_args()

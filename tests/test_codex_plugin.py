@@ -17,6 +17,7 @@ spec.loader.exec_module(package)
 
 
 def test_portable_package():
+    """Keep plugin manifests, marketplace metadata, and dependency pins aligned."""
     assert package.validate()["version"] == "0.1.2"
     marketplace = json.loads((ROOT / ".agents/plugins/marketplace.json").read_text())
     assert marketplace["name"] == "cnkang"
@@ -240,6 +241,7 @@ def test_pinned_skill_archive_requires_entrypoint(monkeypatch):
 def test_install_smoke_uses_resolved_cli_and_checks_lifecycle(
     tmp_path, monkeypatch, capsys, wrong_version
 ):
+    """Verify the install smoke uses its selected Codex CLI and cleans up."""
     import sys
     from test_release_guards import load_script
 
@@ -459,6 +461,7 @@ def test_archive_validates_the_collected_manifest_bytes(
 
 
 def test_node_paths_do_not_reuse_hermes():
+    """Keep Codex plugin paths independent from Hermes defaults."""
     script = """
 import { locations } from './plugins/qdrant-memory/launcher.mjs';
 import assert from 'node:assert/strict';

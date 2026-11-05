@@ -232,6 +232,7 @@ def case(
     expected_arguments,
     expected_memory=None,
 ):
+    """Run one Codex tool operation and validate its observed event and state."""
     config = [
         "plugins._default.enabled=false",
         f"plugins.{PLUGIN_ID}.enabled=true",
@@ -343,6 +344,7 @@ def cloud_provider(env, work):
 
 
 def existing_marketplace(env, work, marketplace_root=ROOT):
+    """Check whether cnkang is registered from the expected marketplace root."""
     catalog = json.loads(
         command(["codex", "plugin", "marketplace", "list", "--json"], env, work)
     )
@@ -500,6 +502,7 @@ def prepare_installation(mode, env, work, marketplace_root=ROOT):
 
 
 def run(args):
+    """Run disposable subscription or protected-cloud acceptance against Codex."""
     work = args.workdir.expanduser().resolve()
     work.mkdir(mode=0o700, parents=True, exist_ok=False)
     plugin_zip = getattr(args, "plugin_zip", None)
@@ -749,6 +752,7 @@ def run(args):
 
 
 def main():
+    """Parse acceptance options and emit the machine-readable result."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--mode", choices=["subscription", "cloud"], required=True)
     parser.add_argument("--workdir", type=Path, required=True)

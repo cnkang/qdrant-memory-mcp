@@ -377,6 +377,7 @@ def build(output, skill_repo):
 
 
 def main():
+    """Build the pinned plugin archive or validate its offline invariants."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--output", type=Path, default=ROOT / "dist/qdrant-memory-codex-0.1.2.zip"
