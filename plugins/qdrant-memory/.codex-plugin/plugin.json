@@ -1,6 +1,6 @@
 {
   "name": "qdrant-memory",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "One Memory. Multiple Agents. No Lock-in. Local durable memory with verified imports, portable exports and safe Codex handoff.",
   "extensions": {"com.openai": {"onboardingSkill": "./skills/setup/SKILL.md"}},
   "skills": "./skills",
