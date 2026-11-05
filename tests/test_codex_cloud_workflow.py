@@ -25,6 +25,7 @@ WORKFLOW = ROOT / ".github/workflows/codex-plugin-cloud.yml"
 def test_cloud_preflight_restricts_the_actual_checkout(
     tmp_path, event, ref, repo, accepted
 ):
+    """Require cloud acceptance to target the reviewed repository main commit."""
     text = WORKFLOW.read_text(encoding="utf-8")
     assert "on:\n  workflow_dispatch:\npermissions:\n  contents: read\n" in text
     preflight, cloud = text.split("  cloud:\n", 1)

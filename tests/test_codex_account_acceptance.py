@@ -23,6 +23,7 @@ def event(tool, arguments, payload):
 
 @pytest.mark.parametrize("missing", [False, True])
 def test_case_reads_events_and_isolates_client(tmp_path, monkeypatch, missing):
+    """Validate tool event matching and the isolated Codex case configuration."""
     acceptance = load_script("codex_account_acceptance")
     args = {"text": "approved"}
 
@@ -79,6 +80,7 @@ def test_case_reads_events_and_isolates_client(tmp_path, monkeypatch, missing):
 def test_prepare_zip_marketplace_extracts_exact_package_and_rejects_traversal(
     tmp_path,
 ):
+    """Extract only the intended plugin files from a safe ZIP archive."""
     import zipfile
 
     acceptance = load_script("codex_account_acceptance")
