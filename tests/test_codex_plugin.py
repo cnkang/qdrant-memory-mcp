@@ -527,6 +527,7 @@ def test_missing_runtime_fails_without_writes(tmp_path):
 def test_node_entrypoint_real_mcp(sandbox):
     """Run the portable plugin bridge against an installed MCP runtime."""
     import asyncio
+    import shutil
     import sys
     import sysconfig
 
@@ -544,6 +545,22 @@ def test_node_entrypoint_real_mcp(sandbox):
         QDRANT_MEMORY_CODEX_EXECUTABLE=str(runtime),
         QDRANT_MEMORY_CODEX_PYTHON=sys.executable,
     )
+    mismatch = profile.parent / "mismatched-runtime" / runtime.name
+    mismatch.parent.mkdir()
+    shutil.copy2(runtime, mismatch)
+    mismatch_env = {
+        **env,
+        "QDRANT_MEMORY_CODEX_EXECUTABLE": str(mismatch),
+    }
+    rejected = subprocess.run(
+        ["node", str(ROOT / "plugins/qdrant-memory/launcher.mjs"), "mcp"],
+        env=mismatch_env,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert rejected.returncode == 1
+    assert "No data was reset" in rejected.stderr
 
     async def scenario():
         params = StdioServerParameters(

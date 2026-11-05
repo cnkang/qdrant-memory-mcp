@@ -48,7 +48,9 @@ external services or migrating existing native memories.
    Do not automatically import user production memories during onboarding.
 
 The Node launcher accepts trusted host environment paths `QDRANT_MEMORY_CODEX_ROOT`,
-`QDRANT_MEMORY_CODEX_PROFILE`, `QDRANT_MEMORY_CODEX_EXECUTABLE`. Default root is
+`QDRANT_MEMORY_CODEX_PROFILE`, `QDRANT_MEMORY_CODEX_EXECUTABLE`, and
+`QDRANT_MEMORY_CODEX_PYTHON`. The executable and interpreter must come from the
+same Python environment; mismatches are rejected. Default root is
 `~/.qdrant-memory/codex`. Configure these outside tool arguments. Shared mode uses
 `QDRANT_MEMORY_CODEX_OWNER_URL` and `QDRANT_MEMORY_SHARED_TOKEN`; it delegates to
 Runtime `shared-mcp` instead of creating another writer.
