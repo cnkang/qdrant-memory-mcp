@@ -32,15 +32,15 @@ Its metadata-only wheel contains no Python business implementation. The console
 script points directly to `qdrant_memory.standalone:main` and depends on
 `hermes-plugin-qdrant-memory[mcp]==0.6.0`.
 
-See [0.3.0 release notes](docs/releases/0.3.0.md) for the Runtime pin and upgrade guidance.
+See [0.3.1 release notes](docs/releases/0.3.1.md) for the Runtime pin and upgrade guidance.
 
 Before using an exact-version installation command, confirm that version on
-the [PyPI release page](https://pypi.org/project/qdrant-memory-mcp/0.3.0/).
+the [PyPI release page](https://pypi.org/project/qdrant-memory-mcp/0.3.1/).
 If unavailable, these package commands cannot run yet. Use the
-[published 0.2.9 guide](https://github.com/cnkang/qdrant-memory-mcp/blob/v0.2.9/README.md)
+[published 0.3.0 guide](https://github.com/cnkang/qdrant-memory-mcp/blob/v0.3.0/README.md)
 until publication; a source candidate does not establish PyPI or npm availability.
 
-**Versions:** MCP distribution 0.3.0 pins Runtime 0.6.0, which supports MCP
+**Versions:** MCP distribution 0.3.1 pins Runtime 0.6.0, which supports MCP
 Python SDK 1.x and 2.x (`mcp>=1.30,<3`). The four scoped tools and stdio
 launch arguments are the same for both SDK majors. The commands below use
 these exact versions. Release
@@ -106,13 +106,13 @@ Create an operator-owned profile directory and save `qdrant-memory.json` inside:
 Initialize, then launch (replace `/path/to/profile` with your absolute path):
 
 ```bash
-uvx --from qdrant-memory-mcp==0.3.0 qdrant-memory-mcp --home /path/to/profile init
-uvx --from qdrant-memory-mcp==0.3.0 qdrant-memory-mcp --home /path/to/profile mcp
+uvx --from qdrant-memory-mcp==0.3.1 qdrant-memory-mcp --home /path/to/profile init
+uvx --from qdrant-memory-mcp==0.3.1 qdrant-memory-mcp --home /path/to/profile mcp
 ```
 
 The command without `--home` uses `~/.qdrant-memory`, independent of Hermes.
 Configure and initialize that directory before letting a Registry client launch
-`uvx --from qdrant-memory-mcp==0.3.0 qdrant-memory-mcp mcp`.
+`uvx --from qdrant-memory-mcp==0.3.1 qdrant-memory-mcp mcp`.
 The executable name matches the package name.
 The Registry's positional `mcp` selects protocol mode. Its optional named
 `--home` precedes `mcp` when a client supplies a custom profile.
@@ -121,7 +121,7 @@ Alternatively:
 
 ```bash
 python3 -m venv .venv
-.venv/bin/python -m pip install qdrant-memory-mcp==0.3.0
+.venv/bin/python -m pip install qdrant-memory-mcp==0.3.1
 .venv/bin/qdrant-memory-mcp --home /path/to/profile init
 .venv/bin/qdrant-memory-mcp --home /path/to/profile mcp
 ```
@@ -143,7 +143,7 @@ Codex `config.toml` example:
 ```toml
 [mcp_servers.qdrant_memory]
 command = "uvx"
-args = ["--from", "qdrant-memory-mcp==0.3.0", "qdrant-memory-mcp", "--home", "/path/to/profile", "mcp"]
+args = ["--from", "qdrant-memory-mcp==0.3.1", "qdrant-memory-mcp", "--home", "/path/to/profile", "mcp"]
 ```
 
 OpenCode `opencode.json` example:
@@ -154,7 +154,7 @@ OpenCode `opencode.json` example:
   "mcp": {
     "qdrant_memory": {
       "type": "local",
-      "command": ["uvx", "--from", "qdrant-memory-mcp==0.3.0", "qdrant-memory-mcp", "--home", "/path/to/profile", "mcp"],
+      "command": ["uvx", "--from", "qdrant-memory-mcp==0.3.1", "qdrant-memory-mcp", "--home", "/path/to/profile", "mcp"],
       "enabled": true
     }
   }

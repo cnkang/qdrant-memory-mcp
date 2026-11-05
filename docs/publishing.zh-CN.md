@@ -1,4 +1,4 @@
-# 0.3.0 发布清单
+# 0.3.1 发布清单
 
 [English](publishing.md) | [简体中文](publishing.zh-CN.md)
 
@@ -21,10 +21,10 @@ dispatch。
    一致。发行不能覆盖已有版本。复用已验证的公开 Runtime 0.6.0 文件。
 4. 在公开依赖模式下运行分发验收：在新环境中仅使用准确的公开 Runtime PyPI 发行版
    构建并测试 wheel 和 sdist。
-5. 确认后创建分发 tag v0.3.0。其 workflow 先构建和测试，再执行受保护的 PyPI 发布，
+5. 确认后创建分发 tag v0.3.1。其 workflow 先构建和测试，再执行受保护的 PyPI 发布，
    核验公开元数据，用官方 publisher 验证，然后用 `github-oidc` 发布 Registry。
 6. 核验 PyPI 所有权标记和公开 Registry 条目 `io.github.cnkang/qdrant-memory`
-   的 0.3.0 版本。只有在公开端点和公开安装验收确认该发行后，才发布公告。
+   的 0.3.1 版本。只有在公开端点和公开安装验收确认该发行后，才发布公告。
 
 分发 workflow 有一个仅限 tag 的手动 `registry_only` 重试模式。它下载并验证已发布的
 PyPI 文件并对之测试，然后重跑 Registry 校验/发布。此过程不上传 PyPI。普通重试同样
@@ -35,35 +35,32 @@ PyPI 文件并对之测试，然后重跑 Registry 校验/发布。此过程不�
 `pypi`、分发 `pypi` 和 `mcp-registry`。发布前核验这些控制，不要绕过。两个项目都已
 有发布版本，应复核现有 Trusted Publisher 和必要审核者，不要创建重复的 publisher。
 
-## 0.3.0 的协同适配器发布
+## 0.3.1 的协同适配器发布
 
-版本组合为 Runtime 0.6.0、Python MCP 0.3.0、通用 Skill 0.4.0、托管 launcher
-0.1.0-rc.8、WorkBuddy connector 0.2.5 和 DSH bundle 0.1.6。它们独立发布，源码
-中的版本表不等于发布凭据，须分别核验公开端点。
+版本组合为 Runtime 0.6.0、Python MCP 0.3.1、通用 Skill 0.4.0、托管 launcher
+0.1.0-rc.8、WorkBuddy connector 0.2.5 和 DSH bundle 0.1.6。它们独立发布；候选版本
+是否公开，须逐一核验对应端点。
 
-1. 先发布并核验 Runtime 0.6.0，记录真实 release commit、wheel URL、大小和
-   SHA-256，再生成 Python 哈希锁。
-2. 合并审核通过的 Skill 更新，将真实提交固定到 connector、工作流 checkout 和
-   Codex release manifest；保留历史验收记录。
-3. checkout 发布源码前将 Git 配置设为 `core.autocrlf=false`，确保 launcher 文件保留 LF；
-   CRLF 字节会改变 tarball 及其 SHA-512。然后在 Ubuntu 或 macOS 使用
-   `python scripts/pack_launcher.py --output-dir dist/launcher` 打包已审核的 launcher。
-   打包脚本会将输出的 SHA-512 与 `launcher-source.json` 比对，若不一致则失败。
-   发布时保留并使用这个确切 tarball。Windows 上 npm pack 得到的 integrity 不同，不能作为正式发布文件。
-   将 pin 和 tarball 一并审核，然后合并 MCP 发布 PR。
-4. 确认 MCP v0.3.0 已在 PyPI 和官方 MCP Registry 发布；通过独立工作流发布审核后的
-   Skills 快照。先完成必要的 Python 包发布，再执行 npm 发布。
-5. 使用 `npm publish
-   dist/launcher/cnkang-qdrant-memory-launcher-0.1.0-rc.8.tgz --access public --tag next`
-   发布审核过的同一文件。把实际 npm 网页授权 URL 交给操作者，由其完成授权，
-   不提交 token。核验 npm 的准确版本和 integrity，重跑 Linux、macOS、Windows 的公开 launcher
-   验收。源码包测试不能替代公开文件验收。
-6. 固定 launcher 已公开后，在 tag `v0.3.0` 上用 `workflow_dispatch` 重新运行
-   `Prepare WorkBuddy draft release assets` 工作流。仅在这次运行成功后完成
-   WorkBuddy draft 附件。最后通过独立工作流和 npm 授权发布审核后 main 的 DSH
-   bundle，核验公开包后再宣布可用。
-7. 使用最终固定引用重建 Codex 源码 ZIP 并重跑受保护云端验收，同步三个仓库的当前
-   安装文档和证据。Codex Marketplace 正式提交继续暂停。
+1. 核验已公开的 Runtime 0.6.0 及准确依赖。不要重新创建其 tag，也不要再次发布相同版本。
+2. 核验已发布的 `skills-20261105.1` 快照中包含 `qdrant-memory` Skill 0.4.0。本次
+   MCP 发布不改 Skill 源码，因此不需要新的 Skills 快照。仅在该源码变更时单独发布快照，
+   并将真实提交固定到 connector 和 Codex release metadata。
+3. 核验 npm 上的 launcher 0.1.0-rc.8 与 `launcher-source.json` 中的 SHA-512 一致。
+   Linux、macOS 和 Windows 的公开验收已在
+   [Cross-harness run 41994236149](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/41994236149)
+   通过。不要重复发布这个不可变 npm 版本。
+4. MCP 0.3.1 的 PR 合并且检查通过后，创建 tag `v0.3.1`。workflow 会先构建并测试发行包，
+   再发布到受保护的 PyPI 和 MCP Registry 环境。该 release tag 必须包含修正后的 launcher
+   完整性固定值。保留旧 `v0.3.0` tag 不动；它的旧 pin 未通过 WorkBuddy 公开发布门禁。
+5. 核验 MCP 0.3.1 已出现在 PyPI 和官方 MCP Registry。最终 npm 包发布前先完成 Python 发布。
+6. `v0.3.1` tag 会启动 WorkBuddy draft 资产准备。确认构建和附件成功后，再将 connector
+   0.2.5 视为准备就绪。仅在检查首次运行后确有需要时，才通过 `workflow_dispatch` 重跑。
+7. 从已合并的 main 创建 `dsh-bundle-v0.1.6`，等待 pack 和测试把 tarball 与 checksum
+   附加到 Draft Release。最后通过单独的 npm 网页授权发布
+   `@cnkang/qdrant-memory-dsh-bundle`。发布前核验公开版本和 integrity。
+8. 保留 Codex 插件候选版的现有不可变固定值和验收记录。只有插件 manifest 或固定引用改动时，
+   才重建源码 ZIP 并重跑受保护云端验收。同步三个仓库的当前安装文档和证据。Codex
+   Marketplace 正式提交继续暂停。
 
 ## 适配器附件
 
