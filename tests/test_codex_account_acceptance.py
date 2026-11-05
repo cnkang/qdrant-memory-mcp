@@ -32,7 +32,7 @@ def test_case_reads_events_and_isolates_client(tmp_path, monkeypatch, missing):
         assert "memories.use_memories=false" in argv
         assert "features.shell_tool=false" in argv
         assert "skills.include_instructions=false" in argv
-        assert "mcp_optional_startup_grace_ms=0" in argv
+        assert "mcp_optional_startup_grace_ms=10000" in argv
         assert sum('.approval_mode="approve"' in value for value in argv) == 4
         item = (
             {"type": "agent_message", "text": "claimed success"}

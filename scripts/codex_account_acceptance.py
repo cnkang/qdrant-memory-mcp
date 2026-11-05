@@ -246,7 +246,7 @@ def case(
         "skills.include_instructions=false",
         # Codex otherwise waits only one second for an optional MCP server and
         # silently omits it on a cold runner. Wait for its own startup timeout.
-        "mcp_optional_startup_grace_ms=0",
+        "mcp_optional_startup_grace_ms=10000",
     ]
     # Explicit authorization applies only to this disposable profile and these
     # four synthetic-data operations, never to the user's other plugin tools.
