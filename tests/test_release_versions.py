@@ -83,16 +83,22 @@ def test_workbuddy_migration_confirms_empty_exports_on_shell_and_powershell():
     assert "if ($ConfirmEmptyExport -cne 'yes')" in guide
 
 
+def test_workbuddy_windows_rollback_stops_on_move_failures():
+    """Ensure rollback catches non-terminating PowerShell move failures."""
+    guide = (ROOT / "integrations/workbuddy/README.md").read_text(encoding="utf-8")
+    rollback = guide.split("On Windows, disconnect WorkBuddy", 1)[1]
+    block = rollback.split("```powershell\n", 1)[1].split("\n```", 1)[0]
+
+    assert block.startswith("$ErrorActionPreference = 'Stop'\n")
+
+
 def test_workbuddy_powershell_migration_example_parses_when_available(tmp_path):
-    """Parse the documented PowerShell migration example when PowerShell exists."""
+    """Parse all documented PowerShell examples when PowerShell exists."""
     executable = shutil.which("pwsh") or shutil.which("powershell")
     if executable is None:
         pytest.skip("PowerShell is unavailable on this platform.")
 
     guide = (ROOT / "integrations/workbuddy/README.md").read_text(encoding="utf-8")
-    block = guide.split("```powershell\n", 1)[1].split("\n```", 1)[0]
-    script_path = tmp_path / "workbuddy-migration.ps1"
-    script_path.write_text(block, encoding="utf-8")
     parser = (
         "$tokens = $null; $errors = $null; "
         "[System.Management.Automation.Language.Parser]::ParseFile("
@@ -100,12 +106,17 @@ def test_workbuddy_powershell_migration_example_parses_when_available(tmp_path):
         "if ($errors.Count -gt 0) { "
         "$errors | ForEach-Object { [Console]::Error.WriteLine($_.Message) }; exit 1 }"
     )
-    result = subprocess.run(
-        [executable, "-NoProfile", "-NonInteractive", "-Command", parser],
-        capture_output=True,
-        text=True,
-        env={**os.environ, "WORKBUDDY_MIGRATION_SCRIPT": str(script_path)},
-        timeout=10,
-        check=False,
-    )
-    assert result.returncode == 0, result.stderr
+    blocks = re.findall(r"```powershell\n(.*?)\n```", guide, re.DOTALL)
+    assert blocks
+    for index, block in enumerate(blocks):
+        script_path = tmp_path / f"workbuddy-example-{index}.ps1"
+        script_path.write_text(block, encoding="utf-8")
+        result = subprocess.run(
+            [executable, "-NoProfile", "-NonInteractive", "-Command", parser],
+            capture_output=True,
+            text=True,
+            env={**os.environ, "WORKBUDDY_MIGRATION_SCRIPT": str(script_path)},
+            timeout=10,
+            check=False,
+        )
+        assert result.returncode == 0, f"PowerShell example {index}: {result.stderr}"
