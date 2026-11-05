@@ -7,7 +7,7 @@
   "runtime_version": "0.6.0",
   "runtime_commit": "dee6777432f17523db75f6be32cf3ef15e48235c",
   "runtime_repository": "https://github.com/cnkang/hermes-plugin-qdrant-memory",
-  "skill_commit": "cc592289f126c786fd6c11038fcaa966c6de2b40",
+  "skill_commit": "811d71756c6a49e8268cbbc7afd9c9e41e0348e4",
   "skill_repository": "https://github.com/cnkang/skills",
   "dependency_policy": "direct pins; transitive hashes NOT VERIFIED for public-directory bundle",
   "test_evidence": "VERIFICATION.md",

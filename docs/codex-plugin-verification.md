@@ -1,12 +1,118 @@
 # Qdrant Memory for Codex: engineering and acceptance record
 
-## Current repository-marketplace candidate (2026-11-05)
+## Current repository-marketplace candidate (2026-11-06)
 
 Plugin 0.1.2 pins MCP 0.3.1, Runtime 0.6.0 at
 `dee6777432f17523db75f6be32cf3ef15e48235c`, and the unchanged `qdrant-memory`
-Skill snapshot at `cc592289f126c786fd6c11038fcaa966c6de2b40`.
+Skill snapshot at `811d71756c6a49e8268cbbc7afd9c9e41e0348e4`.
 The tracked marketplace plugin includes that complete 20-file Skill snapshot;
 the archive builder compares it with the pinned commit and rejects any drift.
+
+## Desktop-only engineering update (2026-11-06)
+
+This repository-marketplace candidate is still not a complete Desktop-only
+archive. `docs/desktop-only-adr.md` records the proposed bundle direction;
+`docs/desktop-only-requirements-traceability.md` records official MUST/SHOULD,
+project gates and platform blockers. The current plugin ZIP builder continues
+to build the source Marketplace form only.
+
+The Skills repository checkout had advanced to `811d71756c6a49e8268cbbc7afd9c9e41e0348e4`,
+while the former pinned commit `cc592289f126c786fd6c11038fcaa966c6de2b40` was not
+present in that checkout. The 20 tracked Skill files in the current repository
+were byte-for-byte equal to upstream; `release.json` now pins the current commit.
+No Skill source content was changed.
+
+On 2026-11-06, Codex CLI `0.165.0` installed the local source Marketplace into
+an isolated `CODEX_HOME` using `codex plugin marketplace add` and
+`codex plugin add qdrant-memory@cnkang`. `codex mcp list/get` showed the local
+stdio server and the eight declared overlay environment-variable names, with
+values masked. This confirms the Codex CLI source-install path, not Plugin
+Creator normalization or a Desktop GUI run.
+
+The real MCP SDK source-entrypoint test was rerun with MCP SDK 2.3.0, MCP
+distribution 0.3.1 and Runtime 0.6.0 at the pinned release commit. Command:
+`/private/tmp/qdrant-ci-py311-uv-copies/bin/python -m pytest -q tests/test_codex_plugin.py`;
+result: **20 passed in 2.34s**. It includes real MCP initialize, exact four-tool
+discovery and synthetic add/search through the Node launcher. It is not evidence
+for the missing bundled Python/runtime dependencies in a Desktop-only ZIP.
+
+The proposed Runtime Issue #118 fix is in branch commit
+`4ca2950f0bfac20cd7e10081320c207b90fdbc16` and draft PR #127; local Python
+3.11.15 and 3.14.0 focused suites each passed 97 tests. Exact-SHA GitHub run
+[42058051902](https://github.com/cnkang/hermes-plugin-qdrant-memory/actions/runs/42058051902)
+has passing Local Contracts jobs for macOS, Windows and Ubuntu on both Python
+versions, plus passing standalone MCP and CPU-model jobs. The latest-main
+Python 3.11 behavior job failed because host integration tests could not import
+`dotenv`; one macOS/Python 3.14/MCP SDK 1.x job was cancelled. The required
+security gate also failed because tests failed and SonarCloud was skipped on
+this trusted PR. Issue #118 remains open until the exact-SHA gate is green.
+Runtime Issue #115 remains open; no root cause or full failure-path recovery
+proof is established.
+
+## Embedding and model acceptance (2026-11-06)
+
+Runtime 0.6.0's default CPU model was confirmed from `qdrant_memory/local_model.py`:
+FastEmbed 0.9.1, model
+`sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`, Qdrant artifact
+revision `faf4aa4225822f3bc6376869cb1164e8e3feedd0`, 384 dimensions. The actual
+first online download and pinned size/hash validation took **507.59 seconds**.
+An offline cached inference run with Hugging Face offline flags enabled and
+HTTP(S) proxies pointed at `127.0.0.1:9` returned a finite 384-dimensional
+vector. Runtime tests:
+
+```text
+/tmp/qdrant-ci-py311/bin/python -m pytest -q tests/test_local_model.py tests/test_local_embedding.py
+37 passed in 3.09s
+```
+
+Model artifact provenance from the pinned revision:
+
+| File | Bytes | SHA-256 |
+|---|---:|---|
+| `model_optimized.onnx` | 235052644 | `634d0f66c29dc934c8fa72b8a4fe91dd4d420a22f1d82a241058d4316e659a99` |
+| `tokenizer.json` | 17083009 | `fa685fc160bbdbab64058d4fc91b60e62d207e8dc60b9af5c002c5ab946ded00` |
+| `config.json` | 673 | `c8ec081fdad2df991bf5abbf18418fec7a5cdaa421f60ffb060a30040b8c376f` |
+| `special_tokens_map.json` | 964 | `8c785abebea9ae3257b61681b4e6fd8365ceafde980c21970d001e834cf10835` |
+| `tokenizer_config.json` | 1416 | `0666eebf692422757e1dddf3c9fb1ded73ba3dc726c5828671fc89e45bf3609f` |
+
+Total expected model download: **252138706 bytes**. These weights were cached
+outside the plugin archive. Whether Desktop-only review accepts a user-approved
+model download remains **unconfirmed**.
+
+Ollama **0.40.14** and the already installed local model `qwen3-embedding:4b`
+were exercised through Runtime's actual `HTTPEmbeddingProvider` at
+`http://127.0.0.1:11434`; it returned a finite **2560-dimensional** vector.
+No Ollama model was downloaded for this test. The isolated script neutralized
+the host-only secret resolver because the `agent.secret_scope` host module is
+not installed in this environment; the loopback endpoint used no credentials.
+OpenAI-compatible protocol test
+command:
+
+```text
+/tmp/qdrant-ci-py311/bin/python -m pytest -q tests/test_config_embedding.py -k embedding_wire_contract
+2 passed, 17 deselected in 0.02s
+```
+
+That test uses `httpx.MockTransport`, verifies the `/v1/embeddings` request and
+response contract, and does not constitute a live external provider test. No
+API key or external embedding service was used. Runtime issue #115's writer
+drain failure-path tests, low-disk model behavior and unsupported CPU case
+remain **NOT VERIFIED**.
+
+## MCP distribution suite
+
+Before running the full MCP suite, stale ignored 0.3.0 wheel and sdist artifacts
+were moved to `/private/tmp/qdrant-mcp-stale-dist-backup/`; current 0.3.1 artifacts
+were rebuilt with `uv build --out-dir dist`. Then
+`/private/tmp/qdrant-ci-py311-uv-copies/bin/python -m pytest -q` returned
+**297 passed, 2 skipped in 45.62s**. The separate Desktop-only runtime bundle
+and its SBOM are still absent.
+
+Codex Desktop and ChatGPT Desktop remain **NOT VERIFIED**. The authorized UI
+session found the Mac locked. Creator-normalized configuration was not tested;
+no Creator archive validator is available without creating or uploading a
+plugin, which is out of scope. No Desktop-only ZIP, SBOM or public submission
+was produced.
 
 Local Codex CLI 0.165.0 subscription acceptance passed for the 0.1.2 candidate:
 add/search/update/delete were called against the plugin, imported fixture state
