@@ -10,11 +10,13 @@ import argparse
 import hashlib
 import json
 import os
+import stat
 import subprocess
 import sys
 import threading
+import zipfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 ROOT = Path(__file__).resolve().parents[1]
 PLUGIN_ID = "qdrant-memory@cnkang"
@@ -226,6 +228,7 @@ def case(
     work,
     provider,
     *,
+    marketplace_root=ROOT,
     expected_arguments,
     expected_memory=None,
 ):
@@ -233,7 +236,7 @@ def case(
         "plugins._default.enabled=false",
         f"plugins.{PLUGIN_ID}.enabled=true",
         'marketplaces.cnkang.source_type="local"',
-        "marketplaces.cnkang.source=" + json.dumps(str(ROOT)),
+        "marketplaces.cnkang.source=" + json.dumps(str(marketplace_root)),
         "features.memories=false",
         "memories.generate_memories=false",
         "memories.use_memories=false",
@@ -339,7 +342,7 @@ def cloud_provider(env, work):
     ]
 
 
-def existing_marketplace(env, work):
+def existing_marketplace(env, work, marketplace_root=ROOT):
     catalog = json.loads(
         command(["codex", "plugin", "marketplace", "list", "--json"], env, work)
     )
@@ -351,10 +354,78 @@ def existing_marketplace(env, work):
     if not entries:
         return False
     require(
-        len(entries) == 1 and Path(entries[0]["root"]).resolve() == ROOT,
+        len(entries) == 1
+        and Path(entries[0]["root"]).resolve() == Path(marketplace_root).resolve(),
         "The existing cnkang marketplace uses another source; preserve it and use a separate test home",
     )
     return True
+
+
+def prepare_zip_marketplace(plugin_zip, work):
+    """Materialize the exact built ZIP under the repository marketplace catalog."""
+    marketplace_root = work / "plugin-zip-marketplace"
+    plugin_root = marketplace_root / "plugins" / "qdrant-memory"
+    plugin_root.mkdir(mode=0o700, parents=True)
+    files = set()
+    try:
+        with zipfile.ZipFile(plugin_zip) as archive:
+            require(archive.testzip() is None, "Codex plugin ZIP is corrupt")
+            for item in archive.infolist():
+                name = item.filename
+                if item.is_dir() and name == "qdrant-memory/":
+                    continue
+                parts = name.split("/")
+                require(
+                    not item.is_dir()
+                    and "\\" not in name
+                    and len(parts) >= 2
+                    and parts[0] == "qdrant-memory"
+                    and all(part not in ("", ".", "..") for part in parts),
+                    "Codex plugin ZIP contains an unsafe path",
+                )
+                require(
+                    not stat.S_ISLNK(item.external_attr >> 16),
+                    "Codex plugin ZIP may not contain symlinks",
+                )
+                relative = PurePosixPath(*parts[1:])
+                destination = plugin_root.joinpath(*relative.parts)
+                require(
+                    destination.resolve().is_relative_to(plugin_root.resolve()),
+                    "Codex plugin ZIP path escapes its package root",
+                )
+                key = relative.as_posix()
+                require(key not in files, "Codex plugin ZIP contains duplicate paths")
+                files.add(key)
+                destination.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+                destination.write_bytes(archive.read(item))
+    except (OSError, zipfile.BadZipFile) as exc:
+        raise RuntimeError("Could not read the rebuilt Codex plugin ZIP") from exc
+    required = {
+        "plugin.json",
+        ".codex-plugin/plugin.json",
+        "mcp.json",
+        "launcher.mjs",
+        "release.json",
+    }
+    require(required <= files, "Codex plugin ZIP is missing required package files")
+    manifest = json.loads((plugin_root / "plugin.json").read_text(encoding="utf-8"))
+    require(manifest.get("name") == "qdrant-memory", "Unexpected ZIP plugin identity")
+    marketplace_file = ROOT / ".agents/plugins/marketplace.json"
+    catalog = json.loads(marketplace_file.read_text(encoding="utf-8"))
+    entry = next(
+        (item for item in catalog.get("plugins", []) if item.get("name") == "qdrant-memory"),
+        None,
+    )
+    require(
+        catalog.get("name") == "cnkang"
+        and entry is not None
+        and entry.get("source", {}).get("path") == "./plugins/qdrant-memory",
+        "Repository marketplace does not point to the packaged plugin",
+    )
+    target_catalog = marketplace_root / ".agents/plugins/marketplace.json"
+    target_catalog.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    target_catalog.write_bytes(marketplace_file.read_bytes())
+    return marketplace_root
 
 
 def verify_fixture_import(before, after):
@@ -416,7 +487,7 @@ def cleanup(env, work, remove_marketplace):
         require(removed_marketplace.returncode == 0, "Test marketplace cleanup failed")
 
 
-def prepare_installation(mode, env, work):
+def prepare_installation(mode, env, work, marketplace_root=ROOT):
     """Preserve subscription installs and admit only the intended catalog."""
     plugin_list = json.loads(command(["codex", "plugin", "list", "--json"], env, work))
     if any(p.get("pluginId") == PLUGIN_ID for p in plugin_list.get("installed", [])):
@@ -425,12 +496,18 @@ def prepare_installation(mode, env, work):
                 "Qdrant Memory is already installed in this Codex home; use a home without an existing installation for subscription acceptance"
             )
         command(["codex", "plugin", "remove", PLUGIN_ID], env, work)
-    return existing_marketplace(env, work)
+    return existing_marketplace(env, work, marketplace_root)
 
 
 def run(args):
     work = args.workdir.expanduser().resolve()
     work.mkdir(mode=0o700, parents=True, exist_ok=False)
+    plugin_zip = getattr(args, "plugin_zip", None)
+    marketplace_root = (
+        prepare_zip_marketplace(plugin_zip.expanduser().resolve(), work)
+        if plugin_zip
+        else ROOT
+    )
     profile = work / "profile"
     env = dict(os.environ)
     for name in (
@@ -444,7 +521,7 @@ def run(args):
         QDRANT_MEMORY_CODEX_EXECUTABLE=str(args.runtime.resolve()),
     )
     provider = cloud_provider(env, work) if args.mode == "cloud" else []
-    marketplace_present = prepare_installation(args.mode, env, work)
+    marketplace_present = prepare_installation(args.mode, env, work, marketplace_root)
     marketplace_created = False
     server = ThreadingHTTPServer(("127.0.0.1", 0), Embeddings)
     server.embedding_requests = 0
@@ -454,7 +531,14 @@ def run(args):
         if not marketplace_present:
             marketplace_created = True
             command(
-                ["codex", "plugin", "marketplace", "add", str(ROOT), "--json"],
+                [
+                    "codex",
+                    "plugin",
+                    "marketplace",
+                    "add",
+                    str(marketplace_root),
+                    "--json",
+                ],
                 env,
                 work,
             )
@@ -504,6 +588,7 @@ def run(args):
             env,
             work,
             provider,
+            marketplace_root=marketplace_root,
             expected_arguments={"text": fact},
         )
         identifier = first["record_id"]
@@ -523,6 +608,7 @@ def run(args):
             env,
             work,
             provider,
+            marketplace_root=marketplace_root,
             expected_arguments={"query": "blue ceramic teacup"},
             expected_memory=expected_memory,
         )
@@ -598,6 +684,7 @@ def run(args):
             env,
             work,
             provider,
+            marketplace_root=marketplace_root,
             expected_arguments={"id": identifier, "text": replacement},
             expected_memory=expected_memory,
         )
@@ -614,6 +701,7 @@ def run(args):
             env,
             work,
             provider,
+            marketplace_root=marketplace_root,
             expected_arguments={"id": identifier},
             expected_memory={**expected_memory, "text": replacement},
         )
@@ -641,6 +729,9 @@ def run(args):
             "status": "PASS",
             "harness": command(["codex", "--version"], env, work).strip(),
             "mode": args.mode,
+            "plugin_archive_sha256": (
+                hashlib.sha256(plugin_zip.read_bytes()).hexdigest() if plugin_zip else None
+            ),
             "embedding": "cpu" if args.cpu_cache else "synthetic-local-http",
             "cases": cases,
             "stored_state_verified": True,
@@ -662,6 +753,7 @@ def main():
     parser.add_argument("--mode", choices=["subscription", "cloud"], required=True)
     parser.add_argument("--workdir", type=Path, required=True)
     parser.add_argument("--runtime", type=Path, required=True)
+    parser.add_argument("--plugin-zip", type=Path)
     parser.add_argument("--cpu-cache", type=Path)
     args = parser.parse_args()
     try:

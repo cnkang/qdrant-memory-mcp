@@ -52,7 +52,12 @@ def test_cloud_preflight_restricts_the_actual_checkout(
     assert "    environment: soak-cloud\n" in cloud
     assert "ref: ${{ needs.preflight.outputs.client_sha }}" in cloud
     assert "persist-credentials: false" in cloud
-    assert cloud.count("uses: actions/checkout@") == 1
+    assert cloud.count("uses: actions/checkout@") == 2
+    assert "repository: cnkang/skills" in cloud
+    assert "ref: ${{ steps.skill.outputs.commit }}" in cloud
+    assert "scripts/build_codex_plugin.py" in cloud
+    assert "--plugin-zip \"$CODEX_PLUGIN_ZIP\"" in cloud
+    assert "codex-plugin-verified-source-${{ github.sha }}" in cloud
     assert "continue-on-error:" not in cloud
     assert "github.event.inputs" not in text
     assert text.count("${{ secrets.SOAK_LLM_API_KEY }}") == 1

@@ -2,11 +2,18 @@
 
 ## Current repository-marketplace candidate (2026-11-05)
 
-Candidate plugin 0.1.2 updates the exact MCP dependency to public release 0.3.1.
-It retains Runtime 0.6.0 at `dee6777432f17523db75f6be32cf3ef15e48235c` and
-the unchanged `qdrant-memory` Skill snapshot at
-`cc592289f126c786fd6c11038fcaa966c6de2b40`. The PR and protected cloud
-acceptance for these pins are pending; 0.1.1 evidence below does not certify 0.1.2.
+Plugin 0.1.2 pins MCP 0.3.1, Runtime 0.6.0 at
+`dee6777432f17523db75f6be32cf3ef15e48235c`, and the unchanged `qdrant-memory`
+Skill snapshot at `cc592289f126c786fd6c11038fcaa966c6de2b40`.
+
+Local Codex CLI 0.165.0 subscription acceptance passed for the 0.1.2 candidate:
+add/search/update/delete were called against the plugin, imported fixture state
+and handoff contents were verified, and uninstall preserved data. A GitHub source
+marketplace branch smoke check also installed 0.1.2. These local checks
+used the repository source. Protected cloud acceptance must separately validate
+the exact ZIP built from merged `main`; its result, ZIP and SHA-256 are retained
+in the workflow artifact. The historical 0.1.1 evidence below does not certify
+0.1.2.
 
 The Codex source marketplace is the public `cnkang/qdrant-memory-mcp` repository;
 its display name is **Kang's plugins** and the install selector is

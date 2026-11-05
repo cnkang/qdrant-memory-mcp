@@ -77,13 +77,15 @@ candidate as published.
    Verify the public version and integrity before announcing it.
 8. Release the repository-backed Codex Marketplace plugin independently from
    PyPI, MCP Registry and npm. Candidate 0.1.2 pins MCP 0.3.1, Runtime 0.6.0
-   and the unchanged Skill snapshot. Merge its reviewed PR, then run protected
-   cloud acceptance on that exact `main` and rebuild the source ZIP. Rebuild the
-   ZIP after changes under `plugins/qdrant-memory`, `scripts/build_codex_plugin.py`,
-   or `docs/codex-plugin-verification.md`; rerun cloud acceptance after changes
-   under `plugins/qdrant-memory`. The public GitHub repository is the `cnkang`
-   Codex source marketplace. OpenAI public-directory submission is separate and
-   is not implied by this release.
+   and the unchanged Skill snapshot. Merge its reviewed PR, rebuild the source
+   ZIP from that exact `main`, then run protected cloud acceptance against that
+   exact ZIP. Keep the accepted ZIP and its SHA-256 in the result artifact as
+   release evidence; any archive-based submission must use that same ZIP. Do not
+   rebuild after acceptance. Rebuild and rerun acceptance after changes under `plugins/qdrant-memory`,
+   `scripts/build_codex_plugin.py`, or `docs/codex-plugin-verification.md`.
+   The public GitHub repository is the `cnkang` Codex source marketplace.
+   OpenAI public-directory submission is separate and is not implied by this
+   release.
 
 ## Adapter attachments
 

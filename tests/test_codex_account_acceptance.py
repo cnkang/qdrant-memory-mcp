@@ -33,6 +33,7 @@ def test_case_reads_events_and_isolates_client(tmp_path, monkeypatch, missing):
         assert "features.shell_tool=false" in argv
         assert "skills.include_instructions=false" in argv
         assert "mcp_optional_startup_grace_ms=10000" in argv
+        assert "marketplaces.cnkang.source=" + json.dumps(str(tmp_path)) in argv
         assert sum('.approval_mode="approve"' in value for value in argv) == 4
         item = (
             {"type": "agent_message", "text": "claimed success"}
@@ -57,6 +58,7 @@ def test_case_reads_events_and_isolates_client(tmp_path, monkeypatch, missing):
                 {},
                 tmp_path,
                 [],
+                marketplace_root=tmp_path,
                 expected_arguments=args,
             )
     else:
@@ -67,10 +69,51 @@ def test_case_reads_events_and_isolates_client(tmp_path, monkeypatch, missing):
                 {},
                 tmp_path,
                 [],
+                marketplace_root=tmp_path,
                 expected_arguments=args,
             )["record_id"]
             == "target"
         )
+
+
+def test_prepare_zip_marketplace_extracts_exact_package_and_rejects_traversal(
+    tmp_path,
+):
+    import zipfile
+
+    acceptance = load_script("codex_account_acceptance")
+    archive_path = tmp_path / "plugin.zip"
+    members = {
+        "qdrant-memory/plugin.json": '{"name":"qdrant-memory"}',
+        "qdrant-memory/.codex-plugin/plugin.json": "{}",
+        "qdrant-memory/mcp.json": "{}",
+        "qdrant-memory/launcher.mjs": "export {};\n",
+        "qdrant-memory/release.json": "{}",
+    }
+    with zipfile.ZipFile(archive_path, "w") as archive:
+        for name, content in members.items():
+            archive.writestr(name, content)
+
+    marketplace_root = acceptance.prepare_zip_marketplace(
+        archive_path, tmp_path / "work"
+    )
+    plugin_root = marketplace_root / "plugins/qdrant-memory"
+    for name, content in members.items():
+        relative = name.removeprefix("qdrant-memory/")
+        assert (plugin_root / relative).read_text(encoding="utf-8") == content
+    catalog = json.loads(
+        (marketplace_root / ".agents/plugins/marketplace.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert catalog["name"] == "cnkang"
+    assert catalog["plugins"][0]["source"]["path"] == "./plugins/qdrant-memory"
+
+    unsafe_path = tmp_path / "unsafe.zip"
+    with zipfile.ZipFile(unsafe_path, "w") as archive:
+        archive.writestr("qdrant-memory/../outside.txt", "outside")
+    with pytest.raises(RuntimeError, match="unsafe path"):
+        acceptance.prepare_zip_marketplace(unsafe_path, tmp_path / "unsafe-work")
 
 
 def test_command_redacts_external_errors(tmp_path, monkeypatch):
