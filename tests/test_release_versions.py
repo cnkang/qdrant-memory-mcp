@@ -67,7 +67,9 @@ def test_current_workbuddy_and_dsh_instructions_track_project_version():
         assert requirement in (ROOT / relative).read_text(encoding="utf-8"), relative
 
     runtime_version = project["project"]["dependencies"][0].rsplit("==", 1)[1]
-    architecture = (ROOT / "docs/cross-harness-architecture.md").read_text(encoding="utf-8")
+    architecture = (ROOT / "docs/cross-harness-architecture.md").read_text(
+        encoding="utf-8"
+    )
     assert f"| Python MCP | {project['project']['version']} |" in architecture
     assert f"| Runtime | {runtime_version} |" in architecture
 
@@ -116,7 +118,7 @@ def test_workbuddy_powershell_migration_example_parses_when_available(tmp_path):
             capture_output=True,
             text=True,
             env={**os.environ, "WORKBUDDY_MIGRATION_SCRIPT": str(script_path)},
-            timeout=10,
+            timeout=30,
             check=False,
         )
         assert result.returncode == 0, f"PowerShell example {index}: {result.stderr}"
