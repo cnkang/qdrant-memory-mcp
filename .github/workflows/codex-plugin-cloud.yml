@@ -42,6 +42,47 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: '3.11'
+      - name: Read pinned Skill source commit
+        id: skill
+        shell: python
+        run: |
+          import json
+          import os
+          from pathlib import Path
+          release = json.loads(Path("plugins/qdrant-memory/release.json").read_text(encoding="utf-8"))
+          with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as output:
+              output.write("commit=" + release["skill_commit"] + "\n")
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: cnkang/skills
+          ref: ${{ steps.skill.outputs.commit }}
+          path: .skill-source
+          persist-credentials: false
+      - name: Build the exact Codex plugin ZIP
+        id: package
+        shell: python
+        run: |
+          import json
+          import os
+          import subprocess
+          import sys
+          from pathlib import Path
+          release = json.loads(Path("plugins/qdrant-memory/release.json").read_text(encoding="utf-8"))
+          archive = Path(os.environ["RUNNER_TEMP"]) / f"qdrant-memory-codex-{release['plugin_version']}.zip"
+          result = subprocess.run(
+              [sys.executable, "scripts/build_codex_plugin.py", "--skill-repo", ".skill-source", "--output", str(archive)],
+              check=True,
+              capture_output=True,
+              text=True,
+          )
+          build = json.loads(result.stdout)
+          if Path(build["path"]).resolve() != archive.resolve() or build["source_dirty"]:
+              raise SystemExit("Codex plugin ZIP does not match clean reviewed source")
+          Path(os.environ["RUNNER_TEMP"], "codex-plugin-build.json").write_text(
+              json.dumps(build, indent=2) + "\n", encoding="utf-8"
+          )
+          with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as output:
+              output.write("path=" + str(archive) + "\n")
       - name: Install the declared Runtime and pinned Codex
         run: |
           npm install --global --ignore-scripts @openai/codex@0.165.0
@@ -53,9 +94,11 @@ jobs:
           SOAK_LLM_BASE_URL: ${{ vars.SOAK_LLM_BASE_URL }}
           SOAK_LLM_MODEL: ${{ vars.SOAK_LLM_MODEL }}
           SOAK_LLM_API_KEY: ${{ secrets.SOAK_LLM_API_KEY }}
+          CODEX_PLUGIN_ZIP: ${{ steps.package.outputs.path }}
         run: |
           python scripts/codex_account_acceptance.py --mode cloud \
             --runtime "$RUNNER_TEMP/codex-runtime/bin/qdrant-memory" \
+            --plugin-zip "$CODEX_PLUGIN_ZIP" \
             --workdir "$RUNNER_TEMP/codex-synthetic-window" \
             > "$RUNNER_TEMP/codex-plugin-result.json"
       - name: Summarize explicit outcome
@@ -82,4 +125,12 @@ jobs:
         with:
           name: codex-ollama-synthetic-result
           path: ${{ runner.temp }}/codex-plugin-result.json
+          if-no-files-found: error
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always() && steps.package.outputs.path != ''
+        with:
+          name: codex-plugin-verified-source-${{ github.sha }}
+          path: |
+            ${{ steps.package.outputs.path }}
+            ${{ runner.temp }}/codex-plugin-build.json
           if-no-files-found: error
