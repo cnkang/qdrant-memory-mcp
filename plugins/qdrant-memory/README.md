@@ -7,15 +7,16 @@ Search, add, update and delete explicitly. Import approved Codex native semantic
 memories and leave with readable, checksummed JSON/Markdown. Handoff is pending
 until the native client actually adopts the facts; no unsupported native writes.
 
-## Install this candidate
+## Install from the GitHub-backed Codex marketplace
 
 Marketplace: **Kang's plugins** (`cnkang`). Plugin: **Qdrant Memory for Codex**.
 
 Requirements: Codex with portable plugins, Node 20+, uv, Python 3.11+, Git on PATH.
-The plugin is 0.1.1; MCP distribution 0.3.0 and Runtime 0.6.0 have separate versions.
+The plugin is 0.1.2; MCP distribution 0.3.1 and Runtime 0.6.0 have separate versions.
 This candidate pins the immutable Runtime release source commit recorded
 in `release.json`. Verify the exact MCP and Runtime versions are public before
-installing. Official Codex Marketplace submission remains paused.
+installing. This is the GitHub-backed Codex source marketplace. Submission to the
+OpenAI public directory is separate and has not been completed.
 Its `test_evidence` path is relative to the plugin ZIP root (`VERIFICATION.md`).
 
 ```sh
@@ -108,7 +109,6 @@ require explicit configuration and consent. No telemetry or automatic capture
 is added. Report vulnerabilities privately through the repository security
 contact, not in an issue containing private memory or credentials.
 
-This is a GitHub Marketplace candidate, not an approved OpenAI public-directory
-listing. Public submission requires partner allowlisting, fully bundled and
-reviewed local runtime/dependencies, fresh Desktop verification, privacy/support
-metadata and review. No public registry, GitHub Release or tag is published here.
+The `cnkang` Codex marketplace installs this plugin from this public GitHub
+repository. The OpenAI public directory is a separate submission; this local
+stdio package has not been submitted there.

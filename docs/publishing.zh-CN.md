@@ -58,10 +58,12 @@ PyPI 文件并对之测试，然后重跑 Registry 校验/发布。此过程不�
 7. 从已合并的 main 创建 `dsh-bundle-v0.1.6`，等待 pack 和测试把 tarball 与 checksum
    附加到 Draft Release。最后通过单独的 npm 网页授权发布
    `@cnkang/qdrant-memory-dsh-bundle`。发布后核验公开版本和完整性，再宣布发布完成。
-8. 仅当 plugins/qdrant-memory 下没有已跟踪文件变更时，才沿用 Codex 插件候选版当前 ZIP
-   和云端验收证据。该目录下任意文件变更后都要重建 ZIP 并重新运行受保护云端验收；
-   scripts/build_codex_plugin.py 或 docs/codex-plugin-verification.md 变更后也要重建 ZIP。
-   同步三个仓库的当前安装文档和证据。Codex Marketplace 正式提交继续暂停。
+8. Codex 仓库源 Marketplace 插件独立于 PyPI、MCP Registry 和 npm 发布。0.1.2 候选版固定
+   MCP 0.3.1、Runtime 0.6.0 和未变更的 Skill 快照。PR 通过审核并合并后，针对准确的
+   `main` 运行受保护云端验收，再重建源码 ZIP。`plugins/qdrant-memory` 下文件变更后都要
+   重建 ZIP 并重跑云端验收；`scripts/build_codex_plugin.py` 或
+   `docs/codex-plugin-verification.md` 变更后也要重建 ZIP。公开 GitHub 仓库就是 `cnkang`
+   Codex 源 Marketplace。OpenAI 公共目录提交是独立流程，此次发布不代表已提交。
 
 ## 适配器附件
 

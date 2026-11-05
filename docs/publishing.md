@@ -75,13 +75,15 @@ candidate as published.
    to attach the tarball and checksum to a Draft Release. Publish
    `@cnkang/qdrant-memory-dsh-bundle` last, with its own npm web authorization.
    Verify the public version and integrity before announcing it.
-8. Keep the Codex plugin candidate's current ZIP and cloud acceptance evidence
-   only while no tracked file under plugins/qdrant-memory changes. Rebuild the
-   ZIP after any change under plugins/qdrant-memory, scripts/build_codex_plugin.py,
-   or docs/codex-plugin-verification.md; rerun protected cloud acceptance after
-   any change under plugins/qdrant-memory. Update current installation docs and
-   evidence in all three repositories. Official Codex Marketplace submission
-   stays paused.
+8. Release the repository-backed Codex Marketplace plugin independently from
+   PyPI, MCP Registry and npm. Candidate 0.1.2 pins MCP 0.3.1, Runtime 0.6.0
+   and the unchanged Skill snapshot. Merge its reviewed PR, then run protected
+   cloud acceptance on that exact `main` and rebuild the source ZIP. Rebuild the
+   ZIP after changes under `plugins/qdrant-memory`, `scripts/build_codex_plugin.py`,
+   or `docs/codex-plugin-verification.md`; rerun cloud acceptance after changes
+   under `plugins/qdrant-memory`. The public GitHub repository is the `cnkang`
+   Codex source marketplace. OpenAI public-directory submission is separate and
+   is not implied by this release.
 
 ## Adapter attachments
 

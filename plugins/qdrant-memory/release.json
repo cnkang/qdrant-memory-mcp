@@ -1,9 +1,9 @@
 {
   "format": "qdrant-codex-plugin-release",
   "version": 1,
-  "plugin_version": "0.1.1",
+  "plugin_version": "0.1.2",
   "plugin_source_commit": "BUILD_FROM_GIT",
-  "mcp_distribution_version": "0.3.0",
+  "mcp_distribution_version": "0.3.1",
   "runtime_version": "0.6.0",
   "runtime_commit": "dee6777432f17523db75f6be32cf3ef15e48235c",
   "runtime_repository": "https://github.com/cnkang/hermes-plugin-qdrant-memory",

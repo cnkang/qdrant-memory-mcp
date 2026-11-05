@@ -14,7 +14,8 @@
 - Keep handoff status HANDOFF_PENDING and native_verified=false until native
   client adoption is confirmed. Uninstall preserves memory, backups and originals.
 - Refresh the canonical Skill to 0.4.0 and align the Codex candidate source pins.
-  Codex Marketplace submission remains paused.
+  The GitHub-backed Codex source marketplace is versioned separately; this MCP
+  release does not submit the plugin to the OpenAI public directory.
 - Update managed launcher 0.1.0-rc.8 to the public Runtime wheel, official
   FastEmbed 0.9.1 and Pillow 13.0.0. Remove the temporary compatibility builder;
   retain hash locks, wheel-only installation and CPU acceptance.
