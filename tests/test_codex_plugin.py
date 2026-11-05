@@ -525,7 +525,9 @@ def test_missing_runtime_fails_without_writes(tmp_path):
 
 
 def test_node_entrypoint_real_mcp(sandbox):
+    """Run the portable plugin bridge against an installed MCP runtime."""
     import asyncio
+    import sys
     import sysconfig
 
     from mcp import ClientSession, StdioServerParameters
@@ -540,6 +542,7 @@ def test_node_entrypoint_real_mcp(sandbox):
     env.update(
         QDRANT_MEMORY_CODEX_PROFILE=str(profile),
         QDRANT_MEMORY_CODEX_EXECUTABLE=str(runtime),
+        QDRANT_MEMORY_CODEX_PYTHON=sys.executable,
     )
 
     async def scenario():
