@@ -68,6 +68,9 @@ def test_main_packs_once_into_an_external_directory(name, tmp_path, monkeypatch,
     source = script["source"]
     meta = json.loads((source / "package.json").read_text(encoding="utf-8"))
     filename = meta["name"].removeprefix("@").replace("/", "-") + "-" + meta["version"] + ".tgz"
+    integrity = "sha512-abc"
+    if name == "pack_launcher":
+        integrity = json.loads((ROOT / "launcher-source.json").read_text(encoding="utf-8"))["integrity"]
 
     def fake_pack(command, cwd, env, text, timeout):
         assert command[0] in ("npm", "npm.cmd")
@@ -75,7 +78,7 @@ def test_main_packs_once_into_an_external_directory(name, tmp_path, monkeypatch,
         assert env["npm_config_pack_destination"] == str(tmp_path / "out")
         write_archive(Path(env["npm_config_pack_destination"]) / filename,
                       module, source, script["executable"])
-        return json.dumps([{"filename": filename, "integrity": "sha512-abc"}])
+        return json.dumps([{"filename": filename, "integrity": integrity}])
 
     monkeypatch.setattr(module.subprocess, "check_output", fake_pack)
     monkeypatch.setattr(sys, "argv", [name + ".py", "--output-dir", str(tmp_path / "out")])
@@ -83,9 +86,33 @@ def test_main_packs_once_into_an_external_directory(name, tmp_path, monkeypatch,
 
     report = json.loads(capsys.readouterr().out)
     assert report["archive"].endswith(filename)
-    assert report["integrity"] == "sha512-abc"
+    assert report["integrity"] == integrity
     assert len(report["sha256"]) == 64
     assert (tmp_path / "out" / filename).is_file()
+
+
+def test_launcher_pack_rejects_integrity_mismatch(tmp_path, monkeypatch):
+    name = "pack_launcher"
+    script = SCRIPTS[name]
+    module = load(name)
+    source = script["source"]
+    meta = json.loads((source / "package.json").read_text(encoding="utf-8"))
+    filename = meta["name"].removeprefix("@").replace("/", "-") + "-" + meta["version"] + ".tgz"
+    archive = tmp_path / "out" / filename
+    wrong_integrity = "sha512-" + "A" * 86 + "=="
+
+    def fake_pack(command, cwd, env, text, timeout):
+        assert command[0] in ("npm", "npm.cmd")
+        assert "--ignore-scripts" in command
+        write_archive(archive, module, source, script["executable"])
+        return json.dumps([{"filename": filename, "integrity": wrong_integrity}])
+
+    monkeypatch.setattr(module.subprocess, "check_output", fake_pack)
+    monkeypatch.setattr(sys, "argv", [name + ".py", "--output-dir", str(tmp_path / "out")])
+    with pytest.raises(ValueError, match="integrity differs"):
+        module.main()
+
+    assert not archive.exists()
 
 
 @pytest.mark.parametrize("name", sorted(SCRIPTS))
