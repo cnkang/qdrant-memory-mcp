@@ -552,6 +552,7 @@ def test_run_only_passes_after_stored_state_checks(tmp_path, monkeypatch, fault)
     else:
         result = acceptance.run(args)
         assert result["status"] == "PASS"
+        assert result["installation_source"] == "repository"
         assert result["stored_state_verified"]
         assert all(case["status"] == "PASS" for case in result["cases"])
         assert state == {

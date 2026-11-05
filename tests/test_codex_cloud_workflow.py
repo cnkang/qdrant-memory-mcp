@@ -57,11 +57,28 @@ def test_cloud_preflight_restricts_the_actual_checkout(
     assert "repository: cnkang/skills" in cloud
     assert "ref: ${{ steps.skill.outputs.commit }}" in cloud
     assert "scripts/build_codex_plugin.py" in cloud
-    assert "--plugin-zip \"$CODEX_PLUGIN_ZIP\"" in cloud
+    source_step = cloud.split(
+        "      - name: Test repository-backed marketplace with protected Ollama\n",
+        1,
+    )[1].split("      - name:", 1)[0]
+    zip_step = cloud.split(
+        "      - name: Test exact rebuilt plugin ZIP with protected Ollama\n", 1
+    )[1].split("      - name:", 1)[0]
+    assert "--mode cloud" in source_step
+    assert "--plugin-zip" not in source_step
+    assert "codex-plugin-source-result.json" in source_step
+    assert "continue-on-error: true" in source_step
+    assert "--plugin-zip \"$CODEX_PLUGIN_ZIP\"" in zip_step
+    assert "codex-plugin-zip-result.json" in zip_step
+    assert "continue-on-error: true" in zip_step
     assert "codex-plugin-verified-source-${{ github.sha }}" in cloud
-    assert "continue-on-error:" not in cloud
+    assert "repository_marketplace_acceptance" in cloud
+    assert "zip_acceptance" in cloud
+    assert "archive_matches_build_metadata" in cloud
+    assert "Both repository marketplace and exact ZIP acceptance must pass" in cloud
+    assert "    timeout-minutes: 40\n" in cloud
     assert "github.event.inputs" not in text
-    assert text.count("${{ secrets.SOAK_LLM_API_KEY }}") == 1
+    assert text.count("${{ secrets.SOAK_LLM_API_KEY }}") == 2
     assert "--mode cloud" in cloud
     assert "-m pip install -r plugins/qdrant-memory/requirements.txt" in cloud
     assert 'source["vcs_info"]["commit_id"] == expected' in cloud
@@ -69,18 +86,42 @@ def test_cloud_preflight_restricts_the_actual_checkout(
 
 
 @pytest.mark.parametrize(
-    "raw,expected",
+    "source_raw,zip_raw,build_raw,expected",
     [
-        (None, "NOT VERIFIED"),
-        (b"", "NOT VERIFIED"),
-        (b"{", "NOT VERIFIED"),
-        (b"\xff", "NOT VERIFIED"),
-        (b"[]", "NOT VERIFIED"),
-        (b'{"status":"PASS","count":3}', "PASS"),
-        (b'{"status":"FAIL","detail":"fixture"}', "FAIL"),
+        (None, None, None, "NOT VERIFIED"),
+        (b"", b"{}", b"{}", "NOT VERIFIED"),
+        (b"{", b"{}", b"{}", "NOT VERIFIED"),
+        (b"\xff", b"{}", b"{}", "NOT VERIFIED"),
+        (b"[]", b"{}", b"{}", "NOT VERIFIED"),
+        (
+            b'{"status":"PASS","installation_source":"repository"}',
+            b'{"status":"PASS","installation_source":"zip","plugin_archive_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}',
+            b'{"sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}',
+            "PASS",
+        ),
+        (
+            b'{"status":"FAIL","installation_source":"repository"}',
+            b'{"status":"PASS","installation_source":"zip","plugin_archive_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}',
+            b'{"sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}',
+            "FAIL",
+        ),
+        (
+            b'{"status":"PASS","installation_source":"repository"}',
+            b'{"status":"PASS","installation_source":"zip","plugin_archive_sha256":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}',
+            b'{"sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}',
+            "FAIL",
+        ),
+        (
+            b'{"status":"PASS","installation_source":"repository"}',
+            b'{"status":"FAIL","installation_source":"zip"}',
+            b'{"sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}',
+            "FAIL",
+        ),
     ],
 )
-def test_cloud_summary_always_provides_an_explicit_artifact(tmp_path, raw, expected):
+def test_cloud_summary_requires_both_install_paths_and_matching_archive(
+    tmp_path, source_raw, zip_raw, build_raw, expected
+):
     text = WORKFLOW.read_text(encoding="utf-8")
     step = text.split("      - name: Summarize explicit outcome\n", 1)[1].split(
         "      - uses:", 1
@@ -89,8 +130,13 @@ def test_cloud_summary_always_provides_an_explicit_artifact(tmp_path, raw, expec
     assert "        shell: python\n" in step
     script = textwrap.dedent(step.split("        run: |\n", 1)[1])
     result_path = tmp_path / "codex-plugin-result.json"
-    if raw is not None:
-        result_path.write_bytes(raw)
+    for name, raw in (
+        ("codex-plugin-source-result.json", source_raw),
+        ("codex-plugin-zip-result.json", zip_raw),
+        ("codex-plugin-build.json", build_raw),
+    ):
+        if raw is not None:
+            (tmp_path / name).write_bytes(raw)
     summary = tmp_path / "summary.md"
     summary.write_text("Previous summary\n", encoding="utf-8")
     result = subprocess.run(
@@ -99,14 +145,17 @@ def test_cloud_summary_always_provides_an_explicit_artifact(tmp_path, raw, expec
             **os.environ,
             "RUNNER_TEMP": str(tmp_path),
             "GITHUB_STEP_SUMMARY": str(summary),
+            "GITHUB_SHA": "a" * 40,
         },
         capture_output=True,
     )
-    assert result.returncode == 0, result.stderr
+    assert (result.returncode == 0) is (expected == "PASS"), result.stderr
     artifact = json.loads(result_path.read_text(encoding="utf-8"))
     assert artifact["status"] == expected
-    if expected != "NOT VERIFIED":
-        assert result_path.read_bytes() == raw
+    if expected == "PASS":
+        assert artifact["archive_matches_build_metadata"]
+        assert artifact["repository_marketplace_acceptance"]["status"] == "PASS"
+        assert artifact["zip_acceptance"]["installation_source"] == "zip"
     rendered = summary.read_text(encoding="utf-8")
     assert rendered.startswith("Previous summary\n")
     assert json.dumps(artifact, indent=2) in rendered
