@@ -387,6 +387,9 @@ def test_archive_uses_index_and_tracks_verification_edits(tmp_path, monkeypatch)
     (source_skill / "SKILL.md").write_bytes(data)
     with zipfile.ZipFile(output) as archive:
         assert archive.namelist() == sorted(archive.namelist())
+        assert {info.compress_type for info in archive.infolist()} == {
+            zipfile.ZIP_STORED
+        }
         assert {info.date_time for info in archive.infolist()} == {
             (2026, 1, 1, 0, 0, 0)
         }

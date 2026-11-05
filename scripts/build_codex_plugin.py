@@ -412,11 +412,14 @@ def build(output, skill_repo):
         + b"\n"
     )
     output.parent.mkdir(parents=True, exist_ok=True)
-    with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as archive:
+    # Stored entries avoid platform-specific zlib streams. The source package is
+    # small enough that cross-platform bit-for-bit archives are more valuable
+    # than the modest compression savings.
+    with zipfile.ZipFile(output, "w", zipfile.ZIP_STORED) as archive:
         for name, data in sorted(files.items()):
             info = zipfile.ZipInfo("qdrant-memory/" + name, (2026, 1, 1, 0, 0, 0))
             info.external_attr = 0o100644 << 16
-            archive.writestr(info, data, compress_type=zipfile.ZIP_DEFLATED)
+            archive.writestr(info, data, compress_type=zipfile.ZIP_STORED)
     with zipfile.ZipFile(output) as archive:
         require(archive.testzip() is None, "Corrupt plugin archive")
         for name, checksum in integrity.items():
