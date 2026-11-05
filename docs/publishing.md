@@ -79,9 +79,15 @@ candidate as published.
    PyPI, MCP Registry and npm. Candidate 0.1.2 pins MCP 0.3.1, Runtime 0.6.0
    and the unchanged Skill snapshot. Merge its reviewed PR, rebuild the source
    ZIP from that exact `main`, then run protected cloud acceptance against that
-   exact ZIP. Keep the accepted ZIP and its SHA-256 in the result artifact as
-   release evidence; any archive-based submission must use that same ZIP. Do not
-   rebuild after acceptance. Rebuild and rerun acceptance after changes under `plugins/qdrant-memory`,
+   exact ZIP. Retain it as release evidence only when the result reports `PASS`
+   and its `plugin_archive_sha256` matches the ZIP. The
+   `codex-ollama-synthetic-result` artifact contains `codex-plugin-result.json`
+   with the status and archive SHA-256; the separate
+   `codex-plugin-verified-source-<sha>` artifact contains the ZIP and
+   `codex-plugin-build.json`. The ZIP is uploaded even when acceptance fails,
+   so require the matching `PASS` result before using it for any archive-based
+   submission, and submit that same ZIP. Do not rebuild after acceptance.
+   Rebuild and rerun acceptance after changes under `plugins/qdrant-memory`,
    `scripts/build_codex_plugin.py`, or `docs/codex-plugin-verification.md`.
    The public GitHub repository is the `cnkang` Codex source marketplace.
    OpenAI public-directory submission is separate and is not implied by this
