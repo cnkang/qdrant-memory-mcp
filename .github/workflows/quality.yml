@@ -182,9 +182,12 @@ jobs:
           if [ -n "$base" ] && [ "$base" != "$HEAD_SHA" ]; then
             scan_range="$base..$HEAD_SHA"
           else
-            # A new branch has no base commit. `git log <sha>` would walk the
-            # whole history, so limit the walk to the pushed tip.
-            scan_range="$HEAD_SHA -1"
+            # No usable base: every commit reachable from the tip is new here.
+            scan_range="$HEAD_SHA"
           fi
+          # A merge commit has no patch by default, so a secret added while
+          # resolving a conflict would pass. `remerge` reports only the
+          # conflict resolution, never content merged in from another branch.
+          scan_range="$scan_range --diff-merges=remerge"
           echo "Scanning $scan_range"
           "$RUNNER_TEMP/gitleaks" git --no-banner --redact --exit-code 1 --log-opts="$scan_range" .
