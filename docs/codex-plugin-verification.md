@@ -34,7 +34,7 @@ Ubuntu/macOS ZIP because 32 text files were checked out with CRLF. The two
 non-Windows archives were identical (77,870 bytes,
 `4527e53da8eb0e1f6b234e95e7759b9001069508511d19509f98dd655165b55c`); the
 Windows archive was 78,705 bytes with SHA-256
-`e3eca41e6796415cfbe100c92e8a34fef1a210bd0b998507afdf58b371f217fc`. A
+`e3eca41e6796415cfbe100c92e8a34fef1a210bd0b998507afdf58b371f217fc`.
 The builder normalizes known UTF-8 text from tracked plugin files and the pinned
 Skills archive to LF before comparison and packaging. Binary files are left
 untouched, the regression test covers CRLF and bare-CR input, and failed
@@ -45,13 +45,21 @@ passed all three OS jobs. The Mac/Linux artifacts had SHA-256
 `32af08c53f31da9704dbd1e30dc1969d5c424acc22989489112df280df3fdf44`; Windows
 had `5ddc69aaaced9602210f4ed727636c14c377c2efaaded697eb88eae6f1ad2fa8`. All
 34 uncompressed file payloads and ZIP metadata matched; only the DEFLATE byte
-streams differed by host zlib. The builder now uses ZIP_STORED to remove that
-platform-dependent compression. A prior pre-commit `linux/amd64` container
-run (Node 22.23.4, Python 3.11.17) passed `tests/test_codex_plugin.py` →
-**22 passed** and matched a macOS source ZIP byte-for-byte; that result predates
-ZIP_STORED. The current ZIP_STORED change still needs its own exact-SHA hosted
-Windows/macOS/Linux run and artifact comparison. None of these source ZIP
-checks certify a Desktop-only package.
+streams differed by host zlib. Commit
+`d26873b4bf34f21f3e2e7691f1f3e283c181c863` switched to ZIP_STORED. Its exact-SHA
+run [42078522937](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/42078522937)
+passed the Ubuntu and Windows package jobs; the macOS job was still queued when
+inspected. The available 177,573-byte artifacts had different SHA-256 values
+(Ubuntu `b20c7871b38ce7440131a3be45e3e286fbd5fb282e83fdc533f7e3e1d7685e4e`,
+Windows `f3311b2910891cc2f1b733c687fc97c94f520f7c9b1c5c6083c0ccc387b1a706`),
+although the payloads and all compared entry metadata matched. The remaining
+difference is the ZIP creator-system marker (Unix 3 versus DOS 0); the builder
+now pins it to Unix 3 and the regression test checks that value. The new exact-
+SHA run must confirm identical Windows/macOS/Linux archives. A prior pre-commit
+`linux/amd64` container run (Node 22.23.4, Python 3.11.17) passed
+`tests/test_codex_plugin.py` → **22 passed**; it predates ZIP_STORED and the
+creator-system marker fix. None of these source ZIP checks certify a
+Desktop-only package.
 
 On 2026-11-06, Codex CLI `0.165.0` installed the local source Marketplace into
 an isolated `CODEX_HOME` using `codex plugin marketplace add` and

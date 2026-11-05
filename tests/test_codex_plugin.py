@@ -390,6 +390,7 @@ def test_archive_uses_index_and_tracks_verification_edits(tmp_path, monkeypatch)
         assert {info.compress_type for info in archive.infolist()} == {
             zipfile.ZIP_STORED
         }
+        assert {info.create_system for info in archive.infolist()} == {3}
         assert {info.date_time for info in archive.infolist()} == {
             (2026, 1, 1, 0, 0, 0)
         }
