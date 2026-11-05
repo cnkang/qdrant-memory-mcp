@@ -54,7 +54,9 @@ the source table as a publication receipt.
    commit, wheel URL, size and SHA-256; regenerate the Python hash locks.
 2. Merge the reviewed Skill update and pin its actual commit in the connector,
    workflow checkouts and Codex release manifest. Preserve historical evidence.
-3. Pack the reviewed launcher on Ubuntu or macOS with `python
+3. Before checkout, set Git's `core.autocrlf=false` so launcher files stay LF;
+   CRLF bytes change the tarball and its SHA-512. Pack the reviewed launcher on
+   Ubuntu or macOS with `python
    scripts/pack_launcher.py --output-dir dist/launcher`. Confirm the output's
    SHA-512 matches `launcher-source.json` and keep that exact tarball for
    publication. Windows npm pack output has a different integrity and is not the
