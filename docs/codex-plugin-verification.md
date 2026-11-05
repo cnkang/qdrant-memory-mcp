@@ -35,9 +35,20 @@ non-Windows archives were identical (77,870 bytes,
 `4527e53da8eb0e1f6b234e95e7759b9001069508511d19509f98dd655165b55c`); the
 Windows archive was 78,705 bytes with SHA-256
 `e3eca41e6796415cfbe100c92e8a34fef1a210bd0b998507afdf58b371f217fc`. A
-follow-up adds explicit LF attributes and a regression test. That fix still
-requires a new exact-SHA cross-platform CI run before the source ZIP is called
-reproducible. None of these source ZIP checks certify a Desktop-only package.
+The builder now normalizes known UTF-8 text from tracked plugin files and the
+pinned Skills archive to LF before comparison and packaging. Binary files are
+left untouched, the regression test covers CRLF and bare-CR input, and a failed
+snapshot comparison lists the differing paths. Before commit, the exact plugin
+test file passed in an `linux/amd64` Docker container based on pinned Node
+`sha256:5ec23b7c622b00547753bc6ffd78085dd868a68aeb41c8e0a1418f033e13d96d` and
+Python `sha256:e88e9763f943ec1834f992a4b51e0f24500486803e8bc534e5767af9ea65f6ce`
+images: Python 3.11.17, Node 22.23.4, and `tests/test_codex_plugin.py` →
+**22 passed**. A Linux and macOS source ZIP built from the same dirty worktree
+had identical bytes. These are pre-commit builds (`source_dirty: true`), not
+the final candidate artifact.
+The exact-SHA hosted Windows/macOS/Linux matrix and its artifacts remain the
+release evidence for the committed build. None of these source ZIP checks
+certify a Desktop-only package.
 
 On 2026-11-06, Codex CLI `0.165.0` installed the local source Marketplace into
 an isolated `CODEX_HOME` using `codex plugin marketplace add` and

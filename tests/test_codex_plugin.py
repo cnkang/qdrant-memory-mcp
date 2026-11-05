@@ -47,6 +47,16 @@ def test_packaged_text_sources_use_lf_line_endings():
     assert b"\r\n" not in verification
 
 
+def test_text_byte_normalization_handles_archive_eols_and_preserves_binary():
+    assert package._normalize_text_bytes(
+        "references/setup.md", b"first\r\nsecond\rthird\n"
+    ) == b"first\nsecond\nthird\n"
+    binary = b"\x00\xff\r\n"
+    assert package._normalize_text_bytes("model.bin", binary) == binary
+    with pytest.raises(ValueError, match="not UTF-8"):
+        package._normalize_text_bytes("README.md", b"\xff")
+
+
 def test_validation_survives_python_optimization(tmp_path):
     import shutil
     import sys
