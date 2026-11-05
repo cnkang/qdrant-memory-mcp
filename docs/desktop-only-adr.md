@@ -1,38 +1,41 @@
 # Desktop-only package architecture ADR
 
 Date: 2026-11-06
-Status: **proposed; package not built or Desktop-verified**
+Status: **BLOCKED pending a verified Desktop/Creator launch contract**
 
-## Decision direction
+## Decision and blocker
 
-Keep one Python Runtime and one set of four MCP schemas. The Desktop-only
-candidate should be one portable plugin ZIP containing a small Node stdio
-launcher and a prebuilt, platform-selected Python Runtime bundle. Each bundle
-must contain its own Python interpreter, the exact Runtime and MCP distributions,
-and every resolved Python dependency as verified wheels. The launch adapter may
-select a bundle by `process.platform` and `process.arch`; it must not download or
-resolve executable dependencies at first launch.
+Keep one Python Runtime and one set of four MCP schemas. No final Desktop ZIP
+architecture is selected yet: the current Portable MCP schema exposes one
+stdio command and does not document an OS/architecture selector or multiple
+platform payloads. A universal ZIP therefore needs a dispatcher, but its Node
+runtime availability on a clean Desktop install is unverified. A
+platform-specific archive would avoid dispatch, but the current submission
+docs do not confirm that one plugin release can supply and select separate
+archives per platform. Confirm one of these host behaviors through an approved
+test route before implementing the final packaging target.
 
-This is the only evaluated direction that can preserve the existing Python
-memory implementation while putting the local server and its executable
-dependencies in the plugin archive. It also supports a clean offline launch
-after installation. The portable MCP schema exposes one stdio command, so the
-Node launcher is the OS selector. OpenAI's Desktop-only example uses
-`command: "node"`, but the current documentation does not promise that Node is
-installed or bundled by every Desktop host. Clean Codex Desktop testing must
-confirm this prerequisite. If it is absent, this architecture is blocked until
-the Desktop-supported launch contract is clarified or the archive can start
-without a system runtime.
+If a platform-specific archive is supported, the lowest-risk candidate is a
+per-platform bundle containing a standalone Python interpreter, the existing
+Runtime and MCP distributions, all resolved dependency wheels and their hashes.
+If only one universal ZIP is supported and Desktop guarantees a local Node
+command, the same bundle contents could be selected by a small Node launcher.
+Neither condition is verified. Do not implement or label either as a chosen
+submission architecture until the launch and Creator configuration are tested.
+The read-only Creator 0.1.1 file inspection showed a normalized `.mcp.json`
+with `env: {}` while the Codex source overlay declares eight `env_vars` names;
+there is no verified configuration mapping for the current candidate.
 
 ## Evaluated alternatives
 
 | Option | Compliance and reliability | Platform and size | Decision |
 |---|---|---|---|
-| Bundled Python + pinned wheels | Includes the local server and Python dependencies; can run offline; requires per-platform native wheels and a tested selector | One interpreter and wheel set per target increases universal ZIP size; Python 3.11 is the current Runtime baseline | **Use as the bundle contents** |
-| Separate prebuilt Runtime per platform | Reuses the existing Runtime and can minimize irrelevant binaries per download | The current portable package format does not document OS-specific package selection; a single archive still needs dispatch | Use inside the universal ZIP; do not publish separate platform packages without platform confirmation |
+| Bundled Python + pinned wheels | Includes the local server and Python dependencies; can run offline; requires per-platform native wheels and a supported launch route | One interpreter/wheel set per platform; actual archive size is not measured | Preferred bundle contents only after platform selection is confirmed |
+| Separate prebuilt Runtime per platform | Reuses the existing Runtime and can minimize irrelevant binaries per download | Lowest platform-specific archive size; the portal's per-platform selection behavior is unconfirmed | Viable only if the official package flow supports multiple platform archives |
 | `uv` / lockfile installation on first run | Exact pins and hashes can improve provenance | Still downloads server dependencies after install and is not offline; does not satisfy the conservative reading of “include the server and its dependencies” | Reject for the submitted ZIP |
 | Existing managed Node launcher | Reuses secure bootstrap, hash checks and private environment patterns | Its purpose is to download Python, wheels and the model during setup; that is not a bundled server package | Reuse design patterns only; do not reuse its download-at-install behavior |
-| Pure Node rewrite or frozen second Runtime | Could avoid a Python interpreter at launch | Duplicates Qdrant, embedding, scope, ledger, recovery and lease behavior; violates the one-Runtime boundary | Reject |
+| Frozen executable built from the existing Python Runtime | Can embed the interpreter and dependencies without rewriting memory behavior; retains one codebase | Requires separate native build per OS/architecture and has less transparent runtime SBOM/debugging; still needs a supported archive selection path | Evaluate only if a per-platform package flow is confirmed |
+| Pure Node rewrite or independent second Runtime | Could avoid a Python interpreter at launch | Duplicates Qdrant, embedding, scope, ledger, recovery and lease behavior; violates the one-Runtime boundary | Reject |
 
 ## Platform and package tradeoffs
 
@@ -49,7 +52,9 @@ without a system runtime.
 | Runtime compatibility | Keep existing Python Runtime and four tool schemas | This avoids a second Qdrant/embedding/ledger implementation. No Runtime changes are required for the proposed bundle. |
 
 The separate `build-desktop-only-plugin` target has **not been implemented**.
-Only the existing source Marketplace archive target is available today.
+Only the existing source Marketplace archive target is available today. Its
+78,831-byte macOS build has no Python executable, wheel or model; this size is
+not representative of a Desktop bundle.
 
 ## Model delivery
 
@@ -80,8 +85,8 @@ rebuild from the same pinned sources and compare the dependency/artifact hashes;
 record any byte-level variance.
 
 No multi-platform runtime bundle, complete dependency lock, SBOM, or Desktop ZIP
-has been produced in this task yet. Therefore this ADR does not claim package
-readiness.
+has been produced in this task. Do not treat the proposed bundle contents as a
+resolved package architecture or claim package readiness.
 
 ## Official references
 
