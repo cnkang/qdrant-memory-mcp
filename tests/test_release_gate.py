@@ -1,6 +1,8 @@
 """Verify the release gate against simulated workflow-run metadata."""
 
+import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -54,6 +56,26 @@ def _fetch(runs):
         return runs
 
     return fetch
+
+
+def test_fetch_runs_reads_all_api_pages(monkeypatch):
+    """Runs on later API pages must also count as release evidence."""
+    from check_release_gate import _fetch_runs
+
+    first = _run(REQUIRED_WORKFLOWS[0])
+    second = _run(REQUIRED_WORKFLOWS[1])
+    response = json.dumps([{"workflow_runs": [first]}, {"workflow_runs": [second]}])
+    calls = []
+
+    def fake_run(command, **kwargs):
+        calls.append(command)
+        return subprocess.CompletedProcess(command, 0, stdout=response, stderr="")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    assert _fetch_runs("cnkang/qdrant-memory-mcp", SHA) == [first, second]
+    assert "--paginate" in calls[0]
+    assert "--slurp" in calls[0]
+    assert f"head_sha={SHA}&per_page=100" in calls[0][-1]
 
 
 def test_release_gate_passes_for_verified_commit():
@@ -154,6 +176,7 @@ def test_publish_runs_the_gate_before_building():
     )
     assert len(attestation["uses"].split("@")[1]) == 40
     assert attestation["with"]["subject-path"] == "dist/*"
+    assert attestation["if"] == "steps.existing.outputs.exists != 'true'"
 
 
 def test_release_workflows_do_not_read_caches():
@@ -170,3 +193,27 @@ def test_release_workflows_do_not_read_caches():
         if step.get("uses", "").startswith("actions/setup-node@")
     )
     assert setup_node["with"]["package-manager-cache"] is False
+
+
+def test_manual_release_dispatch_requires_a_matching_tag():
+    """Manual dispatches from branches must skip privileged release jobs."""
+    release_workflows = {
+        "publish.yml": (
+            "startsWith(github.ref, 'refs/tags/v')",
+            {"pypi": "build", "registry": ["build", "pypi"]},
+        ),
+        "workbuddy-release.yml": (
+            "startsWith(github.ref, 'refs/tags/v')",
+            {"attach": "build"},
+        ),
+        "dsh-bundle-release.yml": (
+            "startsWith(github.ref, 'refs/tags/dsh-bundle-v')",
+            {"attach": "build"},
+        ),
+    }
+    for filename, (expected_tag_guard, downstream_needs) in release_workflows.items():
+        workflow = _workflow(filename)
+        assert "workflow_dispatch" in workflow["on"]
+        assert workflow["jobs"]["build"]["if"] == expected_tag_guard
+        for job, needs in downstream_needs.items():
+            assert workflow["jobs"][job]["needs"] == needs

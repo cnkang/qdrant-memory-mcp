@@ -23,13 +23,16 @@ def _fetch_runs(repository, sha):
         [
             "gh",
             "api",
+            "--paginate",
+            "--slurp",
             f"repos/{repository}/actions/runs?head_sha={sha}&per_page=100",
         ],
         capture_output=True,
         text=True,
     )
     result.check_returncode()
-    return json.loads(result.stdout)["workflow_runs"]
+    pages = json.loads(result.stdout)
+    return [run for page in pages for run in page["workflow_runs"]]
 
 
 def _select_main_push_runs(runs, sha):

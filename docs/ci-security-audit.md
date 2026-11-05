@@ -29,12 +29,12 @@ repository.
 | `codex-plugin.yml` | selected paths, PR, dispatch | none | Tier 2 |
 | `managed-bootstrap.yml` | push, PR, dispatch | none | Tier 2 |
 | `workbuddy-preview.yml` | push, PR, dispatch | none | Tier 2 |
-| `dsh-next.yml` | weekly, selected paths, dispatch | none | Tier 3 |
+| `dsh-next.yml` | weekly, selected paths, dispatch | `GITHUB_TOKEN` (`contents: read`) | Tier 3 |
 | `codex-plugin-cloud.yml` | dispatch | environment | Tier 3 |
-| `publish.yml` | tag `v*`, dispatch | OIDC `id-token`, `attestations` | Tier 4 |
-| `workbuddy-release.yml` | tag, dispatch | `contents: write` in the attach job | Tier 4 |
-| `dsh-bundle-release.yml` | tag, dispatch | `contents: write` in the attach job | Tier 4 |
-| `scorecard.yml` | push `main`, weekly, dispatch | OIDC, read-only token | Tier 3 |
+| `publish.yml` | tag `v*`, dispatch | build: OIDC and attestations (no environment); PyPI/Registry: OIDC behind protected environments | Tier 4 |
+| `workbuddy-release.yml` | tag, dispatch | `contents: write` in attach job (no environment) | Tier 4 |
+| `dsh-bundle-release.yml` | tag, dispatch | `contents: write` in attach job (no environment) | Tier 4 |
+| `scorecard.yml` | push `main`, weekly, dispatch on `main` | read-only `GITHUB_TOKEN`; OIDC `id-token: write` | Tier 3 |
 
 ## Trust boundary analysis
 
@@ -43,21 +43,32 @@ repository.
 whose head repository differs from this one. No workflow uses
 `pull_request_target`.
 
-**Tag workflows.** `publish.yml`, `workbuddy-release.yml` and
-`dsh-bundle-release.yml` only run for tags. They hold OIDC or
-`contents: write`, both behind protected environments (`pypi`, `mcp-registry`).
-No pull request can trigger them.
+**Release workflows.** `publish.yml`, `workbuddy-release.yml` and
+`dsh-bundle-release.yml` also support `workflow_dispatch`. Their build jobs
+require a matching release tag (`refs/tags/v*` or
+`refs/tags/dsh-bundle-v*`), so dispatching from a branch skips the build and
+its dependent privileged jobs. None declares a `pull_request` trigger. The
+`publish.yml` build job requests `id-token: write` and `attestations: write`
+without an environment; it needs these permissions only to attest newly built
+artifacts. Its PyPI and Registry publication jobs use OIDC behind the `pypi`
+and `mcp-registry` environments. The WorkBuddy and DSH attachment jobs request
+`contents: write` without a protected environment.
 
 **Artifacts.** `distributions` crosses from build to the PyPI job, which
-publishes it with OIDC. Both jobs run from the same tag. The release workflows
-never consume an artifact produced by a pull request.
+publishes it with OIDC when the PyPI version is new. Both jobs run from the same
+tag. The build attests only files it built in that run; reused public PyPI bytes
+are not attested as new build output. The release workflows never consume an
+artifact produced by a pull request.
 
 **Caches.** No release workflow reads a cache. `setup-go` in `publish.yml` and
 `setup-node` in `dsh-bundle-release.yml` now disable caching explicitly, which
 removes a cache-poisoning path from the publishing context.
 
-**OIDC.** Only `publish.yml` (PyPI and registry jobs) and `scorecard.yml` request
-`id-token: write`. Both are outside pull request reach.
+**OIDC.** `publish.yml`'s build, PyPI and Registry jobs, and `scorecard.yml`
+request `id-token: write`. The build job attests newly built artifacts; the
+PyPI and Registry jobs publish behind protected environments. Scorecard's
+`GITHUB_TOKEN` is read-only; `id-token: write` only enables the separate OIDC
+identity used to publish the score.
 
 **`workflow_run`.** No workflow uses it in this repository.
 
@@ -67,11 +78,11 @@ removes a cache-poisoning path from the publishing context.
 | --- | --- | --- | --- |
 | F-01 | High | `publish.yml` verified only that the tag matched the version and that the commit was an ancestor of `main`. A commit whose required workflows failed could publish. | Fixed. `scripts/check_release_gate.py` requires a successful push-to-`main` run of `Distribution CI`, `Cross-harness integration`, `Repository quality` and `CodeQL` for the exact 40-character tagged SHA, before the build starts. |
 | F-02 | Medium | Release jobs read the Actions cache through `setup-go` and `setup-node`. A lower-privilege run can write that cache. | Fixed. Caching is disabled in both release workflows. |
-| F-03 | Medium | Distributions had no provenance statement outside PyPI Trusted Publishing. | Fixed. The build job attests `dist/*` and requests `attestations: write` only there. |
+| F-03 | Medium | Distributions had no provenance statement outside PyPI Trusted Publishing. | Fixed. The build job attests only newly built `dist/*`; when it reuses public PyPI bytes it skips attestation. `attestations: write` is limited to that build job. |
 | F-04 | Medium | Workflows were linted but not security-audited, and no job scanned incoming commits for secrets. | Fixed. The required `Python and workflow lint` job now also runs zizmor 1.32.0 and gitleaks 8.30.1, so both are covered by the existing branch protection without changing a required-check name. |
 | F-05 | Low | Dependency review failed on severity only; a strong-copyleft dependency could merge. | Fixed. It now denies AGPL-3.0, GPL-2.0, GPL-3.0 and SSPL-1.0. |
 | F-06 | Low | Dependabot adopted new releases immediately. | Fixed. Seven-day cooldown on both ecosystems. |
-| F-07 | Low | zizmor reports five ad-hoc npm installs. | Accepted and scoped per file in `.github/zizmor.yml`: globally installed CLIs have no lockfile, each pin is exact, and the jobs hold no repository or publishing credential. The `dsh-next` probe resolves floating dist-tags into a runner-only lock by design. |
+| F-07 | Low | zizmor reports five ad-hoc npm installs. | Accepted and scoped per file in `.github/zizmor.yml`: globally installed CLIs have no lockfile, each pin is exact, and the jobs hold no publishing credential. The `dsh-next` probe has only the automatic `GITHUB_TOKEN` with `contents: read`; both checkouts disable credential persistence. It resolves floating dist-tags into a runner-only lock by design. |
 | F-08 | Medium | `main` requires 17 individual status contexts, including every matrix leg of `Distribution`. Renaming a matrix label silently blocks merges, and the `registry` context name exists in two workflows. | Open. Documented below with the recommended aggregate and the exact rollback. |
 | F-09 | Accepted | `main` requires zero approving reviews. A solo maintainer cannot approve their own pull request. | Accepted with CODEOWNERS as the review prompt. |
 | F-10 | Accepted | `gh api` release-gate reads need `actions: read`. | Least privilege for the read-only API call. |
@@ -111,16 +122,18 @@ Verified through the API on 2026-11-05:
 | Prepare WorkBuddy assets | 12 | 100% | 0% | 0% | 2 min | 3 min |
 
 Cancellations track the `codex/**` dual lane (push plus pull request for the
-same commit) and are deliberate. Per-commit cost is a duplicate matrix, not a
-duplicate paid-service call, because only SonarCloud holds a credential and it
-runs on trusted trees.
+same commit) and are deliberate. The push and pull request use different
+`github.ref` concurrency groups, so both SonarCloud jobs may run when neither is
+cancelled. This can produce two SonarCloud analyses for one commit; the other
+duplicate work is the validation matrix.
 
 ## Verification
 
-- `pytest tests/test_ci_security.py`: 28 passed. Covers exact-SHA matching,
-  wrong-SHA, wrong-branch, pull-request-only evidence, missing and incomplete
-  runs, gate ordering before `python -m build`, cache disabling, the new lint
-  steps and the zizmor scope.
+- `pytest tests/test_ci_security.py tests/test_release_gate.py`: 31 passed.
+  Covers exact-SHA matching, wrong-SHA,
+  wrong-branch, pull-request-only evidence, missing and incomplete runs, API
+  pagination, gate ordering before `python -m build`, cache disabling, the new
+  lint steps and the zizmor scope.
 - actionlint 1.7.12 on the whole tree: clean.
 - zizmor 1.32.0 offline: no findings with five file-scoped exceptions.
 - gitleaks 8.30.1 over the full history: zero findings.

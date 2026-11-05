@@ -37,6 +37,22 @@ def test_quality_lint_carries_the_free_security_checks():
     assert "gitleaks_8.30.1_linux_x64.tar.gz" in secret
     assert "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb" in secret
     assert "--redact" in secret
+    scan = next(
+        step
+        for step in job["steps"]
+        if step.get("name") == "Scan the commits introduced by this event"
+    )
+    assert (
+        scan["env"]["BASE_SHA"]
+        == "${{ github.event.pull_request.base.sha || github.event.before }}"
+    )
+    assert (
+        scan["env"]["HEAD_SHA"]
+        == "${{ github.event.pull_request.head.sha || github.sha }}"
+    )
+    assert 'scan_range="$base..$HEAD_SHA"' in scan["run"]
+    assert "--diff-merges=first-parent" in scan["run"]
+    assert '--log-opts="$scan_range"' in scan["run"]
 
 
 def test_dependency_review_fails_closed_on_severity_and_license():
@@ -57,7 +73,9 @@ def test_scorecard_never_gates_a_pull_request():
     workflow = _workflow("scorecard.yml")
     assert set(workflow["on"]) == {"push", "schedule", "workflow_dispatch"}
     assert workflow["on"]["push"]["branches"] == ["main"]
+    assert workflow["jobs"]["analysis"]["if"] == "github.ref == 'refs/heads/main'"
     assert workflow["jobs"]["analysis"]["permissions"]["id-token"] == "write"
+    assert "security-events" not in workflow["jobs"]["analysis"]["permissions"]
 
 
 def test_credential_free_jobs_hold_no_secret():
