@@ -9,7 +9,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
-from check_release_gate import REQUIRED_WORKFLOWS, check_release_gate  # noqa: E402
+from check_release_gate import REQUIRED_WORKFLOWS, check_release_gate, main  # noqa: E402
 
 WORKFLOWS = ROOT / ".github/workflows"
 SHA = "b" * 40
@@ -112,6 +112,24 @@ def test_release_gate_rejects_short_sha():
     """A short revision cannot identify a workflow run."""
     with pytest.raises(ValueError):
         check_release_gate("cnkang/qdrant-memory-mcp", SHA[:12], fetch=_fetch([]))
+
+
+def test_main_reports_the_decision(monkeypatch, capsys):
+    """The tag workflow calls main(), so both exit paths need coverage."""
+    monkeypatch.setenv("GITHUB_REPOSITORY", "cnkang/qdrant-memory-mcp")
+    monkeypatch.setenv("GITHUB_SHA", SHA)
+    monkeypatch.setattr(
+        "check_release_gate._fetch_runs",
+        lambda repository, sha: [_run(name) for name in REQUIRED_WORKFLOWS],
+    )
+    assert main([]) == 0
+    assert '"passed": true' in capsys.readouterr().out
+
+    monkeypatch.setattr("check_release_gate._fetch_runs", lambda repository, sha: [])
+    assert main([]) == 1
+    captured = capsys.readouterr()
+    assert '"passed": false' in captured.out
+    assert "Release gate failed" in captured.err
 
 
 def test_publish_runs_the_gate_before_building():
