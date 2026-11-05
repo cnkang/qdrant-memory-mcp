@@ -24,14 +24,28 @@ Both jobs reject skipped tests.
 - Repository quality runs Ruff on release scripts and tests.
   It runs actionlint on every workflow, including shell steps.
   CI verifies the SHA256 digest of the actionlint archive.
+  The same job runs zizmor 1.32.0, pinned to an exact version, and fails on any
+  workflow finding.
+  Five file-scoped exceptions cover pinned global CLIs and the `next` resolution
+  probe; no rule is disabled globally.
+  The job also runs gitleaks 8.30.1 over the commits that the event introduced,
+  with redacted output and no artifact.
 - CodeQL analyzes Python and GitHub Actions with `security-extended` queries
   on PRs, main pushes and every Monday. The paired init/analyze actions use the
   same immutable commit.
 - Dependency review blocks PRs that introduce high or critical dependency
-  vulnerabilities. It uses read-only access and does not post PR comments.
+  vulnerabilities.
+  It also rejects AGPL-3.0, GPL-2.0, GPL-3.0 and SSPL-1.0 dependencies.
+  It uses read-only access and does not post PR comments.
 - Dependabot checks pip manifests and GitHub Actions each Monday at 09:00
-  Asia/Singapore, grouping updates by ecosystem. Updates remain reviewed PRs.
+  Asia/Singapore, grouping updates by ecosystem.
+  A seven-day cooldown keeps a just-published release out of the build.
+  Updates remain reviewed PRs.
   There is no automatic merge or publication.
+- OpenSSF Scorecard publishes a governance score on `main` pushes, weekly, and
+  on dispatch.
+  It uses the workflow's own OIDC identity and a read-only token.
+  It never gates a pull request and creates no long-lived token.
 
 Actions use immutable commit pins. Dependabot updates both occurrences of the
 CodeQL action together. The repository enables Dependabot security updates, secret scanning,
@@ -87,4 +101,16 @@ This repository scans distribution scripts and workflows.
 The upstream Runtime repository scans Runtime business code.
 
 Publication requires a tag, the existing protected environments, and explicit confirmation.
+The build job first verifies that `Distribution CI`, `Cross-harness integration`,
+`Repository quality` and `CodeQL` each produced a successful push-to-`main` run
+for the exact tagged commit.
+A failed, cancelled, skipped or missing run blocks the build before any
+distribution exists.
+The job then attests `dist/*` with GitHub artifact attestations, in addition to
+the provenance that PyPI Trusted Publishing records.
+Release workflows read no Actions cache.
 New checks do not trigger a release.
+The trust boundaries, the findings and the 30-day run baseline are in
+[CI security audit](ci-security-audit.md).
+Free-tier limits and the dashboard settings that only the maintainer can confirm
+are in [CI free-tier policy](ci-free-tier-policy.md).
