@@ -62,8 +62,9 @@ the source table as a publication receipt.
    tarball for publication. Windows npm pack output has a different integrity
    and is not the release artifact. Review the pin and tarball together, then
    merge the MCP release PR.
-4. Publish MCP v0.3.0 and verify PyPI plus Registry. Publish the reviewed Skills
-   snapshot through its own workflow. Complete Python package publication before npm.
+4. Verify MCP v0.3.0 is available on PyPI and the official MCP Registry. Publish
+   the reviewed Skills snapshot through its own workflow. Complete any required
+   Python package publication before npm.
 5. Publish the reviewed launcher bytes with `npm publish
    dist/launcher/cnkang-qdrant-memory-launcher-0.1.0-rc.8.tgz --access public --tag next`.
    Give the operator the actual npm web authorization URL; they complete that step.
