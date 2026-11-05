@@ -156,5 +156,9 @@ duplicate work is the validation matrix.
   `publish.yml` (publication). Pull request checks can only be satisfied by the
   validation job, so this is a UI ambiguity rather than a bypass; the follow-up
   aggregate would remove it.
-- A tag can point at an older commit with green workflows. That is the intended
-  semantic: the gate verifies the tagged commit, not the branch tip.
+- A tag on a commit that predates the gate runs that commit's `publish.yml`,
+  which has no exact-SHA step. Such a tag is not gated. The check applies to
+  commits that contain the step, which starts at `70249cf`.
+- A tag on a gated commit can point at an older commit with green workflows.
+  That is the intended semantic: the gate verifies the tagged commit, not the
+  branch tip.
