@@ -1,11 +1,15 @@
 """Keep public release acceptance and documented launchers on the selected version."""
 
+import os
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 import tomllib
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -45,6 +49,7 @@ def test_public_protocol_install_tracks_project_version(tmp_path):
 
 
 def test_current_workbuddy_and_dsh_instructions_track_project_version():
+    """Ensure published integration instructions use the current release."""
     project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     requirement = f"qdrant-memory-mcp=={project['project']['version']}"
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
@@ -65,3 +70,42 @@ def test_current_workbuddy_and_dsh_instructions_track_project_version():
     architecture = (ROOT / "docs/cross-harness-architecture.md").read_text(encoding="utf-8")
     assert f"| Python MCP | {project['project']['version']} |" in architecture
     assert f"| Runtime | {runtime_version} |" in architecture
+
+
+def test_workbuddy_migration_confirms_empty_exports_on_shell_and_powershell():
+    """Require operators to confirm an empty WorkBuddy migration export."""
+    guide = (ROOT / "integrations/workbuddy/README.md").read_text(encoding="utf-8")
+
+    assert guide.count("Export count does not match exported memories.") == 2
+    assert 'if [ "$EXPORT_COUNT" -eq 0 ]; then' in guide
+    assert 'if [ "$CONFIRM_EMPTY_EXPORT" != yes ]; then' in guide
+    assert "if ($ExportCount -eq 0) {" in guide
+    assert "if ($ConfirmEmptyExport -cne 'yes')" in guide
+
+
+def test_workbuddy_powershell_migration_example_parses_when_available(tmp_path):
+    """Parse the documented PowerShell migration example when PowerShell exists."""
+    executable = shutil.which("pwsh") or shutil.which("powershell")
+    if executable is None:
+        pytest.skip("PowerShell is unavailable on this platform.")
+
+    guide = (ROOT / "integrations/workbuddy/README.md").read_text(encoding="utf-8")
+    block = guide.split("```powershell\n", 1)[1].split("\n```", 1)[0]
+    script_path = tmp_path / "workbuddy-migration.ps1"
+    script_path.write_text(block, encoding="utf-8")
+    parser = (
+        "$tokens = $null; $errors = $null; "
+        "[System.Management.Automation.Language.Parser]::ParseFile("
+        "$env:WORKBUDDY_MIGRATION_SCRIPT, [ref]$tokens, [ref]$errors) | Out-Null; "
+        "if ($errors.Count -gt 0) { "
+        "$errors | ForEach-Object { [Console]::Error.WriteLine($_.Message) }; exit 1 }"
+    )
+    result = subprocess.run(
+        [executable, "-NoProfile", "-NonInteractive", "-Command", parser],
+        capture_output=True,
+        text=True,
+        env={**os.environ, "WORKBUDDY_MIGRATION_SCRIPT": str(script_path)},
+        timeout=10,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr

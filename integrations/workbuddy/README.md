@@ -139,18 +139,40 @@ MODEL_CACHE="$ROOT/models/workbuddy-migration-$STAMP"
 MIGRATION_DIR="$HOME/qdrant-memory-migration-$STAMP"
 OLD_RUNTIME="$ROOT/programs/<old-revision>/<dependency-lock-prefix>/<platform>-<architecture>/env/bin/qdrant-memory"
 NEW_RUNTIME="$ROOT/programs/<current-revision>/<dependency-lock-prefix>/<platform>-<architecture>/env/bin/qdrant-memory"
+NEW_PYTHON="${NEW_RUNTIME%/qdrant-memory}/python"
 test -d "$OLD_PROFILE"
 test ! -e "$NEW_PROFILE"
 test ! -e "$BACKUP_PROFILE"
 test ! -e "$MODEL_CACHE"
 test -x "$OLD_RUNTIME"
 test -x "$NEW_RUNTIME"
+test -x "$NEW_PYTHON"
 mkdir -m 700 "$MIGRATION_DIR"
 cd "$MIGRATION_DIR"
 "$NEW_RUNTIME" setup --profile "$NEW_PROFILE" --embedding-provider fastembed \
   --model-cache-dir "$MODEL_CACHE" --user-id my-user --agent-id my-agent
 "$OLD_RUNTIME" --home "$OLD_PROFILE" export \
   --user my-user --agent my-agent --output memories.json
+EXPORT_COUNT=$("$NEW_PYTHON" -c '
+import json
+from pathlib import Path
+
+payload = json.loads(Path("memories.json").read_text(encoding="utf-8"))
+count = payload.get("count")
+records = payload.get("memories")
+if type(count) is not int or not isinstance(records, list) or count != len(records):
+    raise SystemExit("Export count does not match exported memories.")
+print(count)
+')
+printf 'Exported %s memories for user my-user and agent my-agent.\n' "$EXPORT_COUNT"
+if [ "$EXPORT_COUNT" -eq 0 ]; then
+  printf 'Export contains zero memories. Type yes only if this scope is expected to be empty: '
+  read -r CONFIRM_EMPTY_EXPORT
+  if [ "$CONFIRM_EMPTY_EXPORT" != yes ]; then
+    printf 'Stopped before importing or switching WorkBuddy profiles.\n' >&2
+    exit 1
+  fi
+fi
 "$NEW_RUNTIME" --home "$NEW_PROFILE" migrate mem0 \
   --source-json memories.json --dry-run
 "$NEW_RUNTIME" --home "$NEW_PROFILE" migrate mem0 \
@@ -180,17 +202,34 @@ $ModelCache = Join-Path $Root "models\workbuddy-migration-$Stamp"
 $MigrationDir = Join-Path $HOME "qdrant-memory-migration-$Stamp"
 $OldRuntime = Join-Path $Root 'programs\<old-revision>\<dependency-lock-prefix>\<platform>-<architecture>\env\Scripts\qdrant-memory.exe'
 $NewRuntime = Join-Path $Root 'programs\<current-revision>\<dependency-lock-prefix>\<platform>-<architecture>\env\Scripts\qdrant-memory.exe'
+$NewPython = Join-Path (Split-Path -Parent $NewRuntime) 'python.exe'
 if (-not (Test-Path -LiteralPath $OldProfile -PathType Container)) { throw 'Old WorkBuddy profile does not exist.' }
 if ((Test-Path -LiteralPath $NewProfile) -or (Test-Path -LiteralPath $BackupProfile)) { throw 'Migration profile path already exists.' }
 if (Test-Path -LiteralPath $ModelCache) { throw 'Migration model cache path already exists.' }
 if (-not (Test-Path -LiteralPath $OldRuntime -PathType Leaf)) { throw 'Old Runtime executable does not exist.' }
 if (-not (Test-Path -LiteralPath $NewRuntime -PathType Leaf)) { throw 'Current Runtime executable does not exist.' }
+if (-not (Test-Path -LiteralPath $NewPython -PathType Leaf)) { throw 'Current Runtime Python executable does not exist.' }
 New-Item -ItemType Directory -Path $MigrationDir | Out-Null
 Set-Location $MigrationDir
 & $NewRuntime setup --profile $NewProfile --embedding-provider fastembed --model-cache-dir $ModelCache --user-id my-user --agent-id my-agent
 if ($LASTEXITCODE -ne 0) { throw "FastEmbed profile setup failed with exit code $LASTEXITCODE." }
-& $OldRuntime --home $OldProfile export --user my-user --agent my-agent --output memories.json
+$ExportFile = Join-Path $MigrationDir 'memories.json'
+& $OldRuntime --home $OldProfile export --user my-user --agent my-agent --output $ExportFile
 if ($LASTEXITCODE -ne 0) { throw "Runtime export failed with exit code $LASTEXITCODE." }
+$ExportDocument = Get-Content -LiteralPath $ExportFile -Raw | ConvertFrom-Json
+if (
+  $null -eq $ExportDocument.PSObject.Properties['count'] -or
+  $null -eq $ExportDocument.PSObject.Properties['memories'] -or
+  ($ExportDocument.count -isnot [int] -and $ExportDocument.count -isnot [long]) -or
+  $ExportDocument.memories -isnot [array] -or
+  $ExportDocument.count -ne $ExportDocument.memories.Count
+) { throw 'Export count does not match exported memories.' }
+$ExportCount = [long]$ExportDocument.count
+Write-Host "Exported $ExportCount memories for user my-user and agent my-agent."
+if ($ExportCount -eq 0) {
+  $ConfirmEmptyExport = Read-Host 'Export contains zero memories. Type yes only if this scope is expected to be empty'
+  if ($ConfirmEmptyExport -cne 'yes') { throw 'Stopped before importing or switching WorkBuddy profiles.' }
+}
 & $NewRuntime --home $NewProfile migrate mem0 --source-json memories.json --dry-run
 if ($LASTEXITCODE -ne 0) { throw "Migration dry run failed with exit code $LASTEXITCODE." }
 & $NewRuntime --home $NewProfile migrate mem0 --source-json memories.json --verify
