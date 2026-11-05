@@ -57,11 +57,11 @@ the source table as a publication receipt.
 3. Before checkout, set Git's `core.autocrlf=false` so launcher files stay LF;
    CRLF bytes change the tarball and its SHA-512. Pack the reviewed launcher on
    Ubuntu or macOS with `python
-   scripts/pack_launcher.py --output-dir dist/launcher`. Confirm the output's
-   SHA-512 matches `launcher-source.json` and keep that exact tarball for
-   publication. Windows npm pack output has a different integrity and is not the
-   release artifact. Review the pin and tarball together, then merge the MCP
-   release PR.
+   scripts/pack_launcher.py --output-dir dist/launcher`. The packer compares its
+   SHA-512 with `launcher-source.json` and fails on a mismatch. Keep that exact
+   tarball for publication. Windows npm pack output has a different integrity
+   and is not the release artifact. Review the pin and tarball together, then
+   merge the MCP release PR.
 4. Publish MCP v0.3.0 and verify PyPI plus Registry. Publish the reviewed Skills
    snapshot through its own workflow. Complete Python package publication before npm.
 5. Publish the reviewed launcher bytes with `npm publish

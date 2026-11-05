@@ -58,6 +58,7 @@ def main():
         raise ValueError("Repository output must be dist/launcher")
     if any(p.is_symlink() for p in [output, *output.parents]):
         raise ValueError("Output symlink forbidden")
+    pin = json.loads((ROOT / "launcher-source.json").read_text(encoding="utf-8"))
     output.mkdir(parents=True, exist_ok=True)
     # Pack in a fresh destination: never replace an existing release artifact.
     meta = json.loads((source / "package.json").read_text(encoding="utf-8"))
@@ -74,6 +75,9 @@ def main():
     if packed["filename"] != filename:
         raise ValueError("Unexpected npm package identity")
     archive = output / filename
+    if packed.get("integrity") != pin.get("integrity"):
+        archive.unlink(missing_ok=True)
+        raise ValueError("Packed launcher integrity differs from launcher-source.json")
     print(json.dumps({"archive": str(archive), "sha256": inspect(archive, source), "integrity": packed["integrity"]}))
 
 
