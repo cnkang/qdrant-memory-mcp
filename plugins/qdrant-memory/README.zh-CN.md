@@ -18,6 +18,10 @@ Marketplace 展示名为 **Kang's plugins**，标识为 `cnkang`；安装选择�
 中的不可变源码提交；安装前确认准确依赖版本已公开。没有新增记忆引擎；
 Hermes、DSH 和 WorkBuddy 按各自的版本及验收门禁独立发布。
 
+每次更新插件后，重新执行下方固定的 `uv pip install` 命令，再重新连接。
+启动器会核对已安装的 MCP distribution 版本是否与 `release.json` 一致；版本过期时会停止，
+并且不会在启动时联网安装或升级依赖。
+
 首次运行 setup 技能，选择新建隔离 Profile、预览后迁入原生记忆，或连接已授权的
 现有目的地。默认 CPU FastEmbed 0.9.1；模型约 252 MB，下载需批准，已缓存可离线。
 128 token 以上输入明确失败，不静默截断，也不切换云服务。Ollama 和兼容 OpenAI
@@ -29,7 +33,9 @@ Hermes、DSH 和 WorkBuddy 按各自的版本及验收门禁独立发布。
 `qdrant-memory --home PROFILE codex migrate --codex-home APPROVED_HOME --confirm --verify`。
 重试使用相同的 `--codex-home APPROVED_HOME`，并支持 `--resume --retry-failed`。
 默认排除原始聊天、支持证据、代码块和疑似凭据。敏感信息检测不能替代人工审核。
-原生文件不会移动、覆盖或删除。多 Agent 并发必须使用原有 Shared Owner，不能让
+原生文件不会移动、覆盖或删除。自定义 `QDRANT_MEMORY_CODEX_EXECUTABLE` 时，Python
+默认取其虚拟环境中的解释器；若位置不同，也要设置 `QDRANT_MEMORY_CODEX_PYTHON`。
+多 Agent 并发必须使用原有 Shared Owner，不能让
 多个独立 Ledger 直接写同一 Collection。受保护目的地不会被迁移 CLI 绕过。
 
 退出时用 `qdrant-memory --home PROFILE codex export --output ./新目录 --confirm`，

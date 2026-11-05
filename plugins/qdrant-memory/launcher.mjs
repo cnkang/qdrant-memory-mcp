@@ -1,5 +1,5 @@
 /** Codex's portable stdio entrypoint. Python Runtime owns every memory operation. */
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { access, lstat, readFile } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { homedir } from 'node:os';
@@ -11,8 +11,34 @@ export function locations(env = process.env, home = homedir(), platform = proces
   const profile = env.QDRANT_MEMORY_CODEX_PROFILE || join(root, 'profile');
   const executable = env.QDRANT_MEMORY_CODEX_EXECUTABLE || join(root, 'runtime',
     platform === 'win32' ? 'Scripts' : 'bin', platform === 'win32' ? 'qdrant-memory.exe' : 'qdrant-memory');
-  if (![root, profile, executable].every(isAbsolute)) throw new Error('Absolute paths required');
-  return { root, profile, executable };
+  const python = env.QDRANT_MEMORY_CODEX_PYTHON || join(dirname(executable),
+    platform === 'win32' ? 'python.exe' : 'python');
+  if (![root, profile, executable, python].every(isAbsolute)) throw new Error('Absolute paths required');
+  return { root, profile, executable, python };
+}
+
+/** Refuse to start with an MCP distribution that differs from this plugin pin. */
+export function assertMcpVersion(release, installed) {
+  if (installed !== release.mcp_distribution_version) {
+    throw new Error('Installed MCP version does not match the plugin pin. Run the setup skill to refresh the pinned environment.');
+  }
+}
+
+/** Read the installed MCP version from this virtual environment and validate it. */
+async function verifyMcpVersion(paths) {
+  const release = JSON.parse(await readFile(new URL('./release.json', import.meta.url), 'utf8'));
+  const script = [
+    'import importlib.metadata as metadata, json',
+    'print(json.dumps(metadata.version("qdrant-memory-mcp")))',
+  ].join('\n');
+  const result = spawnSync(paths.python, ['-c', script], {
+    encoding: 'utf8', timeout: 10000, maxBuffer: 256 * 1024, windowsHide: true,
+    env: { ...process.env, PYTHONNOUSERSITE: '1', PYTHONPATH: '', PYTHONHOME: '' },
+  });
+  if (result.error || result.status !== 0) {
+    throw new Error('Could not verify the pinned MCP package. Run the setup skill to refresh the pinned environment.');
+  }
+  assertMcpVersion(release, JSON.parse(result.stdout));
 }
 
 async function canonical(path) {
@@ -32,6 +58,9 @@ export async function launch(mode, env = process.env) {
   await canonical(paths.executable);
   await canonical(paths.profile);
   await access(paths.executable, constants.X_OK);
+  // POSIX virtual environments commonly expose Python through a symlink.
+  await access(paths.python, constants.X_OK);
+  await verifyMcpVersion(paths);
   const owner = env.QDRANT_MEMORY_CODEX_OWNER_URL;
   if (!owner) {
     await canonical(join(paths.profile, 'qdrant-memory.json'));
@@ -63,7 +92,7 @@ export async function launch(mode, env = process.env) {
 if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {
   try { process.exitCode = await launch(process.argv[2] || 'mcp'); }
   catch {
-    console.error('Qdrant Memory is not ready. Run the plugin setup skill; check Node, the pinned Runtime, profile and WriterLease. No data was reset.'
+    console.error('Qdrant Memory is not ready. Run the setup skill to install or update the pinned Python environment; check Node, Python, profile and WriterLease. No data was reset.'
       + ` Explicit executable: ${Boolean(process.env.QDRANT_MEMORY_CODEX_EXECUTABLE)}; explicit profile: ${Boolean(process.env.QDRANT_MEMORY_CODEX_PROFILE)}.`);
     process.exitCode = 1;
   }

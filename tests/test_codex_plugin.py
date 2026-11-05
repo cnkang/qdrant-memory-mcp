@@ -469,8 +469,30 @@ for (const platform of ['linux', 'win32']) {
   assert.equal(paths.profile, join(home, '.qdrant-memory', 'codex', 'profile'));
   assert.equal(paths.executable, join(home, '.qdrant-memory', 'codex', 'runtime',
     platform === 'win32' ? 'Scripts' : 'bin', platform === 'win32' ? 'qdrant-memory.exe' : 'qdrant-memory'));
+  assert.equal(paths.python, join(home, '.qdrant-memory', 'codex', 'runtime',
+    platform === 'win32' ? 'Scripts' : 'bin', platform === 'win32' ? 'python.exe' : 'python'));
 }
 assert.throws(() => locations({QDRANT_MEMORY_CODEX_ROOT: 'relative'}, home), /Absolute paths/);
+console.log('PASS');
+"""
+    result = subprocess.run(
+        ["node", "--input-type=module", "-e", script],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert result.stdout.strip() == "PASS"
+
+
+def test_launcher_rejects_stale_mcp_pin():
+    """Refuse plugin startup when the reusable environment has an old MCP pin."""
+    script = """
+import { assertMcpVersion } from './plugins/qdrant-memory/launcher.mjs';
+import assert from 'node:assert/strict';
+const release = {mcp_distribution_version: '0.3.1'};
+assert.doesNotThrow(() => assertMcpVersion(release, '0.3.1'));
+assert.throws(() => assertMcpVersion(release, '0.3.0'), /setup skill/);
 console.log('PASS');
 """
     result = subprocess.run(

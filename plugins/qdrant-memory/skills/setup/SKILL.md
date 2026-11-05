@@ -29,7 +29,9 @@ external services or migrating existing native memories.
    the model. A verified cache works offline; missing CPU dependencies or model
    must fail, without cloud fallback. The model rejects inputs over 128 tokens.
 5. Follow `README.md` in the plugin for the pinned private environment install.
-   Run the actual Runtime `--help`, then `setup --profile CANONICAL_PROFILE
+   After every plugin update, rerun its pinned `uv pip install` command before
+   reconnecting; the launcher stops if the installed MCP version is stale
+   and never updates packages automatically. Run the actual Runtime `--help`, then `setup --profile CANONICAL_PROFILE
    --embedding-provider fastembed --agent-id codex --model-cache-dir CANONICAL_CACHE`.
    Setup owns initialization and WriterLease; never create storage directly.
    Keep model cache outside the profile. Do not put secrets in arguments or files.
