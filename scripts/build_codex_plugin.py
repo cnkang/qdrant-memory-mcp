@@ -102,6 +102,7 @@ def validate(root=PLUGIN, files=None):
             "QDRANT_MEMORY_CODEX_ROOT",
             "QDRANT_MEMORY_CODEX_PROFILE",
             "QDRANT_MEMORY_CODEX_EXECUTABLE",
+            "QDRANT_MEMORY_CODEX_PYTHON",
             "QDRANT_MEMORY_CODEX_OWNER_URL",
             "QDRANT_MEMORY_SHARED_TOKEN",
             "QDRANT_API_KEY",
