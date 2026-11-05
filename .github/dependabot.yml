@@ -10,6 +10,8 @@ updates:
     open-pull-requests-limit: 5
     commit-message:
       prefix: 'build(deps)'
+    cooldown:
+      default-days: 7
     groups:
       python-dependencies:
         patterns: ['*']
@@ -23,6 +25,8 @@ updates:
     open-pull-requests-limit: 5
     commit-message:
       prefix: 'ci(deps)'
+    cooldown:
+      default-days: 7
     groups:
       github-actions:
         patterns: ['*']
