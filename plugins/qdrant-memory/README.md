@@ -37,6 +37,11 @@ uv pip install --python ~/.qdrant-memory/codex/runtime/bin/python -r requirement
 node launcher.mjs doctor
 ```
 
+After each plugin update, rerun the pinned `uv pip install` command above before
+reconnecting. The launcher checks the installed MCP distribution version against
+`release.json` and stops if it is stale; it never installs or upgrades packages
+during launch.
+
 Run these commands from this plugin directory; on Windows use the environment's
 `Scripts/python.exe` and `Scripts/qdrant-memory.exe`. Approve approximately 252 MB
 for the pinned model download. Cache verification is offline thereafter. CPU
@@ -53,8 +58,10 @@ Large CPU sections fail rather than silently truncate.
 
 Default paths are under `~/.qdrant-memory/codex`. Trusted host environment can
 override `QDRANT_MEMORY_CODEX_ROOT`, `QDRANT_MEMORY_CODEX_PROFILE` and
-`QDRANT_MEMORY_CODEX_EXECUTABLE` using absolute canonical paths. Set them in the
-actual Codex host environment, then restart/reconnect the plugin.
+`QDRANT_MEMORY_CODEX_EXECUTABLE` using absolute canonical paths. The Python
+interpreter defaults to the executable's virtual environment; set
+`QDRANT_MEMORY_CODEX_PYTHON` too when using a custom executable location. Set
+overrides in the actual Codex host environment, then restart/reconnect the plugin.
 For concurrent agents use the authorized Runtime Shared Owner via
 `QDRANT_MEMORY_CODEX_OWNER_URL` and `QDRANT_MEMORY_SHARED_TOKEN`. This chooses
 `shared-mcp` instead of opening private storage. Never point independent ledgers
