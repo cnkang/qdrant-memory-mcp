@@ -45,9 +45,10 @@ PyPI 文件并对之测试，然后重跑 Registry 校验/发布。此过程不�
    SHA-256，再生成 Python 哈希锁。
 2. 合并审核通过的 Skill 更新，将真实提交固定到 connector、工作流 checkout 和
    Codex release manifest；保留历史验收记录。
-3. 使用 `python scripts/pack_launcher.py --output-dir dist/launcher` 打包，并在最终
-   审核前将真实 SHA-512 integrity 写入 `launcher-source.json`。解决问题后合并 MCP
-   发布 PR。
+3. 在 Ubuntu 或 macOS 使用 `python scripts/pack_launcher.py --output-dir dist/launcher`
+   打包已审核的 launcher。确认输出的 SHA-512 与 `launcher-source.json` 一致，并在发布时
+   使用这个确切 tarball。Windows 上 npm pack 得到的 integrity 不同，不能作为正式发布文件。
+   将 pin 和 tarball 一并审核，然后合并 MCP 发布 PR。
 4. 发布 MCP v0.3.0 并核验 PyPI、Registry；通过独立工作流发布审核后的 Skills
    快照。先完成 Python 包发布，再执行 npm 发布。
 5. 使用 `npm publish

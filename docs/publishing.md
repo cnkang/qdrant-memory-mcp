@@ -54,9 +54,12 @@ the source table as a publication receipt.
    commit, wheel URL, size and SHA-256; regenerate the Python hash locks.
 2. Merge the reviewed Skill update and pin its actual commit in the connector,
    workflow checkouts and Codex release manifest. Preserve historical evidence.
-3. Pack the reviewed launcher with `python scripts/pack_launcher.py --output-dir
-   dist/launcher`. Record the resulting SHA-512 integrity in `launcher-source.json`
-   before final review. Resolve findings and merge the MCP release PR.
+3. Pack the reviewed launcher on Ubuntu or macOS with `python
+   scripts/pack_launcher.py --output-dir dist/launcher`. Confirm the output's
+   SHA-512 matches `launcher-source.json` and keep that exact tarball for
+   publication. Windows npm pack output has a different integrity and is not the
+   release artifact. Review the pin and tarball together, then merge the MCP
+   release PR.
 4. Publish MCP v0.3.0 and verify PyPI plus Registry. Publish the reviewed Skills
    snapshot through its own workflow. Complete Python package publication before npm.
 5. Publish the reviewed launcher bytes with `npm publish
