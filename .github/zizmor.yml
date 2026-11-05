@@ -1,0 +1,16 @@
+# zizmor configuration.
+#
+# Three reviewed, file-scoped exceptions for pinned npm CLIs and for the
+# deliberate `next` resolution probe. Rules are never disabled globally.
+
+rules:
+  # A globally installed CLI has no lockfile to consume. Each install pins an
+  # exact version and the job holds no repository or publishing credential.
+  adhoc-packages:
+    ignore:
+      - codex-plugin-cloud.yml
+      - codex-plugin.yml
+      - cross-harness.yml
+      # The `next` probe resolves the floating dist-tags once into a runner-only
+      # lock, then installs from that lock. Nothing is committed or pushed.
+      - dsh-next.yml
