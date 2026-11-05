@@ -34,7 +34,7 @@ def main():
 
     run("plugin", "marketplace", "add", str(ROOT), "--json")
     installed = json.loads(run("plugin", "add", PLUGIN_ID, "--json"))
-    check(installed["version"] == "0.1.1", "Installed plugin version mismatch")
+    check(installed["version"] == "0.1.2", "Installed plugin version mismatch")
     cache = Path(installed["installedPath"])
     check((cache / "skills/setup/SKILL.md").is_file(), "Setup skill is missing")
     check(

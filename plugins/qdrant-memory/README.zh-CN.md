@@ -14,7 +14,7 @@ Marketplace 展示名为 **Kang's plugins**，标识为 `cnkang`；安装选择�
 其中 `test_evidence` 路径相对于插件 ZIP 根目录（`VERIFICATION.md`）。
 采用可移植 Agent Plugins 格式、Node 20+ stdio 启动层和已有 Python 3.11+ Runtime。
 安装还需要 uv 和 PATH 中可用的 Git，以获取锁定提交的 Runtime 源码。
-插件独立版本为 0.1.1，固定使用 MCP 0.3.0、Runtime 0.6.0 及 `release.json`
+插件独立版本为 0.1.2，固定使用 MCP 0.3.1、Runtime 0.6.0 及 `release.json`
 中的不可变源码提交；安装前确认准确依赖版本已公开。没有新增记忆引擎；
 Hermes、DSH 和 WorkBuddy 按各自的版本及验收门禁独立发布。
 
@@ -44,7 +44,6 @@ JSON 导出/导入仍可用于其他接入方。
 模型或 embedding 切换需要新的 Collection 或 Profile。创建新目的地、
 重新 embedding、恢复重试并验证，经批准后切换；原 Collection 保留，用于回退。
 
-当前是 GitHub Marketplace 候选包。真实验证和未完成项目见仓库验证记录。
-OpenAI 公共目录的本地 MCP 需合作伙伴许可、完整依赖打包和真实 Desktop 验证，
-尚未获官方审核通过，正式 Marketplace 提交仍暂停。Runtime、MCP 和其他适配器
-的独立发布，不代表 Codex Marketplace 已发布或 Desktop 验收已通过。
+Codex Marketplace `cnkang` 从这个公开 GitHub 仓库分发插件。OpenAI 公共目录是
+另一条独立提交渠道；这个本地 stdio 插件尚未提交到该目录。真实验收和未完成项见
+仓库验证记录。

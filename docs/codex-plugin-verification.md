@@ -1,5 +1,26 @@
 # Qdrant Memory for Codex: engineering and acceptance record
 
+## Current repository-marketplace candidate (2026-11-05)
+
+Candidate plugin 0.1.2 updates the exact MCP dependency to public release 0.3.1.
+It retains Runtime 0.6.0 at `dee6777432f17523db75f6be32cf3ef15e48235c` and
+the unchanged `qdrant-memory` Skill snapshot at
+`cc592289f126c786fd6c11038fcaa966c6de2b40`. The PR and protected cloud
+acceptance for these pins are pending; 0.1.1 evidence below does not certify 0.1.2.
+
+The Codex source marketplace is the public `cnkang/qdrant-memory-mcp` repository;
+its display name is **Kang's plugins** and the install selector is
+`qdrant-memory@cnkang`. The npm launcher 0.1.0-rc.8 is public, its registry
+integrity matches `launcher-source.json`, and both `latest` and `next` point to
+rc.8. This Codex plugin uses its bundled local launcher and does not depend on
+the managed npm launcher.
+
+The OpenAI public directory is a separate submission. The Plugin Creator copy
+is a private USER-scoped 0.1.1 plugin, and this local stdio package has not been
+submitted to the public directory.
+
+## Historical 0.1.1 verification record
+
 Date: 2026-11-04 (Asia/Singapore). Candidate: plugin 0.1.1. This is an engineering
 candidate, not an approved OpenAI public-directory release. Runtime, MCP and
 adapter publications follow their separate versioned release gates; they do not
