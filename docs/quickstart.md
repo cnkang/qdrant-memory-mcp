@@ -56,6 +56,10 @@ agent profile. Save this as `qdrant-memory.json` inside the new directory:
 }
 ```
 
+Before running these pinned initialization commands, confirm that [PyPI lists
+qdrant-memory-mcp 0.3.1](https://pypi.org/project/qdrant-memory-mcp/0.3.1/).
+Until it is published, follow the [published 0.3.0 quickstart](https://github.com/cnkang/qdrant-memory-mcp/blob/v0.3.0/docs/quickstart.md).
+
 Use a separate directory and `agent_id` for each client. Replace every
 `/path/to/workbuddy-profile` below with your actual absolute path. Keep quotes
 around paths with spaces. On Windows, use your Windows path. Double backslashes
@@ -72,10 +76,6 @@ another initialization. Existing-collection, compatibility or writer-lock errors
 require investigation. Do not add reset options or remove data/lock files.
 
 ## 4. Connect the client
-
-Before using this exact-version configuration, confirm that [PyPI lists
-qdrant-memory-mcp 0.3.1](https://pypi.org/project/qdrant-memory-mcp/0.3.1/).
-Until it is published, follow the [published 0.3.0 quickstart](https://github.com/cnkang/qdrant-memory-mcp/blob/v0.3.0/docs/quickstart.md).
 
 Add a custom stdio MCP in WorkBuddy with the following settings. Use the same
 profile path as step 3. The managed packaged connector uses its own `profiles/workbuddy/local` under

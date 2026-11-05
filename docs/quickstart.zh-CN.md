@@ -56,6 +56,10 @@ ollama pull qwen3-embedding:4b
 }
 ```
 
+运行以下固定版本初始化命令前，请确认 [PyPI 已列出
+qdrant-memory-mcp 0.3.1](https://pypi.org/project/qdrant-memory-mcp/0.3.1/)。
+发布前请先按[已发布的 0.3.0 快速入门](https://github.com/cnkang/qdrant-memory-mcp/blob/v0.3.0/docs/quickstart.zh-CN.md)操作。
+
 其他 agent 使用各自的新目录和 `agent_id`。在终端运行下列命令，把
 `/path/to/workbuddy-profile` **全部替换**为刚才的绝对路径；含空格时保留引号。
 Windows 也填写实际的绝对路径，JSON 中反斜杠写成 `\\`，或使用 `/`。
@@ -70,10 +74,6 @@ uvx --from qdrant-memory-mcp==0.3.1 qdrant-memory-mcp --home "/path/to/workbuddy
 模型不匹配或锁被占用，先解决原因，不要添加 reset 参数或删除数据/锁文件。
 
 ## 4. 在客户端连接 MCP
-
-使用此精确版本配置前，请确认 [PyPI 已列出
-qdrant-memory-mcp 0.3.1](https://pypi.org/project/qdrant-memory-mcp/0.3.1/)。
-发布前请先按[已发布的 0.3.0 快速入门](https://github.com/cnkang/qdrant-memory-mcp/blob/v0.3.0/docs/quickstart.zh-CN.md)操作。
 
 WorkBuddy 中添加自定义 stdio MCP，使用以下配置；将路径替换为步骤 3 的同一个目录。
 受管连接器使用其数据根目录下的 `profiles/workbuddy/local`，不会自动选择这里的
