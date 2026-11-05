@@ -1,6 +1,6 @@
 /** Codex's portable stdio entrypoint. Python Runtime owns every memory operation. */
 import { spawn, spawnSync } from 'node:child_process';
-import { access, lstat, readFile } from 'node:fs/promises';
+import { access, lstat, readFile, realpath } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
@@ -28,8 +28,8 @@ export function assertMcpVersion(release, installed) {
 async function verifyMcpVersion(paths) {
   const release = JSON.parse(await readFile(new URL('./release.json', import.meta.url), 'utf8'));
   const script = [
-    'import importlib.metadata as metadata, json',
-    'print(json.dumps(metadata.version("qdrant-memory-mcp")))',
+    'import importlib.metadata as metadata, json, sysconfig',
+    'print(json.dumps({"version": metadata.version("qdrant-memory-mcp"), "scripts": sysconfig.get_path("scripts")}))',
   ].join('\n');
   const result = spawnSync(paths.python, ['-c', script], {
     encoding: 'utf8', timeout: 10000, maxBuffer: 256 * 1024, windowsHide: true,
@@ -38,7 +38,22 @@ async function verifyMcpVersion(paths) {
   if (result.error || result.status !== 0) {
     throw new Error('Could not verify the pinned MCP package. Run the setup skill to refresh the pinned environment.');
   }
-  assertMcpVersion(release, JSON.parse(result.stdout));
+  const installed = JSON.parse(result.stdout);
+  assertMcpVersion(release, installed.version);
+  const executableName = process.platform === 'win32' ? 'qdrant-memory.exe' : 'qdrant-memory';
+  let configuredExecutable;
+  let pinnedEnvironmentExecutable;
+  try {
+    [configuredExecutable, pinnedEnvironmentExecutable] = await Promise.all([
+      realpath(paths.executable),
+      realpath(join(installed.scripts, executableName)),
+    ]);
+  } catch {
+    throw new Error('Could not bind the MCP executable to the Python environment used for version verification.');
+  }
+  if (configuredExecutable !== pinnedEnvironmentExecutable) {
+    throw new Error('MCP executable and Python interpreter must come from the same environment.');
+  }
 }
 
 async function canonical(path) {

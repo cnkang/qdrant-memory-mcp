@@ -57,11 +57,13 @@ resumable re-embedding, verification and approved client switch; retain the old 
 Large CPU sections fail rather than silently truncate.
 
 Default paths are under `~/.qdrant-memory/codex`. Trusted host environment can
-override `QDRANT_MEMORY_CODEX_ROOT`, `QDRANT_MEMORY_CODEX_PROFILE` and
-`QDRANT_MEMORY_CODEX_EXECUTABLE` using absolute canonical paths. The Python
-interpreter defaults to the executable's virtual environment; set
-`QDRANT_MEMORY_CODEX_PYTHON` too when using a custom executable location. Set
-overrides in the actual Codex host environment, then restart/reconnect the plugin.
+override `QDRANT_MEMORY_CODEX_ROOT`, `QDRANT_MEMORY_CODEX_PROFILE`,
+`QDRANT_MEMORY_CODEX_EXECUTABLE`, and `QDRANT_MEMORY_CODEX_PYTHON` using
+absolute paths. The Python interpreter defaults to the executable's
+virtual environment. When setting `QDRANT_MEMORY_CODEX_PYTHON`, select the
+interpreter for the environment that contains the `qdrant-memory` entrypoint;
+mismatched paths are rejected. Set overrides in the actual Codex host
+environment, then restart/reconnect the plugin.
 For concurrent agents use the authorized Runtime Shared Owner via
 `QDRANT_MEMORY_CODEX_OWNER_URL` and `QDRANT_MEMORY_SHARED_TOKEN`. This chooses
 `shared-mcp` instead of opening private storage. Never point independent ledgers

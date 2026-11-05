@@ -35,6 +35,7 @@ Hermes、DSH 和 WorkBuddy 按各自的版本及验收门禁独立发布。
 默认排除原始聊天、支持证据、代码块和疑似凭据。敏感信息检测不能替代人工审核。
 原生文件不会移动、覆盖或删除。自定义 `QDRANT_MEMORY_CODEX_EXECUTABLE` 时，Python
 默认取其虚拟环境中的解释器；若位置不同，也要设置 `QDRANT_MEMORY_CODEX_PYTHON`。
+可执行文件必须是该解释器环境中的 `qdrant-memory` 入口；路径不匹配时 launcher 会拒绝启动。
 多 Agent 并发必须使用原有 Shared Owner，不能让
 多个独立 Ledger 直接写同一 Collection。受保护目的地不会被迁移 CLI 绕过。
 
