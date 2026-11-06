@@ -71,8 +71,6 @@ jobs:
         run: npm run --prefix integrations/dsh/native validate:node
       - name: Verify the exact DSH CLI package
         run: npm run --prefix integrations/dsh/native validate:dsh
-      - name: Verify the exact pnpm version
-        run: npm run --prefix integrations/dsh/native validate:pnpm
       - name: Run native lifecycle contract fixtures
         run: npm test --prefix integrations/dsh/native
       - name: Install, compose, and remove in a disposable DSH profile

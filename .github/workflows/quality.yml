@@ -85,8 +85,8 @@ jobs:
           python-version: '3.11'
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
-          # The lcov test reporter needs a Node with built-in coverage reporting.
-          node-version: '22'
+          # Match the native adapter's runtime floor and use the lcov test reporter.
+          node-version: '24.9.0'
       - name: Measure coverage for the quality gate
         run: |
           python -m pip install --require-hashes --only-binary=:all: -r .github/requirements-sonar-ci.txt
@@ -100,11 +100,13 @@ jobs:
           mkdir -p coverage
           # The Pi host test imports the real SDK from this locked tree.
           npm ci --prefix integrations/agent-hosts --ignore-scripts --no-audit --no-fund
+          npm ci --prefix integrations/dsh/native --ignore-scripts --no-audit --no-fund
           node --test --experimental-test-coverage \
             --test-reporter=lcov --test-reporter-destination=coverage/lcov.info \
             tests/test_managed_launcher.mjs tests/test_managed_bootstrap.mjs \
             tests/test_pi_owner_extension.mjs tests/test_pi_owner_host.mjs \
-            tests/test_pi_owner_transport.mjs
+            tests/test_pi_owner_transport.mjs \
+            integrations/dsh/native/test/native.test.js
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: codex-windows-coverage

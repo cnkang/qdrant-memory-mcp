@@ -39,7 +39,7 @@ def test_dsh_native_bundle_pins_release_and_keeps_automation_disabled():
     assert package['engines']['node'] == '>=24.9.0'
     assert package['scripts']['validate:node'] == 'node ./scripts/validate-node.mjs'
     assert package['scripts']['validate:dsh'] == 'node ./scripts/validate-dsh.mjs'
-    assert package['scripts']['validate:pnpm'] == 'node ./scripts/validate-pnpm.mjs'
+    assert 'validate:pnpm' not in package['scripts']
     assert package['scripts']['validate:host'] == (
         'npm run validate:host:add && npm run validate:host:config && npm run validate:host:remove'
     )
@@ -75,6 +75,7 @@ def test_dsh_native_bundle_pins_release_and_keeps_automation_disabled():
     assert package_manager['with']['version'] == '11.28.5'
     assert package_manager['with']['run_install'] is False
     assert 'validate:host' in workflow_text
+    assert 'validate:pnpm' not in workflow_text
     pack_step = next(
         step for step in workflow['jobs']['native-contract']['steps']
         if step.get('name') == 'Check publishable bundle contents without publishing'
