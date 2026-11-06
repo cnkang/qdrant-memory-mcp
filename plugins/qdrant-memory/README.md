@@ -72,11 +72,11 @@ at one live collection or change Hermes settings to make Codex work.
 ## Import, backup and exit
 
 ```sh
-qdrant-memory codex inspect --codex-home /canonical/approved-codex-home
-qdrant-memory --home /canonical/profile codex migrate --codex-home /canonical/approved-codex-home --dry-run
+qdrant-memory codex --codex-home /canonical/approved-codex-home inspect
+qdrant-memory --home /canonical/profile codex --codex-home /canonical/approved-codex-home migrate --dry-run
 # Review source preview, hashes, skipped sections, target scope, then approve:
-qdrant-memory --home /canonical/profile codex migrate --codex-home /canonical/approved-codex-home --confirm --verify
-qdrant-memory --home /canonical/profile codex migrate --codex-home /canonical/approved-codex-home --confirm --resume --retry-failed --verify
+qdrant-memory --home /canonical/profile codex --codex-home /canonical/approved-codex-home migrate --confirm --verify
+qdrant-memory --home /canonical/profile codex --codex-home /canonical/approved-codex-home migrate --confirm --resume --retry-failed --verify
 qdrant-memory --home /canonical/profile codex export --output ./new-handoff --confirm
 qdrant-memory codex verify --output ./new-handoff
 ```
