@@ -28,7 +28,8 @@ SHA-256 and do not reuse a profile containing prior Qdrant Memory settings.
 5. In a disposable local profile, add two synthetic facts, search them, update
    the first fact's exact returned ID, and delete only that first exact ID.
    Verify the second fact remains untouched.
-6. Restart Codex and search again. Confirm the second fact persisted in the
+6. Restart the Desktop host under test and search again. Confirm the second
+   fact persisted in the
    same isolated Profile and no second collection was created.
 7. Import synthetic v1/v2 Codex-memory fixtures. Run dry-run first and verify
    zero writes; approve import; export JSON and Markdown; check file and record
