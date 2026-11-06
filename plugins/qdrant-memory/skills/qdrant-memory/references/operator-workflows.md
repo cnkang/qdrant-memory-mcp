@@ -96,13 +96,20 @@ actual Codex client in a fresh chat.
 
 ## Export a Codex handoff (not a full-profile backup)
 
-Create a new, user-approved output directory. Use the supported portable export
-and verifier; do not copy or edit internal databases:
+Ask the user to approve an unused output path under an authorized parent
+directory. Do not create the destination directory yourself: Runtime creates it
+and refuses to reuse an existing handoff. Run both commands from the same
+authorized parent directory because explicit output paths must remain within
+the invocation directory:
 
 ```bash
-qdrant-memory --home "/absolute/profile" codex export --output "/absolute/new-handoff" --confirm
-qdrant-memory --home "/absolute/profile" codex verify --output "/absolute/new-handoff"
+cd "/authorized/output-parent"
+qdrant-memory --home "/absolute/profile" codex export --output "./new-handoff" --confirm
+qdrant-memory --home "/absolute/profile" codex verify --output "./new-handoff"
 ```
+
+Use the supported portable export and verifier; do not copy or edit internal
+databases.
 
 This is a Codex handoff workflow: `codex export` writes one scope's portable
 JSON/Markdown handoff files, and `codex verify` checks those handed-off files

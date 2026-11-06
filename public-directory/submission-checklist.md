@@ -17,10 +17,12 @@
       recorded commit. Preserve the source Marketplace target.
 - [ ] Include each supported Python interpreter, MCP/Runtime distribution,
       dependency wheels and required platform binaries in the ZIP.
-- [ ] Decide with evidence whether model weights can remain a user-approved
-      download; record official-review uncertainty. Verify exact sizes, hashes,
-      atomic cache publication, offline reuse, interruption, timeout and low
-      disk behavior.
+- [ ] Obtain confirmation that downloading model weights separately satisfies
+      the requirement to include the server and its dependencies. Until this is
+      confirmed, leave this item incomplete and the Desktop package NO-GO.
+      Preserve the confirmation and official-review context, exact file sizes
+      and hashes, and evidence for atomic cache publication, offline reuse,
+      interruption, timeout and low-disk behavior.
 - [ ] Generate per-platform SBOM and license notices; include source commits,
       Python/Node versions, dependency hashes, model origin/hash, build
       environment, archive size and SHA-256 in the release manifest.
@@ -35,8 +37,11 @@
 - [ ] Test exact final ZIP on every confirmed Desktop platform. Perform setup,
       four-tool discovery, CRUD, restart, migration/export, upgrade/rollback,
       disable and uninstall without data loss.
-- [ ] Resolve Runtime #118 with exact-SHA CI. Resolve or explicitly gate Runtime
-      #115 with Windows worker/ledger/lease and interrupted-write evidence.
+- [x] Runtime #118's interpreter-selection fix is merged in PR #127 and its
+      exact-SHA CI run [42159067998](https://github.com/cnkang/hermes-plugin-qdrant-memory/actions/runs/42159067998)
+      passed. GitHub issue #118 remains open as a tracking record.
+- [ ] Resolve or explicitly gate Runtime #115 with Windows worker/ledger/lease
+      and interrupted-write evidence.
 - [ ] Verify all five positive and three negative reviewer cases. Preserve logs
       or artifacts for each result; never mark skipped tests PASS.
 - [ ] Record real Codex Desktop and ChatGPT Desktop evidence separately from
@@ -49,9 +54,10 @@
 
 - [ ] Keep Desktop-only candidate and GitHub Marketplace source package
       distinguishable.
-- [ ] Do not create a release tag, publish to registries, merge the PR, upload a
-      Creator archive or submit to the public directory without separate
-      authorization.
+Treat an engineering PR merge as separate from release approval.
+- [ ] Do not create a release tag, publish to registries, upload a Creator
+      archive or submit to the public directory until all release checks and
+      required approvals are complete.
 - [ ] Report `ENGINEERING_READY`, `DESKTOP_PACKAGE_READY`,
       `SUBMISSION_MATERIALS_READY`, `BLOCKED_BY_PLATFORM` and `NOT_VERIFIED`
       separately. Never report official approval before OpenAI grants it.

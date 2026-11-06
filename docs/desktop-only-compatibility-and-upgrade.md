@@ -1,7 +1,7 @@
 # Version compatibility and maintainer upgrade checklist
 
-Inventory refreshed 2026-11-06; the Skill, MCP branch and Runtime CI PR are separate
-development changes. No host adapter release is synchronized by this task.
+Inventory refreshed 2026-11-06 after Skills PRs #56 and #57 and MCP PR #79 were rebase-merged.
+No host adapter release is synchronized by this task.
 
 ## Current version map
 
@@ -10,9 +10,9 @@ development changes. No host adapter release is synchronized by this task.
 | Plugin | 0.1.3 candidate | Independent plugin version, bumped for the bundled Skill 0.4.1 update. Current GitHub Marketplace package is a lightweight source install. |
 | MCP distribution | 0.3.1, tag commit `e106f7de29da1a4ef889ccd589bdc76bb5092d6a` | Metadata/stdio adapter; delegates all memory operations to the Runtime. |
 | Runtime | 0.6.0, release commit `dee6777432f17523db75f6be32cf3ef15e48235c` | Authoritative Qdrant, embedding, scope, SQLite ledger, recovery and WriterLease implementation. |
-| Skill | 0.4.1 candidate, repository commit `25422da0a17a1bd99e475a11275b415363738b5a` | Guided operator workflows added in Skills PR #54 and refined by Skills PR #56; the plugin snapshot is refreshed to match all 21 source files. |
+| Skill | 0.4.1 candidate, merged Skills commit `fc8dea078f04d4ec2c90064676875f556ae6457e` | Guided operator workflows from PR #54, clarifications from PR #56, and the handoff export path fix from PR #57; the plugin snapshot matches all 21 source files. |
 | Launcher | Plugin 0.1.3 source | Dependency-free Node ESM host adapter. The Desktop-only ZIP still requires a bundled or confirmed host Node runtime. |
-| Python test matrix | 3.11 / 3.14 | Runtime PR #127 exact-SHA run 42058051902 completed with passing Local Contracts on macOS/Windows/Ubuntu for both versions; latest-main Python 3.11 behavior failed on Hermes' conditional `python-dotenv` dependency. Issue #118 remains open. |
+| Python test matrix | 3.11 / 3.14 | Runtime PR #127 merged at `b05143da0311d956d8479024d2aeff8253dfb907`; exact-SHA run [42159067998](https://github.com/cnkang/hermes-plugin-qdrant-memory/actions/runs/42159067998) passed Python 3.11/3.14 behavior and host-compatibility jobs, MCP protocol coverage, SonarCloud and the required security gate. Issue #118 remains open in GitHub as a tracking record. |
 | Model | FastEmbed 0.9.1; MiniLM-L12-v2, 384 dimensions | 252,138,706 bytes of immutable verified model files. Model cache is separate from plugin code. |
 
 The Skill source change is limited to onboarding instructions; Runtime, tool
@@ -61,13 +61,16 @@ diagnostics, migration and export in the separately installed Runtime CLI.
 
 ## Rollback
 
-Keep the old plugin version and Runtime environment available. Back up the user
-Profile and export JSON/Markdown before any Runtime or embedding-pipeline
-upgrade. If an embedding fingerprint changes, create a new collection, reembed,
-verify record counts and representative searches, then switch only after user
-approval. Keep the old collection/cache for rollback. Before recording
-post-switch changes, pause every writer against the old and new collections,
-and keep them paused through reconciliation and until the switch completes.
+Keep the old plugin version and Runtime environment available. Before any
+Runtime or embedding-pipeline upgrade, make and verify coordinated backups of
+the user Profile and its Qdrant collection using their supported backup
+procedures. The JSON/Markdown handoff export is not a backup of either and
+cannot restore the Profile or collection. If an embedding fingerprint changes,
+create a new collection, reembed, verify record counts and representative
+searches, then switch only after user approval. Keep the old collection/cache
+for rollback. Before recording the post-switch change list for a rollback, pause
+every writer against both collections. Keep writers paused through
+reconciliation and until the switch back is complete.
 Warn the user that every memory change made after the switch — additions,
 updates and deletions against the new collection — would be lost or reverted
 by reactivating the old collection. Record and review those post-switch

@@ -23,11 +23,14 @@ written to the user-selected destination.
 - If the user chooses CPU model preparation, the Runtime downloads the pinned
   model artifacts from the recorded Hugging Face/Qdrant repository revision,
   checks exact size and SHA-256, and publishes a complete cache atomically.
-- Qdrant Cloud is accessed only when the user configures a Cloud endpoint.
+- Qdrant Cloud or another remote Qdrant endpoint receives the memory data and
+  queries sent to it when the user configures that endpoint. A local embedded
+  Qdrant store remains on the user's machine.
 - Ollama or an OpenAI-compatible embedding endpoint is accessed only when the
-  user explicitly configures that provider. A configured provider receives the
-  memory text and search queries that need embeddings; that content leaves the
-  user's machine.
+  user explicitly configures that provider. The plugin sends embedding text to
+  the configured endpoint. With local Ollama and a local model, loopback
+  requests stay on the machine; a remote embedding endpoint receives that text
+  off-device. The configured Qdrant endpoint is a separate data destination.
 - The plugin does not silently fall back from local CPU to a cloud embedding
   service.
 - This source candidate declares no telemetry or automatic conversation

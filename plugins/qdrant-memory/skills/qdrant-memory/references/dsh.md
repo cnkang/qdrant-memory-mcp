@@ -5,6 +5,34 @@ Follow the [English installation guide](https://github.com/cnkang/qdrant-memory-
 or [中文说明](https://github.com/cnkang/qdrant-memory-mcp/blob/main/docs/dsh-integration.zh-CN.md).
 Loading this Skill does not authorize installing software or modifying a profile.
 
+## Native lifecycle adapter status
+
+The published Bundle and Python/uvx overlay remain explicit MCP paths. They do
+not automatically capture or prefetch turns. The separate source-only native
+Cordis adapter is an unpublished preview for DSH `0.2.2-rc.1` and Node.js
+`>=24.9.0`; it requires a companion Python Runtime supporting the versioned
+`qdrant-memory/extraction-v1` candidate event. That Runtime contract is not
+available in the currently published Runtime packages, so do not present the
+native adapter as a supported install yet.
+
+The preview keeps `auto_recall.enabled`, `auto_capture.enabled`, and
+`memory_injection.enabled` false by default. Recall needs both recall and
+injection enabled; capture is independent. It asks DSH's current model route to
+extract candidates and sends those candidates, not the raw assistant transcript,
+to the authenticated Python Owner. DSH's configured model still receives the
+turn content for extraction. Use a distinct Owner token for each unrelated DSH
+profile. On a shared Owner, bind each unrelated profile to a distinct logical
+agent and private space.
+Runtime remains responsible for scope, relation review, deduplication,
+durable receipts and Qdrant writes. No automatic sharing between DSH, Hermes,
+or WorkBuddy private profiles is implied.
+
+For preview configuration, profile-local migration and rollback, compatibility
+and validation evidence, read the [native setup guide](https://github.com/cnkang/qdrant-memory-mcp/blob/cf51170b79b31d780f5227913ae3f1092ad0e8d9/integrations/dsh/native/README.md)
+and [validation report](https://github.com/cnkang/qdrant-memory-mcp/blob/cf51170b79b31d780f5227913ae3f1092ad0e8d9/docs/dsh-native/validation.md).
+The synthetic tests and profile install smoke do not establish real-model,
+AgentLoop, Qdrant/CPU embedding, or desktop GUI acceptance.
+
 Install this canonical `qdrant-memory` directory under a standard DSH Skill
 root, such as `.agents/skills` in the selected project. DSH discovers
 `qdrant-memory/SKILL.md` under that root. Keep its `references` and `scripts`

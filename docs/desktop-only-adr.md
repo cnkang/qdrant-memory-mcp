@@ -49,7 +49,7 @@ there is no verified configuration mapping for the current candidate.
 | Windows x64 | Windows embeddable/standalone Python, Windows native wheels and launcher dispatch | Runtime CI contracts and standalone MCP tests passed on Windows x64; no bundled Desktop ZIP or GUI install was tested. |
 | Linux x64 | Linux standalone Python and glibc-compatible wheels | Runtime CI passed on Ubuntu x64; this is a development target and does not establish ChatGPT Desktop support. |
 | Offline launch | Server, interpreter and all Python dependencies must be in the archive | The proposed bundle can meet this. Current source ZIP depends on installed Python and external package pins, so offline Desktop launch is **NOT VERIFIED**. |
-| Artifact size | One runtime and wheel set per supported OS/architecture; model data considered separately | Submission ZIPs have a **100 MB compressed maximum** ([submission errors](https://developers.openai.com/plugins/deploy/submission-errors)). CPU model assets total 252,138,706 raw bytes; no compressed model archive has been measured, so an in-ZIP model cannot be assumed to fit. The server/wheel bundle size has not been measured. |
+| Artifact size | One runtime and wheel set per supported OS/architecture; model data considered separately | Submission ZIPs have a **100 MB compressed maximum** and each archive entry is limited to **100 MiB** ([submission errors](https://developers.openai.com/plugins/deploy/submission-errors)). CPU model assets total 252,138,706 bytes; `model_optimized.onnx` is 235,052,644 bytes and would exceed the per-entry limit if bundled intact. The server/wheel bundle size has not been measured. |
 | Reproducibility and supply chain | Immutable source commits, wheel hashes, interpreter hashes, SBOM, licenses and archive hash | The source package pins component commits, but no full wheel lock, runtime hashes, SBOM or reproducible Desktop build exists. |
 | Security and upgrades | Private staging, no secret arguments, strict platform selection, data directory outside plugin root | Existing launcher patterns can be reused, but final archive path safety, upgrade, rollback and uninstall have not been verified. |
 | Runtime compatibility | Keep existing Python Runtime and four tool schemas | This avoids a second Qdrant/embedding/ledger implementation. No Runtime changes are required for the proposed bundle. |
@@ -71,12 +71,14 @@ complete cache. Setup is explicit and a missing model does not trigger cloud
 fallback.
 
 The official Desktop-only guide requires the server and its dependencies in
-the package; submission validation also rejects ZIPs above 100 MB compressed.
-Runtime 0.6.0's pinned CPU model assets total 252,138,706 raw bytes. No ZIP
-compression measurement exists, so an in-package model cannot be assumed to fit
-the limit. Keep it as a separately downloaded, explicitly approved data asset,
-with the existing source, size, SHA-256 and atomic-cache checks, unless a
-measured package under 100 MB is produced. Whether that model data is outside
+the package; submission validation rejects ZIPs above 100 MB compressed and
+individual entries above 100 MiB. Runtime 0.6.0's pinned CPU model assets total
+252,138,706 bytes; `model_optimized.onnx` alone is 235,052,644 bytes. No ZIP
+compression measurement exists, and the single model entry would exceed the
+per-entry limit if bundled intact. Keep it as a separately downloaded,
+explicitly approved data asset with the existing source, size, SHA-256 and
+atomic-cache checks unless a measured package under 100 MB is produced. Whether
+that model data is outside
 the official "server and dependencies" requirement is **UNRESOLVED**; the
 archive-size rule does not itself grant an exception. Do not claim Desktop-only
 compliance until that interpretation and the clean launch route are confirmed.

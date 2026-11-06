@@ -25,9 +25,10 @@ SHA-256 and do not reuse a profile containing prior Qdrant Memory settings.
    network and start the local server. Confirm MCP initialize and discovery of
    exactly `qdrant_memory_search`, `qdrant_memory_add`,
    `qdrant_memory_update` and `qdrant_memory_delete`; no download occurs.
-5. In a disposable local profile, add two synthetic facts, search them, update
-   the first fact's exact returned ID, and delete only that first exact ID.
-   Verify the second fact remains untouched.
+5. In a disposable local profile, add two synthetic facts and search them.
+   Update the first fact by its exact returned ID, search for that same ID, and
+   confirm its updated content before deleting it. Delete only that first exact
+   ID, then verify the second fact remains untouched.
 6. Restart the Desktop host under test and search again. Confirm the second
    fact persisted in the
    same isolated Profile and no second collection was created.

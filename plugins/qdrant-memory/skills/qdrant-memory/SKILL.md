@@ -41,7 +41,12 @@ For DeepSeek Harness, read [DSH setup](references/dsh.md). For WorkBuddy, read
 DSH normally exposes `mcp__qdrant-memory__qdrant_memory_search` (and add, update,
 delete under the same prefix). A different configured server name changes that
 prefix. Match the discovered schema and raw tool suffix. Never invent a tool or
-strip scope checks. MCP does not automatically capture every conversation turn.
+strip scope checks. The published DSH MCP Bundle and Python overlay provide
+explicit memory tools and do not automatically capture or prefetch conversation
+turns. A separate unpublished native Cordis source preview adds opt-in capture
+and recall for a compatible Runtime; it is not supported by current published
+Runtime packages. Read [DSH setup](references/dsh.md) before describing that
+preview as available.
 
 ## Shared boundaries
 
