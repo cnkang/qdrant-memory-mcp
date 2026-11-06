@@ -67,7 +67,13 @@ def test_dsh_native_bundle_pins_release_and_keeps_automation_disabled():
     }
     workflow_text = (ROOT / '.github/workflows/dsh-native.yml').read_text()
     assert "node-version: '24.9.0'" in workflow_text
-    assert 'pnpm@11.28.5' in workflow_text
+    package_manager = next(
+        step for step in workflow['jobs']['native-contract']['steps']
+        if step.get('name') == 'Install the exact DSH Plugin Manager package manager'
+    )
+    assert package_manager['uses'] == 'pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1'
+    assert package_manager['with']['version'] == '11.28.5'
+    assert package_manager['with']['run_install'] is False
     assert 'validate:host' in workflow_text
     pack_step = next(
         step for step in workflow['jobs']['native-contract']['steps']

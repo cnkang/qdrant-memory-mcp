@@ -1022,6 +1022,10 @@ rpds-py==2026.9.1 \
     # via
     #   jsonschema
     #   referencing
+ruamel-yaml==0.19.1 \
+    --hash=sha256:27592957fedf6e0b62f281e96effd28043345e0e66001f97683aa9a40c667c93 \
+    --hash=sha256:53eb66cd27849eff968ebf8f0bf61f46cdac2da1d1f3576dd4ccee9b25c31993
+    # via -r requirements-mcp-ci.in
 sse-starlette==3.6.0 \
     --hash=sha256:623151d6c20dc0eebf1b3379c27faae91fff883bac7ab6665f16f46440a88b3a \
     --hash=sha256:e4dfa4d237d2712cb2b4d4918eda9b457cd6b44bbecdc838af75de836565bafd

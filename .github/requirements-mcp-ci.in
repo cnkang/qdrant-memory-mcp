@@ -4,3 +4,4 @@ hermes-plugin-qdrant-memory[mcp]==0.6.0
 pytest==9.2.0
 requests==2.34.2
 jsonschema==4.26.0
+ruamel.yaml==0.19.1

@@ -62,7 +62,11 @@ jobs:
       - name: Install the locked native package and DSH CLI
         run: npm ci --prefix integrations/dsh/native --ignore-scripts --no-audit --no-fund
       - name: Install the exact DSH Plugin Manager package manager
-        run: npm install --global pnpm@11.28.5
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1
+        with:
+          version: '11.28.5'
+          package_json_file: integrations/dsh/native/package.json
+          run_install: false
       - name: Verify exact Node.js version
         run: npm run --prefix integrations/dsh/native validate:node
       - name: Verify the exact DSH CLI package
