@@ -69,6 +69,12 @@ def test_dsh_native_bundle_pins_release_and_keeps_automation_disabled():
     assert "node-version: '24.9.0'" in workflow_text
     assert 'pnpm@11.28.5' in workflow_text
     assert 'validate:host' in workflow_text
+    pack_step = next(
+        step for step in workflow['jobs']['native-contract']['steps']
+        if step.get('name') == 'Check publishable bundle contents without publishing'
+    )
+    assert pack_step['run'] == 'npm pack --dry-run --json'
+    assert pack_step['working-directory'] == 'integrations/dsh/native'
 
 
 def test_managed_launcher_uses_a_published_runtime_wheel():
