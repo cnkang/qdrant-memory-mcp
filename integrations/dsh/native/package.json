@@ -37,15 +37,10 @@
     "node": ">=24.9.0"
   },
   "dependencies": {
-    "@deepseek-ai/cordis": "4.1.0",
     "@deepseek-ai/dsh-llm": "0.2.2-rc.1",
     "@deepseek-ai/schemastery": "3.19.0"
   },
-  "devDependencies": {
-    "@deepseek-ai/dsh": "0.2.2-rc.1"
-  },
   "overrides": {
-    "undici": "8.12.2",
     "zod": "4.6.7"
   },
   "dsh": {

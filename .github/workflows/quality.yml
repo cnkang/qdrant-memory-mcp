@@ -100,6 +100,7 @@ jobs:
           mkdir -p coverage
           # The Pi host test imports the real SDK from this locked tree.
           npm ci --prefix integrations/agent-hosts --ignore-scripts --no-audit --no-fund
+          # Native DSH contract tests exercise the adapter APIs without a DSH CLI install.
           npm ci --prefix integrations/dsh/native --ignore-scripts --no-audit --no-fund
           node --test --experimental-test-coverage \
             --test-reporter=lcov --test-reporter-destination=coverage/lcov.info \
