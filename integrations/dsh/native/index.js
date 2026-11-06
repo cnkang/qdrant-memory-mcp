@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { spawn } from 'node:child_process'
-import { isAbsolute } from 'node:path'
+import { dirname, isAbsolute } from 'node:path'
 import Schema from '@deepseek-ai/schemastery'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 
@@ -292,7 +292,7 @@ function childEnvironment(token) {
 }
 
 function runtimeArgs(mode, target, options = {}) {
-  const args = ['-m', 'qdrant_memory.standalone', mode, '--url', target.endpoint,
+  const args = ['-I', '-X', 'utf8', '-m', 'qdrant_memory.standalone', mode, '--url', target.endpoint,
     '--token-env', 'QDRANT_MEMORY_DSH_OWNER_TOKEN']
   if (target.caFile) args.push('--ca-file', target.caFile)
   if (mode === 'remote-call') args.push('--tool', 'qdrant_memory_search')
@@ -330,6 +330,7 @@ export function runRuntimeRequest(
     try {
       child = spawnProcess(target.python, args, {
         env: childEnvironment(target.token),
+        cwd: dirname(target.python),
         stdio: ['pipe', 'pipe', 'ignore'],
         windowsHide: true,
         signal: requestSignal,

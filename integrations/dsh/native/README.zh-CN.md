@@ -36,7 +36,7 @@ memory_injection:
 | `QDRANT_MEMORY_DSH_OWNER_TOKEN` | 已配置的 Owner grant token；不要写入 profile YAML |
 | `QDRANT_MEMORY_RUNTIME_CA_FILE` | 可选的私有 CA bundle 绝对路径 |
 
-适配器只把 Owner token 和必要的进程路径传给 Python 子进程，不继承其他 DSH 凭证，不打印请求内容，也不会在授权失败后改用另一个身份。Owner 从 grant 推导 scope。TLS 和 Owner 部署请遵循[共享部署安全指南](https://github.com/cnkang/qdrant-memory-mcp/blob/main/docs/shared-deployment-security.md)。不要让无关 profile 共用一个 token。
+适配器只把 Owner token 和必要的进程路径传给 Python 子进程，不继承其他 DSH 凭证，不打印请求内容，也不会在授权失败后改用另一个身份。子进程以 `-I -X utf8` 隔离模式从解释器所在目录启动，项目内容无法遮蔽已安装的 Runtime。Owner 从 grant 推导 scope。TLS 和 Owner 部署请遵循[共享部署安全指南](https://github.com/cnkang/qdrant-memory-mcp/blob/main/docs/shared-deployment-security.md)。不要让无关 profile 共用一个 token。
 
 ## 配置示例
 

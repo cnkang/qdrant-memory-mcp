@@ -50,9 +50,11 @@ before launching DSH:
 | `QDRANT_MEMORY_RUNTIME_CA_FILE` | Optional absolute path to a private CA bundle |
 
 The adapter passes only the Owner token and basic process paths to the Python
-child. It does not inherit unrelated DSH credentials, print request contents,
-or fall back to another identity after an authorization failure. The Runtime
-derives scope from the Owner grant. Owner setup and TLS policy remain governed
+child. It launches the child in isolated mode (`-I`) from the interpreter's own
+directory, so project content cannot shadow the installed Runtime. It does not
+inherit unrelated DSH credentials, print request contents, or fall back to
+another identity after an authorization failure. The Runtime derives scope from
+the Owner grant. Owner setup and TLS policy remain governed
 by the [shared security guide](https://github.com/cnkang/qdrant-memory-mcp/blob/main/docs/shared-deployment-security.md).
 
 ## Lifecycle behavior
