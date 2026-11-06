@@ -5,16 +5,16 @@ and completed-turn capture to DeepSeek Harness. It uses the existing Python
 Runtime through its authenticated HTTPS Owner endpoint. It does not open
 Qdrant, create a second ledger, or change the four public MCP tools.
 
-The package targets the pinned DSH prerelease `0.2.2-rc.1` and Node.js 24.9 or
-newer. The current published Python Runtime does not yet accept the
-versioned candidate event used here. Until the companion Runtime change is
-released, this source package is for integration review and local validation;
-the existing MCP Bundle and Cordis overlay remain the supported public path.
+The package targets the pinned DSH prerelease `0.2.2-rc.1`, Node.js 24.9 or
+newer, and Python Runtime 0.6.1 or newer. Runtime 0.6.1 supports the versioned
+candidate event and durable receipt retry used by this adapter. The DSH package
+is still distributed as a private source bundle; the MCP Bundle and Cordis
+overlay remain separate supported public paths.
 
 ## Install
 
-After a compatible Runtime build is available, install this local bundle into
-one DSH profile with the official Plugin Manager:
+After installing a compatible Runtime, install this local bundle into one DSH
+profile with the official Plugin Manager:
 
 ```sh
 dsh plugin --profile <profile> add /absolute/path/to/integrations/dsh/native
@@ -66,7 +66,9 @@ by the [shared security guide](https://github.com/cnkang/qdrant-memory-mcp/blob/
   versioned candidates to the Python Owner. If a candidate explicitly replaces
   an older fact, the request also carries one exact user-text excerpt (at most
   2 KiB); Owner retains it only until the write settles so Runtime can verify
-  replacement intent. Assistant text is never sent to Runtime. The Runtime performs
+  replacement intent. DSH sends both user and assistant turn text to its own
+  extraction call. The Owner event has no assistant field, but its candidates
+  can contain facts derived from assistant text and are sent to Runtime. The Runtime performs
   authority checks, scope filtering, relation review, deduplication, ledger
   recovery, and Qdrant writes.
 - It ignores tool output, non-user injected messages, interrupted assistant
@@ -74,9 +76,10 @@ by the [shared security guide](https://github.com/cnkang/qdrant-memory-mcp/blob/
   and candidates are skipped.
 - Before capture it awaits DSH's public session flush and reads the validated
   session log. On resume it checks the latest eight completed turns against
-  Owner receipts. Retries reuse the same deterministic event ID and candidate
-  body. A pending or failed Owner receipt is left for Owner recovery; the
-  adapter does not re-extract under the same ID.
+  Owner receipts. For an `ACCEPTED` receipt, it retries by event ID only; the
+  Runtime reuses the original immutable candidate plan. Candidate data stays out
+  of the DSH session log, and the adapter does not re-extract under that ID.
+  Other pending or failed receipts remain under Owner recovery.
 - The queue is bounded. A full queue or a failure before an Owner receipt can
   leave an uncaptured turn in the DSH log. Successful DSH flush plus an Owner
   receipt is the recovery boundary; this adapter makes no zero-loss claim
@@ -140,21 +143,21 @@ Runtime Owner must be ready before enabling either write or recall behavior.
 Embedding selection belongs to the Python Owner profile, not DSH. Create a new
 Owner destination using the [Runtime embedding guide](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/local-embedding.md)
 and [shared Owner setup](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/shared-memory/README.md).
-The candidate-event Runtime change is still a source preview, so these examples
-do not work with the currently published Runtime until its companion release.
+Runtime 0.6.1 provides the versioned candidate-event and retry contract used by
+the adapter.
 
 For a new local CPU Owner, explicitly install the Runtime's `local` extra and
 create a separate profile:
 
 ```sh
-python -m pip install 'hermes-plugin-qdrant-memory[remote,local]==0.6.0'
+python -m pip install 'hermes-plugin-qdrant-memory[remote,local]==0.6.1'
 qdrant-memory setup --profile /absolute/private/dsh-owner --embedding-provider fastembed --agent-id dsh-owner
 ```
 
 For an existing Ollama model, the Runtime `local` extra is not needed:
 
 ```sh
-python -m pip install 'hermes-plugin-qdrant-memory[remote]==0.6.0'
+python -m pip install 'hermes-plugin-qdrant-memory[remote]==0.6.1'
 qdrant-memory setup --profile /absolute/private/dsh-owner --embedding-provider ollama --model qwen3-embedding:4b --dimensions 2560 --agent-id dsh-owner
 ```
 
