@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Qdrant Memory native lifecycle",
+    "description": "Opt-in memory recall, injection, and completed-turn capture through the existing Python Runtime."
+  }
+}

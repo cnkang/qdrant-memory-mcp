@@ -25,6 +25,40 @@ committed exact-version release gate. See [dependency maintenance](ci.md).
 The updated distribution suite passed 141 tests. Ruff, actionlint, clean npm
 installation, wheel/sdist builds and strict metadata checks also passed locally.
 
+## Native lifecycle adapter preview (2026-11-06)
+
+The current public DSH release is [`0.2.2-rc.1`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.2.2-rc.1),
+published from tag commit `66491b05e3f05ad35bcdd4f6cd7ed26041d9e3db`. The
+source checkout used for API verification is at merge commit
+`fcc0ad462172522aaf5c93a7b2e01f6b9f0b0159`. The npm `latest` and `next` tags
+for `@deepseek-ai/dsh` both resolve to `0.2.2-rc.1`; its declared Node minimum
+is `24.9.0`. The native adapter pins `@deepseek-ai/dsh-llm@0.2.2-rc.1`,
+`@deepseek-ai/cordis@4.1.0`, and `@deepseek-ai/schemastery@3.19.0` exactly.
+
+| Path | DSH line | Runtime requirement | Status |
+| --- | --- | --- | --- |
+| Published MCP Bundle and Python overlay | Existing exact tests remain on `0.2.1-rc.2` | Published MCP/Runtime interfaces | Supported path; unchanged |
+| Native lifecycle adapter source | `0.2.2-rc.1`, Node `>=24.9.0` | Versioned `qdrant-memory/extraction-v1` Owner candidate events | Unpublished preview; Runtime implementation is submitted separately |
+| DSH Core | Upstream release commit above | No changes | Not modified |
+
+`integrations/dsh/package.json` and `cross-harness.yml` retain the legacy RC
+lane. `integrations/dsh/native/package.json` and
+[`dsh-native.yml`](../.github/workflows/dsh-native.yml) pin the current RC lane
+and exercise Linux x64, macOS 15 arm64, and Windows x64. The native package's
+unit fixtures validate event filtering, candidate bounds, default-off config,
+and untrusted-memory formatting. Those tests do not use a live model, Owner,
+or GUI. Published Runtime support and real-model/desktop acceptance remain
+unverified; the native package has not been published.
+
+As of 2026-11-06, local evidence is 10/10 native unit fixtures, 12/12 Runtime
+Owner lifecycle tests, and 4/4 MCP cross-harness contract tests. The native
+unit fixtures ran under local Node 22.23.2, below DSH's declared Node minimum;
+they are synthetic tests only. The exact Node 24.9.0/pnpm 11.28.5 profile
+install/config/remove workflow is PENDING until its GitHub jobs finish. See
+the bilingual [native validation report](dsh-native/validation.md) and
+[中文验证报告](dsh-native/validation.zh-CN.md) for coverage limits and release
+blockers. The native preview is not release-ready.
+
 ## Local automated coverage
 
 The current test lock uses a temporary MCP Client `2.3.0` override for the cross-origin redirect fix.
@@ -150,7 +184,11 @@ tagged tgz and checksum.
 
 The remaining gates include marketplace review, import with managed Node in WorkBuddy, and a full restart on a clean machine.
 They also include installer-crash recovery, dispatch-time cancellation, HMR/profile-switch cases, and production upgrade or rollback.
-Cloud multi-writer sharing and automatic DSH extraction/prefetch are not implemented.
+Cloud multi-writer sharing is not implemented. The published Runtime and
+published DSH MCP paths do not automatically capture or prefetch conversation
+turns. The separate native preview adds an opt-in source implementation, but it
+is not usable with current published Runtime packages and is not release or
+acceptance evidence.
 
 Keep one active owner for embedded storage. Do not bypass locks or reuse Hermes
 profiles implicitly. See [Hermes compatibility](hermes-compatibility.md),

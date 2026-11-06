@@ -3,6 +3,8 @@
 import json
 from pathlib import Path
 
+from ruamel.yaml import YAML
+
 from qdrant_memory.tools import schemas
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -23,6 +25,50 @@ def test_dsh_overlay_is_additive_and_explicit_about_credentials():
         assert f'{key}: !!js process.env.{key}' in text
     assert 'reconnect:' not in text  # Preserve the host defaults.
     assert 'permission' not in text
+
+
+def test_dsh_native_bundle_pins_release_and_keeps_automation_disabled():
+    package_path = ROOT / 'integrations/dsh/native/package.json'
+    package = json.loads(package_path.read_text())
+    patch = YAML(typ='safe').load(
+        (ROOT / 'integrations/dsh/native/cordis.patch.yml').read_text()
+    )
+    row = patch[0]['insert'][0]
+    assert package['name'] == '@cnkang/qdrant-memory-dsh-native'
+    assert package['private'] is True
+    assert package['engines']['node'] == '>=24.9.0'
+    assert package['scripts']['validate:node'] == 'node ./scripts/validate-node.mjs'
+    assert package['scripts']['validate:dsh'] == 'node ./scripts/validate-dsh.mjs'
+    assert package['scripts']['validate:pnpm'] == 'node ./scripts/validate-pnpm.mjs'
+    assert package['scripts']['validate:host'] == (
+        'npm run validate:host:add && npm run validate:host:config && npm run validate:host:remove'
+    )
+    assert package['dependencies'] == {
+        '@deepseek-ai/cordis': '4.1.0',
+        '@deepseek-ai/dsh-llm': '0.2.2-rc.1',
+        '@deepseek-ai/schemastery': '3.19.0',
+    }
+    assert package['devDependencies']['@deepseek-ai/dsh'] == '0.2.2-rc.1'
+    assert row['name'] == package['name']
+    assert row['config']['auto_recall']['enabled'] is False
+    assert row['config']['auto_capture']['enabled'] is False
+    assert row['config']['memory_injection']['enabled'] is False
+    assert 'qdrant-memory/extraction-v1' in (ROOT / 'integrations/dsh/native/index.js').read_text()
+
+    workflow = YAML(typ='safe').load((ROOT / '.github/workflows/dsh-native.yml').read_text())
+    runners = {
+        (item['os'], item['arch'])
+        for item in workflow['jobs']['native-contract']['strategy']['matrix']['include']
+    }
+    assert runners == {
+        ('ubuntu-24.04', 'x64'),
+        ('macos-15', 'arm64'),
+        ('windows-2025', 'x64'),
+    }
+    workflow_text = (ROOT / '.github/workflows/dsh-native.yml').read_text()
+    assert "node-version: '24.9.0'" in workflow_text
+    assert 'pnpm@11.28.5' in workflow_text
+    assert 'validate:host' in workflow_text
 
 
 def test_managed_launcher_uses_a_published_runtime_wheel():
