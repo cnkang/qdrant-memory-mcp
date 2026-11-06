@@ -56,9 +56,10 @@ candidate as published.
    snapshot. This MCP release does not change Skill source, so it does not need
    another Skills snapshot. Publish a separate snapshot only when that source
    changes, and pin its actual commit in connector and Codex release metadata.
-   The separate Codex 0.1.3 candidate pins Skills PR #56 commit
-   `25422da0a17a1bd99e475a11275b415363738b5a`; that is not a published
-   Skills snapshot and must not be described as released.
+   The separate Codex 0.1.3 candidate pins merged Skills main commit
+   `fc8dea078f04d4ec2c90064676875f556ae6457e`, which includes Skills PRs #56
+   and #57;
+   that is not a published Skills snapshot and must not be described as released.
 3. Verify launcher 0.1.0-rc.8 on npm against the SHA-512 in
    `launcher-source.json`. Its public Linux, macOS and Windows acceptance passed
    in [Cross-harness run 41994236149](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/41994236149).

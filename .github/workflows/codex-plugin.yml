@@ -45,7 +45,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: cnkang/skills
-          ref: 25422da0a17a1bd99e475a11275b415363738b5a
+          ref: fc8dea078f04d4ec2c90064676875f556ae6457e
           path: .skill-source
           persist-credentials: false
       - name: Build immutable upstream skill snapshot
@@ -82,7 +82,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: cnkang/skills
-          ref: 25422da0a17a1bd99e475a11275b415363738b5a
+          ref: fc8dea078f04d4ec2c90064676875f556ae6457e
           path: .skill-source
           persist-credentials: false
       - run: python scripts/build_codex_plugin.py --validate

@@ -4,13 +4,13 @@
 
 Plugin 0.1.3 pins MCP 0.3.1, Runtime 0.6.0 at
 `dee6777432f17523db75f6be32cf3ef15e48235c`, and `qdrant-memory` Skill 0.4.1
-at Skills PR #56 commit
-`25422da0a17a1bd99e475a11275b415363738b5a`, which refines the merged skills
-PR #54 snapshot with clarifications from this PR's review. The tracked
-marketplace plugin
+at merged Skills main commit `fc8dea078f04d4ec2c90064676875f556ae6457e`,
+which includes the merged PR #54 operator workflows, PR #56 clarifications,
+and PR #57's handoff export path fix.
+The tracked marketplace plugin
 includes the complete 21-file Skill snapshot; the archive builder compares it
-with the pinned commit and rejects drift. A local 0.1.3 source Marketplace ZIP
-was built from commit `0ae3a0e5434c6feb19773e1990d6bd60a5d151e9` (34 files,
+with the pinned commit and rejects drift. An earlier local 0.1.3 source
+Marketplace ZIP was built from commit `0ae3a0e5434c6feb19773e1990d6bd60a5d151e9` (34 files,
 77,872 bytes, SHA-256
 `824295e83ee833abdc29e5512d24893fedcf63c1df96f4ad97834fb6821d7072`). Codex
 CLI 0.165.0 installed that exact ZIP through an isolated temporary Marketplace;
@@ -26,9 +26,10 @@ archive. `docs/desktop-only-adr.md` records the proposed bundle direction;
 project gates and platform blockers. The current plugin ZIP builder continues
 to build the source Marketplace form only.
 
-The previous 0.1.2 snapshot used Skill 0.4.0. The 0.1.3 candidate adds the
-operator workflows from the Skills repository's draft PR #54 and pins its exact
-commit. The first CI run used the former Skill checkout pin and failed before
+The previous 0.1.2 snapshot used Skill 0.4.0. The 0.1.3 candidate includes the
+operator workflows from merged Skills PR #54 and clarifications from merged
+PR #56, then pins their merged main commit. The first CI run used the former
+Skill checkout pin and failed before
 producing an artifact. The corrected exact-SHA source workflow
 [42069609457](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/42069609457)
 passed on Ubuntu, macOS and Windows. However, the Windows ZIP differed from the
@@ -83,24 +84,15 @@ result: **20 passed in 2.34s**. It includes real MCP initialize, exact four-tool
 discovery and synthetic add/search through the Node launcher. It is not evidence
 for the missing bundled Python/runtime dependencies in a Desktop-only ZIP.
 
-The proposed Runtime Issue #118 fix is in branch commit
-`4ca2950f0bfac20cd7e10081320c207b90fdbc16` and draft PR #127; local Python
-3.11.15 and 3.14.0 focused suites each passed 97 tests. Exact-SHA GitHub run
-[42058051902](https://github.com/cnkang/hermes-plugin-qdrant-memory/actions/runs/42058051902)
-has passing Local Contracts jobs for macOS, Windows and Ubuntu on both Python
-versions, plus passing standalone MCP and CPU-model jobs. The latest-main
-Python 3.11 behavior job failed because host integration tests could not import
-`dotenv`; one macOS/Python 3.14/MCP SDK 1.x job was cancelled. The required
-security gate also failed because tests failed and SonarCloud was skipped on
-this trusted PR. The Python 3.11 behavior failure is in host compatibility
-coverage: Hermes upstream `main` at commit
-`84a0301415edd6d1385207ec96e4d7f2b6c1fcd9` declares
-`python-dotenv==1.2.4` only for Python >=3.14 in `pyproject.toml`, while
-`hermes_cli.env_loader.py` imports `dotenv` unconditionally at line 17. This is separate from
-the corrected Runtime interpreter selection. Issue #118 remains open until the
-trusted exact-SHA gate is green.
-Runtime Issue #115 remains open; no root cause or full failure-path recovery
-proof is established.
+Runtime PR [#127](https://github.com/cnkang/hermes-plugin-qdrant-memory/pull/127)
+merged at `b05143da0311d956d8479024d2aeff8253dfb907` and fixes selection of the
+interpreter used to build each managed test environment. Its exact-SHA CI run
+[42159067998](https://github.com/cnkang/hermes-plugin-qdrant-memory/actions/runs/42159067998)
+passed the Python 3.11/3.14 behavior and host-compatibility jobs, MCP protocol
+coverage, SonarCloud, and the required security gate. Runtime issue #118 remains
+open in GitHub even though its fix is merged and verified. Runtime issue #115
+also remains open; no root cause or full failure-path recovery proof is
+established.
 
 ## Embedding and model acceptance (2026-11-06)
 
