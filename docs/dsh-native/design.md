@@ -5,16 +5,16 @@
 ## Status and compatibility
 
 This is an opt-in source preview. The native package is private and unpublished.
-It targets DSH `0.2.2-rc.1` and Node.js `>=24.9.0`. API review used the
+It targets DSH `0.2.2-rc.1`, Node.js `>=24.9.0`, and Python Runtime 0.6.1 or
+newer for versioned candidate events and durable receipt retries. API review used the
 official DSH release tag commit
 `66491b05e3f05ad35bcdd4f6cd7ed26041d9e3db` and checked the merged source at
 `fcc0ad462172522aaf5c93a7b2e01f6b9f0b0159`.
 
 The existing published MCP Bundle and Python/uvx overlay stay on their current
-supported route. The native package needs the companion Python Runtime
-implementation of the versioned `qdrant-memory/extraction-v1` Owner event. That
-Runtime change is not part of the currently published wheel, so this preview
-must not be described as a working install against the published Runtime.
+supported route. The native package calls the companion Python Runtime's
+versioned `qdrant-memory/extraction-v1` Owner event endpoint; it neither bundles
+nor installs the Runtime.
 No DSH Core source changes are needed or included.
 
 ## Architecture
@@ -87,8 +87,10 @@ tool calls/results, other injected user messages, `assistant/attempt`, and all
 other `turn/end` reasons. It uses the provider/model on the last completed
 assistant message. If a replacement candidate is produced, DSH must also return
 one exact user-text excerpt of at most 2 KiB; the adapter verifies that it is a
-literal substring of the user's text. Assistant text is never sent to the
-Runtime.
+literal substring of the user's text. DSH receives the user and assistant text
+for candidate extraction. The Owner event has no assistant field, but its
+versioned candidates can contain facts derived from assistant text and are sent
+to the Runtime.
 
 The local JSON validator requires the exact `memories` and
 `replacement_context` top-level fields and the Runtime's existing four-field

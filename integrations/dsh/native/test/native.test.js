@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict'
+import { EventEmitter } from 'node:events'
+import { PassThrough } from 'node:stream'
 import test from 'node:test'
 import {
+  Config,
   DEFAULT_CONFIG,
   apply,
   compileTurn,
@@ -20,6 +23,7 @@ test('automatic recall, capture, and injection default to disabled', () => {
   assert.equal(DEFAULT_CONFIG.auto_recall.enabled, false)
   assert.equal(DEFAULT_CONFIG.auto_capture.enabled, false)
   assert.equal(DEFAULT_CONFIG.memory_injection.enabled, false)
+  assert.equal(Config['~standard'].validate(DEFAULT_CONFIG).issues, undefined)
 })
 
 test('candidate parser accepts the Runtime schema and rejects extra or sensitive fields', () => {
@@ -73,6 +77,77 @@ test('runtime launcher reports an unsuccessful local Runtime process', async () 
   }
 })
 
+test('runtime launcher round-trips remote calls and events through a stub process', async () => {
+  const runtimeEnvironment = {
+    QDRANT_MEMORY_RUNTIME_PYTHON: '/private/runtime/bin/python',
+    QDRANT_MEMORY_DSH_OWNER_URL: 'https://owner.example/mcp',
+    QDRANT_MEMORY_DSH_OWNER_TOKEN: 't'.repeat(32),
+    QDRANT_MEMORY_RUNTIME_CA_FILE: process.execPath,
+  }
+  const previousEnvironment = Object.fromEntries(
+    Object.keys(runtimeEnvironment).map((key) => [key, process.env[key]]),
+  )
+  Object.assign(process.env, runtimeEnvironment)
+  const stubSpawn = (response) => {
+    const calls = []
+    const spawnProcess = (command, args, options) => {
+      const child = new EventEmitter()
+      child.stdout = new PassThrough()
+      child.stdin = new PassThrough()
+      const call = { command, args, options, stdin: '' }
+      const chunks = []
+      child.stdin.on('data', (chunk) => chunks.push(Buffer.from(chunk)))
+      child.stdin.on('finish', () => {
+        call.stdin = Buffer.concat(chunks).toString('utf8')
+        child.stdout.end(JSON.stringify(response))
+        setImmediate(() => child.emit('close', 0))
+      })
+      calls.push(call)
+      return child
+    }
+    return { calls, spawnProcess }
+  }
+
+  try {
+    const query = { query: 'project memory' }
+    const callStub = stubSpawn({ memories: [{ id: 'm1', text: 'A fact.' }] })
+    const callResult = await runRuntimeRequest('remote-call', query, {
+      spawnProcess: callStub.spawnProcess,
+    })
+    assert.deepEqual(callResult, { memories: [{ id: 'm1', text: 'A fact.' }] })
+    assert.equal(callStub.calls[0].command, runtimeEnvironment.QDRANT_MEMORY_RUNTIME_PYTHON)
+    assert.deepEqual(callStub.calls[0].args, [
+      '-m', 'qdrant_memory.standalone', 'remote-call',
+      '--url', runtimeEnvironment.QDRANT_MEMORY_DSH_OWNER_URL,
+      '--token-env', 'QDRANT_MEMORY_DSH_OWNER_TOKEN',
+      '--ca-file', process.execPath,
+      '--tool', 'qdrant_memory_search',
+    ])
+    assert.equal(callStub.calls[0].stdin, JSON.stringify(query))
+
+    const event = { event_id: 'event-1' }
+    const eventStub = stubSpawn({ event_id: 'event-1', status: 'COMMITTED' })
+    const eventResult = await runRuntimeRequest('remote-event', event, {
+      action: 'retry',
+      spawnProcess: eventStub.spawnProcess,
+    })
+    assert.deepEqual(eventResult, { event_id: 'event-1', status: 'COMMITTED' })
+    assert.deepEqual(eventStub.calls[0].args, [
+      '-m', 'qdrant_memory.standalone', 'remote-event',
+      '--url', runtimeEnvironment.QDRANT_MEMORY_DSH_OWNER_URL,
+      '--token-env', 'QDRANT_MEMORY_DSH_OWNER_TOKEN',
+      '--ca-file', process.execPath,
+      '--action', 'retry',
+    ])
+    assert.equal(eventStub.calls[0].stdin, JSON.stringify(event))
+  } finally {
+    for (const [key, value] of Object.entries(previousEnvironment)) {
+      if (value === undefined) delete process.env[key]
+      else process.env[key] = value
+    }
+  }
+})
+
 test('turn projection excludes injected memory, tools, interrupted assistant text, and failed endings', () => {
   const events = [
     { type: 'turn/start', seq: 10, data: { turn: 4 } },
@@ -95,15 +170,23 @@ test('turn projection excludes injected memory, tools, interrupted assistant tex
   ], 'session-1', 4), null)
 })
 
-test('turn projection rejects credential-shaped data and oversized transcripts', () => {
-  const events = [
+test('turn projection rejects credentials and applies the input size limit independently', () => {
+  const credentialEvents = [
     { type: 'turn/start', seq: 1, data: { turn: 1 } },
     { type: 'user/message', seq: 2, data: { source: { kind: 'user' }, content: [{ type: 'text', text: 'my token=very-long-secret-value-123456' }] } },
     { type: 'assistant/message', seq: 3, data: { turn: 1, message: { source: { kind: 'model', provider: 'p', model: 'm' }, content: [{ type: 'text', text: 'ack' }] } } },
     { type: 'turn/end', seq: 4, data: { turn: 1, reason: { kind: 'completed' } } },
   ]
-  assert.equal(compileTurn(events, 'session-1', 1), null)
-  assert.equal(compileTurn(events, 'session-1', 1, 8), null)
+  assert.equal(compileTurn(credentialEvents, 'session-1', 1), null)
+
+  const sizeEvents = [
+    { type: 'turn/start', seq: 1, data: { turn: 1 } },
+    { type: 'user/message', seq: 2, data: { source: { kind: 'user' }, content: [{ type: 'text', text: 'Remember the project setting.' }] } },
+    { type: 'assistant/message', seq: 3, data: { turn: 1, message: { source: { kind: 'model', provider: 'p', model: 'm' }, content: [{ type: 'text', text: 'Understood.' }] } } },
+    { type: 'turn/end', seq: 4, data: { turn: 1, reason: { kind: 'completed' } } },
+  ]
+  assert.ok(compileTurn(sizeEvents, 'session-1', 1))
+  assert.equal(compileTurn(sizeEvents, 'session-1', 1, 16), null)
 })
 
 test('memory context is escaped, bounded, and omits credential-shaped records', () => {
@@ -115,6 +198,12 @@ test('memory context is escaped, bounded, and omits credential-shaped records', 
   assert.match(result.text, /\\u003cthis\\u003e/u)
   assert.match(result.text, /untrusted historical data/u)
   assert.equal(formatMemories({ memories: [{ id: 'x', text: 'long fact' }] }, 16).text, '')
+  const small = { id: 'small', text: 'ok' }
+  const expectedSmall = formatMemories({ memories: [small] })
+  const afterOversized = formatMemories({
+    memories: [{ id: 'large', text: 'x'.repeat(200) }, small],
+  }, expectedSmall.text.length)
+  assert.deepEqual(afterOversized, expectedSmall)
 })
 
 test('recall options enforce score, result count, provenance and duplicate handling', () => {
@@ -173,10 +262,10 @@ test('opt-in recall enters the current pre-step decision once and keeps session 
     source: { kind: 'user' },
     content: [{ type: 'text', text: 'How should DSH access project memory?' }],
   }]
-  const run = async (agent, turn) => {
-    const decision = { kind: 'enter', messages: original }
+  const run = async (agent, turn, messages = original) => {
+    const decision = { kind: 'enter', messages }
     const result = await handlers.get('agent/pre-step')(
-      { agent, messages: original, turn },
+      { agent, messages, turn },
       async () => decision,
     )
     return { decision, result }
@@ -192,6 +281,15 @@ test('opt-in recall enters the current pre-step decision once and keeps session 
     assert.deepEqual(first.result.messages[1].source.memoryIds, ['memory-1'])
     assert.match(first.result.messages[1].content[0].text, /shared_owner/u)
     assert.equal(first.decision.messages, original)
+    assert.equal(calls.length, 1)
+
+    const credentialMessages = [{
+      role: 'user',
+      source: { kind: 'user' },
+      content: [{ type: 'text', text: '{"api_key":"private-secret-value-123456"}' }],
+    }]
+    const skippedCredential = await run(firstAgent, 4, credentialMessages)
+    assert.equal(skippedCredential.result, skippedCredential.decision)
     assert.equal(calls.length, 1)
 
     const cached = await run(firstAgent, 2)
@@ -234,7 +332,11 @@ test('completed capture flushes the DSH log and retries from its stable Owner re
     { type: 'turn/end', seq: 4, data: { turn: 1, reason: { kind: 'completed' } } },
   ]
   const snapshot = { events }
-  const makeContext = (stream) => {
+  const makeContext = (stream, {
+    agents = { get() { return undefined }, list() { return [] } },
+    flush = async () => true,
+    readSession = async () => snapshot,
+  } = {}) => {
     const handlers = new Map()
     let cleanup
     const ctx = {
@@ -245,9 +347,9 @@ test('completed capture flushes the DSH log and retries from its stable Owner re
       effect(register) { cleanup = register() },
       logger: { warn() {} },
       llm: { stream },
-      sessions: { async flush() { return true } },
-      sessionQuery: { async readSession() { return snapshot } },
-      agents: { get() { return undefined } },
+      sessions: { flush },
+      sessionQuery: { readSession },
+      agents,
     }
     return { ctx, handlers, getCleanup: () => cleanup }
   }
@@ -257,6 +359,10 @@ test('completed capture flushes the DSH log and retries from its stable Owner re
   }
   let resolveSubmitted
   const submittedPromise = new Promise((resolve) => { resolveSubmitted = resolve })
+  let releaseFirstFlush
+  const firstFlush = new Promise((resolve) => { releaseFirstFlush = resolve })
+  let firstFlushCalls = 0
+  let firstReadCalls = 0
   let extractionRequest
   const candidateOutput = JSON.stringify({
     memories: [{
@@ -271,6 +377,15 @@ test('completed capture flushes the DSH log and retries from its stable Owner re
     extractionRequest = request
     yield { type: 'text-delta', text: candidateOutput }
     yield { type: 'finish', reason: { kind: 'stop' } }
+  }, {
+    flush() {
+      firstFlushCalls += 1
+      return firstFlush
+    },
+    async readSession() {
+      firstReadCalls += 1
+      return snapshot
+    },
   })
   const firstRequests = []
   const firstAgent = {
@@ -287,7 +402,7 @@ test('completed capture flushes the DSH log and retries from its stable Owner re
     throw new Error('unexpected Runtime call')
   })
   firstContext.handlers.get('agent/created')({ agent: firstAgent })
-  firstContext.handlers.get('session/event')(session, {
+  const captureCompletion = firstContext.handlers.get('session/event')(session, {
     type: 'turn/end',
     data: { turn: 1, reason: { kind: 'completed' } },
   })
@@ -295,8 +410,14 @@ test('completed capture flushes the DSH log and retries from its stable Owner re
   let submitted
   let submitTimer
   try {
+    assert.equal(typeof captureCompletion?.then, 'function')
+    assert.ok(firstFlushCalls > 0)
+    assert.equal(firstReadCalls, 0)
+    await new Promise((resolve) => setImmediate(resolve))
+    assert.equal(firstReadCalls, 0)
+    releaseFirstFlush(true)
     submitted = await Promise.race([
-      submittedPromise,
+      Promise.all([submittedPromise, captureCompletion]).then(([payload]) => payload),
       new Promise((_, reject) => { submitTimer = setTimeout(() => reject(new Error('capture timed out')), 3000) }),
     ])
   } finally {
@@ -312,29 +433,244 @@ test('completed capture flushes the DSH log and retries from its stable Owner re
   assert.match(extractionRequest.messages[0].content[0].text, /existing Python Runtime/u)
   assert.equal(firstRequests.filter((item) => item.options?.action === 'submit').length, 1)
 
-  let recovered
-  const recoveredPromise = new Promise((resolve) => { recovered = resolve })
-  const replayContext = makeContext(() => {
-    throw new Error('a committed receipt must not re-extract')
-  })
   const replayAgent = { session, model: firstAgent.model }
-  const replayDispose = apply(replayContext.ctx, config, async (_mode, payload, options) => {
-    assert.equal(options.action, 'status')
-    recovered(payload)
-    return { status: 'COMMITTED' }
+  const replayCalls = []
+  let resolveRetried
+  const retriedPromise = new Promise((resolve) => { resolveRetried = resolve })
+  let retryCount = 0
+  const replayContext = makeContext(() => {
+    throw new Error('an accepted receipt must not re-extract')
+  }, {
+    agents: { get() { return undefined }, list() { return [replayAgent] } },
   })
-  replayContext.handlers.get('agent/created')({ agent: replayAgent })
+  const replayDispose = apply(replayContext.ctx, config, async (_mode, payload, options) => {
+    replayCalls.push({ payload, options })
+    if (options.action === 'status') {
+      return { status: retryCount ? 'COMMITTED' : 'ACCEPTED' }
+    }
+    if (options.action === 'retry') {
+      retryCount += 1
+      resolveRetried(payload)
+      return { status: 'COMMITTED' }
+    }
+    throw new Error('unexpected Runtime call during receipt recovery')
+  })
+  const replayCompletion = replayContext.handlers.get('session/event')(session, {
+    type: 'turn/end',
+    data: { turn: 1, reason: { kind: 'completed' } },
+  })
   let recoveryTimer
   try {
     const replay = await Promise.race([
-      recoveredPromise,
+      Promise.all([replayCompletion, retriedPromise]).then(([, payload]) => payload),
       new Promise((_, reject) => { recoveryTimer = setTimeout(() => reject(new Error('recovery timed out')), 3000) }),
     ])
-    assert.equal(replay.event_id, submitted.event_id)
+    assert.deepEqual(replay, { event_id: submitted.event_id })
+    assert.ok(replayCalls.some((call) => call.options.action === 'status'))
+    assert.equal(replayCalls.filter((call) => call.options.action === 'retry').length, 1)
   } finally {
     clearTimeout(recoveryTimer)
     replayDispose()
   }
+})
+
+test('stalled DSH extraction times out and releases the capture worker', async () => {
+  const session = { id: 'capture-timeout-session' }
+  const events = []
+  const firstTurnEvents = [
+    { type: 'turn/start', seq: 1, data: { turn: 1 } },
+    { type: 'user/message', seq: 2, data: {
+      source: { kind: 'user' },
+      content: [{ type: 'text', text: 'Remember the first durable fact.' }],
+    } },
+    { type: 'assistant/message', seq: 3, data: {
+      turn: 1,
+      message: {
+        source: { kind: 'model', provider: 'provider-a', model: 'model-a' },
+        content: [{ type: 'text', text: 'The first fact is useful.' }],
+      },
+    } },
+    { type: 'turn/end', seq: 4, data: { turn: 1, reason: { kind: 'completed' } } },
+  ]
+  const secondTurnEvents = [
+    { type: 'turn/start', seq: 5, data: { turn: 2 } },
+    { type: 'user/message', seq: 6, data: {
+      source: { kind: 'user' },
+      content: [{ type: 'text', text: 'Remember the second durable fact.' }],
+    } },
+    { type: 'assistant/message', seq: 7, data: {
+      turn: 2,
+      message: {
+        source: { kind: 'model', provider: 'provider-a', model: 'model-a' },
+        content: [{ type: 'text', text: 'The second fact is useful.' }],
+      },
+    } },
+    { type: 'turn/end', seq: 8, data: { turn: 2, reason: { kind: 'completed' } } },
+  ]
+  const agent = {
+    session,
+    model: { current: () => ({ provider: 'provider-a', model: 'model-a' }) },
+  }
+  const handlers = new Map()
+  const runtimeCalls = []
+  const candidateOutput = JSON.stringify({ memories: [candidate], replacement_context: '' })
+  let cleanup
+  let extractionCalls = 0
+  let timedOutSignal
+  let resolveInitialRecoveryRead
+  const initialRecoveryRead = new Promise((resolve) => { resolveInitialRecoveryRead = resolve })
+  let sessionReads = 0
+  const ctx = {
+    on(event, handler) {
+      handlers.set(event, handler)
+      return () => handlers.delete(event)
+    },
+    effect(register) { cleanup = register() },
+    logger: { warn() {} },
+    agents: { get() { return undefined }, list() { return [] } },
+    llm: {
+      stream(request) {
+        extractionCalls += 1
+        if (extractionCalls === 1) {
+          timedOutSignal = request.signal
+          return (async function* () { await new Promise(() => {}) })()
+        }
+        return (async function* () {
+          yield { type: 'text-delta', text: candidateOutput }
+          yield { type: 'finish', reason: { kind: 'stop' } }
+        })()
+      },
+    },
+    sessions: { async flush() { return true } },
+    sessionQuery: {
+      async readSession() {
+        sessionReads += 1
+        if (sessionReads === 1) resolveInitialRecoveryRead()
+        return { events: [...events] }
+      },
+    },
+  }
+  const config = {
+    ...DEFAULT_CONFIG,
+    auto_capture: { ...DEFAULT_CONFIG.auto_capture, enabled: true, timeout_ms: 1000 },
+  }
+  const dispose = apply(ctx, config, async (mode, payload, options) => {
+    runtimeCalls.push({ mode, payload, options })
+    return options.action === 'status' ? { status: 'NOT_FOUND' } : { status: 'COMMITTED' }
+  })
+  const waitFor = async (promise) => {
+    let timer
+    try {
+      return await Promise.race([
+        promise,
+        new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('capture worker did not settle')), 3000) }),
+      ])
+    } finally {
+      clearTimeout(timer)
+    }
+  }
+  try {
+    handlers.get('agent/created')({ agent })
+    await waitFor(initialRecoveryRead)
+    events.push(...firstTurnEvents)
+    await waitFor(handlers.get('session/event')(session, {
+      type: 'turn/end',
+      data: { turn: 1, reason: { kind: 'completed' } },
+    }))
+    assert.equal(timedOutSignal.aborted, true)
+    assert.equal(runtimeCalls.filter((call) => call.options.action === 'submit').length, 0)
+
+    events.push(...secondTurnEvents)
+    await waitFor(handlers.get('session/event')(session, {
+      type: 'turn/end',
+      data: { turn: 2, reason: { kind: 'completed' } },
+    }))
+    assert.equal(extractionCalls, 2)
+    assert.equal(runtimeCalls.filter((call) => call.options.action === 'submit').length, 1)
+  } finally {
+    dispose()
+  }
+  assert.equal(typeof cleanup, 'function')
+})
+
+test('disposing an agent cancels delayed recovery before it can enqueue Owner work', async () => {
+  const events = [
+    { type: 'turn/start', seq: 1, data: { turn: 1 } },
+    { type: 'user/message', seq: 2, data: {
+      source: { kind: 'user' },
+      content: [{ type: 'text', text: 'Remember this durable fact.' }],
+    } },
+    { type: 'assistant/message', seq: 3, data: {
+      turn: 1,
+      message: {
+        source: { kind: 'model', provider: 'provider-a', model: 'model-a' },
+        content: [{ type: 'text', text: 'I will remember it.' }],
+      },
+    } },
+    { type: 'turn/end', seq: 4, data: { turn: 1, reason: { kind: 'completed' } } },
+  ]
+  const agent = {
+    session: { id: 'disposed-recovery-session' },
+    model: { current: () => ({ provider: 'provider-a', model: 'model-a' }) },
+  }
+  let cleanup
+  let readStarted
+  const readStartedPromise = new Promise((resolve) => { readStarted = resolve })
+  let releaseRead
+  const readGate = new Promise((resolve) => { releaseRead = resolve })
+  const handlers = new Map()
+  const runtimeCalls = []
+  let extractionCalls = 0
+  const ctx = {
+    on(event, handler) {
+      handlers.set(event, handler)
+      return () => handlers.delete(event)
+    },
+    effect(register) { cleanup = register() },
+    logger: { warn() {} },
+    agents: { get() { return agent }, list() { return [agent] } },
+    sessions: { async flush() { return true } },
+    sessionQuery: {
+      readSession() {
+        readStarted()
+        return readGate
+      },
+    },
+    llm: {
+      stream() {
+        extractionCalls += 1
+        throw new Error('disposed recovery must not start extraction')
+      },
+    },
+  }
+  const config = {
+    ...DEFAULT_CONFIG,
+    auto_capture: { ...DEFAULT_CONFIG.auto_capture, enabled: true },
+  }
+  const dispose = apply(ctx, config, async (...args) => {
+    runtimeCalls.push(args)
+    return { status: 'NOT_FOUND' }
+  })
+  let timer
+  try {
+    await Promise.race([
+      readStartedPromise,
+      new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('recovery did not start')), 3000) }),
+    ])
+    handlers.get('agent/disposed')({ agent })
+    releaseRead({ events })
+    await new Promise((resolve) => setImmediate(resolve))
+    handlers.get('session/event')(agent.session, {
+      type: 'turn/end',
+      data: { turn: 1, reason: { kind: 'completed' } },
+    })
+    assert.equal(runtimeCalls.length, 0)
+    assert.equal(extractionCalls, 0)
+  } finally {
+    clearTimeout(timer)
+    dispose()
+  }
+  assert.equal(typeof cleanup, 'function')
 })
 
 test('disabled plugin hooks preserve the current pre-step decision', async () => {
