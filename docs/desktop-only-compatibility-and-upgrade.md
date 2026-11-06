@@ -65,11 +65,16 @@ Keep the old plugin version and Runtime environment available. Back up the user
 Profile and export JSON/Markdown before any Runtime or embedding-pipeline
 upgrade. If an embedding fingerprint changes, create a new collection, reembed,
 verify record counts and representative searches, then switch only after user
-approval. Keep the old collection/cache for rollback. Before switching back,
-warn the user that every memory change made after the switch — additions,
+approval. Keep the old collection/cache for rollback. Before recording
+post-switch changes, pause every writer against the old and new collections,
+and keep them paused through reconciliation and until the switch completes.
+Warn the user that every memory change made after the switch — additions,
 updates and deletions against the new collection — would be lost or reverted
 by reactivating the old collection. Record and review those post-switch
-changes, present a verified reconciliation plan that reapplies every addition,
+changes while writers are paused, present a verified reconciliation plan that
+reapplies every addition,
 update and deletion to the rolled-back collection, and switch back only after
-the user approves that plan. Never overwrite a user's
+the user approves that plan. An equivalent atomic cutover may replace the
+pause only if it prevents writes from being omitted from the approved
+reconciliation plan or hidden by rollback. Never overwrite a user's
 existing Collection or mutate native Codex storage.
