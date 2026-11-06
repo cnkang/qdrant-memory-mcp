@@ -30,8 +30,11 @@ checks only the path explicitly passed to that CLI process; it does not prove
 which profile the Codex plugin selected.
 
 This command prepares the pinned CPU model when it is not already cached. Before
-running it, ask for explicit permission to download the model and state the
-source and size: `Qdrant/paraphrase-multilingual-MiniLM-L12-v2-onnx-Q`, revision
+running it, ask for explicit permission to download the model and state both
+identifiers: the logical model is
+`sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`; its immutable
+ONNX artifacts are downloaded from
+`Qdrant/paraphrase-multilingual-MiniLM-L12-v2-onnx-Q`, revision
 `faf4aa4225822f3bc6376869cb1164e8e3feedd0`, **252,138,706 bytes** total, 384
 dimensions. Runtime verifies each artifact's pinned size and SHA-256 and
 publishes the cache atomically. If the user declines, stop before setup. The
