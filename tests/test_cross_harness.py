@@ -37,6 +37,7 @@ def test_dsh_native_bundle_pins_release_and_keeps_automation_disabled():
     assert package['name'] == '@cnkang/qdrant-memory-dsh-native'
     assert package['private'] is True
     assert package['engines']['node'] == '>=24.9.0'
+    assert package['scripts']['pretest'] == 'npm run validate:node'
     assert package['scripts']['validate:node'] == 'node ./scripts/validate-node.mjs'
     assert package['scripts']['validate:dsh'] == 'node ./scripts/validate-dsh.mjs'
     assert 'validate:pnpm' not in package['scripts']
@@ -49,6 +50,7 @@ def test_dsh_native_bundle_pins_release_and_keeps_automation_disabled():
         '@deepseek-ai/schemastery': '3.19.0',
     }
     assert package['devDependencies']['@deepseek-ai/dsh'] == '0.2.2-rc.1'
+    assert (ROOT / '.nvmrc').read_text().strip() == '24'
     assert row['name'] == package['name']
     assert row['config']['auto_recall']['enabled'] is False
     assert row['config']['auto_capture']['enabled'] is False
@@ -66,7 +68,9 @@ def test_dsh_native_bundle_pins_release_and_keeps_automation_disabled():
         ('windows-2025', 'x64'),
     }
     workflow_text = (ROOT / '.github/workflows/dsh-native.yml').read_text()
-    assert "node-version: '24.9.0'" in workflow_text
+    assert "node-version: '24'" in workflow_text
+    quality_workflow_text = (ROOT / '.github/workflows/quality.yml').read_text()
+    assert "node-version: '24'" in quality_workflow_text
     package_manager = next(
         step for step in workflow['jobs']['native-contract']['steps']
         if step.get('name') == 'Install the exact DSH Plugin Manager package manager'

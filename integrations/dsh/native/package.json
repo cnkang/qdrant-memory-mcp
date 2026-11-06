@@ -24,6 +24,7 @@
     "icon.svg"
   ],
   "scripts": {
+    "pretest": "npm run validate:node",
     "test": "node --test",
     "validate:node": "node ./scripts/validate-node.mjs",
     "validate:dsh": "node ./scripts/validate-dsh.mjs",
