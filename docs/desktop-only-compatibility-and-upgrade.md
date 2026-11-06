@@ -59,7 +59,15 @@ diagnostics, migration and export in the separately installed Runtime CLI.
 10. Prepare a reviewable PR and internal artifact. Do not merge, tag, publish or
     submit unless separately authorized.
 
-## Rollback
+## Forward migration and rollback
+
+Before capturing an embedding-migration snapshot, pause and drain every writer
+targeting the source collection on every host. Runtime's `WriterLease` is a
+local OS file lock and does not coordinate writers on other hosts. Keep all
+writers paused through snapshot capture, re-embedding, record-count and
+representative-search verification, and the user-approved switch to the new
+collection. Resume writers only after cutover completes, targeting the selected
+collection.
 
 Keep the old plugin version and Runtime environment available. Before any
 Runtime or embedding-pipeline upgrade, make and verify coordinated backups of

@@ -71,17 +71,18 @@ complete cache. Setup is explicit and a missing model does not trigger cloud
 fallback.
 
 The official Desktop-only guide requires the server and its dependencies in
-the package; submission validation rejects ZIPs above 100 MB compressed and
-individual entries above 100 MiB. Runtime 0.6.0's pinned CPU model assets total
-252,138,706 bytes; `model_optimized.onnx` alone is 235,052,644 bytes. No ZIP
-compression measurement exists, and the single model entry would exceed the
-per-entry limit if bundled intact. Keep it as a separately downloaded,
-explicitly approved data asset with the existing source, size, SHA-256 and
-atomic-cache checks unless a measured package under 100 MB is produced. Whether
-that model data is outside
-the official "server and dependencies" requirement is **UNRESOLVED**; the
-archive-size rule does not itself grant an exception. Do not claim Desktop-only
-compliance until that interpretation and the clean launch route are confirmed.
+the package. Submission validation caps the compressed ZIP at 100 MB, each
+archive entry at 100 MiB, the extracted ZIP at 512 MiB, and the entry count at
+5,000. Runtime 0.6.0's pinned CPU model assets total 252,138,706 bytes;
+`model_optimized.onnx` alone is 235,052,644 bytes. No ZIP compression
+measurement exists, and that model entry exceeds the per-entry cap if bundled
+intact. Keep it as a separately downloaded, explicitly approved data asset
+with the existing source, size, SHA-256, and atomic-cache checks unless a
+measured archive containing it meets every archive limit and all package
+requirements. Whether separate model download satisfies the official "server
+and dependencies" requirement is **UNRESOLVED**; the archive-size rules do not
+grant an exception. Do not claim Desktop-only compliance until that
+interpretation and the clean launch route are confirmed.
 Do not call the lightweight Marketplace ZIP a Desktop-only package.
 
 ## Reproducibility and supply chain
