@@ -12,6 +12,7 @@ on:
       - 'docs/dsh-validation.md'
       - 'tests/test_cross_harness.py'
       - '.github/workflows/dsh-native.yml'
+      - '.github/ci-deps/dsh-native/**'
   pull_request:
     paths:
       - 'integrations/dsh/native/**'
@@ -22,6 +23,7 @@ on:
       - 'docs/dsh-validation.md'
       - 'tests/test_cross_harness.py'
       - '.github/workflows/dsh-native.yml'
+      - '.github/ci-deps/dsh-native/**'
   workflow_dispatch:
 
 permissions:
@@ -54,17 +56,19 @@ jobs:
         with:
           node-version: '24'
           cache: npm
-          cache-dependency-path: integrations/dsh/native/package-lock.json
+          cache-dependency-path: |
+            integrations/dsh/native/package-lock.json
+            .github/ci-deps/dsh-native/package-lock.json
       - name: Verify native runner architecture
         env:
           EXPECTED_ARCH: ${{ matrix.arch }}
         run: node -e "if (process.arch !== process.env.EXPECTED_ARCH) { console.error('Expected ' + process.env.EXPECTED_ARCH + ', got ' + process.arch); process.exit(1) }"
       - name: Install the locked native adapter dependencies
         run: npm ci --prefix integrations/dsh/native --ignore-scripts --no-audit --no-fund
-      - name: Install the DSH CLI for host compatibility tests
+      - name: Install the locked DSH CLI for host compatibility tests
         run: |
-          npm install --prefix "$RUNNER_TEMP/dsh-cli" --no-save --package-lock=false --ignore-scripts --no-audit --no-fund @deepseek-ai/dsh@0.2.2-rc.1
-          echo "$RUNNER_TEMP/dsh-cli/node_modules/.bin" >> "$GITHUB_PATH"
+          npm ci --prefix .github/ci-deps/dsh-native --ignore-scripts --no-audit --no-fund
+          node -e "require('node:fs').appendFileSync(process.env.GITHUB_PATH, require('node:path').resolve('.github/ci-deps/dsh-native/node_modules/.bin') + require('node:os').EOL)"
       - name: Install the exact DSH Plugin Manager package manager
         uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1
         with:
@@ -76,7 +80,7 @@ jobs:
       - name: Verify the exact DSH CLI package
         run: npm run --prefix integrations/dsh/native validate:dsh
         env:
-          QDRANT_MEMORY_DSH_PACKAGE_JSON: ${{ runner.temp }}/dsh-cli/node_modules/@deepseek-ai/dsh/package.json
+          QDRANT_MEMORY_DSH_PACKAGE_JSON: ${{ github.workspace }}/.github/ci-deps/dsh-native/node_modules/@deepseek-ai/dsh/package.json
       - name: Run native lifecycle contract fixtures
         run: npm test --prefix integrations/dsh/native
       - name: Install, compose, and remove in a disposable DSH profile

@@ -45,11 +45,22 @@ def test_dsh_native_bundle_pins_release_and_keeps_automation_disabled():
         'npm run validate:host:add && npm run validate:host:config && npm run validate:host:remove'
     )
     assert package['dependencies'] == {
-        '@deepseek-ai/cordis': '4.1.0',
         '@deepseek-ai/dsh-llm': '0.2.2-rc.1',
         '@deepseek-ai/schemastery': '3.19.0',
     }
-    assert package['devDependencies']['@deepseek-ai/dsh'] == '0.2.2-rc.1'
+    assert '@deepseek-ai/dsh' not in package.get('dependencies', {})
+    assert '@deepseek-ai/dsh' not in package.get('devDependencies', {})
+    ci_package = json.loads(
+        (ROOT / '.github/ci-deps/dsh-native/package.json').read_text()
+    )
+    assert ci_package['private'] is True
+    assert ci_package['dependencies'] == {'@deepseek-ai/dsh': '0.2.2-rc.1'}
+    assert ci_package['overrides'] == {
+        '@deepseek-ai/libreoffice-kit': {'fflate': '0.8.3'},
+        '@modelcontextprotocol/client': '2.3.0',
+        'undici': '8.12.3',
+        'zod': '4.6.7',
+    }
     assert (ROOT / '.nvmrc').read_text().strip() == '24'
     assert row['name'] == package['name']
     assert row['config']['auto_recall']['enabled'] is False
