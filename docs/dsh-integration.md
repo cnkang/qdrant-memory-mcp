@@ -4,7 +4,8 @@ Shared deployments require separate Owner client tokens and Owner-only database 
 
 DSH can search, save, update and delete durable memories through its official
 MCP client. Memory survives a new session and server restart. This is explicit
-memory: the connection does not automatically save every conversation.
+memory for the published MCP paths: the connection does not automatically save
+every conversation.
 
 [中文](dsh-integration.zh-CN.md) · [Validation and limitations](dsh-validation.md)
 
@@ -43,6 +44,25 @@ Writes are never queued. The DSH profile
 (`<managed-root>/profiles/dsh/local`) is separate from WorkBuddy and Hermes
 profiles. See the [Bundle README](../integrations/dsh/bundle/README.md) for
 update, uninstall and recovery details.
+
+## Native lifecycle adapter (unreleased preview)
+
+The repository also contains an optional [native Cordis adapter](../integrations/dsh/native/README.md).
+It uses DSH's model and session lifecycle for opt-in recall, injection, and
+completed-turn candidate extraction, then sends the candidates to the existing
+Python Owner. All three switches default to `false`. Recall requires both
+`auto_recall.enabled` and `memory_injection.enabled`.
+
+This adapter targets `@deepseek-ai/dsh@0.2.2-rc.1`. The published Python
+Runtime does not yet accept its versioned candidate event, so the native path
+is not a supported install with current published packages. Use the Bundle or
+Python/uvx overlay below until the companion Runtime change is released. The
+native package is not published, and it has no real-model or GUI acceptance
+claim. See [native design and support status](dsh-native/design.md).
+See the [English setup guide](../integrations/dsh/native/README.md),
+[中文设置说明](../integrations/dsh/native/README.zh-CN.md), and
+[validation evidence](dsh-native/validation.md) for configuration, rollback,
+and the current test boundaries.
 
 ## Alternative: Python/uvx overlay
 

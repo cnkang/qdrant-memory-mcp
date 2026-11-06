@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Qdrant Memory">
+  <rect x="4" y="4" width="56" height="56" rx="16" fill="#142a3a"/>
+  <path d="M32 13c-10.5 0-19 4.5-19 10v18c0 5.5 8.5 10 19 10s19-4.5 19-10V23c0-5.5-8.5-10-19-10Z" fill="none" stroke="#87e3c0" stroke-width="3"/>
+  <path d="M13 23c0 5.5 8.5 10 19 10s19-4.5 19-10M13 32c0 5.5 8.5 10 19 10s19-4.5 19-10" fill="none" stroke="#87e3c0" stroke-width="3"/>
+  <circle cx="32" cy="23" r="3" fill="#fff"/>
+  <circle cx="22" cy="32" r="3" fill="#fff"/>
+  <circle cx="42" cy="32" r="3" fill="#fff"/>
+  <circle cx="32" cy="41" r="3" fill="#fff"/>
+</svg>

@@ -1,0 +1,52 @@
+{
+  "name": "@cnkang/qdrant-memory-dsh-native",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Opt-in DeepSeek Harness native lifecycle adapter for the existing Qdrant Memory Python Runtime",
+  "main": "./index.js",
+  "types": "./index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.js"
+    },
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "README.md",
+    "README.zh-CN.md",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg"
+  ],
+  "scripts": {
+    "test": "node --test",
+    "validate:node": "node ./scripts/validate-node.mjs",
+    "validate:dsh": "node ./scripts/validate-dsh.mjs",
+    "validate:pnpm": "node ./scripts/validate-pnpm.mjs",
+    "validate:host": "npm run validate:host:add && npm run validate:host:config && npm run validate:host:remove",
+    "validate:host:add": "dsh plugin --profile qdrant-native-ci add .",
+    "validate:host:config": "dsh --profile qdrant-native-ci --dump-config",
+    "validate:host:remove": "dsh plugin --profile qdrant-native-ci remove @cnkang/qdrant-memory-dsh-native"
+  },
+  "engines": {
+    "node": ">=24.9.0"
+  },
+  "dependencies": {
+    "@deepseek-ai/cordis": "4.1.0",
+    "@deepseek-ai/dsh-llm": "0.2.2-rc.1",
+    "@deepseek-ai/schemastery": "3.19.0"
+  },
+  "devDependencies": {
+    "@deepseek-ai/dsh": "0.2.2-rc.1"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

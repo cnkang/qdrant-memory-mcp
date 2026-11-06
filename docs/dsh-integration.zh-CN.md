@@ -37,6 +37,22 @@ DSH 会先运行临时探测进程，再启动常驻连接。探测进程不会�
 写入不会被排队。DSH 的数据目录（`<managed-root>/profiles/dsh/local`）与 WorkBuddy、
 Hermes 相互独立。更新、卸载与恢复说明见 [Bundle 说明](../integrations/dsh/bundle/README.md)。
 
+## 原生生命周期适配器（未发布预览）
+
+仓库还包含可选的[原生 Cordis 适配器](../integrations/dsh/native/README.md)。
+它使用 DSH 模型和会话生命周期，在明确启用后执行召回、注入和完整轮次候选提取，
+再把候选交给现有 Python Owner。三个开关默认都为 `false`。召回需要同时启用
+`auto_recall.enabled` 和 `memory_injection.enabled`。
+
+该适配器针对 `@deepseek-ai/dsh@0.2.2-rc.1`。当前已发布的 Python Runtime 尚不接受
+它使用的版本化候选事件，因此它暂时不能与已发布 Runtime 一起作为受支持的安装路径。
+在配套 Runtime 改动发布前，请使用上面的 Bundle 或 Python/uvx overlay。
+原生包尚未发布，也没有真实模型或 GUI 验收结论。详见
+[原生设计与支持状态](dsh-native/design.md)。配置、回退和验证边界见
+[英文设置指南](../integrations/dsh/native/README.md)、
+[中文设置说明](../integrations/dsh/native/README.zh-CN.md)和
+[验证报告](dsh-native/validation.zh-CN.md)。
+
 ## 备选：Python/uvx overlay
 
 仅在 [PyPI 已提供 qdrant-memory-mcp 0.3.1](https://pypi.org/project/qdrant-memory-mcp/0.3.1/) 后运行下列固定版本命令。

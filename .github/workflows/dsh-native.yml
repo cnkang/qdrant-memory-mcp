@@ -1,0 +1,79 @@
+name: DSH native adapter
+
+on:
+  push:
+    branches: [main, 'codex/**']
+    paths:
+      - 'integrations/dsh/native/**'
+      - 'integrations/dsh/README.md'
+      - 'docs/dsh-native/**'
+      - 'docs/dsh-integration.md'
+      - 'docs/dsh-integration.zh-CN.md'
+      - 'docs/dsh-validation.md'
+      - 'tests/test_cross_harness.py'
+      - '.github/workflows/dsh-native.yml'
+  pull_request:
+    paths:
+      - 'integrations/dsh/native/**'
+      - 'integrations/dsh/README.md'
+      - 'docs/dsh-native/**'
+      - 'docs/dsh-integration.md'
+      - 'docs/dsh-integration.zh-CN.md'
+      - 'docs/dsh-validation.md'
+      - 'tests/test_cross_harness.py'
+      - '.github/workflows/dsh-native.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dsh-native-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  native-contract:
+    name: DSH 0.2.2-rc.1 (${{ matrix.os }} / ${{ matrix.arch }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            arch: x64
+          - os: macos-15
+            arch: arm64
+          - os: windows-2025
+            arch: x64
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '24.9.0'
+          cache: npm
+          cache-dependency-path: integrations/dsh/native/package-lock.json
+      - name: Verify native runner architecture
+        env:
+          EXPECTED_ARCH: ${{ matrix.arch }}
+        run: node -e "if (process.arch !== process.env.EXPECTED_ARCH) { console.error('Expected ' + process.env.EXPECTED_ARCH + ', got ' + process.arch); process.exit(1) }"
+      - name: Install the locked native package and DSH CLI
+        run: npm ci --prefix integrations/dsh/native --ignore-scripts --no-audit --no-fund
+      - name: Install the exact DSH Plugin Manager package manager
+        run: npm install --global pnpm@11.28.5
+      - name: Verify exact Node.js version
+        run: npm run --prefix integrations/dsh/native validate:node
+      - name: Verify the exact DSH CLI package
+        run: npm run --prefix integrations/dsh/native validate:dsh
+      - name: Verify the exact pnpm version
+        run: npm run --prefix integrations/dsh/native validate:pnpm
+      - name: Run native lifecycle contract fixtures
+        run: npm test --prefix integrations/dsh/native
+      - name: Install, compose, and remove in a disposable DSH profile
+        run: npm run --prefix integrations/dsh/native validate:host
+        env:
+          DSH_HOME: ${{ runner.temp }}/dsh-native-ci-home
+      - name: Check publishable bundle contents without publishing
+        run: npm pack --prefix integrations/dsh/native --dry-run --json

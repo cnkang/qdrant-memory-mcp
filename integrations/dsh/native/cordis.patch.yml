@@ -1,0 +1,21 @@
+- insert:
+    - id: qdrant-memory-native
+      name: '@cnkang/qdrant-memory-dsh-native'
+      config:
+        auto_recall:
+          enabled: false
+          timeout_ms: 5000
+          top_k: 8
+          dedupe: true
+          cache: false
+          cache_ttl_ms: 10000
+        auto_capture:
+          enabled: false
+          timeout_ms: 20000
+          max_input_chars: 16000
+          max_candidates: 20
+          max_output_tokens: 1200
+        memory_injection:
+          enabled: false
+          max_chars: 3500
+          include_source_metadata: false
