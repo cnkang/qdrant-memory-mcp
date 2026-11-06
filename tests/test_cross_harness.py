@@ -84,6 +84,21 @@ def test_dsh_native_bundle_pins_release_and_keeps_automation_disabled():
     assert pack_step['working-directory'] == 'integrations/dsh/native'
 
 
+def test_sonar_classifies_dsh_fixtures_and_validators_as_tests():
+    properties = {
+        key: value
+        for line in (ROOT / 'sonar-project.properties').read_text().splitlines()
+        if line and not line.startswith('#')
+        for key, value in [line.split('=', 1)]
+    }
+    assert properties['sonar.tests'] == (
+        'tests,integrations/dsh/native/test,integrations/dsh/native/scripts'
+    )
+    assert properties['sonar.exclusions'] == (
+        'integrations/dsh/native/test/**,integrations/dsh/native/scripts/**'
+    )
+
+
 def test_managed_launcher_uses_a_published_runtime_wheel():
     package = json.loads((ROOT / 'integrations/managed/package.json').read_text())
     runtime = json.loads((ROOT / 'integrations/managed/runtime.json').read_text())
