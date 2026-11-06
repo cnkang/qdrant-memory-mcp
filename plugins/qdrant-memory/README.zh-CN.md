@@ -27,10 +27,10 @@ Hermes、DSH 和 WorkBuddy 按各自的版本及验收门禁独立发布。
 128 token 以上输入明确失败，不静默截断，也不切换云服务。Ollama 和兼容 OpenAI
 的 embedding API 需显式选择，密钥只从环境读取。Codex 登录不等于 API Key。
 
-先运行 `qdrant-memory --home PROFILE codex inspect --codex-home APPROVED_HOME` 和
-`qdrant-memory --home PROFILE codex migrate --codex-home APPROVED_HOME --dry-run`，
+先运行 `qdrant-memory --home PROFILE codex --codex-home APPROVED_HOME inspect` 和
+`qdrant-memory --home PROFILE codex --codex-home APPROVED_HOME migrate --dry-run`，
 审核原文件内容、跳过项目、目标 Scope 后，再运行
-`qdrant-memory --home PROFILE codex migrate --codex-home APPROVED_HOME --confirm --verify`。
+`qdrant-memory --home PROFILE codex --codex-home APPROVED_HOME migrate --confirm --verify`。
 重试使用相同的 `--codex-home APPROVED_HOME`，并支持 `--resume --retry-failed`。
 默认排除原始聊天、支持证据、代码块和疑似凭据。敏感信息检测不能替代人工审核。
 原生文件不会移动、覆盖或删除。自定义 `QDRANT_MEMORY_CODEX_EXECUTABLE` 时，Python

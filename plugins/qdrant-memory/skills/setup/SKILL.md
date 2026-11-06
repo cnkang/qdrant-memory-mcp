@@ -15,7 +15,7 @@ external services or migrating existing native memories.
    not implement another memory engine. Never extract Codex credentials.
 2. Inspect the intended profile, existing collection/ledger, current Hermes/other
    agent destinations, and effective native-memory settings. Use the Runtime's
-   `qdrant-memory --home PROFILE codex inspect --codex-home CANONICAL_HOME`
+   `qdrant-memory --home PROFILE codex --codex-home CANONICAL_HOME inspect`
    after installing the pinned Runtime.
    TOML inspection is not proof of the active client's effective configuration.
 3. Offer three paths: a new isolated Codex profile; approved native-memory
