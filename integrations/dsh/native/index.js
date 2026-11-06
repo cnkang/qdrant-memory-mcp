@@ -90,7 +90,9 @@ function blockText(message) {
 
 function validCandidate(candidate) {
   if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) return false
-  if (Object.keys(candidate).sort().join(',') !== 'category,importance,replacement_intent,text') return false
+  const candidateKeys = ['category', 'importance', 'replacement_intent', 'text']
+  if (Object.keys(candidate).length !== candidateKeys.length
+    || !candidateKeys.every((key) => Object.hasOwn(candidate, key))) return false
   return typeof candidate.text === 'string'
     && candidate.text.trim().length > 0
     && candidate.text.length <= 4096
@@ -120,7 +122,9 @@ export function parseCandidates(
     throw new Error('DSH extraction response was not strict JSON')
   }
   if (!value || typeof value !== 'object' || Array.isArray(value)
-    || Object.keys(value).sort().join(',') !== 'memories,replacement_context'
+    || Object.keys(value).length !== 2
+    || !Object.hasOwn(value, 'memories')
+    || !Object.hasOwn(value, 'replacement_context')
     || !Array.isArray(value.memories)
     || value.memories.length > maxCandidates || !value.memories.every(validCandidate)) {
     throw new Error('DSH extraction response did not match the Runtime candidate schema')
@@ -544,7 +548,7 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
   async function drainCapture(sessionId, session, queue) {
     queue.running = true
     try {
-      while (!disposed && !queue.controller.signal.aborted && queue.pending.length) {
+      while (!queue.controller.signal.aborted && queue.pending.length) {
         const item = queue.pending.shift()
         try {
           await captureTurn(session, item.turn, item.agent, item.events, AbortSignal.any([

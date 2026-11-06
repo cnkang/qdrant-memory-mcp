@@ -6,6 +6,7 @@ import {
   compileTurn,
   formatMemories,
   parseCandidates,
+  runRuntimeRequest,
 } from '../index.js'
 
 const candidate = {
@@ -46,6 +47,30 @@ test('candidate parser accepts the Runtime schema and rejects extra or sensitive
     assert.throws(() => parseCandidates(JSON.stringify({ memories, replacement_context: '' })))
   }
   assert.throws(() => parseCandidates('```json\n{"memories":[]}\n```'))
+})
+
+test('runtime launcher reports an unsuccessful local Runtime process', async () => {
+  const runtimeEnvironment = {
+    QDRANT_MEMORY_RUNTIME_PYTHON: process.execPath,
+    QDRANT_MEMORY_DSH_OWNER_URL: 'https://owner.example/mcp',
+    QDRANT_MEMORY_DSH_OWNER_TOKEN: 't'.repeat(32),
+    QDRANT_MEMORY_RUNTIME_CA_FILE: process.execPath,
+  }
+  const previousEnvironment = Object.fromEntries(
+    Object.keys(runtimeEnvironment).map((key) => [key, process.env[key]]),
+  )
+  Object.assign(process.env, runtimeEnvironment)
+  try {
+    await assert.rejects(
+      runRuntimeRequest('remote-call', { probe: true }, { timeoutMs: 1000 }),
+      /Owner Runtime request failed/u,
+    )
+  } finally {
+    for (const [key, value] of Object.entries(previousEnvironment)) {
+      if (value === undefined) delete process.env[key]
+      else process.env[key] = value
+    }
+  }
 })
 
 test('turn projection excludes injected memory, tools, interrupted assistant text, and failed endings', () => {
@@ -289,7 +314,7 @@ test('completed capture flushes the DSH log and retries from its stable Owner re
 
   let recovered
   const recoveredPromise = new Promise((resolve) => { recovered = resolve })
-  const replayContext = makeContext(async function* () {
+  const replayContext = makeContext(() => {
     throw new Error('a committed receipt must not re-extract')
   })
   const replayAgent = { session, model: firstAgent.model }
@@ -322,7 +347,7 @@ test('disabled plugin hooks preserve the current pre-step decision', async () =>
     },
     effect(register) { cleanup = register() },
     logger: { warn() {} },
-    llm: { async *stream() { throw new Error('must not call model when disabled') } },
+    llm: { stream() { throw new Error('must not call model when disabled') } },
     sessions: { async flush() { throw new Error('must not flush when disabled') } },
     sessionQuery: { async readSession() { throw new Error('must not read when disabled') } },
     agents: { get() { return undefined } },

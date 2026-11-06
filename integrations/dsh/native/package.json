@@ -27,7 +27,6 @@
     "test": "node --test",
     "validate:node": "node ./scripts/validate-node.mjs",
     "validate:dsh": "node ./scripts/validate-dsh.mjs",
-    "validate:pnpm": "node ./scripts/validate-pnpm.mjs",
     "validate:host": "npm run validate:host:add && npm run validate:host:config && npm run validate:host:remove",
     "validate:host:add": "dsh plugin --profile qdrant-native-ci add .",
     "validate:host:config": "dsh --profile qdrant-native-ci --dump-config",
