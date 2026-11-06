@@ -709,7 +709,7 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
   async function drainCapture(sessionId, session, queue) {
     queue.running = true
     try {
-      while (!disposed && !queue.controller.signal.aborted
+      while (!queue.controller.signal.aborted
         && !queue.agentSignal.aborted && queue.pending.length) {
         const item = queue.pending.shift()
         try {
