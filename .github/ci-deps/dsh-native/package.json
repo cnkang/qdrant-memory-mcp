@@ -1,0 +1,18 @@
+{
+  "name": "qdrant-memory-dsh-native-ci",
+  "private": true,
+  "engines": {
+    "node": ">=24.9.0"
+  },
+  "dependencies": {
+    "@deepseek-ai/dsh": "0.2.2-rc.1"
+  },
+  "overrides": {
+    "@deepseek-ai/libreoffice-kit": {
+      "fflate": "0.8.3"
+    },
+    "@modelcontextprotocol/client": "2.3.0",
+    "undici": "8.12.3",
+    "zod": "4.6.7"
+  }
+}
