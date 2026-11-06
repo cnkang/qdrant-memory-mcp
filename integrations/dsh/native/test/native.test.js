@@ -117,12 +117,13 @@ test('runtime launcher round-trips remote calls and events through a stub proces
     assert.deepEqual(callResult, { memories: [{ id: 'm1', text: 'A fact.' }] })
     assert.equal(callStub.calls[0].command, runtimeEnvironment.QDRANT_MEMORY_RUNTIME_PYTHON)
     assert.deepEqual(callStub.calls[0].args, [
-      '-m', 'qdrant_memory.standalone', 'remote-call',
+      '-I', '-X', 'utf8', '-m', 'qdrant_memory.standalone', 'remote-call',
       '--url', runtimeEnvironment.QDRANT_MEMORY_DSH_OWNER_URL,
       '--token-env', 'QDRANT_MEMORY_DSH_OWNER_TOKEN',
       '--ca-file', process.execPath,
       '--tool', 'qdrant_memory_search',
     ])
+    assert.equal(callStub.calls[0].options.cwd, '/private/runtime/bin')
     assert.equal(callStub.calls[0].stdin, JSON.stringify(query))
 
     const event = { event_id: 'event-1' }
@@ -133,12 +134,13 @@ test('runtime launcher round-trips remote calls and events through a stub proces
     })
     assert.deepEqual(eventResult, { event_id: 'event-1', status: 'COMMITTED' })
     assert.deepEqual(eventStub.calls[0].args, [
-      '-m', 'qdrant_memory.standalone', 'remote-event',
+      '-I', '-X', 'utf8', '-m', 'qdrant_memory.standalone', 'remote-event',
       '--url', runtimeEnvironment.QDRANT_MEMORY_DSH_OWNER_URL,
       '--token-env', 'QDRANT_MEMORY_DSH_OWNER_TOKEN',
       '--ca-file', process.execPath,
       '--action', 'retry',
     ])
+    assert.equal(eventStub.calls[0].options.cwd, '/private/runtime/bin')
     assert.equal(eventStub.calls[0].stdin, JSON.stringify(event))
   } finally {
     for (const [key, value] of Object.entries(previousEnvironment)) {

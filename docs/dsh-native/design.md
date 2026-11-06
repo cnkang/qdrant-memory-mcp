@@ -35,8 +35,10 @@ durability boundary, and `sessionQuery.readSession()` is the replay-validated
 source log. It never reads private `Session.log` state or appends a custom
 session event.
 
-The Python process is launched with an absolute interpreter path and the
-existing `qdrant_memory.standalone` `remote-call` / `remote-event` commands.
+The Python process is launched in isolated mode (`-I -X utf8`) from the
+interpreter's own directory, so project content cannot shadow the installed
+Runtime, and with an absolute interpreter path and the existing
+`qdrant_memory.standalone` `remote-call` / `remote-event` commands.
 It does not receive unrelated DSH credentials, Qdrant credentials, or any
 caller-selected Owner, space, or scope identifier. The Owner derives scope
 from the authenticated write grant. No Qdrant client, embedding pipeline,
