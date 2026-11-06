@@ -56,8 +56,8 @@ candidate as published.
    snapshot. This MCP release does not change Skill source, so it does not need
    another Skills snapshot. Publish a separate snapshot only when that source
    changes, and pin its actual commit in connector and Codex release metadata.
-   The separate Codex 0.1.3 candidate pins draft Skills PR #54 commit
-   `d42985ba9011edc48d7c103f79cf40709fd979e5`; that is not a published
+   The separate Codex 0.1.3 candidate pins Skills PR #56 commit
+   `25422da0a17a1bd99e475a11275b415363738b5a`; that is not a published
    Skills snapshot and must not be described as released.
 3. Verify launcher 0.1.0-rc.8 on npm against the SHA-512 in
    `launcher-source.json`. Its public Linux, macOS and Windows acceptance passed
