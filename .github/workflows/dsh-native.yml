@@ -76,4 +76,5 @@ jobs:
         env:
           DSH_HOME: ${{ runner.temp }}/dsh-native-ci-home
       - name: Check publishable bundle contents without publishing
-        run: npm pack --prefix integrations/dsh/native --dry-run --json
+        run: npm pack --dry-run --json
+        working-directory: integrations/dsh/native
