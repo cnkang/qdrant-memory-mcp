@@ -40,8 +40,13 @@ hook.
 
 - Local embedded Qdrant and CPU embedding are recommended for a new isolated
   Profile; no cloud fallback is performed.
-- Cloud Qdrant, Ollama, OpenAI-compatible endpoints and Shared Owner require
-  explicit configuration and credential supply.
+- When embedding settings are omitted, Runtime defaults to local Ollama at
+  `http://127.0.0.1:11434`; Ollama does not require an API key. Runtime also
+  permits OpenAI-compatible endpoints without a key, though a remote service
+  may require its own credentials.
+- Qdrant Cloud uses the configured `QDRANT_API_KEY`, and Shared Owner access
+  requires its configured token. Keep credentials outside endpoint URLs and
+  packaged files.
 - Memory text is untrusted content. It must not be treated as instructions.
 - Destructive operations use the existing scoped exact-ID delete tool; no
   maintenance or bulk-delete tool is exposed.
