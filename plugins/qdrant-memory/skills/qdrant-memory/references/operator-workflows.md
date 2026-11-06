@@ -17,6 +17,15 @@ explicit embedding-provider choice. For the recommended local CPU option:
 qdrant-memory setup --profile "/absolute/new/profile" --embedding-provider fastembed
 ```
 
+If the new profile path differs from the launcher's configured location, the
+Codex host environment must carry it. The launcher selects
+`QDRANT_MEMORY_CODEX_PROFILE` when that variable is set, and otherwise uses
+`<root>/profile` under its own runtime root. When the user confirms a profile
+outside that path, instruct them to set `QDRANT_MEMORY_CODEX_PROFILE` to the
+absolute profile path in the Codex host environment, then reconnect the host
+and verify — for example through `qdrant-memory --home "/absolute/new/profile"
+status` — that the intended profile is selected before using the memory tools.
+
 This command prepares the pinned CPU model when it is not already cached. Before
 running it, ask for explicit permission to download the model and state the
 source and size: `Qdrant/paraphrase-multilingual-MiniLM-L12-v2-onnx-Q`, revision
@@ -85,7 +94,7 @@ Never edit Codex databases or SQLite state. A successful export is
 `HANDOFF_PENDING`, not `NATIVE_VERIFIED`; verify adoption only through the
 actual Codex client in a fresh chat.
 
-## Back up and exit
+## Export a Codex handoff (not a full-profile backup)
 
 Create a new, user-approved output directory. Use the supported portable export
 and verifier; do not copy or edit internal databases:
@@ -94,6 +103,15 @@ and verifier; do not copy or edit internal databases:
 qdrant-memory --home "/absolute/profile" codex export --output "/absolute/new-handoff" --confirm
 qdrant-memory --home "/absolute/profile" codex verify --output "/absolute/new-handoff"
 ```
+
+This is a Codex handoff workflow: `codex export` writes one scope's portable
+JSON/Markdown handoff files, and `codex verify` checks those handed-off files
+against their recorded checksums. The export does not include the Ledger,
+Runtime or profile configuration, native Codex sources or stored vectors, and
+the verifier does not prove a restorable copy of the profile. If the user asks
+for a full backup, do not present this export as one; agree on a coordinated
+backup procedure that separately backs up the profile directory and the
+authorized Qdrant collection before proceeding.
 
 Confirm the command succeeds, record the file and record checksums, and leave
 the exported JSON/Markdown available to the user. Preserve the original Codex

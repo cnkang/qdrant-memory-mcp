@@ -10,7 +10,7 @@ development changes. No host adapter release is synchronized by this task.
 | Plugin | 0.1.3 candidate | Independent plugin version, bumped for the bundled Skill 0.4.1 update. Current GitHub Marketplace package is a lightweight source install. |
 | MCP distribution | 0.3.1, tag commit `e106f7de29da1a4ef889ccd589bdc76bb5092d6a` | Metadata/stdio adapter; delegates all memory operations to the Runtime. |
 | Runtime | 0.6.0, release commit `dee6777432f17523db75f6be32cf3ef15e48235c` | Authoritative Qdrant, embedding, scope, SQLite ledger, recovery and WriterLease implementation. |
-| Skill | 0.4.1 candidate, repository commit `d42985ba9011edc48d7c103f79cf40709fd979e5` | Guided operator workflows added in Skills draft PR #54; the plugin snapshot is refreshed to match all 21 source files. |
+| Skill | 0.4.1 candidate, repository commit `25422da0a17a1bd99e475a11275b415363738b5a` | Guided operator workflows added in Skills PR #54 and refined by Skills PR #56; the plugin snapshot is refreshed to match all 21 source files. |
 | Launcher | Plugin 0.1.3 source | Dependency-free Node ESM host adapter. The Desktop-only ZIP still requires a bundled or confirmed host Node runtime. |
 | Python test matrix | 3.11 / 3.14 | Runtime PR #127 exact-SHA run 42058051902 completed with passing Local Contracts on macOS/Windows/Ubuntu for both versions; latest-main Python 3.11 behavior failed on Hermes' conditional `python-dotenv` dependency. Issue #118 remains open. |
 | Model | FastEmbed 0.9.1; MiniLM-L12-v2, 384 dimensions | 252,138,706 bytes of immutable verified model files. Model cache is separate from plugin code. |
@@ -65,5 +65,11 @@ Keep the old plugin version and Runtime environment available. Back up the user
 Profile and export JSON/Markdown before any Runtime or embedding-pipeline
 upgrade. If an embedding fingerprint changes, create a new collection, reembed,
 verify record counts and representative searches, then switch only after user
-approval. Keep the old collection/cache for rollback. Never overwrite a user's
+approval. Keep the old collection/cache for rollback. Before switching back,
+warn the user that every memory change made after the switch — additions,
+updates and deletions against the new collection — would be lost or reverted
+by reactivating the old collection. Record and review those post-switch
+changes, present a verified reconciliation plan that reapplies every addition,
+update and deletion to the rolled-back collection, and switch back only after
+the user approves that plan. Never overwrite a user's
 existing Collection or mutate native Codex storage.

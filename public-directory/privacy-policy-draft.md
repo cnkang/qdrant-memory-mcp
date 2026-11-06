@@ -25,7 +25,9 @@ written to the user-selected destination.
   checks exact size and SHA-256, and publishes a complete cache atomically.
 - Qdrant Cloud is accessed only when the user configures a Cloud endpoint.
 - Ollama or an OpenAI-compatible embedding endpoint is accessed only when the
-  user explicitly configures that provider.
+  user explicitly configures that provider. A configured provider receives the
+  memory text and search queries that need embeddings; that content leaves the
+  user's machine.
 - The plugin does not silently fall back from local CPU to a cloud embedding
   service.
 - This source candidate declares no telemetry or automatic conversation

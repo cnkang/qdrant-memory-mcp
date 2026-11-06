@@ -4,8 +4,10 @@
 
 Plugin 0.1.3 pins MCP 0.3.1, Runtime 0.6.0 at
 `dee6777432f17523db75f6be32cf3ef15e48235c`, and `qdrant-memory` Skill 0.4.1
-at draft Skills PR #54 commit
-`d42985ba9011edc48d7c103f79cf40709fd979e5`. The tracked marketplace plugin
+at Skills PR #56 commit
+`25422da0a17a1bd99e475a11275b415363738b5a`, which refines the merged skills
+PR #54 snapshot with clarifications from this PR's review. The tracked
+marketplace plugin
 includes the complete 21-file Skill snapshot; the archive builder compares it
 with the pinned commit and rejects drift. A local 0.1.3 source Marketplace ZIP
 was built from commit `0ae3a0e5434c6feb19773e1990d6bd60a5d151e9` (34 files,
@@ -54,8 +56,14 @@ inspected. The available 177,573-byte artifacts had different SHA-256 values
 Windows `f3311b2910891cc2f1b733c687fc97c94f520f7c9b1c5c6083c0ccc387b1a706`),
 although the payloads and all compared entry metadata matched. The remaining
 difference is the ZIP creator-system marker (Unix 3 versus DOS 0); the builder
-now pins it to Unix 3 and the regression test checks that value. The new exact-
-SHA run must confirm identical Windows/macOS/Linux archives. A prior pre-commit
+now pins it to Unix 3 and the regression test checks that value. On the exact-
+SHA commit `ada8c470cc0ba9616c97eb60da6a8fa2be98266b`, run
+[42083465459](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/42083465459)
+passed Windows, macOS and Linux and produced identical 178,139-byte, 34-file
+source archives with SHA-256
+`284626b0db2505562af324dd62ce3f460948b137cf98202c5f85d3c273d9b7e2`; the
+matching local clean build confirmed the same hash. Any later commit requires
+its own exact-SHA verification. A prior pre-commit
 `linux/amd64` container run (Node 22.23.4, Python 3.11.17) passed
 `tests/test_codex_plugin.py` → **22 passed**; it predates ZIP_STORED and the
 creator-system marker fix. None of these source ZIP checks certify a

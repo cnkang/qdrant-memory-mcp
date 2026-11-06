@@ -33,6 +33,23 @@ def test_portable_package():
     assert "qdrant-memory-mcp==" + release["mcp_distribution_version"] in requirements
 
 
+def test_skill_frontmatter_version_matches_release():
+    """The packaged Skill snapshot must carry the release's pinned version."""
+    release = json.loads((ROOT / "plugins/qdrant-memory/release.json").read_text())
+    lines = (ROOT / "plugins/qdrant-memory/skills/qdrant-memory/SKILL.md").read_text(
+        encoding="utf-8"
+    ).splitlines()
+    assert lines[0] == "---"
+    end = lines.index("---", 1)
+    metadata = lines.index("metadata:", 1, end)
+    version = next(
+        line.split(":", 1)[1].strip().strip('"')
+        for line in lines[metadata + 1 : end]
+        if line.strip().startswith("version:")
+    )
+    assert version == release["skill_version"]
+
+
 def test_packaged_text_sources_use_lf_line_endings():
     """Keep source ZIP bytes stable when Windows checkout enables autocrlf."""
     attributes = (ROOT / ".gitattributes").read_text(encoding="utf-8")

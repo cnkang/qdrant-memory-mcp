@@ -24,6 +24,8 @@
 - [ ] Generate per-platform SBOM and license notices; include source commits,
       Python/Node versions, dependency hashes, model origin/hash, build
       environment, archive size and SHA-256 in the release manifest.
+- [ ] Verify the final compressed ZIP is no larger than 100 MB before
+      reporting Desktop package readiness.
 - [ ] Run portable schema validation, Creator-normalized manifest compatibility,
       secret scan, hostile archive/path tests and MCP protocol tests.
 - [ ] Test exact final ZIP on every confirmed Desktop platform. Perform setup,
