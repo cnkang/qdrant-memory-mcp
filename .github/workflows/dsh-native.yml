@@ -52,7 +52,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
-          node-version: '24.9.0'
+          node-version: '24'
           cache: npm
           cache-dependency-path: integrations/dsh/native/package-lock.json
       - name: Verify native runner architecture
@@ -67,7 +67,7 @@ jobs:
           version: '11.28.5'
           package_json_file: integrations/dsh/native/package.json
           run_install: false
-      - name: Verify exact Node.js version
+      - name: Verify Node.js 24 runtime
         run: npm run --prefix integrations/dsh/native validate:node
       - name: Verify the exact DSH CLI package
         run: npm run --prefix integrations/dsh/native validate:dsh
