@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
+const packageJsonPath = process.env.QDRANT_MEMORY_DSH_PACKAGE_JSON
+  ?? new URL('../node_modules/@deepseek-ai/dsh/package.json', import.meta.url)
 const packageJson = JSON.parse(readFileSync(
-  new URL('../node_modules/@deepseek-ai/dsh/package.json', import.meta.url),
+  packageJsonPath,
   'utf8',
 ))
 const version = packageJson.version
