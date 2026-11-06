@@ -4,9 +4,10 @@
 
 Plugin 0.1.3 pins MCP 0.3.1, Runtime 0.6.0 at
 `dee6777432f17523db75f6be32cf3ef15e48235c`, and `qdrant-memory` Skill 0.4.1
-at merged Skills main commit `fc8dea078f04d4ec2c90064676875f556ae6457e`,
+at merged Skills main commit `8f6e5280559f7f1d5e04781c6910b8c33b5f2dae`,
 which includes the merged PR #54 operator workflows, PR #56 clarifications,
-and PR #57's handoff export path fix.
+PR #57's handoff export path fix, and PR #58's Codex profile and model identity
+clarifications.
 The tracked marketplace plugin
 includes the complete 21-file Skill snapshot; the archive builder compares it
 with the pinned commit and rejects drift. An earlier local 0.1.3 source
