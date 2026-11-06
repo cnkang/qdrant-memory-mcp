@@ -50,7 +50,7 @@ before launching DSH:
 | `QDRANT_MEMORY_RUNTIME_CA_FILE` | Optional absolute path to a private CA bundle |
 
 The adapter passes only the Owner token and basic process paths to the Python
-child. It launches the child in isolated mode (`-I`) from the interpreter's own
+child. It launches the child in isolated mode (`-I -X utf8`) from the interpreter's own
 directory, so project content cannot shadow the installed Runtime. It does not
 inherit unrelated DSH credentials, print request contents, or fall back to
 another identity after an authorization failure. The Runtime derives scope from
@@ -206,6 +206,11 @@ capture, confirm `auto_capture.enabled`, the Runtime candidate-event version,
 the Owner write grant, and an active capture rule. The adapter fails open for
 ordinary DSH conversation when recall is unavailable and does not queue a
 second write under an uncertain event ID.
+
+The adapter runs the Runtime with `-I`, so `QDRANT_MEMORY_RUNTIME_PYTHON` must
+name an interpreter whose own `site-packages` contains the Runtime (a dedicated
+venv or `uv tool` environment); `--user` and `PYTHONPATH` installs are not
+visible to the child.
 
 ## Validation
 

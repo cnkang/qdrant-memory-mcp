@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Launch the DSH native Runtime with isolated-mode Python (`-I -X utf8`) from
+  the interpreter directory, matching the Pi adapter's `-I` and
+  interpreter-directory launch with `-X utf8` added for the pipe contract, so
+  project content cannot shadow the Runtime that holds the Owner token.
+
 ## 0.3.1
 
 - Pin managed launcher 0.1.0-rc.8 to its verified public npm integrity and

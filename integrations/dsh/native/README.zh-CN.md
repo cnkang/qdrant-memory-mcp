@@ -134,6 +134,8 @@ dsh plugin --profile <profile> remove @cnkang/qdrant-memory-dsh-native
 
 召回缺失时检查两个召回开关、grant 的搜索权限、endpoint 证书和 token。捕获缺失时检查 `auto_capture.enabled`、Runtime 候选事件版本、写入 grant 和捕获规则。Owner 不可用时，普通 DSH 对话继续运行；不要在同一不确定事件 ID 下重复排队写入。
 
+适配器以 `-I` 启动 Runtime，因此 `QDRANT_MEMORY_RUNTIME_PYTHON` 必须指向自身 `site-packages` 已安装 Runtime 的解释器（专用 venv 或 `uv tool` 环境）；`--user` 与 `PYTHONPATH` 安装对该子进程不可见。
+
 ## 验证状态
 
 在本机运行 `npm ci` 和 `npm test`。单元测试使用合成 session/Owner，不代表真实 DSH AgentLoop、真实模型、Owner 联网或 GUI 验收。完整证据、CI 状态和未覆盖场景见[验证报告](https://github.com/cnkang/qdrant-memory-mcp/blob/main/docs/dsh-native/validation.zh-CN.md)。
