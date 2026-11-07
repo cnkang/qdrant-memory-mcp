@@ -134,7 +134,9 @@ dsh plugin --profile <profile> remove @cnkang/qdrant-memory-dsh-native
 
 召回缺失时检查两个召回开关、grant 的搜索权限、endpoint 证书和 token。捕获缺失时检查 `auto_capture.enabled`、Runtime 候选事件版本、写入 grant 和捕获规则。Owner 不可用时，普通 DSH 对话继续运行；不要在同一不确定事件 ID 下重复排队写入。
 
-适配器以 `-I` 启动 Runtime，因此 `QDRANT_MEMORY_RUNTIME_PYTHON` 必须指向自身 `site-packages` 已安装 Runtime 的解释器（专用 venv 或 `uv tool` 环境）；`--user` 与 `PYTHONPATH` 安装对该子进程不可见。
+适配器以 `-I` 启动 Runtime，因此 `QDRANT_MEMORY_RUNTIME_PYTHON` 必须指向 `site-packages` 已安装 Runtime 的解释器：专用 venv、`uv tool` 环境，或启用 `--system-site-packages` 且基础解释器已安装 Runtime 的 venv；`--user` 与 `PYTHONPATH` 安装对该子进程不可见。
+
+`-I` 隔离的是工作树、`PYTHONPATH` 和用户 site-packages，并不会跳过 site 初始化。Python 会在 Runtime 启动前执行解释器 `site-packages` 中的 `*.pth` 与 `sitecustomize`，此时 `QDRANT_MEMORY_DSH_OWNER_TOKEN` 已在子进程环境中。`QDRANT_MEMORY_RUNTIME_PYTHON` 必须指向项目无法修改的可信安装；不要使用位于 DSH 项目内的虚拟环境。
 
 ## 验证状态
 
