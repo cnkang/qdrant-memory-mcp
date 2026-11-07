@@ -6,6 +6,7 @@ import test from 'node:test'
 import {
   Config,
   DEFAULT_CONFIG,
+  RUNTIME_BOOTSTRAP,
   apply,
   compileTurn,
   formatMemories,
@@ -118,7 +119,7 @@ test('runtime launcher round-trips remote calls and events through a stub proces
     assert.deepEqual(callResult, { memories: [{ id: 'm1', text: 'A fact.' }] })
     assert.equal(callStub.calls[0].command, runtimeEnvironment.QDRANT_MEMORY_RUNTIME_PYTHON)
     assert.deepEqual(callStub.calls[0].args, [
-      '-I', '-X', 'utf8', '-m', 'qdrant_memory.standalone', 'remote-call',
+      '-I', '-S', '-X', 'utf8', '-c', RUNTIME_BOOTSTRAP, 'remote-call',
       '--url', runtimeEnvironment.QDRANT_MEMORY_DSH_OWNER_URL,
       '--token-env', 'QDRANT_MEMORY_DSH_OWNER_TOKEN',
       '--ca-file', process.execPath,
@@ -135,7 +136,7 @@ test('runtime launcher round-trips remote calls and events through a stub proces
     })
     assert.deepEqual(eventResult, { event_id: 'event-1', status: 'COMMITTED' })
     assert.deepEqual(eventStub.calls[0].args, [
-      '-I', '-X', 'utf8', '-m', 'qdrant_memory.standalone', 'remote-event',
+      '-I', '-S', '-X', 'utf8', '-c', RUNTIME_BOOTSTRAP, 'remote-event',
       '--url', runtimeEnvironment.QDRANT_MEMORY_DSH_OWNER_URL,
       '--token-env', 'QDRANT_MEMORY_DSH_OWNER_TOKEN',
       '--ca-file', process.execPath,

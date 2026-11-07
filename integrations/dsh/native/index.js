@@ -309,14 +309,45 @@ function childEnvironment(token) {
 }
 
 /**
+ * Bootstrap the Runtime without running site initialization.
+ *
+ * `-S` skips `sitecustomize` and `.pth` processing, so project-controlled
+ * startup code cannot read the Owner token before the Runtime starts. The
+ * bootstrap adds only the interpreter's own site-packages directories, plus
+ * the base interpreter's paths when the venv explicitly includes them.
+ */
+export const RUNTIME_BOOTSTRAP = [
+  'import os, runpy, sys, sysconfig',
+  'root = os.path.dirname(os.path.dirname(sys.executable))',
+  'if os.name == "nt":',
+  '    venv_site = os.path.join(root, "Lib", "site-packages")',
+  'else:',
+  '    venv_site = os.path.join(root, "lib", f"python{sys.version_info.major}.{sys.version_info.minor}", "site-packages")',
+  'candidates = [venv_site]',
+  'cfg = os.path.join(root, "pyvenv.cfg")',
+  'include_system = True',
+  'if os.path.isfile(cfg):',
+  '    with open(cfg, encoding="utf-8", errors="replace") as handle:',
+  '        include_system = any(line.replace(" ", "").lower().startswith("include-system-site-packages=true") for line in handle)',
+  'if include_system:',
+  '    paths = sysconfig.get_paths()',
+  '    candidates.extend(paths[key] for key in ("purelib", "platlib") if paths.get(key))',
+  'for path in reversed(candidates):',
+  '    if os.path.isdir(path) and path not in sys.path:',
+  '        sys.path.insert(0, path)',
+  'sys.argv[0] = "qdrant_memory.standalone"',
+  'runpy.run_module("qdrant_memory.standalone", run_name="__main__")',
+].join('\n')
+
+/**
  * Build the isolated-mode Runtime arguments for one Owner request.
  *
  * `-I` keeps the project tree, `PYTHONPATH`, and user site-packages off the
- * child's import path. It does not skip site initialization inside the chosen
- * interpreter, so that interpreter must be a trusted installation.
+ * child's import path; `-S` plus the bootstrap prevents site startup code and
+ * `.pth` files from running before the Owner token is consumed.
  */
 function runtimeArgs(mode, target, options = {}) {
-  const args = ['-I', '-X', 'utf8', '-m', 'qdrant_memory.standalone', mode, '--url', target.endpoint,
+  const args = ['-I', '-S', '-X', 'utf8', '-c', RUNTIME_BOOTSTRAP, mode, '--url', target.endpoint,
     '--token-env', 'QDRANT_MEMORY_DSH_OWNER_TOKEN']
   if (target.caFile) args.push('--ca-file', target.caFile)
   if (mode === 'remote-call') args.push('--tool', 'qdrant_memory_search')
