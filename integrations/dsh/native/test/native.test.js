@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { EventEmitter } from 'node:events'
+import { resolve } from 'node:path'
 import { PassThrough } from 'node:stream'
 import test from 'node:test'
 import {
@@ -142,6 +143,51 @@ test('runtime launcher round-trips remote calls and events through a stub proces
     ])
     assert.equal(eventStub.calls[0].options.cwd, '/private/runtime/bin')
     assert.equal(eventStub.calls[0].stdin, JSON.stringify(event))
+  } finally {
+    for (const [key, value] of Object.entries(previousEnvironment)) {
+      if (value === undefined) delete process.env[key]
+      else process.env[key] = value
+    }
+  }
+})
+
+test('runtime launcher resolves a relative inherited CA file before changing directories', async () => {
+  const runtimeEnvironment = {
+    QDRANT_MEMORY_RUNTIME_PYTHON: '/private/runtime/bin/python',
+    QDRANT_MEMORY_DSH_OWNER_URL: 'https://owner.example/mcp',
+    QDRANT_MEMORY_DSH_OWNER_TOKEN: 't'.repeat(32),
+    QDRANT_MEMORY_RUNTIME_CA_FILE: process.execPath,
+    SSL_CERT_FILE: 'certs/owner-ca.pem',
+  }
+  const previousEnvironment = Object.fromEntries(
+    Object.keys(runtimeEnvironment).map((key) => [key, process.env[key]]),
+  )
+  Object.assign(process.env, runtimeEnvironment)
+  const calls = []
+  const spawnProcess = (command, args, options) => {
+    const child = new EventEmitter()
+    child.stdout = new PassThrough()
+    child.stdin = new PassThrough()
+    calls.push({ command, args, options })
+    child.stdin.on('data', () => {})
+    child.stdin.on('finish', () => {
+      child.stdout.end(JSON.stringify({ memories: [] }))
+      setImmediate(() => child.emit('close', 0))
+    })
+    return child
+  }
+
+  try {
+    await runRuntimeRequest('remote-call', { query: 'one' }, { spawnProcess })
+    assert.equal(calls[0].options.env.SSL_CERT_FILE, resolve(process.cwd(), 'certs/owner-ca.pem'))
+
+    process.env.SSL_CERT_FILE = process.execPath
+    await runRuntimeRequest('remote-call', { query: 'two' }, { spawnProcess })
+    assert.equal(calls[1].options.env.SSL_CERT_FILE, process.execPath)
+
+    delete process.env.SSL_CERT_FILE
+    await runRuntimeRequest('remote-call', { query: 'three' }, { spawnProcess })
+    assert.equal('SSL_CERT_FILE' in calls[2].options.env, false)
   } finally {
     for (const [key, value] of Object.entries(previousEnvironment)) {
       if (value === undefined) delete process.env[key]

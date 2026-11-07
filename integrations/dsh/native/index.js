@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { spawn } from 'node:child_process'
-import { dirname, isAbsolute } from 'node:path'
+import { dirname, isAbsolute, resolve } from 'node:path'
 import Schema from '@deepseek-ai/schemastery'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 
@@ -278,6 +278,14 @@ function runtimeTarget(env) {
   return { python, endpoint: endpoint.href, token, caFile }
 }
 
+/**
+ * Build the minimal environment for the Owner Runtime child.
+ *
+ * A relative inherited `SSL_CERT_FILE` is resolved against the DSH working
+ * directory before the child changes to the interpreter directory, so OpenSSL
+ * keeps finding the Owner CA. Absolute paths and an unset variable are kept
+ * as-is.
+ */
 function childEnvironment(token) {
   const env = {
     PATH: process.env.PATH ?? '',
@@ -288,9 +296,19 @@ function childEnvironment(token) {
   for (const key of ['HOME', 'USERPROFILE', 'SystemRoot', 'WINDIR', 'TEMP', 'TMP', 'SSL_CERT_FILE', 'SSL_CERT_DIR']) {
     if (typeof process.env[key] === 'string') env[key] = process.env[key]
   }
+  if (typeof env.SSL_CERT_FILE === 'string' && !isAbsolute(env.SSL_CERT_FILE)) {
+    env.SSL_CERT_FILE = resolve(process.cwd(), env.SSL_CERT_FILE)
+  }
   return env
 }
 
+/**
+ * Build the isolated-mode Runtime arguments for one Owner request.
+ *
+ * `-I` keeps the project tree, `PYTHONPATH`, and user site-packages off the
+ * child's import path. It does not skip site initialization inside the chosen
+ * interpreter, so that interpreter must be a trusted installation.
+ */
 function runtimeArgs(mode, target, options = {}) {
   const args = ['-I', '-X', 'utf8', '-m', 'qdrant_memory.standalone', mode, '--url', target.endpoint,
     '--token-env', 'QDRANT_MEMORY_DSH_OWNER_TOKEN']
@@ -301,6 +319,11 @@ function runtimeArgs(mode, target, options = {}) {
   return args
 }
 
+/**
+ * Run one bounded Owner Runtime request and resolve its parsed JSON result,
+ * or reject when the child fails, times out, is cancelled, or exceeds a
+ * request/response bound.
+ */
 export function runRuntimeRequest(
   mode,
   payload,
