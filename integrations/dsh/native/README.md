@@ -207,18 +207,19 @@ the Owner write grant, and an active capture rule. The adapter fails open for
 ordinary DSH conversation when recall is unavailable and does not queue a
 second write under an uncertain event ID.
 
-The adapter runs the Runtime with `-I`, so `QDRANT_MEMORY_RUNTIME_PYTHON` must
-name an interpreter whose `site-packages` contains the Runtime: a dedicated
-venv, a `uv tool` environment, or a venv created with `--system-site-packages`
-whose base interpreter has the Runtime installed. `--user` and `PYTHONPATH`
-installs are not visible to the child.
+The adapter runs the Runtime with `-I -S` plus a bootstrap that adds the
+interpreter's site-packages without processing `.pth` files or `sitecustomize`,
+so `QDRANT_MEMORY_RUNTIME_PYTHON` must name an interpreter whose `site-packages`
+contains the Runtime: a dedicated venv, a `uv tool` environment, or a venv
+created with `--system-site-packages` whose base interpreter has the Runtime
+installed. `--user` and `PYTHONPATH` installs are not visible to the child.
 
-`-I` isolates the working tree, `PYTHONPATH`, and user site-packages; it does
-not skip site initialization. Python processes `site-packages/*.pth` files and
-`sitecustomize` before the Runtime starts, while
-`QDRANT_MEMORY_DSH_OWNER_TOKEN` is already present in the child environment.
-Point `QDRANT_MEMORY_RUNTIME_PYTHON` at a trusted installation the project
-cannot modify; never use a virtual environment stored inside the DSH project.
+`-I` isolates the working tree, `PYTHONPATH`, and user site-packages; `-S` skips
+site initialization, so project-controlled startup code and `.pth` files cannot
+run while `QDRANT_MEMORY_DSH_OWNER_TOKEN` is present. The bootstrap honors the
+venv's `include-system-site-packages` setting. The interpreter binary and its
+installed packages remain a trusted installation; never use a virtual
+environment stored inside the DSH project.
 
 ## Validation
 
