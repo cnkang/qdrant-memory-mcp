@@ -35,19 +35,19 @@ durability boundary, and `sessionQuery.readSession()` is the replay-validated
 source log. It never reads private `Session.log` state or appends a custom
 session event.
 
-The Python process is launched in isolated mode (`-I -X utf8`) from the
+The Python process is launched in isolated mode (`-I -S -X utf8`) from the
 interpreter's own directory, with an absolute interpreter path and the existing
-`qdrant_memory.standalone` `remote-call` / `remote-event` commands. Isolation
-keeps the working tree, `PYTHONPATH`, and user site-packages off the child's
-import path, so project content there cannot shadow the Runtime. It does not
-skip site initialization: `*.pth` files and `sitecustomize` in the
-interpreter's site-packages run before the Runtime while the Owner token is in
-the environment. `QDRANT_MEMORY_RUNTIME_PYTHON` must therefore name a trusted
+`qdrant_memory.standalone` `remote-call` / `remote-event` commands. `-I` keeps
+the working tree, `PYTHONPATH`, and user site-packages off the child's import
+path. `-S` skips site initialization, and a fixed bootstrap adds the
+interpreter's site-packages (honoring `include-system-site-packages`) without
+processing `.pth` files or `sitecustomize`; project-controlled startup code
+therefore cannot run while the Owner token is in the environment. The
+interpreter binary and its installed packages must still be a trusted
 installation the project cannot modify, never a project-local virtual
-environment.
-It does not receive unrelated DSH credentials, Qdrant credentials, or any
-caller-selected Owner, space, or scope identifier. The Owner derives scope
-from the authenticated write grant. No Qdrant client, embedding pipeline,
+environment. It does not receive unrelated DSH credentials, Qdrant credentials,
+or any caller-selected Owner, space, or scope identifier. The Owner derives
+scope from the authenticated write grant. No Qdrant client, embedding pipeline,
 writer, or second memory ledger is added in TypeScript.
 
 ## Default-off configuration

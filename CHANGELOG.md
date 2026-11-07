@@ -2,12 +2,13 @@
 
 ## Unreleased
 
-- Launch the DSH native Runtime with isolated-mode Python (`-I -X utf8`) from
-  the interpreter directory, matching the Pi adapter's `-I` and
-  interpreter-directory launch with `-X utf8` added for the pipe contract, so
-  project content on the working tree or `PYTHONPATH` cannot shadow the Runtime
-  that holds the Owner token. Because `-I` still runs site initialization, the
-  runtime interpreter must be a trusted installation outside project control.
+- Launch the DSH native Runtime with isolated-mode Python (`-I -S -X utf8`) from
+  the interpreter directory, using a fixed bootstrap that adds the interpreter's
+  site-packages (honoring `include-system-site-packages`) without processing
+  `.pth` files or `sitecustomize`. Project content on the working tree,
+  `PYTHONPATH`, or site startup cannot shadow the Runtime while the Owner token
+  is present; the interpreter binary and its packages remain a trusted
+  installation outside project control.
 - Resolve a relative inherited `SSL_CERT_FILE` and each relative
   `SSL_CERT_DIR` entry against the DSH working directory before starting the
   Runtime from the interpreter directory.
