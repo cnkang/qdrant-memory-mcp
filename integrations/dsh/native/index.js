@@ -313,16 +313,21 @@ function childEnvironment(token) {
  *
  * `-S` skips `sitecustomize` and `.pth` processing, so project-controlled
  * startup code cannot read the Owner token before the Runtime starts. The
- * bootstrap adds only the interpreter's own site-packages directories, plus
- * the base interpreter's paths when the venv explicitly includes them.
+ * bootstrap adds only the interpreter's own site-packages directories, using
+ * `sys.abiflags` for free-threaded layouts, plus the base interpreter's paths
+ * when the venv explicitly includes them.
  */
 export const RUNTIME_BOOTSTRAP = [
   'import os, runpy, sys, sysconfig',
   'root = os.path.dirname(os.path.dirname(sys.executable))',
+  'abi = getattr(sys, "abiflags", "")',
   'if os.name == "nt":',
   '    venv_site = os.path.join(root, "Lib", "site-packages")',
+  '    base_site = os.path.join(sys.base_prefix, "Lib", "site-packages")',
   'else:',
-  '    venv_site = os.path.join(root, "lib", f"python{sys.version_info.major}.{sys.version_info.minor}", "site-packages")',
+  '    suffix = f"python{sys.version_info.major}.{sys.version_info.minor}{abi}"',
+  '    venv_site = os.path.join(root, "lib", suffix, "site-packages")',
+  '    base_site = os.path.join(sys.base_prefix, "lib", suffix, "site-packages")',
   'candidates = [venv_site]',
   'cfg = os.path.join(root, "pyvenv.cfg")',
   'include_system = True',
@@ -330,7 +335,8 @@ export const RUNTIME_BOOTSTRAP = [
   '    with open(cfg, encoding="utf-8", errors="replace") as handle:',
   '        include_system = any(line.replace(" ", "").lower().startswith("include-system-site-packages=true") for line in handle)',
   'if include_system:',
-  '    paths = sysconfig.get_paths()',
+  '    candidates.append(base_site)',
+  '    paths = sysconfig.get_paths(vars={"base": sys.base_prefix, "platbase": sys.base_prefix})',
   '    candidates.extend(paths[key] for key in ("purelib", "platlib") if paths.get(key))',
   'for path in reversed(candidates):',
   '    if os.path.isdir(path) and path not in sys.path:',
