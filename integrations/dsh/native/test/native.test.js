@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { EventEmitter } from 'node:events'
-import { resolve } from 'node:path'
+import { delimiter, resolve } from 'node:path'
 import { PassThrough } from 'node:stream'
 import test from 'node:test'
 import {
@@ -192,6 +192,57 @@ test('runtime launcher resolves a relative inherited CA file before changing dir
     process.env.SSL_CERT_FILE = ''
     await runRuntimeRequest('remote-call', { query: 'four' }, { spawnProcess })
     assert.equal(calls[3].options.env.SSL_CERT_FILE, '')
+  } finally {
+    for (const [key, value] of Object.entries(previousEnvironment)) {
+      if (value === undefined) delete process.env[key]
+      else process.env[key] = value
+    }
+  }
+})
+
+test('runtime launcher resolves relative inherited CA directories before changing directories', async () => {
+  const runtimeEnvironment = {
+    QDRANT_MEMORY_RUNTIME_PYTHON: '/private/runtime/bin/python',
+    QDRANT_MEMORY_DSH_OWNER_URL: 'https://owner.example/mcp',
+    QDRANT_MEMORY_DSH_OWNER_TOKEN: 't'.repeat(32),
+    QDRANT_MEMORY_RUNTIME_CA_FILE: process.execPath,
+    SSL_CERT_DIR: ['certs', 'shared/certs'].join(delimiter),
+  }
+  const previousEnvironment = Object.fromEntries(
+    Object.keys(runtimeEnvironment).map((key) => [key, process.env[key]]),
+  )
+  Object.assign(process.env, runtimeEnvironment)
+  const calls = []
+  const spawnProcess = (command, args, options) => {
+    const child = new EventEmitter()
+    child.stdout = new PassThrough()
+    child.stdin = new PassThrough()
+    calls.push({ command, args, options })
+    child.stdin.on('data', () => {})
+    child.stdin.on('finish', () => {
+      child.stdout.end(JSON.stringify({ memories: [] }))
+      setImmediate(() => child.emit('close', 0))
+    })
+    return child
+  }
+
+  try {
+    await runRuntimeRequest('remote-call', { query: 'one' }, { spawnProcess })
+    assert.equal(
+      calls[0].options.env.SSL_CERT_DIR,
+      [resolve(process.cwd(), 'certs'), resolve(process.cwd(), 'shared/certs')].join(delimiter),
+    )
+
+    process.env.SSL_CERT_DIR = ['/absolute/ca', 'relative/ca', ''].join(delimiter)
+    await runRuntimeRequest('remote-call', { query: 'two' }, { spawnProcess })
+    assert.equal(
+      calls[1].options.env.SSL_CERT_DIR,
+      ['/absolute/ca', resolve(process.cwd(), 'relative/ca'), ''].join(delimiter),
+    )
+
+    delete process.env.SSL_CERT_DIR
+    await runRuntimeRequest('remote-call', { query: 'three' }, { spawnProcess })
+    assert.equal('SSL_CERT_DIR' in calls[2].options.env, false)
   } finally {
     for (const [key, value] of Object.entries(previousEnvironment)) {
       if (value === undefined) delete process.env[key]

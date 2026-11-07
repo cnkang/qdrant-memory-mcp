@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { spawn } from 'node:child_process'
-import { dirname, isAbsolute, resolve } from 'node:path'
+import { delimiter, dirname, isAbsolute, resolve } from 'node:path'
 import Schema from '@deepseek-ai/schemastery'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 
@@ -283,8 +283,9 @@ function runtimeTarget(env) {
  *
  * A relative inherited `SSL_CERT_FILE` is resolved against the DSH working
  * directory before the child changes to the interpreter directory, so OpenSSL
- * keeps finding the Owner CA. Absolute paths and an unset variable are kept
- * as-is.
+ * keeps finding the Owner CA. Each relative `SSL_CERT_DIR` entry is resolved
+ * the same way while preserving the platform path-list separator. Absolute
+ * paths, empty entries, and an unset variable are kept as-is.
  */
 function childEnvironment(token) {
   const env = {
@@ -298,6 +299,11 @@ function childEnvironment(token) {
   }
   if (typeof env.SSL_CERT_FILE === 'string' && env.SSL_CERT_FILE !== '' && !isAbsolute(env.SSL_CERT_FILE)) {
     env.SSL_CERT_FILE = resolve(process.cwd(), env.SSL_CERT_FILE)
+  }
+  if (typeof env.SSL_CERT_DIR === 'string' && env.SSL_CERT_DIR !== '') {
+    env.SSL_CERT_DIR = env.SSL_CERT_DIR.split(delimiter)
+      .map((entry) => (entry === '' || isAbsolute(entry) ? entry : resolve(process.cwd(), entry)))
+      .join(delimiter)
   }
   return env
 }
