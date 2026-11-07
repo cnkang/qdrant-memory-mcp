@@ -8,8 +8,9 @@
   project content on the working tree or `PYTHONPATH` cannot shadow the Runtime
   that holds the Owner token. Because `-I` still runs site initialization, the
   runtime interpreter must be a trusted installation outside project control.
-- Resolve a relative inherited `SSL_CERT_FILE` against the DSH working directory
-  before starting the Runtime from the interpreter directory.
+- Resolve a relative inherited `SSL_CERT_FILE` and each relative
+  `SSL_CERT_DIR` entry against the DSH working directory before starting the
+  Runtime from the interpreter directory.
 
 ## 0.3.1
 
