@@ -22,7 +22,7 @@ flowchart LR
 
 适配器只负责观察 DSH 生命周期、过滤 turn、调用 DSH 模型抽取候选、把召回结果注入当前决策，以及传输候选。它使用公开的 `agent/pre-step`、`session/event`、`agent/created`、`agent/disposed`、`sessions.flush()` 和 `sessionQuery.readSession()`。不访问私有 `Session.log`，不写自定义 session event。
 
-Python 子进程以 `-I -X utf8` 隔离模式从解释器所在目录启动，项目内容无法遮蔽已安装的 Runtime；同时使用绝对 Python 路径和现有 `qdrant_memory.standalone` `remote-call` / `remote-event` 命令。Owner 根据认证 grant 推导 scope。TypeScript 不增加 Qdrant client、embedding pipeline、writer、ledger 或去重实现；四个公开 MCP 工具 schema 保持不变。
+Python 子进程以 `-I -X utf8` 隔离模式从解释器所在目录启动，同时使用绝对 Python 路径和现有 `qdrant_memory.standalone` `remote-call` / `remote-event` 命令。隔离使工作树、`PYTHONPATH` 和用户 site-packages 不进入子进程导入路径，项目内容无法从这些位置遮蔽 Runtime。它不会跳过 site 初始化：解释器 `site-packages` 中的 `*.pth` 与 `sitecustomize` 会在 Runtime 启动前、Owner token 已在环境中时执行。因此 `QDRANT_MEMORY_RUNTIME_PYTHON` 必须指向项目无法修改的可信安装，不能使用项目内的虚拟环境。Owner 根据认证 grant 推导 scope。TypeScript 不增加 Qdrant client、embedding pipeline、writer、ledger 或去重实现；四个公开 MCP 工具 schema 保持不变。
 
 ## 默认关闭与配置
 

@@ -36,9 +36,15 @@ source log. It never reads private `Session.log` state or appends a custom
 session event.
 
 The Python process is launched in isolated mode (`-I -X utf8`) from the
-interpreter's own directory, so project content cannot shadow the installed
-Runtime, and with an absolute interpreter path and the existing
-`qdrant_memory.standalone` `remote-call` / `remote-event` commands.
+interpreter's own directory, with an absolute interpreter path and the existing
+`qdrant_memory.standalone` `remote-call` / `remote-event` commands. Isolation
+keeps the working tree, `PYTHONPATH`, and user site-packages off the child's
+import path, so project content there cannot shadow the Runtime. It does not
+skip site initialization: `*.pth` files and `sitecustomize` in the
+interpreter's site-packages run before the Runtime while the Owner token is in
+the environment. `QDRANT_MEMORY_RUNTIME_PYTHON` must therefore name a trusted
+installation the project cannot modify, never a project-local virtual
+environment.
 It does not receive unrelated DSH credentials, Qdrant credentials, or any
 caller-selected Owner, space, or scope identifier. The Owner derives scope
 from the authenticated write grant. No Qdrant client, embedding pipeline,

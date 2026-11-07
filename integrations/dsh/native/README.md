@@ -208,9 +208,17 @@ ordinary DSH conversation when recall is unavailable and does not queue a
 second write under an uncertain event ID.
 
 The adapter runs the Runtime with `-I`, so `QDRANT_MEMORY_RUNTIME_PYTHON` must
-name an interpreter whose own `site-packages` contains the Runtime (a dedicated
-venv or `uv tool` environment); `--user` and `PYTHONPATH` installs are not
-visible to the child.
+name an interpreter whose `site-packages` contains the Runtime: a dedicated
+venv, a `uv tool` environment, or a venv created with `--system-site-packages`
+whose base interpreter has the Runtime installed. `--user` and `PYTHONPATH`
+installs are not visible to the child.
+
+`-I` isolates the working tree, `PYTHONPATH`, and user site-packages; it does
+not skip site initialization. Python processes `site-packages/*.pth` files and
+`sitecustomize` before the Runtime starts, while
+`QDRANT_MEMORY_DSH_OWNER_TOKEN` is already present in the child environment.
+Point `QDRANT_MEMORY_RUNTIME_PYTHON` at a trusted installation the project
+cannot modify; never use a virtual environment stored inside the DSH project.
 
 ## Validation
 
