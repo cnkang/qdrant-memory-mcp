@@ -188,6 +188,10 @@ test('runtime launcher resolves a relative inherited CA file before changing dir
     delete process.env.SSL_CERT_FILE
     await runRuntimeRequest('remote-call', { query: 'three' }, { spawnProcess })
     assert.equal('SSL_CERT_FILE' in calls[2].options.env, false)
+
+    process.env.SSL_CERT_FILE = ''
+    await runRuntimeRequest('remote-call', { query: 'four' }, { spawnProcess })
+    assert.equal(calls[3].options.env.SSL_CERT_FILE, '')
   } finally {
     for (const [key, value] of Object.entries(previousEnvironment)) {
       if (value === undefined) delete process.env[key]

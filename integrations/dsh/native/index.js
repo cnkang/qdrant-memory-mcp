@@ -296,7 +296,7 @@ function childEnvironment(token) {
   for (const key of ['HOME', 'USERPROFILE', 'SystemRoot', 'WINDIR', 'TEMP', 'TMP', 'SSL_CERT_FILE', 'SSL_CERT_DIR']) {
     if (typeof process.env[key] === 'string') env[key] = process.env[key]
   }
-  if (typeof env.SSL_CERT_FILE === 'string' && !isAbsolute(env.SSL_CERT_FILE)) {
+  if (typeof env.SSL_CERT_FILE === 'string' && env.SSL_CERT_FILE !== '' && !isAbsolute(env.SSL_CERT_FILE)) {
     env.SSL_CERT_FILE = resolve(process.cwd(), env.SSL_CERT_FILE)
   }
   return env
