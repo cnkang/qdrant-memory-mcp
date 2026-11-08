@@ -8,23 +8,18 @@ import subprocess
 from pathlib import Path
 from urllib.request import urlopen
 
-import yaml
+from ruamel.yaml import YAML
 
 
-class _DshConfigLoader(yaml.SafeLoader):
-    """Safe YAML loader that keeps DSH's !!js scalar expressions as strings."""
 
-
-def _construct_dsh_tag(loader, _suffix, node):
-    """Construct an unknown DSH YAML tag without losing its scalar value."""
-    if isinstance(node, yaml.ScalarNode):
-        return loader.construct_scalar(node)
-    if isinstance(node, yaml.SequenceNode):
-        return loader.construct_sequence(node)
-    return loader.construct_mapping(node)
-
-
-_DshConfigLoader.add_multi_constructor('', _construct_dsh_tag)
+def _load_dsh_config(text):
+    """Parse a dumped DSH config, keeping !!js expressions as scalar strings."""
+    yaml = YAML(typ='safe')
+    yaml.constructor.add_constructor(
+        'tag:yaml.org,2002:js',
+        lambda loader, node: loader.construct_scalar(node),
+    )
+    return yaml.load(text)
 
 
 def _find_plugin(node, plugin_id):
@@ -142,7 +137,7 @@ def test_official_dsh_cli_overlay_preserves_user_patches(tmp_path):
     assert re.search(rb'-\s*qdrant-memory-mcp==0\.3\.1(?:\s|$)', overlay_bytes), overlay_bytes[:2000]
     result = subprocess.run(['node', str(cli), 'web', '--patch', str(tagged_overlay), '--dump-config'], env=env, capture_output=True, text=True, timeout=60)
     assert result.returncode == 0, result.stderr
-    composed = yaml.load(result.stdout, Loader=_DshConfigLoader)
+    composed = _load_dsh_config(result.stdout)
     plugin = _find_plugin(composed, 'cnkang-qdrant-memory-mcp')
     assert plugin is not None, result.stdout
     args = plugin.get('config', {}).get('args')
