@@ -64,7 +64,7 @@ SDK/CLI tested, real host tested, real desktop GUI tested, not verified.
 | Hermes | Yes | Yes (via standalone) | Yes | Yes | Opt-in | Yes | Real host tested |
 | OpenCode | No | Yes | No | No | Via Owner | Yes | Real host tested (dual-device) |
 | Pi | No | Yes (extension) | Opt-in adapter | Opt-in adapter | Via Owner | Yes | Real host tested |
-| DeepSeek Harness | Opt-in source preview (npm private) | Yes (DSH bundle) | Opt-in preview | Opt-in preview | Via Owner | Yes | DSH 0.2.2-rc.1 CI host tested; real model/GUI unverified |
+| DeepSeek Harness | No (lifecycle adapter) | Yes (DSH bundle) | Opt-in preview | Opt-in preview | Via Owner | Yes | DSH 0.2.2-rc.1 CI host tested; real model/GUI unverified |
 | WorkBuddy | No | Yes (connector) | No | No | Via Owner | Yes | Real desktop GUI tested |
 | Codex | No | Yes | No | No | Via Owner | Yes | Official CLI tested |
 

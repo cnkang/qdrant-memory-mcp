@@ -144,7 +144,7 @@ dsh plugin --profile <profile> remove @cnkang/qdrant-memory-dsh-native
 
 ## 诊断指标
 
-插件在进程内维护召回请求/命中/失败/缓存命中、注入记忆数量与字符数、捕获 turn 的 seen/eligible/committed、捕获失败、backlog 丢弃、恢复次数与累计召回延迟等计数器。`apply()` 返回的 disposer 通过 `metrics()` 暴露快照；计数器不包含对话文本或凭证。Runtime receipt 只返回状态，因此无法提供 mutation 类型拆分和 dedupe rate。
+插件在进程内维护召回请求/命中/失败/缓存命中、注入记忆数量与字符数、捕获 turn 的 seen/eligible/committed、捕获失败、backlog 丢弃、恢复次数与累计召回延迟等计数器。`apply()` 返回的 disposer 通过 `metrics()` 暴露快照，供程序化宿主与测试使用；DSH 没有读取它的原生状态命令。计数器不包含对话文本或凭证。Runtime receipt 只返回状态，因此无法提供 mutation 类型拆分和 dedupe rate。
 
 ## 验证状态
 
