@@ -26,6 +26,7 @@ repository.
 | `dependency-review.yml` | PR | none | Tier 1 |
 | `codeql.yml` | push `main`, PR, weekly | `security-events: write` | Tier 1 |
 | `cross-harness.yml` | push `main`/`codex/**`, PR, dispatch | none | Tier 2 |
+| `dsh-native.yml` | push `main`/`codex/**`, selected PR paths, dispatch | none | Tier 2 |
 | `codex-plugin.yml` | selected paths, PR, dispatch | none | Tier 2 |
 | `managed-bootstrap.yml` | push, PR, dispatch | none | Tier 2 |
 | `workbuddy-preview.yml` | push, PR, dispatch | none | Tier 2 |
