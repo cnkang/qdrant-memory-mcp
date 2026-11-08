@@ -567,6 +567,10 @@ test('completed capture flushes the DSH log and retries from its stable Owner re
   assert.equal(extractionRequest.provider, 'provider-a')
   assert.match(extractionRequest.messages[0].content[0].text, /existing Python Runtime/u)
   assert.equal(firstRequests.filter((item) => item.options?.action === 'submit').length, 1)
+  const captureMetrics = firstDispose.metrics()
+  assert.equal(captureMetrics.capture_turns_seen, 1)
+  assert.equal(captureMetrics.capture_turns_eligible, 1)
+  assert.equal(captureMetrics.capture_events_committed, 1)
 
   const replayAgent = { session, model: firstAgent.model }
   const replayCalls = []
