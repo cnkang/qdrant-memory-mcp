@@ -8,6 +8,41 @@ import subprocess
 from pathlib import Path
 from urllib.request import urlopen
 
+import yaml
+
+
+class _DshConfigLoader(yaml.SafeLoader):
+    """Safe YAML loader that keeps DSH's !!js scalar expressions as strings."""
+
+
+def _construct_dsh_tag(loader, _suffix, node):
+    """Construct an unknown DSH YAML tag without losing its scalar value."""
+    if isinstance(node, yaml.ScalarNode):
+        return loader.construct_scalar(node)
+    if isinstance(node, yaml.SequenceNode):
+        return loader.construct_sequence(node)
+    return loader.construct_mapping(node)
+
+
+_DshConfigLoader.add_multi_constructor('', _construct_dsh_tag)
+
+
+def _find_plugin(node, plugin_id):
+    """Find one composed plugin entry by its exact id."""
+    if isinstance(node, dict):
+        if node.get('id') == plugin_id:
+            return node
+        for value in node.values():
+            found = _find_plugin(value, plugin_id)
+            if found is not None:
+                return found
+    elif isinstance(node, list):
+        for value in node:
+            found = _find_plugin(value, plugin_id)
+            if found is not None:
+                return found
+    return None
+
 
 def test_official_dsh_client(sandbox):
     profile, _, _, env, launch, cli, _ = sandbox
@@ -87,7 +122,14 @@ def test_official_dsh_cli_overlay_preserves_user_patches(tmp_path):
     sentinel = other / 'cordis.patch.yml'
     sentinel.write_text('# unrelated profile\n[]\n', encoding='utf-8')
     env = {key: value for key, value in os.environ.items() if key in {'PATH', 'SYSTEMROOT', 'WINDIR', 'TEMP', 'TMP'}}
-    env.update(DSH_HOME=str(home), HOME=str(tmp_path), USERPROFILE=str(tmp_path))
+    selected_profile = tmp_path / 'selected-profile'
+    selected_profile.mkdir(parents=True)
+    env.update(
+        DSH_HOME=str(home),
+        HOME=str(tmp_path),
+        USERPROFILE=str(tmp_path),
+        QDRANT_MEMORY_DSH_PROFILE=str(selected_profile),
+    )
     overlay_url = (
         'https://raw.githubusercontent.com/cnkang/qdrant-memory-mcp/'
         'v0.3.1/integrations/dsh/qdrant-memory.cordis.yml'
@@ -97,15 +139,34 @@ def test_official_dsh_cli_overlay_preserves_user_patches(tmp_path):
         assert response.status == 200
         overlay_bytes = response.read()
     tagged_overlay.write_bytes(overlay_bytes)
-    assert b'qdrant-memory-mcp==0.3.1' in overlay_bytes
+    assert re.search(rb'-\s*qdrant-memory-mcp==0\.3\.1(?:\s|$)', overlay_bytes), overlay_bytes[:2000]
     result = subprocess.run(['node', str(cli), 'web', '--patch', str(tagged_overlay), '--dump-config'], env=env, capture_output=True, text=True, timeout=60)
     assert result.returncode == 0, result.stderr
-    assert result.stdout.count('id: cnkang-qdrant-memory-mcp') == 1
+    composed = yaml.load(result.stdout, Loader=_DshConfigLoader)
+    plugin = _find_plugin(composed, 'cnkang-qdrant-memory-mcp')
+    assert plugin is not None, result.stdout
+    args = plugin.get('config', {}).get('args')
+    assert isinstance(args, list), result.stdout
+    from_indexes = [index for index, value in enumerate(args) if value == '--from']
+    assert from_indexes, result.stdout
+    for index in from_indexes:
+        assert args[index + 1] == 'qdrant-memory-mcp==0.3.1', result.stdout
+    home_indexes = [index for index, value in enumerate(args) if value == '--home']
+    assert home_indexes, result.stdout
+    for index in home_indexes:
+        configured_home = args[index + 1]
+        if configured_home != str(selected_profile):
+            evaluated = subprocess.run(
+                ['node', '-e', 'process.stdout.write(String(eval(process.argv[1])))', configured_home],
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
+            assert evaluated.returncode == 0, evaluated.stderr
+            configured_home = evaluated.stdout
+        assert configured_home == str(selected_profile), result.stdout
     assert "name: '@deepseek-ai/dsh-mcp-client'" in result.stdout
-    assert re.search(
-        r'id: cnkang-qdrant-memory-mcp[\s\S]*?\n\s+args:\s*\n(?:\s+-[^\n]*\n)*?\s+-\s*qdrant-memory-mcp==0\.3\.1\b',
-        result.stdout,
-    ), result.stdout
     assert patch.read_text() == '[]\n'
     assert sentinel.read_text() == '# unrelated profile\n[]\n'
 
