@@ -1023,4 +1023,8 @@ test('Owner recall outage fails open without changing the current decision', asy
   }
   assert.equal(typeof cleanup, 'function')
   assert.equal(handlers.size, 0)
+  const metrics = dispose.metrics()
+  assert.equal(metrics.recall_requests, 1)
+  assert.equal(metrics.recall_failures, 1)
+  assert.equal(metrics.recall_latency_ms_count, 1)
 })
