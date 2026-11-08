@@ -21,6 +21,10 @@ Both jobs reject skipped tests.
   It installs the packed Bundle through the real `dsh plugin` command.
   It runs the exact public `npx` launcher commands on Linux, macOS, and Windows.
   Tests cover the initial handshake, preparation, memory operations, and persistence.
+- DSH native adapter runs the pinned `0.2.2-rc.1` native fixtures, installs and
+  composes the plugin in a disposable profile, asserts the three default-off
+  switches, removes it, and checks pack contents on Linux, macOS, and Windows.
+  It runs on every `main` push and is required by the tag release gate.
 - Repository quality runs Ruff on release scripts and tests.
   It runs actionlint on every workflow, including shell steps.
   CI verifies the SHA256 digest of the actionlint archive.

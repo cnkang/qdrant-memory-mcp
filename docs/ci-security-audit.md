@@ -121,6 +121,9 @@ Verified through the API on 2026-11-05:
 | Publish distribution | 16 | 94% | 0% | 6% | 8 min | 18 min |
 | Prepare WorkBuddy assets | 12 | 100% | 0% | 0% | 2 min | 3 min |
 
+The `DSH native adapter` workflow is new. It has no 30-day baseline yet and is
+excluded from the percentages above until enough runs exist.
+
 Cancellations track the `codex/**` dual lane (push plus pull request for the
 same commit) and are deliberate. The push and pull request use different
 `github.ref` concurrency groups, so both SonarCloud jobs may run when neither is
