@@ -159,9 +159,13 @@ def test_official_dsh_cli_overlay_preserves_user_patches(tmp_path):
     assert home_indexes, result.stdout
     for index in home_indexes:
         configured_home = args[index + 1]
-        assert configured_home in {str(selected_profile), TRUSTED_HOME_EXPRESSION}, result.stdout
+        normalized_home = ' '.join(configured_home.split())
+        assert (
+            configured_home == str(selected_profile)
+            or normalized_home == TRUSTED_HOME_EXPRESSION
+        ), result.stdout
     assert re.search(
-        r'--home[\s\S]{0,200}?!!js\s+process\.env\.QDRANT_MEMORY_DSH_PROFILE',
+        r'--home[\s\S]{0,200}?!!js\s*>?-\s*process\.env\.QDRANT_MEMORY_DSH_PROFILE',
         result.stdout,
     ), result.stdout
     assert "name: '@deepseek-ai/dsh-mcp-client'" in result.stdout
