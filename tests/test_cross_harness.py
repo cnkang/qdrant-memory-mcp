@@ -78,8 +78,13 @@ def test_dsh_native_bundle_pins_release_and_keeps_automation_disabled():
         ('macos-15', 'arm64'),
         ('windows-2025', 'x64'),
     }
+    node_versions = {
+        item.get('node')
+        for item in workflow['jobs']['native-contract']['strategy']['matrix']['include']
+    }
+    assert node_versions == {'24', '24.9.0'}
     workflow_text = (ROOT / '.github/workflows/dsh-native.yml').read_text()
-    assert "node-version: '24'" in workflow_text
+    assert 'node-version: ${{ matrix.node }}' in workflow_text
     quality_workflow_text = (ROOT / '.github/workflows/quality.yml').read_text()
     assert "node-version: '24'" in quality_workflow_text
     package_manager = next(
