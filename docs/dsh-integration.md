@@ -115,12 +115,32 @@ uvx --from qdrant-memory-mcp==0.3.1 qdrant-memory-mcp --home "$PROFILE" doctor &
     ' "$PATCH")
   fi
   PATCH_HAS_PLUGIN=0
-  PATCH_PIN_OLD=0
-  PATCH_HAS_VERSION=0
+  PATCH_FROM_VALUES=""
   if [ -n "$PATCH_BLOCK" ]; then
     grep -Eq "id:[[:space:]]*[\"']?cnkang-qdrant-memory-mcp[\"']?[[:space:]]*$" <<< "$PATCH_BLOCK" && PATCH_HAS_PLUGIN=1
-    grep -Eq "^[[:space:]]*-[[:space:]]*[\"']?qdrant-memory-mcp[[:space:]]*==[[:space:]]*0\.3\.0[\"']?[[:space:]]*$" <<< "$PATCH_BLOCK" && PATCH_PIN_OLD=1
-    grep -Eq "^[[:space:]]*-[[:space:]]*[\"']?qdrant-memory-mcp[[:space:]]*==[[:space:]]*0\.3\.1[\"']?[[:space:]]*$" <<< "$PATCH_BLOCK" && PATCH_HAS_VERSION=1
+    PATCH_FROM_VALUES=$(awk '
+      { sub(/#.*/, "") }
+      /^[[:space:]]*-[[:space:]]*--from[[:space:]]*$/ { want=1; next }
+      want {
+        want=0
+        sub(/^[[:space:]]*-[[:space:]]*/, "", $0)
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", $0)
+        print
+      }
+      END { if (want) print "__MISSING__" }
+    ' <<< "$PATCH_BLOCK")
+  fi
+  PATCH_PIN_OLD=0
+  PATCH_HAS_VERSION=0
+  if [ -n "$PATCH_FROM_VALUES" ]; then
+    PATCH_HAS_VERSION=1
+    while IFS= read -r value; do
+      value="${value#\"}"; value="${value%\"}"
+      value="${value#\'}"; value="${value%\'}"
+      value="${value//[[:space:]]/}"
+      [ "$value" = "qdrant-memory-mcp==0.3.0" ] && PATCH_PIN_OLD=1
+      [ "$value" = "qdrant-memory-mcp==0.3.1" ] || PATCH_HAS_VERSION=0
+    done <<< "$PATCH_FROM_VALUES"
   fi
   if [ "$PATCH_PIN_OLD" = 1 ]; then
     echo "The existing patch still pins qdrant-memory-mcp==0.3.0; update it to 0.3.1 before launching DSH." >&2
@@ -171,8 +191,16 @@ $PatchHasPlugin = $PatchActive -match '(?m)^\s*-\s*id:\s*["'']?cnkang-qdrant-mem
 $PatchBlock = if ($PatchHasPlugin) {
   [regex]::Match($PatchActive, '(?s)id:\s*["'']?cnkang-qdrant-memory-mcp["'']?\s*.*?(?=\n\s*-\s*id:|\z)').Value
 } else { '' }
-$PatchPinned = $PatchBlock -match '(?m)^\s*-\s*["'']?qdrant-memory-mcp\s*==\s*0\.3\.0["'']?\s*$'
-$PatchHasVersion = $PatchBlock -match '(?m)^\s*-\s*["'']?qdrant-memory-mcp\s*==\s*0\.3\.1["'']?\s*$'
+$PatchFrom = @()
+$PatchLines = @($PatchBlock -split "`n")
+for ($i = 0; $i -lt $PatchLines.Count; $i++) {
+  if ($PatchLines[$i] -match '^\s*-\s*--from\s*$' -and ($i + 1) -lt $PatchLines.Count) {
+    $value = $PatchLines[$i + 1] -replace '^\s*-\s*', '' -replace '^["'']|["'']$', '' -replace '\s', ''
+    $PatchFrom += $value
+  }
+}
+$PatchPinned = $PatchFrom -contains 'qdrant-memory-mcp==0.3.0'
+$PatchHasVersion = ($PatchFrom.Count -gt 0) -and (($PatchFrom | Where-Object { $_ -ne 'qdrant-memory-mcp==0.3.1' }).Count -eq 0)
 if (-not (Test-Path $Patch)) {
   throw "Patch is unavailable; DSH was not launched."
 } elseif ($PatchPinned) {
