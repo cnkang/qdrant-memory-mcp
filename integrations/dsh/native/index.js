@@ -247,8 +247,12 @@ export function formatMemories(
     selected.push(next[next.length - 1])
     seenIds.add(id)
   }
-  if (!selected.length) return { text: '', ids: [] }
-  return { text: prefix + safeJson(selected), ids: selected.map((memory) => memory.id) }
+  if (!selected.length) return { text: '', ids: [], chars: 0 }
+  return {
+    text: prefix + safeJson(selected),
+    ids: selected.map((memory) => memory.id),
+    chars: selected.reduce((total, memory) => total + [...memory.text].length, 0),
+  }
 }
 
 function runtimeTarget(env) {
@@ -577,7 +581,7 @@ function newRecallMessage(result, query, config) {
     includeSourceMetadata: config.include_source_metadata,
   })
   if (!formatted.text) return null
-  return createUserMessage({
+  const message = createUserMessage({
     source: {
       kind: 'qdrant-memory',
       memoryIds: formatted.ids,
@@ -585,6 +589,7 @@ function newRecallMessage(result, query, config) {
     },
     content: [{ type: 'text', text: formatted.text }],
   })
+  return { message, chars: formatted.chars }
 }
 
 async function retryRequest(request, signal) {
@@ -615,8 +620,10 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
   const listeners = []
   const metrics = {
     recall_requests: 0,
+    recall_owner_calls: 0,
     recall_hits: 0,
     recall_failures: 0,
+    recall_cancelled: 0,
     recall_cache_hits: 0,
     recall_latency_ms_total: 0,
     recall_latency_ms_count: 0,
@@ -772,6 +779,7 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
       return
     }
     if (status.status !== 'NOT_FOUND') {
+      metrics.capture_failed += 1
       safeLog(ctx, 'warn', `Qdrant Memory capture retained for Owner recovery (status: ${String(status.status ?? 'unknown')}).`)
       return
     }
@@ -864,9 +872,9 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
         : 0
       const ownEvents = inherited > 0 ? snapshot.events.slice(inherited) : snapshot.events
       const turns = completedTurns(ownEvents).slice(-MAX_RECOVERY_TURNS)
+      if (turns.length) metrics.capture_recovery_count += 1
       for (const turn of turns) {
         if (!isActiveAgent(agent, signal)) return
-        metrics.capture_recovery_count += 1
         enqueueCapture(session, turn, agent, snapshot.events)
       }
     } catch {
@@ -900,13 +908,14 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
       const cacheKey = `dsh-recall-v1:${hash(agent.session.id)}:${hash(query)}`
       const cached = config.auto_recall.cache ? recallCache.get(cacheKey) : undefined
       const cacheValid = cached && cached.expiresAt > Date.now()
+      metrics.recall_requests += 1
       let result
       if (cacheValid) {
         metrics.recall_cache_hits += 1
         result = cached.result
       } else {
+        metrics.recall_owner_calls += 1
         const started = Date.now()
-        metrics.recall_requests += 1
         try {
           result = await runtimeRequest('remote-call', { query }, {
             signal: requestSignal,
@@ -931,11 +940,12 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
       })
       if (!recalled) return decision
       metrics.recall_hits += 1
-      metrics.injected_memory_count += recalled.source.memoryIds.length
-      metrics.injected_context_chars += recalled.content[0].text.length
-      return { ...decision, messages: [...decision.messages, recalled] }
+      metrics.injected_memory_count += recalled.message.source.memoryIds.length
+      metrics.injected_context_chars += recalled.chars
+      return { ...decision, messages: [...decision.messages, recalled.message] }
     } catch {
-      metrics.recall_failures += 1
+      if (requestSignal.aborted || disposed) metrics.recall_cancelled += 1
+      else metrics.recall_failures += 1
       if (!disposed) safeLog(ctx, 'warn', 'Qdrant Memory recall is unavailable; continuing without recalled context.')
       return decision
     }

@@ -20,7 +20,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: dsh-native-${{ github.ref }}
+  group: dsh-native-${{ github.ref }}-${{ github.sha }}
   cancel-in-progress: true
 
 jobs:
