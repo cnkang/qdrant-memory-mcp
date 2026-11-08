@@ -722,11 +722,29 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
       // replacement lifetime instead of dropping the capture.
       if (!agentLifetime || agentLifetime.signal.aborted) return
       if (queue.closingTimer) clearTimeout(queue.closingTimer)
-      closingAgents.delete(queue.agent)
-      queue.agent = agent
-      queue.agentSignal = agentLifetime.signal
-      queue.closing = false
-      queue.closingTimer = null
+      if (queue.controller.signal.aborted) {
+        const abandoned = queue
+        queues.delete(sessionId)
+        closingAgents.delete(abandoned.agent)
+        queue = {
+          agent,
+          agentSignal: agentLifetime.signal,
+          pending: abandoned.pending.map((item) => ({ ...item, agent })),
+          turns: new Set(abandoned.turns),
+          turnAgents: new Map(abandoned.turnAgents),
+          running: false,
+          closing: false,
+          closingTimer: null,
+          controller: new AbortController(),
+        }
+        queues.set(sessionId, queue)
+      } else {
+        closingAgents.delete(queue.agent)
+        queue.agent = agent
+        queue.agentSignal = agentLifetime.signal
+        queue.closing = false
+        queue.closingTimer = null
+      }
     } else if (queue && queue.agent !== agent) {
       queue.controller.abort()
       queues.delete(sessionId)
@@ -738,6 +756,7 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
         agentSignal: agentLifetime.signal,
         pending: [],
         turns: new Set(),
+        turnAgents: new Map(),
         running: false,
         closing: false,
         closingTimer: null,
@@ -746,7 +765,7 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
       queues.set(sessionId, queue)
     }
     if (queue.turns.has(turn)) {
-      if (queue.agent !== agent && !queue.pending.some((item) => item.turn === turn)) {
+      if (queue.turnAgents.get(turn) !== agent && !queue.pending.some((item) => item.turn === turn)) {
         queue.pending.push({ turn, events, agent })
       }
       return queue.drainPromise
@@ -758,6 +777,7 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
       return
     }
     queue.turns.add(turn)
+    queue.turnAgents.set(turn, agent)
     queue.pending.push({ turn, events, agent })
     if (!queue.running) queue.drainPromise = drainCapture(sessionId, session, queue)
     return queue.drainPromise
@@ -869,7 +889,10 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
             safeLog(ctx, 'warn', 'Qdrant Memory capture did not complete; the DSH session log is retained for recovery.')
           }
         } finally {
-          queue.turns.delete(item.turn)
+          if (!queue.pending.some((pending) => pending.turn === item.turn)) {
+            queue.turns.delete(item.turn)
+            queue.turnAgents.delete(item.turn)
+          }
         }
       }
     } finally {
