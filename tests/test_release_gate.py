@@ -78,6 +78,26 @@ def test_fetch_runs_reads_all_api_pages(monkeypatch):
     assert f"head_sha={SHA}&per_page=100" in calls[0][-1]
 
 
+def test_required_workflows_exist_and_run_on_main_push():
+    """Every release-gate name resolves to a workflow with a main push trigger."""
+    documents = {}
+    for path in WORKFLOWS.glob("*.yml"):
+        document = _workflow(path.name)
+        if document.get("name"):
+            documents[document["name"]] = document
+    for name in REQUIRED_WORKFLOWS:
+        assert name in documents, f"missing workflow: {name}"
+        trigger = documents[name]["on"]
+        assert "push" in trigger, f"{name} has no push trigger"
+        assert "main" in (trigger["push"].get("branches") or []), f"{name} does not run on main"
+
+
+def test_dsh_native_push_trigger_has_no_path_filter():
+    """The release gate needs a run for every main commit, not only DSH edits."""
+    workflow = _workflow("dsh-native.yml")
+    assert "paths" not in workflow["on"].get("push", {})
+
+
 def test_release_gate_passes_for_verified_commit():
     """Every required workflow passed on main for this exact commit."""
     runs = [_run(name) for name in REQUIRED_WORKFLOWS]

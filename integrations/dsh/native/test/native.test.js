@@ -441,7 +441,8 @@ test('opt-in recall enters the current pre-step decision once and keeps session 
   assert.equal(typeof cleanup, 'function')
   assert.equal(handlers.size, 0)
   const metrics = dispose.metrics()
-  assert.equal(metrics.recall_requests, 3)
+  assert.equal(metrics.recall_requests, 4)
+  assert.equal(metrics.recall_owner_calls, 3)
   assert.equal(metrics.recall_cache_hits, 1)
   assert.equal(metrics.recall_hits, 4)
   assert.equal(metrics.injected_memory_count, 4)
@@ -962,6 +963,62 @@ test('subagent sessions never recall or capture', async () => {
   }
   assert.equal(typeof cleanup, 'function')
   assert.equal(handlers.size, 0)
+})
+
+test('subagent detection is independent for origin and delegation depth', async () => {
+  const cases = [
+    ['origin-only', { origin: 'subagent' }, true],
+    ['depth-only', { delegationDepth: 1 }, true],
+    ['parent', { delegationDepth: 0 }, false],
+  ]
+  for (const [label, header, blocked] of cases) {
+    const handlers = new Map()
+    let cleanup
+    const calls = []
+    const ctx = {
+      on(event, handler) {
+        handlers.set(event, handler)
+        return () => handlers.delete(event)
+      },
+      effect(register) { cleanup = register() },
+      logger: { warn() {} },
+      agents: { get() { return undefined }, list() { return [] } },
+    }
+    const config = {
+      ...DEFAULT_CONFIG,
+      auto_recall: { ...DEFAULT_CONFIG.auto_recall, enabled: true },
+      memory_injection: { ...DEFAULT_CONFIG.memory_injection, enabled: true },
+    }
+    const dispose = apply(ctx, config, async (mode, payload) => {
+      calls.push({ mode, payload })
+      return { memories: [{ id: 'm1', score: 0.9, text: 'A fact.' }] }
+    })
+    const agent = { session: { id: `case-${label}`, header } }
+    const messages = [{
+      role: 'user',
+      source: { kind: 'user' },
+      content: [{ type: 'text', text: `Query ${label}` }],
+    }]
+    const decision = { kind: 'enter', messages }
+    try {
+      handlers.get('agent/created')({ agent })
+      const result = await handlers.get('agent/pre-step')(
+        { agent, messages, turn: 1 },
+        async () => decision,
+      )
+      if (blocked) {
+        assert.equal(result, decision, label)
+        assert.equal(calls.length, 0, label)
+      } else {
+        assert.equal(result.messages.length, 2, label)
+        assert.equal(calls.length, 1, label)
+      }
+    } finally {
+      dispose()
+    }
+    assert.equal(typeof cleanup, 'function', label)
+    assert.equal(handlers.size, 0, label)
+  }
 })
 
 test('disabled plugin hooks preserve the current pre-step decision', async () => {

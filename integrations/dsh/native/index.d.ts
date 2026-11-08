@@ -64,7 +64,7 @@ export declare function formatMemories(result: unknown, maxChars?: number, optio
   minScore?: number
   dedupe?: boolean
   includeSourceMetadata?: boolean
-}): { text: string; ids: string[] }
+}): { text: string; ids: string[]; chars: number }
 export declare function runRuntimeRequest(mode: 'remote-call' | 'remote-event', payload: unknown, options?: {
   signal?: AbortSignal
   timeoutMs?: number
@@ -73,8 +73,10 @@ export declare function runRuntimeRequest(mode: 'remote-call' | 'remote-event', 
 }): Promise<Record<string, unknown>>
 export type NativeMetrics = {
   recall_requests: number
+  recall_owner_calls: number
   recall_hits: number
   recall_failures: number
+  recall_cancelled: number
   recall_cache_hits: number
   recall_latency_ms_total: number
   recall_latency_ms_count: number

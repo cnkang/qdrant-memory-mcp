@@ -8,6 +8,7 @@ const args = windows
 const result = spawnSync(command, args, {
   encoding: 'utf8',
   shell: false,
+  timeout: 30000,
 })
 
 if (result.error) {
@@ -21,25 +22,33 @@ if (result.status !== 0) {
 }
 
 const text = `${result.stdout || ''}\n${result.stderr || ''}`
-const pluginAt = text.indexOf('id: qdrant-memory-native')
+const lines = text.split('\n')
+const pluginAt = lines.findIndex((line) => /^\s*-\s*id:\s*qdrant-memory-native\s*$/u.test(line))
 if (pluginAt < 0) {
   console.error('DSH profile config does not contain qdrant-memory-native')
   process.exit(1)
 }
 
-const body = text.slice(pluginAt)
-const lines = body.split('\n')
+const indentOf = (line) => (line.match(/^\s*/u) || [''])[0].length
+const pluginIndent = indentOf(lines[pluginAt])
+let pluginEnd = lines.length
+for (let cursor = pluginAt + 1; cursor < lines.length; cursor += 1) {
+  if (indentOf(lines[cursor]) <= pluginIndent && /^\s*-\s*id:/u.test(lines[cursor])) {
+    pluginEnd = cursor
+    break
+  }
+}
+const bodyLines = lines.slice(pluginAt, pluginEnd)
 
 const sectionEnabled = (key) => {
   const heading = new RegExp(`^\\s*${key}:\\s*$`, 'u')
-  const index = lines.findIndex((line) => heading.test(line))
+  const index = bodyLines.findIndex((line) => heading.test(line))
   if (index < 0) return null
-  const indent = (lines[index].match(/^\s*/u) || [''])[0].length
-  for (let cursor = index + 1; cursor < lines.length; cursor += 1) {
-    const line = lines[cursor]
+  const indent = indentOf(bodyLines[index])
+  for (let cursor = index + 1; cursor < bodyLines.length; cursor += 1) {
+    const line = bodyLines[cursor]
     if (!line.trim()) continue
-    const nextIndent = (line.match(/^\s*/u) || [''])[0].length
-    if (nextIndent <= indent) break
+    if (indentOf(line) <= indent) break
     const enabled = line.match(/^\s*enabled:\s*(true|false)\s*$/u)
     if (enabled) return enabled[1] === 'false'
   }
