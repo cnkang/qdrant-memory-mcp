@@ -672,10 +672,12 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
     if (queue?.agent === agent && (queue.running || queue.pending.length)) {
       closingAgents.add(agent)
       queue.closing = true
-      queue.closingTimer = setTimeout(() => {
-        controller?.abort()
-        queue.controller.abort()
-      }, DISPOSE_GRACE_MS)
+      if (!queue.closingTimer) {
+        queue.closingTimer = setTimeout(() => {
+          controller?.abort()
+          queue.controller.abort()
+        }, DISPOSE_GRACE_MS)
+      }
       return
     }
     controller?.abort()
@@ -743,7 +745,12 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
       }
       queues.set(sessionId, queue)
     }
-    if (queue.turns.has(turn)) return queue.drainPromise
+    if (queue.turns.has(turn)) {
+      if (queue.agent !== agent && !queue.pending.some((item) => item.turn === turn)) {
+        queue.pending.push({ turn, events, agent })
+      }
+      return queue.drainPromise
+    }
     metrics.capture_turns_seen += 1
     if (queue.turns.size >= MAX_PENDING_TURNS) {
       metrics.capture_backlog += 1
@@ -751,7 +758,7 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
       return
     }
     queue.turns.add(turn)
-    queue.pending.push({ turn, events })
+    queue.pending.push({ turn, events, agent })
     if (!queue.running) queue.drainPromise = drainCapture(sessionId, session, queue)
     return queue.drainPromise
   }
@@ -851,7 +858,7 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
         && !queue.agentSignal.aborted && queue.pending.length) {
         const item = queue.pending.shift()
         try {
-          await captureTurn(session, item.turn, queue.agent, item.events, AbortSignal.any([
+          await captureTurn(session, item.turn, item.agent ?? queue.agent, item.events, AbortSignal.any([
             lifetime.signal,
             queue.controller.signal,
             queue.agentSignal,
