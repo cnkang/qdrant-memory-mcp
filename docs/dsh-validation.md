@@ -55,7 +55,7 @@ As of 2026-11-08, local evidence is 19/19 native unit fixtures on Node
 24.22.1, 22/22 Runtime Owner lifecycle tests, and 5/5 MCP cross-harness contract
 tests. The exact Node 24.9.0/pnpm 11.28.5 profile install/config/remove workflow
 passed on Linux x64, macOS 15 arm64, and Windows x64 in
-[run 42387412518](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/42387412518).
+[run 42454963156](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/42454963156).
 The floating `next` probe and legacy cross-harness lane also passed. See the
 bilingual [native validation report](dsh-native/validation.md) and
 [中文验证报告](dsh-native/validation.zh-CN.md) for coverage limits and release
