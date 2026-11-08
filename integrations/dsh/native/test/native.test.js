@@ -805,6 +805,233 @@ test('agent disposal drains a capture already in flight', async () => {
   assert.equal(handlers.size, 0)
 })
 
+test('retained Owner receipts do not trigger re-extraction', async () => {
+  const events = [
+    { type: 'turn/start', seq: 1, data: { turn: 1 } },
+    { type: 'user/message', seq: 2, data: {
+      source: { kind: 'user' },
+      content: [{ type: 'text', text: 'Remember the retained fact.' }],
+    } },
+    { type: 'assistant/message', seq: 3, data: {
+      turn: 1,
+      message: {
+        source: { kind: 'model', provider: 'provider-a', model: 'model-a' },
+        content: [{ type: 'text', text: 'Acknowledged.' }],
+      },
+    } },
+    { type: 'turn/end', seq: 4, data: { turn: 1, reason: { kind: 'completed' } } },
+  ]
+  for (const status of ['FAILED', 'PENDING', 'QUARANTINED']) {
+    const handlers = new Map()
+    let cleanup
+    let extractionCalls = 0
+    const session = { id: `retained-${status.toLowerCase()}` }
+    const ctx = {
+      on(event, handler) {
+        handlers.set(event, handler)
+        return () => handlers.delete(event)
+      },
+      effect(register) { cleanup = register() },
+      logger: { warn() {} },
+      llm: {
+        async *stream() {
+          extractionCalls += 1
+          yield { type: 'finish', reason: { kind: 'stop' } }
+        },
+      },
+      sessions: { flush: async () => true },
+      sessionQuery: { readSession: async () => ({ events }) },
+      agents: { get() { return undefined }, list() { return [] } },
+    }
+    const agent = {
+      session,
+      model: { current: () => ({ provider: 'provider-a', model: 'model-a' }) },
+    }
+    const config = {
+      ...DEFAULT_CONFIG,
+      auto_capture: { ...DEFAULT_CONFIG.auto_capture, enabled: true },
+    }
+    const dispose = apply(ctx, config, async (_mode, _payload, options) => {
+      if (options.action === 'status') return { status }
+      throw new Error('retained receipts must not be submitted')
+    })
+    try {
+      handlers.get('agent/created')({ agent })
+      await handlers.get('session/event')(session, {
+        type: 'turn/end',
+        data: { turn: 1, reason: { kind: 'completed' } },
+      })
+      assert.equal(extractionCalls, 0, status)
+      assert.equal(dispose.metrics().capture_failed, 1, status)
+    } finally {
+      dispose()
+    }
+    assert.equal(typeof cleanup, 'function', status)
+    assert.equal(handlers.size, 0, status)
+  }
+})
+
+test('an accepted receipt that remains failed is counted without re-extraction', async () => {
+  const session = { id: 'accepted-failed-session' }
+  const events = [
+    { type: 'turn/start', seq: 1, data: { turn: 1 } },
+    { type: 'user/message', seq: 2, data: {
+      source: { kind: 'user' },
+      content: [{ type: 'text', text: 'Remember the accepted fact.' }],
+    } },
+    { type: 'assistant/message', seq: 3, data: {
+      turn: 1,
+      message: {
+        source: { kind: 'model', provider: 'provider-a', model: 'model-a' },
+        content: [{ type: 'text', text: 'Acknowledged.' }],
+      },
+    } },
+    { type: 'turn/end', seq: 4, data: { turn: 1, reason: { kind: 'completed' } } },
+  ]
+  const handlers = new Map()
+  let cleanup
+  let extractionCalls = 0
+  const ctx = {
+    on(event, handler) {
+      handlers.set(event, handler)
+      return () => handlers.delete(event)
+    },
+    effect(register) { cleanup = register() },
+    logger: { warn() {} },
+    llm: {
+      async *stream() {
+        extractionCalls += 1
+        yield { type: 'finish', reason: { kind: 'stop' } }
+      },
+    },
+    sessions: { flush: async () => true },
+    sessionQuery: { readSession: async () => ({ events }) },
+    agents: { get() { return undefined }, list() { return [] } },
+  }
+  const agent = {
+    session,
+    model: { current: () => ({ provider: 'provider-a', model: 'model-a' }) },
+  }
+  const config = {
+    ...DEFAULT_CONFIG,
+    auto_capture: { ...DEFAULT_CONFIG.auto_capture, enabled: true },
+  }
+  const dispose = apply(ctx, config, async (_mode, _payload, options) => {
+    if (options.action === 'status') return { status: 'ACCEPTED' }
+    if (options.action === 'retry') return { status: 'FAILED' }
+    throw new Error('an accepted receipt must not be re-extracted')
+  })
+  try {
+    handlers.get('agent/created')({ agent })
+    await handlers.get('session/event')(session, {
+      type: 'turn/end',
+      data: { turn: 1, reason: { kind: 'completed' } },
+    })
+    assert.equal(extractionCalls, 0)
+    assert.equal(dispose.metrics().capture_failed, 1)
+  } finally {
+    dispose()
+  }
+  assert.equal(typeof cleanup, 'function')
+  assert.equal(handlers.size, 0)
+})
+
+test('a non-committed submit is counted as a failed capture', async () => {
+  const session = { id: 'submit-failed-session' }
+  const events = [
+    { type: 'turn/start', seq: 1, data: { turn: 1 } },
+    { type: 'user/message', seq: 2, data: {
+      source: { kind: 'user' },
+      content: [{ type: 'text', text: 'Remember the submit fact.' }],
+    } },
+    { type: 'assistant/message', seq: 3, data: {
+      turn: 1,
+      message: {
+        source: { kind: 'model', provider: 'provider-a', model: 'model-a' },
+        content: [{ type: 'text', text: 'Acknowledged.' }],
+      },
+    } },
+    { type: 'turn/end', seq: 4, data: { turn: 1, reason: { kind: 'completed' } } },
+  ]
+  const handlers = new Map()
+  let cleanup
+  const ctx = {
+    on(event, handler) {
+      handlers.set(event, handler)
+      return () => handlers.delete(event)
+    },
+    effect(register) { cleanup = register() },
+    logger: { warn() {} },
+    llm: {
+      async *stream() {
+        yield { type: 'text-delta', text: JSON.stringify({
+          memories: [{
+            text: 'Submit fact.',
+            category: ['project'],
+            importance: 0.8,
+            replacement_intent: false,
+          }],
+          replacement_context: '',
+        }) }
+        yield { type: 'finish', reason: { kind: 'stop' } }
+      },
+    },
+    sessions: { flush: async () => true },
+    sessionQuery: { readSession: async () => ({ events }) },
+    agents: { get() { return undefined }, list() { return [] } },
+  }
+  const agent = {
+    session,
+    model: { current: () => ({ provider: 'provider-a', model: 'model-a' }) },
+  }
+  const config = {
+    ...DEFAULT_CONFIG,
+    auto_capture: { ...DEFAULT_CONFIG.auto_capture, enabled: true },
+  }
+  const dispose = apply(ctx, config, async (_mode, _payload, options) => {
+    if (options.action === 'status') return { status: 'NOT_FOUND' }
+    if (options.action === 'submit') return { status: 'FAILED' }
+    throw new Error('unexpected Runtime call')
+  })
+  try {
+    handlers.get('agent/created')({ agent })
+    await handlers.get('session/event')(session, {
+      type: 'turn/end',
+      data: { turn: 1, reason: { kind: 'completed' } },
+    })
+    assert.equal(dispose.metrics().capture_failed, 1)
+  } finally {
+    dispose()
+  }
+  assert.equal(typeof cleanup, 'function')
+  assert.equal(handlers.size, 0)
+})
+
+test('disposing an agent that was never registered is harmless', () => {
+  const handlers = new Map()
+  let cleanup
+  const ctx = {
+    on(event, handler) {
+      handlers.set(event, handler)
+      return () => handlers.delete(event)
+    },
+    effect(register) { cleanup = register() },
+    logger: { warn() {} },
+    agents: { get() { return undefined }, list() { return [] } },
+  }
+  const dispose = apply(ctx, DEFAULT_CONFIG, async () => {
+    throw new Error('unexpected Runtime call')
+  })
+  try {
+    handlers.get('agent/disposed')({ agent: { session: { id: 'unknown-session' } } })
+    assert.equal(handlers.size, 4)
+  } finally {
+    dispose()
+  }
+  assert.equal(typeof cleanup, 'function')
+  assert.equal(handlers.size, 0)
+})
+
 test('stalled DSH extraction times out and releases the capture worker', async () => {
   const session = { id: 'capture-timeout-session' }
   const events = []
