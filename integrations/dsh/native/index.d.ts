@@ -71,8 +71,24 @@ export declare function runRuntimeRequest(mode: 'remote-call' | 'remote-event', 
   action?: 'submit' | 'status' | 'retry' | 'cancel'
   spawnProcess?: typeof import('node:child_process').spawn
 }): Promise<Record<string, unknown>>
+export type NativeMetrics = {
+  recall_requests: number
+  recall_hits: number
+  recall_failures: number
+  recall_cache_hits: number
+  recall_latency_ms_total: number
+  recall_latency_ms_count: number
+  injected_memory_count: number
+  injected_context_chars: number
+  capture_turns_seen: number
+  capture_turns_eligible: number
+  capture_events_committed: number
+  capture_failed: number
+  capture_backlog: number
+  capture_recovery_count: number
+}
 export declare function apply(
   ctx: unknown,
   config: NativeConfig,
   runtimeRequest?: typeof runRuntimeRequest,
-): () => void
+): (() => void) & { metrics: () => NativeMetrics }
