@@ -74,6 +74,9 @@ as Ollama. Follow the [quickstart](quickstart.md), using a new dedicated profile
 at `~/.qdrant-memory-dsh` instead of `~/.qdrant-memory`. Put your chosen scope and
 embedding settings in that profile's `qdrant-memory.json`, then initialize it:
 
+Before reusing an existing patch, verify that its `--home` points at the selected
+profile; update it before launch if it hardcodes another home.
+
 ```sh
 PROFILE="${QDRANT_MEMORY_DSH_PROFILE:-$HOME/.qdrant-memory-dsh}"
 export QDRANT_MEMORY_DSH_PROFILE="$PROFILE"
@@ -92,8 +95,16 @@ uvx --from qdrant-memory-mcp==0.3.1 qdrant-memory-mcp --home "$PROFILE" doctor &
       echo "Patch download failed; DSH was not launched." >&2
     fi
   fi
-  if [ -e "$PATCH" ] && awk '{ sub(/#.*/, ""); print }' "$PATCH"     | grep -Eq 'qdrant-memory-mcp[[:space:]]*==[[:space:]]*0\.3\.0'; then
+  PATCH_PIN_OLD=0
+  PATCH_HAS_PLUGIN=0
+  if [ -e "$PATCH" ]; then
+    awk '{ sub(/#.*/, "") } /qdrant-memory-mcp[[:space:]]*==[[:space:]]*0\.3\.0/ { found=1 } END { exit !found }' "$PATCH" && PATCH_PIN_OLD=1
+    awk '{ sub(/#.*/, "") } /id: cnkang-qdrant-memory-mcp/ { found=1 } END { exit !found }' "$PATCH" && PATCH_HAS_PLUGIN=1
+  fi
+  if [ "$PATCH_PIN_OLD" = 1 ]; then
     echo "The existing patch still pins qdrant-memory-mcp==0.3.0; update it to 0.3.1 before launching DSH." >&2
+  elif [ "$PATCH_HAS_PLUGIN" != 1 ]; then
+    echo "The existing patch does not contain the qdrant-memory plugin; replace it before launching DSH." >&2
   elif [ -e "$PATCH" ]; then
     dsh web --patch "$PATCH"
   fi
@@ -103,6 +114,9 @@ uvx --from qdrant-memory-mcp==0.3.1 qdrant-memory-mcp --home "$PROFILE" doctor &
 On Windows PowerShell 5.1, use the equivalent commands:
 
 ```powershell
+if (-not (Get-Command uvx -ErrorAction SilentlyContinue)) {
+  throw "uvx is required; DSH was not launched."
+}
 $MemoryProfile = if ($env:QDRANT_MEMORY_DSH_PROFILE) { $env:QDRANT_MEMORY_DSH_PROFILE } else { Join-Path $HOME ".qdrant-memory-dsh" }
 $env:QDRANT_MEMORY_DSH_PROFILE = $MemoryProfile
 uvx --from qdrant-memory-mcp==0.3.1 qdrant-memory-mcp --home $MemoryProfile init
@@ -123,13 +137,17 @@ if (-not (Test-Path $Patch)) {
     Remove-Item -Force $Draft -ErrorAction SilentlyContinue
   }
 }
-$PatchPinned = if (Test-Path $Patch) {
-  Get-Content -Path $Patch | ForEach-Object { $_ -replace '#.*$', '' } | Select-String -Pattern 'qdrant-memory-mcp\s*==\s*0\.3\.0' -Quiet
-} else { $false }
+$PatchText = if (Test-Path $Patch) {
+  Get-Content -Path $Patch | ForEach-Object { $_ -replace '#.*$', '' }
+} else { @() }
+$PatchPinned = $PatchText | Select-String -Pattern 'qdrant-memory-mcp\s*==\s*0\.3\.0' -Quiet
+$PatchHasPlugin = $PatchText | Select-String -Pattern 'id:\s*cnkang-qdrant-memory-mcp' -Quiet
 if (-not (Test-Path $Patch)) {
   Write-Error "Patch is unavailable; DSH was not launched."
 } elseif ($PatchPinned) {
   Write-Error "The existing patch still pins qdrant-memory-mcp==0.3.0; update it to 0.3.1 before launching DSH."
+} elseif (-not $PatchHasPlugin) {
+  Write-Error "The existing patch does not contain the qdrant-memory plugin; replace it before launching DSH."
 } else {
   dsh web --patch $Patch
 }
@@ -139,8 +157,6 @@ The overlay patch is part of the published `v0.3.1` tag, so fetch it directly;
 no source checkout is required. Keep the downloaded file outside the package
 environment and pass its local path to `--patch` on every DSH launch.
 
-Before reusing an existing patch, verify that its `--home` points at the selected
-profile; update it before launch if it hardcodes another home.
 
 On Windows use the corresponding absolute profile path. Set
 `QDRANT_MEMORY_DSH_PROFILE` before starting DSH to select another private profile.

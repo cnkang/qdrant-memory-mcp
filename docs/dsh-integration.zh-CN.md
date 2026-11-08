@@ -61,6 +61,8 @@ Hermes 相互独立。更新、卸载与恢复说明见 [Bundle 说明](../integ
 `~/.qdrant-memory-dsh`，在其中创建 `qdrant-memory.json`，设置身份、模型和服务地址。
 然后执行：
 
+复用已有 patch 前，请确认其 `--home` 指向当前选择的 profile；如果硬编码了其他路径，请先更新再启动。
+
 ```sh
 PROFILE="${QDRANT_MEMORY_DSH_PROFILE:-$HOME/.qdrant-memory-dsh}"
 export QDRANT_MEMORY_DSH_PROFILE="$PROFILE"
@@ -79,8 +81,16 @@ uvx --from qdrant-memory-mcp==0.3.1 qdrant-memory-mcp --home "$PROFILE" doctor &
       echo "Patch download failed; DSH was not launched." >&2
     fi
   fi
-  if [ -e "$PATCH" ] && awk '{ sub(/#.*/, ""); print }' "$PATCH"     | grep -Eq 'qdrant-memory-mcp[[:space:]]*==[[:space:]]*0\.3\.0'; then
+  PATCH_PIN_OLD=0
+  PATCH_HAS_PLUGIN=0
+  if [ -e "$PATCH" ]; then
+    awk '{ sub(/#.*/, "") } /qdrant-memory-mcp[[:space:]]*==[[:space:]]*0\.3\.0/ { found=1 } END { exit !found }' "$PATCH" && PATCH_PIN_OLD=1
+    awk '{ sub(/#.*/, "") } /id: cnkang-qdrant-memory-mcp/ { found=1 } END { exit !found }' "$PATCH" && PATCH_HAS_PLUGIN=1
+  fi
+  if [ "$PATCH_PIN_OLD" = 1 ]; then
     echo "The existing patch still pins qdrant-memory-mcp==0.3.0; update it to 0.3.1 before launching DSH." >&2
+  elif [ "$PATCH_HAS_PLUGIN" != 1 ]; then
+    echo "The existing patch does not contain the qdrant-memory plugin; replace it before launching DSH." >&2
   elif [ -e "$PATCH" ]; then
     dsh web --patch "$PATCH"
   fi
@@ -90,6 +100,9 @@ uvx --from qdrant-memory-mcp==0.3.1 qdrant-memory-mcp --home "$PROFILE" doctor &
 Windows PowerShell 5.1 请使用对应命令：
 
 ```powershell
+if (-not (Get-Command uvx -ErrorAction SilentlyContinue)) {
+  throw "uvx is required; DSH was not launched."
+}
 $MemoryProfile = if ($env:QDRANT_MEMORY_DSH_PROFILE) { $env:QDRANT_MEMORY_DSH_PROFILE } else { Join-Path $HOME ".qdrant-memory-dsh" }
 $env:QDRANT_MEMORY_DSH_PROFILE = $MemoryProfile
 uvx --from qdrant-memory-mcp==0.3.1 qdrant-memory-mcp --home $MemoryProfile init
@@ -110,13 +123,17 @@ if (-not (Test-Path $Patch)) {
     Remove-Item -Force $Draft -ErrorAction SilentlyContinue
   }
 }
-$PatchPinned = if (Test-Path $Patch) {
-  Get-Content -Path $Patch | ForEach-Object { $_ -replace '#.*$', '' } | Select-String -Pattern 'qdrant-memory-mcp\s*==\s*0\.3\.0' -Quiet
-} else { $false }
+$PatchText = if (Test-Path $Patch) {
+  Get-Content -Path $Patch | ForEach-Object { $_ -replace '#.*$', '' }
+} else { @() }
+$PatchPinned = $PatchText | Select-String -Pattern 'qdrant-memory-mcp\s*==\s*0\.3\.0' -Quiet
+$PatchHasPlugin = $PatchText | Select-String -Pattern 'id:\s*cnkang-qdrant-memory-mcp' -Quiet
 if (-not (Test-Path $Patch)) {
   Write-Error "Patch is unavailable; DSH was not launched."
 } elseif ($PatchPinned) {
   Write-Error "The existing patch still pins qdrant-memory-mcp==0.3.0; update it to 0.3.1 before launching DSH."
+} elseif (-not $PatchHasPlugin) {
+  Write-Error "The existing patch does not contain the qdrant-memory plugin; replace it before launching DSH."
 } else {
   dsh web --patch $Patch
 }
@@ -124,7 +141,6 @@ if (-not (Test-Path $Patch)) {
 
 overlay patch 已包含在发布的 `v0.3.1` tag 中，可直接下载，不需要源码 checkout。
 请把文件放在包环境之外，并在每次启动 DSH 时把其本地路径传给 `--patch`。
-复用已有 patch 前，请确认其 `--home` 指向当前选择的 profile；如果硬编码了其他路径，请先更新再启动。
 
 Windows 请使用对应的绝对路径。启动 DSH 前可用环境变量
 `QDRANT_MEMORY_DSH_PROFILE` 指定其他独立 profile。不要选择正在使用的
