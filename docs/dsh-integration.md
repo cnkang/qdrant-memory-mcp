@@ -77,8 +77,15 @@ embedding settings in that profile's `qdrant-memory.json`, then initialize it:
 ```sh
 uvx --from qdrant-memory-mcp==0.3.1 qdrant-memory-mcp --home "$HOME/.qdrant-memory-dsh" init
 uvx --from qdrant-memory-mcp==0.3.1 qdrant-memory-mcp --home "$HOME/.qdrant-memory-dsh" doctor
-dsh web --patch /absolute/path/to/qdrant-memory-mcp/integrations/dsh/qdrant-memory.cordis.yml
+mkdir -p "$HOME/.qdrant-memory-dsh"
+curl -fsSL -o "$HOME/.qdrant-memory-dsh/qdrant-memory.cordis.yml" \
+  https://raw.githubusercontent.com/cnkang/qdrant-memory-mcp/v0.3.1/integrations/dsh/qdrant-memory.cordis.yml
+dsh web --patch "$HOME/.qdrant-memory-dsh/qdrant-memory.cordis.yml"
 ```
+
+The overlay patch is part of the published `v0.3.1` tag, so fetch it directly;
+no source checkout is required. Keep the downloaded file outside the package
+environment and pass its local path to `--patch` on every DSH launch.
 
 On Windows use the corresponding absolute profile path. Set
 `QDRANT_MEMORY_DSH_PROFILE` before starting DSH to select another private profile.

@@ -19,7 +19,7 @@
 
 | 仓库 / 检查 | 命令 | 结果 |
 | --- | --- | --- |
-| 原生适配器单元 fixture | 在 `integrations/dsh/native` 运行 `npm test` | PASS：macOS Apple Silicon、Node `24.22.1` 上 20 项测试 |
+| 原生适配器单元 fixture | 在 `integrations/dsh/native` 运行 `npm test` | PASS：macOS Apple Silicon、Node `24.22.1` 上 21 项测试 |
 | Runtime Owner 候选契约 | `cd ../hermes-plugin-qdrant-memory && pytest -q tests/standalone/test_owner_lifecycle.py tests/standalone/test_native_backlog_counter.py` | PASS：Runtime 仓库 22 项测试，不在本仓库运行 |
 | MCP 跨 Harness 契约 | `pytest -q tests/test_cross_harness.py` | PASS：5 项测试 |
 | DSH CLI profile 安装/配置/移除 | 设置隔离 `DSH_HOME` 后运行 `npm run validate:host` | 在 GitHub CI 的 Linux x64、macOS 15 arm64、Windows x64 上 PASS |

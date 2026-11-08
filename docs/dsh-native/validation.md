@@ -19,7 +19,7 @@ The native adapter does not call the DSH MCP Client or Skill filesystem provider
 
 | Repository / check | Command | Result |
 | --- | --- | --- |
-| Native adapter unit fixtures | `npm test` in `integrations/dsh/native` | PASS: 20 tests on macOS Apple Silicon, Node `24.22.1` |
+| Native adapter unit fixtures | `npm test` in `integrations/dsh/native` | PASS: 21 tests on macOS Apple Silicon, Node `24.22.1` |
 | Runtime Owner candidate contract | `cd ../hermes-plugin-qdrant-memory && pytest -q tests/standalone/test_owner_lifecycle.py tests/standalone/test_native_backlog_counter.py` | PASS: 22 tests in the Runtime repository, not in this repo |
 | MCP cross-harness contract | `pytest -q tests/test_cross_harness.py` | PASS: 5 tests |
 | DSH CLI profile install/config/remove | `npm run validate:host` with isolated `DSH_HOME` | PASS in GitHub CI on Linux x64, macOS 15 arm64, Windows x64 |

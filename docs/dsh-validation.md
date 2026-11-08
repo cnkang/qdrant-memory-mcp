@@ -51,10 +51,11 @@ not use a live model, Owner, or GUI. Published Runtime support and
 real-model/desktop acceptance remain unverified; the native package has not
 been published.
 
-As of 2026-11-08, local evidence is 20/20 native unit fixtures on Node
+As of 2026-11-08, local evidence is 21/21 native unit fixtures on Node
 24.22.1, 22/22 Runtime Owner lifecycle tests, and 5/5 MCP cross-harness contract
-tests. The exact Node 24.9.0/pnpm 11.28.5 profile install/config/remove workflow
-passed on Linux x64, macOS 15 arm64, and Windows x64 in
+tests. The exact Node 24.9.0/pnpm 11.28.5 profile install/config/remove result is
+Linux x64 only; macOS 15 arm64 and Windows x64 ran Node 24 (latest 24.x), not
+the exact patch floor. See
 [run 42457937370](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/42457937370).
 The floating `next` probe and legacy cross-harness lane also passed. See the
 bilingual [native validation report](dsh-native/validation.md) and

@@ -64,8 +64,14 @@ Hermes 相互独立。更新、卸载与恢复说明见 [Bundle 说明](../integ
 ```sh
 uvx --from qdrant-memory-mcp==0.3.1 qdrant-memory-mcp --home "$HOME/.qdrant-memory-dsh" init
 uvx --from qdrant-memory-mcp==0.3.1 qdrant-memory-mcp --home "$HOME/.qdrant-memory-dsh" doctor
-dsh web --patch /absolute/path/to/qdrant-memory-mcp/integrations/dsh/qdrant-memory.cordis.yml
+mkdir -p "$HOME/.qdrant-memory-dsh"
+curl -fsSL -o "$HOME/.qdrant-memory-dsh/qdrant-memory.cordis.yml" \
+  https://raw.githubusercontent.com/cnkang/qdrant-memory-mcp/v0.3.1/integrations/dsh/qdrant-memory.cordis.yml
+dsh web --patch "$HOME/.qdrant-memory-dsh/qdrant-memory.cordis.yml"
 ```
+
+overlay patch 已包含在发布的 `v0.3.1` tag 中，可直接下载，不需要源码 checkout。
+请把文件放在包环境之外，并在每次启动 DSH 时把其本地路径传给 `--patch`。
 
 Windows 请使用对应的绝对路径。启动 DSH 前可用环境变量
 `QDRANT_MEMORY_DSH_PROFILE` 指定其他独立 profile。不要选择正在使用的
