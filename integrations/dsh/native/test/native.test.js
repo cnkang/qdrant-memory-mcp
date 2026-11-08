@@ -793,8 +793,17 @@ test('agent disposal drains a capture already in flight', async () => {
     })
     await new Promise((resolve) => setImmediate(resolve))
     handlers.get('agent/disposed')({ agent })
+    const replacement = {
+      session,
+      model: { current: () => ({ provider: 'provider-a', model: 'model-a' }) },
+    }
+    handlers.get('agent/created')({ agent: replacement })
+    const replacementDrain = handlers.get('session/event')(session, {
+      type: 'turn/end',
+      data: { turn: 1, reason: { kind: 'completed' } },
+    })
     releaseStatus({ status: 'NOT_FOUND' })
-    await drain
+    await Promise.all([drain, replacementDrain])
     assert.equal(submitted.length, 1)
     assert.equal(submitted[0].kind, 'turn_completed')
     assert.equal(dispose.metrics().capture_events_committed, 1)
