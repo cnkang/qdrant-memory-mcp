@@ -726,12 +726,15 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
         const abandoned = queue
         queues.delete(sessionId)
         closingAgents.delete(abandoned.agent)
+        const pending = abandoned.pending.map((item) => ({ ...item, agent }))
+        const turnAgents = new Map(abandoned.turnAgents)
+        for (const item of pending) turnAgents.set(item.turn, agent)
         queue = {
           agent,
           agentSignal: agentLifetime.signal,
-          pending: abandoned.pending.map((item) => ({ ...item, agent })),
+          pending,
           turns: new Set(abandoned.turns),
-          turnAgents: new Map(abandoned.turnAgents),
+          turnAgents,
           running: false,
           closing: false,
           closingTimer: null,
@@ -744,6 +747,10 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
         queue.agentSignal = agentLifetime.signal
         queue.closing = false
         queue.closingTimer = null
+        for (const item of queue.pending) {
+          item.agent = agent
+          queue.turnAgents.set(item.turn, agent)
+        }
       }
     } else if (queue && queue.agent !== agent) {
       queue.controller.abort()
@@ -767,6 +774,9 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
     if (queue.turns.has(turn)) {
       if (queue.turnAgents.get(turn) !== agent && !queue.pending.some((item) => item.turn === turn)) {
         queue.pending.push({ turn, events, agent })
+      }
+      if (!queue.running && queue.pending.length) {
+        queue.drainPromise = drainCapture(sessionId, session, queue)
       }
       return queue.drainPromise
     }
