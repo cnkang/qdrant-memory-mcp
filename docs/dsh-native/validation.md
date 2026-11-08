@@ -20,7 +20,7 @@ The native adapter does not call the DSH MCP Client or Skill filesystem provider
 | Repository / check | Command | Result |
 | --- | --- | --- |
 | Native adapter unit fixtures | `npm test` in `integrations/dsh/native` | PASS: 20 tests on macOS Apple Silicon, Node `24.22.1` |
-| Runtime Owner candidate contract | `pytest -q tests/standalone/test_owner_lifecycle.py tests/standalone/test_native_backlog_counter.py` | PASS: 22 tests |
+| Runtime Owner candidate contract | `cd ../hermes-plugin-qdrant-memory && pytest -q tests/standalone/test_owner_lifecycle.py tests/standalone/test_native_backlog_counter.py` | PASS: 22 tests in the Runtime repository, not in this repo |
 | MCP cross-harness contract | `pytest -q tests/test_cross_harness.py` | PASS: 5 tests |
 | DSH CLI profile install/config/remove | `npm run validate:host` with isolated `DSH_HOME` | PASS in GitHub CI on Linux x64, macOS 15 arm64, Windows x64 |
 | Linux x64 / macOS Apple Silicon / Windows x64 workflow | [`.github/workflows/dsh-native.yml`](../../.github/workflows/dsh-native.yml) | PASS: [run 42456569756](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/42456569756) (code revision `32c9e85`) |
@@ -43,7 +43,7 @@ The following need additional evidence before describing native capture/recall a
 - Adapter operational metrics beyond in-process recall/capture counters. Runtime receipts return status only, so mutation action breakdown and dedupe rate are unavailable, and production latency/token measurements are not recorded.
 - Measured latency, token counts, queue recovery horizon under load, and long-running memory/listener behavior.
 
-The GitHub workflow installs the package into a disposable DSH profile, composes its config, removes it, runs native fixtures, checks exact Node/DSH/pnpm versions, and packs without publishing across the three real-architecture runners. It does not run a real model, Owner, Qdrant destination, or GUI.
+The GitHub workflow installs the package into a disposable DSH profile, composes its config, removes it, runs native fixtures, checks exact DSH/pnpm versions, and packs without publishing across Linux x64, macOS arm64, Windows x64, plus the declared Node 24.9.0 floor. It does not run a real model, Owner, Qdrant destination, or GUI.
 
 ## Privacy, rollback, and release state
 

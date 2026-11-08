@@ -151,6 +151,13 @@ process crash can leave a turn uncaptured. This is a bounded recovery design,
 not a zero-loss claim. Queue overflow and owner failures are logged without
 transcript content or credentials.
 
+Applying the plugin to a host with live agents schedules the same bounded
+recovery. If capture was disabled before, enabling it can send the latest eight
+completed turns of each live agent to extraction; use a fresh profile or accept
+that one-time backfill. On `agent/disposed`, queued captures get a five-second
+drain before the agent lifetime is aborted. Plugin unload is not a flush point:
+it aborts immediately and relies on the durable DSH log for the next recovery.
+
 Rollback disables the three switches and removes only the native plugin, then
 restarts the selected profile. It does not delete the profile, Owner receipts,
 Ledger records, Qdrant collection, or embedding cache. Keep the published

@@ -148,8 +148,9 @@ Owner destination using the [Runtime embedding guide](https://github.com/cnkang/
 and [shared Owner setup](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/shared-memory/README.md).
 Runtime 0.6.1 provides the versioned candidate-event and retry contract used by
 the adapter. It is merged but not yet on PyPI (latest published is 0.6.0).
-Until publication, use the reviewed source pin below; the `==0.6.1` commands
-become valid only after that release.
+Until publication, use the reviewed source pin below. The two `==0.6.1`
+commands later in this section fail until PyPI publishes Runtime 0.6.1; do not
+use them before that release.
 
 ```sh
 python -m pip install 'hermes-plugin-qdrant-memory[remote,local] @ git+https://github.com/cnkang/hermes-plugin-qdrant-memory.git@6df73703419f061e77b9b640c15ddf6609d26e58'
