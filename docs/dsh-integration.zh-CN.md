@@ -54,8 +54,7 @@ Hermes 相互独立。更新、卸载与恢复说明见 [Bundle 说明](../integ
 
 ## 备选：Python/uvx overlay
 
-仅在 [PyPI 已提供 qdrant-memory-mcp 0.3.1](https://pypi.org/project/qdrant-memory-mcp/0.3.1/) 后运行下列固定版本命令。
-发布前请先按[已发布的 0.3.0 DSH 指南](https://github.com/cnkang/qdrant-memory-mcp/blob/v0.3.0/docs/dsh-integration.zh-CN.md)操作。
+直接运行下列固定版本命令。`qdrant-memory-mcp` 0.3.1 已发布到 PyPI，此路径不需要源码 checkout。
 
 需要 Python 3.11+、uv/uvx 和可用的嵌入服务（例如 Ollama）。按照
 [快速入门](quickstart.zh-CN.md) 配置，但把 profile 改为独立的

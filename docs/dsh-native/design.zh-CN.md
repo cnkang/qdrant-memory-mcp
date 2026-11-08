@@ -69,6 +69,8 @@ Owner URL、token、Runtime Python 路径和可选 CA 文件是进程环境变�
 
 队列最多 16 个 turn；agent 创建后最多恢复最近八个完成 turn。无持久化 session flush handler 时不捕获。在 DSH flush 和 Owner receipt 之前崩溃可能留下未捕获轮次；不能承诺零丢失。跨 session private memory 不会自动合并。每个 DSH profile 应使用独立 Owner token。
 
+把插件应用到已有 live agent 的宿主时，也会安排同样的有界恢复。如果此前关闭了 capture，启用后可能把每个 live agent 最近八个已完成 turn 送去提取；请使用新 profile，或接受这一次性回填。`agent/disposed` 时，队列中的捕获会获得五秒 drain 时间，然后才 abort agent lifetime。插件卸载不是 flush 点：它会立即 abort，并依赖持久的 DSH 日志在下次恢复。
+
 ## 验证范围
 
 `integrations/dsh/native/test/native.test.js` 使用合成 session 和 Runtime 响应，覆盖候选校验、默认关闭、过滤、注入格式、缓存隔离、事件提交和 receipt replay。它不是 DSH AgentLoop 运行、真实模型评估、Owner 联网、桌面 GUI 或已发布 Runtime 验收。精确平台矩阵和本地/CI 证据见[验证报告](validation.zh-CN.md)。
