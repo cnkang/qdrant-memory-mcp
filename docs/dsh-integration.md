@@ -75,30 +75,57 @@ at `~/.qdrant-memory-dsh` instead of `~/.qdrant-memory`. Put your chosen scope a
 embedding settings in that profile's `qdrant-memory.json`, then initialize it:
 
 ```sh
-uvx --from qdrant-memory-mcp==0.3.1 qdrant-memory-mcp --home "$HOME/.qdrant-memory-dsh" init
-uvx --from qdrant-memory-mcp==0.3.1 qdrant-memory-mcp --home "$HOME/.qdrant-memory-dsh" doctor
-mkdir -p "$HOME/.qdrant-memory-dsh"
-PATCH="$HOME/.qdrant-memory-dsh/qdrant-memory.cordis.yml"
-if [ ! -e "$PATCH" ]; then
-  curl -fsSL -o "$PATCH" \
-    https://raw.githubusercontent.com/cnkang/qdrant-memory-mcp/v0.3.1/integrations/dsh/qdrant-memory.cordis.yml || exit 1
-fi
-dsh web --patch "$PATCH"
+PROFILE="${QDRANT_MEMORY_DSH_PROFILE:-$HOME/.qdrant-memory-dsh}"
+export QDRANT_MEMORY_DSH_PROFILE="$PROFILE"
+uvx --from qdrant-memory-mcp==0.3.1 qdrant-memory-mcp --home "$PROFILE" init &&
+uvx --from qdrant-memory-mcp==0.3.1 qdrant-memory-mcp --home "$PROFILE" doctor &&
+{
+  mkdir -p "$PROFILE"
+  PATCH="$PROFILE/qdrant-memory.cordis.yml"
+  if [ ! -e "$PATCH" ]; then
+    TMP="$(mktemp "${PATCH}.XXXXXX")"
+    if curl -fsSL -o "$TMP" \
+      https://raw.githubusercontent.com/cnkang/qdrant-memory-mcp/v0.3.1/integrations/dsh/qdrant-memory.cordis.yml; then
+      mv "$TMP" "$PATCH"
+    else
+      rm -f "$TMP"
+      echo "Patch download failed; DSH was not launched." >&2
+    fi
+  fi
+  if [ -e "$PATCH" ] && grep -q 'qdrant-memory-mcp==0.3.0' "$PATCH"; then
+    echo "The existing patch still pins qdrant-memory-mcp==0.3.0; update it to 0.3.1 before launching DSH." >&2
+  elif [ -e "$PATCH" ]; then
+    dsh web --patch "$PATCH"
+  fi
+}
 ```
 
 On Windows PowerShell 5.1, use the equivalent commands:
 
 ```powershell
-uvx --from qdrant-memory-mcp==0.3.1 qdrant-memory-mcp --home "$HOME/.qdrant-memory-dsh" init
-uvx --from qdrant-memory-mcp==0.3.1 qdrant-memory-mcp --home "$HOME/.qdrant-memory-dsh" doctor
-$PatchDir = Join-Path $HOME ".qdrant-memory-dsh"
+$Profile = if ($env:QDRANT_MEMORY_DSH_PROFILE) { $env:QDRANT_MEMORY_DSH_PROFILE } else { Join-Path $HOME ".qdrant-memory-dsh" }
+$env:QDRANT_MEMORY_DSH_PROFILE = $Profile
+uvx --from qdrant-memory-mcp==0.3.1 qdrant-memory-mcp --home $Profile init
+if ($LASTEXITCODE -ne 0) { throw "Runtime init failed; DSH was not launched." }
+uvx --from qdrant-memory-mcp==0.3.1 qdrant-memory-mcp --home $Profile doctor
+if ($LASTEXITCODE -ne 0) { throw "Runtime doctor failed; DSH was not launched." }
+$PatchDir = $Profile
 $Patch = Join-Path $PatchDir "qdrant-memory.cordis.yml"
 New-Item -ItemType Directory -Force -Path $PatchDir | Out-Null
 if (-not (Test-Path $Patch)) {
-  Invoke-WebRequest -UseBasicParsing -Uri "https://raw.githubusercontent.com/cnkang/qdrant-memory-mcp/v0.3.1/integrations/dsh/qdrant-memory.cordis.yml" -OutFile $Patch -ErrorAction Stop
+  try {
+    Invoke-WebRequest -UseBasicParsing -Uri "https://raw.githubusercontent.com/cnkang/qdrant-memory-mcp/v0.3.1/integrations/dsh/qdrant-memory.cordis.yml" -OutFile $Patch -ErrorAction Stop
+  } catch {
+    Write-Error "Patch download failed; DSH was not launched."
+  }
 }
-dsh web --patch $Patch
-```
+if (-not (Test-Path $Patch)) {
+  Write-Error "Patch is unavailable; DSH was not launched."
+} elseif (Select-String -Path $Patch -Pattern 'qdrant-memory-mcp==0\.3\.0' -Quiet) {
+  Write-Error "The existing patch still pins qdrant-memory-mcp==0.3.0; update it to 0.3.1 before launching DSH."
+} else {
+  dsh web --patch $Patch
+}
 ```
 
 The overlay patch is part of the published `v0.3.1` tag, so fetch it directly;
