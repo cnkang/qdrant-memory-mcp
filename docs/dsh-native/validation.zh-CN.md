@@ -23,9 +23,9 @@
 | Runtime Owner 候选契约 | `cd ../hermes-plugin-qdrant-memory && pytest -q tests/standalone/test_owner_lifecycle.py tests/standalone/test_native_backlog_counter.py` | PASS：Runtime 仓库 22 项测试，不在本仓库运行 |
 | MCP 跨 Harness 契约 | `pytest -q tests/test_cross_harness.py` | PASS：5 项测试 |
 | DSH CLI profile 安装/配置/移除 | 设置隔离 `DSH_HOME` 后运行 `npm run validate:host` | 在 GitHub CI 的 Linux x64、macOS 15 arm64、Windows x64 上 PASS |
-| Linux x64 / macOS Apple Silicon / Windows x64 工作流 | [`.github/workflows/dsh-native.yml`](../../.github/workflows/dsh-native.yml) | PASS：[run 42457937370](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/42457937370)（代码修订 `487ce2c`） |
-| 浮动 `next` 兼容探测 | [`.github/workflows/dsh-next.yml`](../../.github/workflows/dsh-next.yml) | PASS：[run 42458311236](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/42458311236) |
-| 旧 MCP Bundle / overlay 测试线 | [`.github/workflows/cross-harness.yml`](../../.github/workflows/cross-harness.yml) | PASS：[run 42457937390](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/42457937390) |
+| Linux x64 / macOS Apple Silicon / Windows x64 工作流 | [`.github/workflows/dsh-native.yml`](../../.github/workflows/dsh-native.yml) | PASS：[run 42462633728](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/42462633728)（代码修订 `56b5b8e`） |
+| 浮动 `next` 兼容探测 | [`.github/workflows/dsh-next.yml`](../../.github/workflows/dsh-next.yml) | PASS：[run 42462633640](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/42462633640) |
+| 旧 MCP Bundle / overlay 测试线 | [`.github/workflows/cross-harness.yml`](../../.github/workflows/cross-harness.yml) | PASS：[run 42462633647](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/42462633647) |
 
 原生单测用合成 DSH 事件和注入的 Owner 请求边界调用实际适配器 handler，覆盖默认关闭、输入过滤、有界注入、session 缓存隔离/清理、发送候选时不包含助手原文、基于 receipt 的 replay、fork 前缀排除、subagent 排除和 capture 超时清理。Runtime lifecycle 测试覆盖候选契约、授权边界、replacement context 校验、持久幂等性和 backlog 口径。这些不是完整 DSH AgentLoop 测试。
 
