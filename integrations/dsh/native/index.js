@@ -683,7 +683,6 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
 
   const enqueueCapture = (session, turn, agent, events) => {
     if (disposed || !config.auto_capture.enabled || !Number.isInteger(turn)) return
-    metrics.capture_turns_seen += 1
     const sessionId = session?.id
     const agentLifetime = agentLifetimes.get(agent)
     if (typeof sessionId !== 'string' || !agentLifetime
@@ -706,6 +705,7 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
       queues.set(sessionId, queue)
     }
     if (queue.turns.has(turn)) return queue.drainPromise
+    metrics.capture_turns_seen += 1
     if (queue.turns.size >= MAX_PENDING_TURNS) {
       metrics.capture_backlog += 1
       safeLog(ctx, 'warn', 'Qdrant Memory capture queue is full; the source turn remains in the DSH session log.')
@@ -907,12 +907,15 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
       } else {
         const started = Date.now()
         metrics.recall_requests += 1
-        result = await runtimeRequest('remote-call', { query }, {
-          signal: requestSignal,
-          timeoutMs: config.auto_recall.timeout_ms,
-        })
-        metrics.recall_latency_ms_total += Date.now() - started
-        metrics.recall_latency_ms_count += 1
+        try {
+          result = await runtimeRequest('remote-call', { query }, {
+            signal: requestSignal,
+            timeoutMs: config.auto_recall.timeout_ms,
+          })
+        } finally {
+          metrics.recall_latency_ms_total += Date.now() - started
+          metrics.recall_latency_ms_count += 1
+        }
       }
       if (config.auto_recall.cache && !cacheValid && !requestSignal.aborted && !disposed) {
         recallCache.set(cacheKey, {
