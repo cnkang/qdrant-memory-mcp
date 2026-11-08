@@ -30,7 +30,7 @@
     "validate:dsh": "node ./scripts/validate-dsh.mjs",
     "validate:host": "npm run validate:host:add && npm run validate:host:config && npm run validate:host:remove",
     "validate:host:add": "dsh plugin --profile qdrant-native-ci add .",
-    "validate:host:config": "dsh --profile qdrant-native-ci --dump-config",
+    "validate:host:config": "node ./scripts/validate-host-config.mjs",
     "validate:host:remove": "dsh plugin --profile qdrant-native-ci remove @cnkang/qdrant-memory-dsh-native"
   },
   "engines": {
