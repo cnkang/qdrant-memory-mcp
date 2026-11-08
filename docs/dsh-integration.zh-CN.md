@@ -65,9 +65,27 @@ Hermes 相互独立。更新、卸载与恢复说明见 [Bundle 说明](../integ
 uvx --from qdrant-memory-mcp==0.3.1 qdrant-memory-mcp --home "$HOME/.qdrant-memory-dsh" init
 uvx --from qdrant-memory-mcp==0.3.1 qdrant-memory-mcp --home "$HOME/.qdrant-memory-dsh" doctor
 mkdir -p "$HOME/.qdrant-memory-dsh"
-curl -fsSL -o "$HOME/.qdrant-memory-dsh/qdrant-memory.cordis.yml" \
-  https://raw.githubusercontent.com/cnkang/qdrant-memory-mcp/v0.3.1/integrations/dsh/qdrant-memory.cordis.yml
-dsh web --patch "$HOME/.qdrant-memory-dsh/qdrant-memory.cordis.yml"
+PATCH="$HOME/.qdrant-memory-dsh/qdrant-memory.cordis.yml"
+if [ ! -e "$PATCH" ]; then
+  curl -fsSL -o "$PATCH" \
+    https://raw.githubusercontent.com/cnkang/qdrant-memory-mcp/v0.3.1/integrations/dsh/qdrant-memory.cordis.yml || exit 1
+fi
+dsh web --patch "$PATCH"
+```
+
+Windows PowerShell 5.1 请使用对应命令：
+
+```powershell
+uvx --from qdrant-memory-mcp==0.3.1 qdrant-memory-mcp --home "$HOME/.qdrant-memory-dsh" init
+uvx --from qdrant-memory-mcp==0.3.1 qdrant-memory-mcp --home "$HOME/.qdrant-memory-dsh" doctor
+$PatchDir = Join-Path $HOME ".qdrant-memory-dsh"
+$Patch = Join-Path $PatchDir "qdrant-memory.cordis.yml"
+New-Item -ItemType Directory -Force -Path $PatchDir | Out-Null
+if (-not (Test-Path $Patch)) {
+  Invoke-WebRequest -UseBasicParsing -Uri "https://raw.githubusercontent.com/cnkang/qdrant-memory-mcp/v0.3.1/integrations/dsh/qdrant-memory.cordis.yml" -OutFile $Patch -ErrorAction Stop
+}
+dsh web --patch $Patch
+```
 ```
 
 overlay patch 已包含在发布的 `v0.3.1` tag 中，可直接下载，不需要源码 checkout。
