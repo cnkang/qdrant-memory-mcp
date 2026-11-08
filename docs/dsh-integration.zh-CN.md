@@ -79,7 +79,7 @@ uvx --from qdrant-memory-mcp==0.3.1 qdrant-memory-mcp --home "$PROFILE" doctor &
       echo "Patch download failed; DSH was not launched." >&2
     fi
   fi
-  if [ -e "$PATCH" ] && grep -q 'qdrant-memory-mcp==0.3.0' "$PATCH"; then
+  if [ -e "$PATCH" ] && awk '{ sub(/#.*/, ""); print }' "$PATCH"     | grep -Eq 'qdrant-memory-mcp[[:space:]]*==[[:space:]]*0\.3\.0'; then
     echo "The existing patch still pins qdrant-memory-mcp==0.3.0; update it to 0.3.1 before launching DSH." >&2
   elif [ -e "$PATCH" ]; then
     dsh web --patch "$PATCH"
@@ -90,13 +90,13 @@ uvx --from qdrant-memory-mcp==0.3.1 qdrant-memory-mcp --home "$PROFILE" doctor &
 Windows PowerShell 5.1 请使用对应命令：
 
 ```powershell
-$Profile = if ($env:QDRANT_MEMORY_DSH_PROFILE) { $env:QDRANT_MEMORY_DSH_PROFILE } else { Join-Path $HOME ".qdrant-memory-dsh" }
-$env:QDRANT_MEMORY_DSH_PROFILE = $Profile
-uvx --from qdrant-memory-mcp==0.3.1 qdrant-memory-mcp --home $Profile init
+$MemoryProfile = if ($env:QDRANT_MEMORY_DSH_PROFILE) { $env:QDRANT_MEMORY_DSH_PROFILE } else { Join-Path $HOME ".qdrant-memory-dsh" }
+$env:QDRANT_MEMORY_DSH_PROFILE = $MemoryProfile
+uvx --from qdrant-memory-mcp==0.3.1 qdrant-memory-mcp --home $MemoryProfile init
 if ($LASTEXITCODE -ne 0) { throw "Runtime init failed; DSH was not launched." }
-uvx --from qdrant-memory-mcp==0.3.1 qdrant-memory-mcp --home $Profile doctor
+uvx --from qdrant-memory-mcp==0.3.1 qdrant-memory-mcp --home $MemoryProfile doctor
 if ($LASTEXITCODE -ne 0) { throw "Runtime doctor failed; DSH was not launched." }
-$PatchDir = $Profile
+$PatchDir = $MemoryProfile
 $Patch = Join-Path $PatchDir "qdrant-memory.cordis.yml"
 New-Item -ItemType Directory -Force -Path $PatchDir | Out-Null
 if (-not (Test-Path $Patch)) {
@@ -110,9 +110,12 @@ if (-not (Test-Path $Patch)) {
     Remove-Item -Force $Draft -ErrorAction SilentlyContinue
   }
 }
+$PatchPinned = if (Test-Path $Patch) {
+  Get-Content -Path $Patch | ForEach-Object { $_ -replace '#.*$', '' } | Select-String -Pattern 'qdrant-memory-mcp\s*==\s*0\.3\.0' -Quiet
+} else { $false }
 if (-not (Test-Path $Patch)) {
   Write-Error "Patch is unavailable; DSH was not launched."
-} elseif (Select-String -Path $Patch -Pattern 'qdrant-memory-mcp==0\.3\.0' -Quiet) {
+} elseif ($PatchPinned) {
   Write-Error "The existing patch still pins qdrant-memory-mcp==0.3.0; update it to 0.3.1 before launching DSH."
 } else {
   dsh web --patch $Patch
@@ -121,6 +124,7 @@ if (-not (Test-Path $Patch)) {
 
 overlay patch 已包含在发布的 `v0.3.1` tag 中，可直接下载，不需要源码 checkout。
 请把文件放在包环境之外，并在每次启动 DSH 时把其本地路径传给 `--patch`。
+复用已有 patch 前，请确认其 `--home` 指向当前选择的 profile；如果硬编码了其他路径，请先更新再启动。
 
 Windows 请使用对应的绝对路径。启动 DSH 前可用环境变量
 `QDRANT_MEMORY_DSH_PROFILE` 指定其他独立 profile。不要选择正在使用的
