@@ -142,9 +142,12 @@ def test_official_dsh_cli_overlay_preserves_user_patches(tmp_path):
     assert re.search(rb'-\s*qdrant-memory-mcp==0\.3\.1(?:\s|$)', overlay_bytes), overlay_bytes[:2000]
     result = subprocess.run(['node', str(cli), 'web', '--patch', str(tagged_overlay), '--dump-config'], env=env, capture_output=True, text=True, timeout=60)
     assert result.returncode == 0, result.stderr
+    assert result.stdout.count('id: cnkang-qdrant-memory-mcp') == 1, result.stdout
     composed = _load_dsh_config(result.stdout)
     plugin = _find_plugin(composed, 'cnkang-qdrant-memory-mcp')
     assert plugin is not None, result.stdout
+    assert plugin.get('name') == '@deepseek-ai/dsh-mcp-client', result.stdout
+    assert plugin.get('enabled', True) is not False, result.stdout
     args = plugin.get('config', {}).get('args')
     assert isinstance(args, list), result.stdout
     assert plugin.get('config', {}).get('command') == 'uvx', result.stdout
@@ -157,6 +160,10 @@ def test_official_dsh_cli_overlay_preserves_user_patches(tmp_path):
     for index in home_indexes:
         configured_home = args[index + 1]
         assert configured_home in {str(selected_profile), TRUSTED_HOME_EXPRESSION}, result.stdout
+    assert re.search(
+        r'--home[\s\S]{0,200}?!!js\s+process\.env\.QDRANT_MEMORY_DSH_PROFILE',
+        result.stdout,
+    ), result.stdout
     assert "name: '@deepseek-ai/dsh-mcp-client'" in result.stdout
     assert patch.read_text() == '[]\n'
     assert sentinel.read_text() == '# unrelated profile\n[]\n'
