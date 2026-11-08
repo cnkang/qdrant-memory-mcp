@@ -4,9 +4,11 @@
 
 ## Status and compatibility
 
-This is an opt-in source preview. The native package is private and unpublished.
-It targets DSH `0.2.2-rc.1`, Node.js `>=24.9.0`, and Python Runtime 0.6.1 or
-newer for versioned candidate events and durable receipt retries. API review used the
+This is an opt-in source preview. The native package source is merged to `main`
+but the npm package remains private and unpublished. It targets DSH
+`0.2.2-rc.1`, Node.js `>=24.9.0`, and Python Runtime 0.6.1 or newer for
+versioned candidate events and durable receipt retries. Runtime 0.6.1 is merged
+but not yet on PyPI; the latest published Runtime is 0.6.0. API review used the
 official DSH release tag commit
 `66491b05e3f05ad35bcdd4f6cd7ed26041d9e3db` and checked the merged source at
 `fcc0ad462172522aaf5c93a7b2e01f6b9f0b0159`.
@@ -98,7 +100,10 @@ one exact user-text excerpt of at most 2 KiB; the adapter verifies that it is a
 literal substring of the user's text. DSH receives the user and assistant text
 for candidate extraction. The Owner event has no assistant field, but its
 versioned candidates can contain facts derived from assistant text and are sent
-to the Runtime.
+to the Runtime. Subagent sessions (`header.origin: "subagent"` or a positive
+`delegationDepth`) are not registered for recall or capture. Recovery after a
+fork reads only events after the session's `inheritedEventCount`, so parent
+history is not captured again under the child identity.
 
 The local JSON validator requires the exact `memories` and
 `replacement_context` top-level fields and the Runtime's existing four-field

@@ -45,13 +45,14 @@ before launching DSH:
 | Variable | Required value |
 | --- | --- |
 | `QDRANT_MEMORY_RUNTIME_PYTHON` | Absolute path to the Python interpreter with the Runtime installed |
-| `QDRANT_MEMORY_DSH_OWNER_URL` | Owner HTTPS endpoint ending in `/mcp` |
+| `QDRANT_MEMORY_DSH_OWNER_URL` | Owner HTTPS endpoint with the exact `/mcp` path |
 | `QDRANT_MEMORY_DSH_OWNER_TOKEN` | Provisioned Owner write token; never put it in profile YAML |
 | `QDRANT_MEMORY_RUNTIME_CA_FILE` | Optional absolute path to a private CA bundle |
 
 The adapter passes only the Owner token and basic process paths to the Python
-child. It launches the child in isolated mode (`-I -X utf8`) from the interpreter's own
-directory, so project content cannot shadow the installed Runtime. It does not
+child. It launches the child in isolated mode (`-I -S` plus a fixed
+site-packages bootstrap) from the interpreter's own directory, so project
+content and site startup files cannot shadow the installed Runtime. It does not
 inherit unrelated DSH credentials, print request contents, or fall back to
 another identity after an authorization failure. The Runtime derives scope from
 the Owner grant. Owner setup and TLS policy remain governed
@@ -146,7 +147,13 @@ Embedding selection belongs to the Python Owner profile, not DSH. Create a new
 Owner destination using the [Runtime embedding guide](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/local-embedding.md)
 and [shared Owner setup](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/shared-memory/README.md).
 Runtime 0.6.1 provides the versioned candidate-event and retry contract used by
-the adapter.
+the adapter. It is merged but not yet on PyPI (latest published is 0.6.0).
+Until publication, use the reviewed source pin below; the `==0.6.1` commands
+become valid only after that release.
+
+```sh
+python -m pip install 'hermes-plugin-qdrant-memory[remote,local] @ git+https://github.com/cnkang/hermes-plugin-qdrant-memory.git@6df73703419f061e77b9b640c15ddf6609d26e58'
+```
 
 For a new local CPU Owner, explicitly install the Runtime's `local` extra and
 create a separate profile:
@@ -220,6 +227,15 @@ run while `QDRANT_MEMORY_DSH_OWNER_TOKEN` is present. The bootstrap honors the
 venv's `include-system-site-packages` setting. The interpreter binary and its
 installed packages remain a trusted installation; never use a virtual
 environment stored inside the DSH project.
+
+## Diagnostics
+
+The plugin keeps in-process counters for recall requests, hits, failures, cache
+hits, injected memory count and characters, capture turns seen, eligible and
+committed, capture failures, backlog drops, recovery attempts, and cumulative
+recall latency. The disposer returned by `apply()` exposes a `metrics()` snapshot.
+Counters never include transcript text or credentials. Runtime receipts expose
+status only, so mutation action breakdown and dedupe rate are not available.
 
 ## Validation
 

@@ -46,18 +46,21 @@ lane. `integrations/dsh/native/package.json` and
 [`dsh-native.yml`](../.github/workflows/dsh-native.yml) pin the current RC lane
 and exercise Linux x64, macOS 15 arm64, and Windows x64. The native package's
 unit fixtures validate event filtering, candidate bounds, default-off config,
-and untrusted-memory formatting. Those tests do not use a live model, Owner,
-or GUI. Published Runtime support and real-model/desktop acceptance remain
-unverified; the native package has not been published.
+fork and subagent exclusion, and untrusted-memory formatting. Those tests do
+not use a live model, Owner, or GUI. Published Runtime support and
+real-model/desktop acceptance remain unverified; the native package has not
+been published.
 
-As of 2026-11-06, local evidence is 10/10 native unit fixtures, 12/12 Runtime
-Owner lifecycle tests, and 4/4 MCP cross-harness contract tests. The native
-unit fixtures ran under local Node 22.23.2, below DSH's declared Node minimum;
-they are synthetic tests only. The exact Node 24.9.0/pnpm 11.28.5 profile
-install/config/remove workflow is PENDING until its GitHub jobs finish. See
-the bilingual [native validation report](dsh-native/validation.md) and
+As of 2026-11-08, local evidence is 19/19 native unit fixtures on Node
+24.22.1, 22/22 Runtime Owner lifecycle tests, and 5/5 MCP cross-harness contract
+tests. The exact Node 24.9.0/pnpm 11.28.5 profile install/config/remove workflow
+passed on Linux x64, macOS 15 arm64, and Windows x64 in
+[run 42387412518](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/42387412518).
+The floating `next` probe and legacy cross-harness lane also passed. See the
+bilingual [native validation report](dsh-native/validation.md) and
 [中文验证报告](dsh-native/validation.zh-CN.md) for coverage limits and release
-blockers. The native preview is not release-ready.
+blockers. The native source is merged, but the npm package and Runtime 0.6.1
+remain unpublished; the native preview is not release-ready.
 
 ## Local automated coverage
 
