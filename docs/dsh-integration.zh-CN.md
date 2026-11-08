@@ -100,10 +100,14 @@ $PatchDir = $Profile
 $Patch = Join-Path $PatchDir "qdrant-memory.cordis.yml"
 New-Item -ItemType Directory -Force -Path $PatchDir | Out-Null
 if (-not (Test-Path $Patch)) {
+  $Draft = "$Patch.download"
   try {
-    Invoke-WebRequest -UseBasicParsing -Uri "https://raw.githubusercontent.com/cnkang/qdrant-memory-mcp/v0.3.1/integrations/dsh/qdrant-memory.cordis.yml" -OutFile $Patch -ErrorAction Stop
+    Invoke-WebRequest -UseBasicParsing -Uri "https://raw.githubusercontent.com/cnkang/qdrant-memory-mcp/v0.3.1/integrations/dsh/qdrant-memory.cordis.yml" -OutFile $Draft -ErrorAction Stop
+    Move-Item -Force $Draft $Patch
   } catch {
     Write-Error "Patch download failed; DSH was not launched."
+  } finally {
+    Remove-Item -Force $Draft -ErrorAction SilentlyContinue
   }
 }
 if (-not (Test-Path $Patch)) {
