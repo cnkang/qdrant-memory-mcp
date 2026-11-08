@@ -74,6 +74,12 @@ as Ollama. Follow the [quickstart](quickstart.md), using a new dedicated profile
 at `~/.qdrant-memory-dsh` instead of `~/.qdrant-memory`. Put your chosen scope and
 embedding settings in that profile's `qdrant-memory.json`, then initialize it:
 
+Before running initialization, create and configure `qdrant-memory.json` in the
+directory selected by `QDRANT_MEMORY_DSH_PROFILE` (scope, embedding model, and
+service address). A fresh selected directory does not inherit settings from
+`~/.qdrant-memory-dsh`; `init`, `doctor`, and the MCP server all use the selected
+directory.
+
 Before reusing an existing patch, verify that its `--home` points at the selected
 profile; update it before launch if it hardcodes another home.
 
@@ -95,16 +101,27 @@ uvx --from qdrant-memory-mcp==0.3.1 qdrant-memory-mcp --home "$PROFILE" doctor &
       echo "Patch download failed; DSH was not launched." >&2
     fi
   fi
-  PATCH_PIN_OLD=0
-  PATCH_HAS_PLUGIN=0
+  PATCH_ACTIVE=""
   if [ -e "$PATCH" ]; then
-    awk '{ sub(/#.*/, "") } /qdrant-memory-mcp[[:space:]]*==[[:space:]]*0\.3\.0/ { found=1 } END { exit !found }' "$PATCH" && PATCH_PIN_OLD=1
-    awk '{ sub(/#.*/, "") } /id: cnkang-qdrant-memory-mcp/ { found=1 } END { exit !found }' "$PATCH" && PATCH_HAS_PLUGIN=1
+    PATCH_ACTIVE=$(awk '{ sub(/#.*/, ""); print }' "$PATCH")
+  fi
+  PATCH_HAS_PLUGIN=0
+  PATCH_PIN_OLD=0
+  PATCH_HAS_VERSION=0
+  if [ -n "$PATCH_ACTIVE" ]; then
+    grep -Eq "id:[[:space:]]*[\"']?cnkang-qdrant-memory-mcp[\"']?[[:space:]]*$" <<< "$PATCH_ACTIVE" && PATCH_HAS_PLUGIN=1
+    grep -Eq "qdrant-memory-mcp[[:space:]]*==[[:space:]]*0\.3\.0[[:space:]]*$" <<< "$PATCH_ACTIVE" && PATCH_PIN_OLD=1
+    grep -Eq "qdrant-memory-mcp[[:space:]]*==[[:space:]]*0\.3\.1[[:space:]]*$" <<< "$PATCH_ACTIVE" && PATCH_HAS_VERSION=1
   fi
   if [ "$PATCH_PIN_OLD" = 1 ]; then
     echo "The existing patch still pins qdrant-memory-mcp==0.3.0; update it to 0.3.1 before launching DSH." >&2
+    false
   elif [ "$PATCH_HAS_PLUGIN" != 1 ]; then
     echo "The existing patch does not contain the qdrant-memory plugin; replace it before launching DSH." >&2
+    false
+  elif [ "$PATCH_HAS_VERSION" != 1 ]; then
+    echo "The existing patch does not pin qdrant-memory-mcp==0.3.1; replace it before launching DSH." >&2
+    false
   elif [ -e "$PATCH" ]; then
     dsh web --patch "$PATCH"
   fi
@@ -140,14 +157,18 @@ if (-not (Test-Path $Patch)) {
 $PatchText = if (Test-Path $Patch) {
   Get-Content -Path $Patch | ForEach-Object { $_ -replace '#.*$', '' }
 } else { @() }
-$PatchPinned = $PatchText | Select-String -Pattern 'qdrant-memory-mcp\s*==\s*0\.3\.0' -Quiet
-$PatchHasPlugin = $PatchText | Select-String -Pattern 'id:\s*cnkang-qdrant-memory-mcp' -Quiet
+$PatchActive = $PatchText -join "`n"
+$PatchHasPlugin = $PatchActive -match '(?m)^\s*-\s*id:\s*["'']?cnkang-qdrant-memory-mcp["'']?\s*$'
+$PatchPinned = $PatchActive -match '(?m)^\s*-\s*qdrant-memory-mcp\s*==\s*0\.3\.0\s*$'
+$PatchHasVersion = $PatchActive -match '(?m)^\s*-\s*qdrant-memory-mcp\s*==\s*0\.3\.1\s*$'
 if (-not (Test-Path $Patch)) {
-  Write-Error "Patch is unavailable; DSH was not launched."
+  throw "Patch is unavailable; DSH was not launched."
 } elseif ($PatchPinned) {
-  Write-Error "The existing patch still pins qdrant-memory-mcp==0.3.0; update it to 0.3.1 before launching DSH."
+  throw "The existing patch still pins qdrant-memory-mcp==0.3.0; update it to 0.3.1 before launching DSH."
 } elseif (-not $PatchHasPlugin) {
-  Write-Error "The existing patch does not contain the qdrant-memory plugin; replace it before launching DSH."
+  throw "The existing patch does not contain the qdrant-memory plugin; replace it before launching DSH."
+} elseif (-not $PatchHasVersion) {
+  throw "The existing patch does not pin qdrant-memory-mcp==0.3.1; replace it before launching DSH."
 } else {
   dsh web --patch $Patch
 }
