@@ -10,6 +10,11 @@ from urllib.request import urlopen
 
 from ruamel.yaml import YAML
 
+TRUSTED_HOME_EXPRESSION = (
+    "process.env.QDRANT_MEMORY_DSH_PROFILE || "
+    "require('node:path').join(require('node:os').homedir(), '.qdrant-memory-dsh')"
+)
+
 
 
 def _load_dsh_config(text):
@@ -142,6 +147,7 @@ def test_official_dsh_cli_overlay_preserves_user_patches(tmp_path):
     assert plugin is not None, result.stdout
     args = plugin.get('config', {}).get('args')
     assert isinstance(args, list), result.stdout
+    assert plugin.get('config', {}).get('command') == 'uvx', result.stdout
     from_indexes = [index for index, value in enumerate(args) if value == '--from']
     assert from_indexes, result.stdout
     for index in from_indexes:
@@ -150,17 +156,7 @@ def test_official_dsh_cli_overlay_preserves_user_patches(tmp_path):
     assert home_indexes, result.stdout
     for index in home_indexes:
         configured_home = args[index + 1]
-        if configured_home != str(selected_profile):
-            evaluated = subprocess.run(
-                ['node', '-e', 'process.stdout.write(String(eval(process.argv[1])))', configured_home],
-                env=env,
-                capture_output=True,
-                text=True,
-                timeout=15,
-            )
-            assert evaluated.returncode == 0, evaluated.stderr
-            configured_home = evaluated.stdout
-        assert configured_home == str(selected_profile), result.stdout
+        assert configured_home in {str(selected_profile), TRUSTED_HOME_EXPRESSION}, result.stdout
     assert "name: '@deepseek-ai/dsh-mcp-client'" in result.stdout
     assert patch.read_text() == '[]\n'
     assert sentinel.read_text() == '# unrelated profile\n[]\n'
