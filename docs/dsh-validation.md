@@ -25,7 +25,7 @@ committed exact-version release gate. See [dependency maintenance](ci.md).
 The updated distribution suite passed 141 tests. Ruff, actionlint, clean npm
 installation, wheel/sdist builds and strict metadata checks also passed locally.
 
-## Native lifecycle adapter preview (2026-11-06)
+## Native lifecycle adapter preview (2026-11-08)
 
 The current public DSH release is [`0.2.2-rc.1`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.2.2-rc.1),
 published from tag commit `66491b05e3f05ad35bcdd4f6cd7ed26041d9e3db`. The
@@ -38,7 +38,7 @@ is `24.9.0`. The native adapter pins `@deepseek-ai/dsh-llm@0.2.2-rc.1`,
 | Path | DSH line | Runtime requirement | Status |
 | --- | --- | --- | --- |
 | Published MCP Bundle and Python overlay | Existing exact tests remain on `0.2.1-rc.2` | Published MCP/Runtime interfaces | Supported path; unchanged |
-| Native lifecycle adapter source | `0.2.2-rc.1`, Node `>=24.9.0` | Versioned `qdrant-memory/extraction-v1` Owner candidate events | Unpublished preview; Runtime implementation is submitted separately |
+| Native lifecycle adapter source | `0.2.2-rc.1`, Node `>=24.9.0` | Versioned `qdrant-memory/extraction-v1` Owner candidate events | Source merged; npm private; Runtime 0.6.1 merged but not yet on PyPI |
 | DSH Core | Upstream release commit above | No changes | Not modified |
 
 `integrations/dsh/package.json` and `cross-harness.yml` retain the legacy RC
@@ -51,11 +51,11 @@ not use a live model, Owner, or GUI. Published Runtime support and
 real-model/desktop acceptance remain unverified; the native package has not
 been published.
 
-As of 2026-11-08, local evidence is 19/19 native unit fixtures on Node
+As of 2026-11-08, local evidence is 20/20 native unit fixtures on Node
 24.22.1, 22/22 Runtime Owner lifecycle tests, and 5/5 MCP cross-harness contract
 tests. The exact Node 24.9.0/pnpm 11.28.5 profile install/config/remove workflow
 passed on Linux x64, macOS 15 arm64, and Windows x64 in
-[run 42455811805](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/42455811805).
+[run 42456569756](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/42456569756).
 The floating `next` probe and legacy cross-harness lane also passed. See the
 bilingual [native validation report](dsh-native/validation.md) and
 [中文验证报告](dsh-native/validation.zh-CN.md) for coverage limits and release

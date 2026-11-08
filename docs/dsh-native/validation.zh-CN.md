@@ -19,13 +19,13 @@
 
 | 仓库 / 检查 | 命令 | 结果 |
 | --- | --- | --- |
-| 原生适配器单元 fixture | 在 `integrations/dsh/native` 运行 `npm test` | PASS：macOS Apple Silicon、Node `24.22.1` 上 19 项测试 |
+| 原生适配器单元 fixture | 在 `integrations/dsh/native` 运行 `npm test` | PASS：macOS Apple Silicon、Node `24.22.1` 上 20 项测试 |
 | Runtime Owner 候选契约 | `pytest -q tests/standalone/test_owner_lifecycle.py tests/standalone/test_native_backlog_counter.py` | PASS：22 项测试 |
 | MCP 跨 Harness 契约 | `pytest -q tests/test_cross_harness.py` | PASS：5 项测试 |
 | DSH CLI profile 安装/配置/移除 | 设置隔离 `DSH_HOME` 后运行 `npm run validate:host` | 在 GitHub CI 的 Linux x64、macOS 15 arm64、Windows x64 上 PASS |
-| Linux x64 / macOS Apple Silicon / Windows x64 工作流 | [`.github/workflows/dsh-native.yml`](../../.github/workflows/dsh-native.yml) | PASS：[run 42455811805](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/42455811805)（代码修订 `56eccba`） |
-| 浮动 `next` 兼容探测 | [`.github/workflows/dsh-next.yml`](../../.github/workflows/dsh-next.yml) | PASS：[run 42455811841](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/42455811841) |
-| 旧 MCP Bundle / overlay 测试线 | [`.github/workflows/cross-harness.yml`](../../.github/workflows/cross-harness.yml) | PASS：[run 42455811823](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/42455811823) |
+| Linux x64 / macOS Apple Silicon / Windows x64 工作流 | [`.github/workflows/dsh-native.yml`](../../.github/workflows/dsh-native.yml) | PASS：[run 42456569756](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/42456569756)（代码修订 `32c9e85`） |
+| 浮动 `next` 兼容探测 | [`.github/workflows/dsh-next.yml`](../../.github/workflows/dsh-next.yml) | PASS：[run 42456569792](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/42456569792) |
+| 旧 MCP Bundle / overlay 测试线 | [`.github/workflows/cross-harness.yml`](../../.github/workflows/cross-harness.yml) | PASS：[run 42456569740](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/42456569740) |
 
 原生单测用合成 DSH 事件和注入的 Owner 请求边界调用实际适配器 handler，覆盖默认关闭、输入过滤、有界注入、session 缓存隔离/清理、发送候选时不包含助手原文、基于 receipt 的 replay、fork 前缀排除、subagent 排除和 capture 超时清理。Runtime lifecycle 测试覆盖候选契约、授权边界、replacement context 校验、持久幂等性和 backlog 口径。这些不是完整 DSH AgentLoop 测试。
 
