@@ -132,7 +132,7 @@ duplicate work is the validation matrix.
 
 ## Verification
 
-- `pytest tests/test_ci_security.py tests/test_release_gate.py`: 31 passed.
+- `pytest tests/test_ci_security.py tests/test_release_gate.py`: 37 passed.
   Covers exact-SHA matching, wrong-SHA,
   wrong-branch, pull-request-only evidence, missing and incomplete runs, API
   pagination, gate ordering before `python -m build`, cache disabling, the new
