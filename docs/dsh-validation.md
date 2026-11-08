@@ -56,7 +56,7 @@ As of 2026-11-08, local evidence is 25/25 native unit fixtures on Node
 tests. The exact Node 24.9.0/pnpm 11.28.5 profile install/config/remove result is
 Linux x64 only; macOS 15 arm64 and Windows x64 ran Node 24 (latest 24.x), not
 the exact patch floor. See
-[run 42472714839](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/42472714839).
+[run 42479081529](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/42479081529).
 The floating `next` probe and legacy cross-harness lane also passed. See the
 bilingual [native validation report](dsh-native/validation.md) and
 [中文验证报告](dsh-native/validation.zh-CN.md) for coverage limits and release
