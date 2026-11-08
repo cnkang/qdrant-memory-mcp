@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -101,6 +102,10 @@ def test_official_dsh_cli_overlay_preserves_user_patches(tmp_path):
     assert result.returncode == 0, result.stderr
     assert result.stdout.count('id: cnkang-qdrant-memory-mcp') == 1
     assert "name: '@deepseek-ai/dsh-mcp-client'" in result.stdout
+    assert re.search(
+        r'id: cnkang-qdrant-memory-mcp[\s\S]*?\n\s+args:\s*\n(?:\s+-[^\n]*\n)*?\s+-\s*qdrant-memory-mcp==0\.3\.1\b',
+        result.stdout,
+    ), result.stdout
     assert patch.read_text() == '[]\n'
     assert sentinel.read_text() == '# unrelated profile\n[]\n'
 
