@@ -103,8 +103,8 @@ The upstream Runtime repository scans Runtime business code.
 
 Publication requires a tag, the existing protected environments, and explicit confirmation.
 The build job first verifies that `Distribution CI`, `Cross-harness integration`,
-`Repository quality` and `CodeQL` each produced a successful push-to-`main` run
-for the exact tagged commit.
+`DSH native adapter`, `Repository quality` and `CodeQL` each produced a successful
+push-to-`main` run for the exact tagged commit.
 A failed, cancelled, skipped or missing run blocks the build before any
 distribution exists.
 The job attests newly built `dist/*` with GitHub artifact attestations, in
