@@ -53,10 +53,10 @@ completed-turn candidate extraction, then sends the candidates to the existing
 Python Owner. All three switches default to `false`. Recall requires both
 `auto_recall.enabled` and `memory_injection.enabled`.
 
-This adapter targets `@deepseek-ai/dsh@0.2.2-rc.1`. The published Python
-Runtime does not yet accept its versioned candidate event, so the native path
-is not a supported install with current published packages. Use the Bundle or
-Python/uvx overlay below until the companion Runtime change is released. The
+This adapter targets `@deepseek-ai/dsh@0.2.2-rc.1`. The compatible Runtime
+change is merged at 0.6.1 but not yet published on PyPI, so the native path is
+not a supported install with current published packages. Use the Bundle or
+Python/uvx overlay below until Runtime 0.6.1 is released. The
 native package is not published, and it has no real-model or GUI acceptance
 claim. See [native design and support status](dsh-native/design.md).
 See the [English setup guide](../integrations/dsh/native/README.md),

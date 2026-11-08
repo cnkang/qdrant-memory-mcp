@@ -44,9 +44,8 @@ Hermes 相互独立。更新、卸载与恢复说明见 [Bundle 说明](../integ
 再把候选交给现有 Python Owner。三个开关默认都为 `false`。召回需要同时启用
 `auto_recall.enabled` 和 `memory_injection.enabled`。
 
-该适配器针对 `@deepseek-ai/dsh@0.2.2-rc.1`。当前已发布的 Python Runtime 尚不接受
-它使用的版本化候选事件，因此它暂时不能与已发布 Runtime 一起作为受支持的安装路径。
-在配套 Runtime 改动发布前，请使用上面的 Bundle 或 Python/uvx overlay。
+该适配器针对 `@deepseek-ai/dsh@0.2.2-rc.1`。配套 Runtime 改动已在 0.6.1 合并，但尚未发布到 PyPI，因此它暂时不能与已发布 Runtime 一起作为受支持的安装路径。
+在 Runtime 0.6.1 发布前，请使用上面的 Bundle 或 Python/uvx overlay。
 原生包尚未发布，也没有真实模型或 GUI 验收结论。详见
 [原生设计与支持状态](dsh-native/design.md)。配置、回退和验证边界见
 [英文设置指南](../integrations/dsh/native/README.md)、
