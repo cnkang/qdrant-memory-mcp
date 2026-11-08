@@ -95,7 +95,9 @@ def test_required_workflows_exist_and_run_on_main_push():
 def test_dsh_native_push_trigger_has_no_path_filter():
     """The release gate needs a run for every main commit, not only DSH edits."""
     workflow = _workflow("dsh-native.yml")
-    assert "paths" not in workflow["on"].get("push", {})
+    push = workflow["on"].get("push", {})
+    assert "paths" not in push
+    assert "paths-ignore" not in push
 
 
 def test_release_gate_passes_for_verified_commit():

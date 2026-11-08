@@ -28,10 +28,7 @@
     "test": "node --test",
     "validate:node": "node ./scripts/validate-node.mjs",
     "validate:dsh": "node ./scripts/validate-dsh.mjs",
-    "validate:host": "npm run validate:host:add && npm run validate:host:config && npm run validate:host:remove",
-    "validate:host:add": "dsh plugin --profile qdrant-native-ci add .",
-    "validate:host:config": "node ./scripts/validate-host-config.mjs",
-    "validate:host:remove": "dsh plugin --profile qdrant-native-ci remove @cnkang/qdrant-memory-dsh-native"
+    "validate:host": "node ./scripts/validate-host.mjs"
   },
   "engines": {
     "node": ">=24.9.0"

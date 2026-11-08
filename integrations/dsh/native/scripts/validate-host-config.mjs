@@ -33,7 +33,10 @@ const indentOf = (line) => (line.match(/^\s*/u) || [''])[0].length
 const pluginIndent = indentOf(lines[pluginAt])
 let pluginEnd = lines.length
 for (let cursor = pluginAt + 1; cursor < lines.length; cursor += 1) {
-  if (indentOf(lines[cursor]) <= pluginIndent && /^\s*-\s*id:/u.test(lines[cursor])) {
+  const line = lines[cursor]
+  if (!line.trim()) continue
+  if (indentOf(line) <= pluginIndent
+    && (/^\s*-\s*id:/u.test(line) || indentOf(line) < pluginIndent)) {
     pluginEnd = cursor
     break
   }
@@ -45,10 +48,22 @@ const sectionEnabled = (key) => {
   const index = bodyLines.findIndex((line) => heading.test(line))
   if (index < 0) return null
   const indent = indentOf(bodyLines[index])
+  let childIndent = null
+  for (let cursor = index + 1; cursor < bodyLines.length; cursor += 1) {
+    if (!bodyLines[cursor].trim()) continue
+    if (indentOf(bodyLines[cursor]) <= indent) break
+    childIndent = indentOf(bodyLines[cursor])
+    break
+  }
+  if (childIndent === null) return null
+  // Only the section's direct `enabled` key counts; a nested subsection may
+  // have its own enabled flag and must not satisfy this check.
   for (let cursor = index + 1; cursor < bodyLines.length; cursor += 1) {
     const line = bodyLines[cursor]
     if (!line.trim()) continue
-    if (indentOf(line) <= indent) break
+    const lineIndent = indentOf(line)
+    if (lineIndent < childIndent) break
+    if (lineIndent !== childIndent) continue
     const enabled = line.match(/^\s*enabled:\s*(true|false)\s*$/u)
     if (enabled) return enabled[1] === 'false'
   }

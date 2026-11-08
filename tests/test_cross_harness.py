@@ -11,11 +11,13 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_bridge_catalogue_is_exact_runtime_schema():
+    """The managed bridge catalogue exactly mirrors the Runtime schemas."""
     expected = [dict(name=t['name'], description=t['description'], inputSchema=t['parameters']) for t in schemas()]
     assert json.loads((ROOT / 'integrations/managed/tools.json').read_text()) == expected
 
 
 def test_dsh_overlay_is_additive_and_explicit_about_credentials():
+    """The DSH overlay adds one plugin without changing host permission defaults."""
     text = (ROOT / 'integrations/dsh/qdrant-memory.cordis.yml').read_text()
     assert text.count('- insert:') == 1
     assert "name: '@deepseek-ai/dsh-mcp-client'" in text
@@ -28,6 +30,7 @@ def test_dsh_overlay_is_additive_and_explicit_about_credentials():
 
 
 def test_dsh_native_bundle_pins_release_and_keeps_automation_disabled():
+    """The native bundle keeps exact pins and all automation switches off."""
     package_path = ROOT / 'integrations/dsh/native/package.json'
     package = json.loads(package_path.read_text())
     patch = YAML(typ='safe').load(
@@ -41,9 +44,12 @@ def test_dsh_native_bundle_pins_release_and_keeps_automation_disabled():
     assert package['scripts']['validate:node'] == 'node ./scripts/validate-node.mjs'
     assert package['scripts']['validate:dsh'] == 'node ./scripts/validate-dsh.mjs'
     assert 'validate:pnpm' not in package['scripts']
-    assert package['scripts']['validate:host'] == (
-        'npm run validate:host:add && npm run validate:host:config && npm run validate:host:remove'
-    )
+    assert package['scripts']['validate:host'] == 'node ./scripts/validate-host.mjs'
+    assert not any(key.startswith('validate:host:') for key in package['scripts'])
+    host_runner = (ROOT / 'integrations/dsh/native/scripts/validate-host.mjs').read_text()
+    assert 'mkdtempSync' in host_runner
+    assert 'DSH_HOME' in host_runner
+    assert 'rmSync(home' in host_runner
     assert package['dependencies'] == {
         '@deepseek-ai/dsh-llm': '0.2.2-rc.1',
         '@deepseek-ai/schemastery': '3.19.0',
@@ -105,6 +111,7 @@ def test_dsh_native_bundle_pins_release_and_keeps_automation_disabled():
 
 
 def test_sonar_classifies_dsh_fixtures_and_validators_as_tests():
+    """Sonar keeps fixtures and validators out of production coverage."""
     properties = {
         key: value
         for line in (ROOT / 'sonar-project.properties').read_text().splitlines()
@@ -120,6 +127,7 @@ def test_sonar_classifies_dsh_fixtures_and_validators_as_tests():
 
 
 def test_managed_launcher_uses_a_published_runtime_wheel():
+    """The managed launcher resolves a published Runtime wheel, never a checkout."""
     package = json.loads((ROOT / 'integrations/managed/package.json').read_text())
     runtime = json.loads((ROOT / 'integrations/managed/runtime.json').read_text())
     assert package['private'] is False

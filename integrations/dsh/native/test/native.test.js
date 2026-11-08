@@ -325,6 +325,9 @@ test('memory context is escaped, bounded, and omits credential-shaped records', 
   assert.deepEqual(result.ids, ['memory-1'])
   assert.match(result.text, /\\u003cthis\\u003e/u)
   assert.match(result.text, /untrusted historical data/u)
+  assert.equal(result.chars, result.text.length)
+  assert.deepEqual(formatMemories(null), { text: '', ids: [], chars: 0 })
+  assert.deepEqual(formatMemories({ memories: null }), { text: '', ids: [], chars: 0 })
   assert.equal(formatMemories({ memories: [{ id: 'x', text: 'long fact' }] }, 16).text, '')
   const small = { id: 'small', text: 'ok' }
   const expectedSmall = formatMemories({ memories: [small] })
@@ -653,6 +656,7 @@ test('fork recovery captures only child-owned turns', async () => {
   }
   const handlers = new Map()
   let cleanup
+  let forkRequest
   const ctx = {
     on(event, handler) {
       handlers.set(event, handler)
@@ -661,7 +665,8 @@ test('fork recovery captures only child-owned turns', async () => {
     effect(register) { cleanup = register() },
     logger: { warn() {} },
     llm: {
-      async *stream() {
+      async *stream(request) {
+        forkRequest = request
         yield {
           type: 'text-delta',
           text: JSON.stringify({
@@ -706,8 +711,94 @@ test('fork recovery captures only child-owned turns', async () => {
     assert.equal(submitted.length, 1)
     assert.equal(submitted[0].event_id, compileTurn(childEvents, 'fork-session', 2).event_id)
     assert.equal(submitted[0].candidates[0].text, 'Child fact.')
+    assert.match(forkRequest.messages[0].content[0].text, /Child fact/u)
+    assert.match(forkRequest.messages[0].content[0].text, /Child ack/u)
+    assert.doesNotMatch(forkRequest.messages[0].content[0].text, /Parent fact|Parent ack/u)
   } finally {
     clearTimeout(timer)
+    dispose()
+  }
+  assert.equal(typeof cleanup, 'function')
+  assert.equal(handlers.size, 0)
+})
+
+test('agent disposal drains a capture already in flight', async () => {
+  const session = { id: 'dispose-drain-session' }
+  const events = [
+    { type: 'turn/start', seq: 1, data: { turn: 1 } },
+    { type: 'user/message', seq: 2, data: {
+      source: { kind: 'user' },
+      content: [{ type: 'text', text: 'Remember the disposal fact.' }],
+    } },
+    { type: 'assistant/message', seq: 3, data: {
+      turn: 1,
+      message: {
+        source: { kind: 'model', provider: 'provider-a', model: 'model-a' },
+        content: [{ type: 'text', text: 'Acknowledged.' }],
+      },
+    } },
+    { type: 'turn/end', seq: 4, data: { turn: 1, reason: { kind: 'completed' } } },
+  ]
+  const handlers = new Map()
+  let cleanup
+  let releaseStatus
+  const statusGate = new Promise((resolve) => { releaseStatus = resolve })
+  const submitted = []
+  const ctx = {
+    on(event, handler) {
+      handlers.set(event, handler)
+      return () => handlers.delete(event)
+    },
+    effect(register) { cleanup = register() },
+    logger: { warn() {} },
+    llm: {
+      async *stream() {
+        yield { type: 'text-delta', text: JSON.stringify({
+          memories: [{
+            text: 'Disposal fact.',
+            category: ['project'],
+            importance: 0.8,
+            replacement_intent: false,
+          }],
+          replacement_context: '',
+        }) }
+        yield { type: 'finish', reason: { kind: 'stop' } }
+      },
+    },
+    sessions: { flush: async () => true },
+    sessionQuery: { readSession: async () => ({ events }) },
+    agents: { get() { return undefined }, list() { return [] } },
+  }
+  const agent = {
+    session,
+    model: { current: () => ({ provider: 'provider-a', model: 'model-a' }) },
+  }
+  const config = {
+    ...DEFAULT_CONFIG,
+    auto_capture: { ...DEFAULT_CONFIG.auto_capture, enabled: true },
+  }
+  const dispose = apply(ctx, config, async (_mode, payload, options) => {
+    if (options.action === 'status') return statusGate
+    if (options.action === 'submit') {
+      submitted.push(payload)
+      return { status: 'COMMITTED' }
+    }
+    throw new Error('unexpected Runtime call')
+  })
+  try {
+    handlers.get('agent/created')({ agent })
+    const drain = handlers.get('session/event')(session, {
+      type: 'turn/end',
+      data: { turn: 1, reason: { kind: 'completed' } },
+    })
+    await new Promise((resolve) => setImmediate(resolve))
+    handlers.get('agent/disposed')({ agent })
+    releaseStatus({ status: 'NOT_FOUND' })
+    await drain
+    assert.equal(submitted.length, 1)
+    assert.equal(submitted[0].kind, 'turn_completed')
+    assert.equal(dispose.metrics().capture_events_committed, 1)
+  } finally {
     dispose()
   }
   assert.equal(typeof cleanup, 'function')
@@ -1069,16 +1160,20 @@ test('Owner recall outage fails open without changing the current decision', asy
   }
   const agent = { session: { id: 'outage-session' } }
   const decision = { kind: 'enter', messages: [] }
-  const dispose = apply(ctx, config, async () => { throw new Error('synthetic outage') })
+  let runtimeCalls = 0
+  const dispose = apply(ctx, config, async () => {
+    runtimeCalls += 1
+    throw new Error('synthetic outage')
+  })
   handlers.get('agent/created')({ agent })
+  const messages = [{ role: 'user', source: { kind: 'user' }, content: [{ type: 'text', text: 'hello' }] }]
   try {
-    const result = await handlers.get('agent/pre-step')({
-      agent,
-      messages: [{ role: 'user', source: { kind: 'user' }, content: [{ type: 'text', text: 'hello' }] }],
-      turn: 1,
-    }, async () => decision)
+    const result = await handlers.get('agent/pre-step')({ agent, messages, turn: 1 }, async () => decision)
     assert.equal(result, decision)
     assert.equal(warningCount, 1)
+    const retry = await handlers.get('agent/pre-step')({ agent, messages, turn: 1 }, async () => decision)
+    assert.equal(retry, decision)
+    assert.equal(runtimeCalls, 1)
   } finally {
     dispose()
   }
