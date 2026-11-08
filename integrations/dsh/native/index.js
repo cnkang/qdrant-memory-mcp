@@ -61,6 +61,7 @@ const MAX_RUNTIME_REQUEST_BYTES = 131072
 const MAX_RUNTIME_RESPONSE_BYTES = 262144
 const MAX_PENDING_TURNS = 16
 const MAX_RECOVERY_TURNS = 8
+const DISPOSE_GRACE_MS = 5000
 const MAX_RECALL_QUERY_CHARS = 4000
 const CREDENTIAL_PATTERNS = [
   /-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----/iu,
@@ -637,10 +638,14 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
     capture_recovery_count: 0,
   }
 
+  const closingAgents = new Set()
+
   const isActiveAgent = (agent, signal) => {
     const id = agent?.session?.id
-    return !disposed && !signal?.aborted
-      && typeof id === 'string' && activeAgents.get(id) === agent
+    if (signal?.aborted || typeof id !== 'string' || activeAgents.get(id) !== agent) {
+      return false
+    }
+    return !disposed || closingAgents.has(agent)
   }
 
   const isSubagent = (agent) => {
@@ -652,16 +657,29 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
   const unregisterAgent = (agent) => {
     const id = agent?.session?.id
     const controller = agentLifetimes.get(agent)
-    controller?.abort()
-    agentLifetimes.delete(agent)
     recoveryScheduled.delete(agent)
-    if (typeof id !== 'string' || activeAgents.get(id) !== agent) return
-    activeAgents.delete(id)
+    if (typeof id !== 'string' || activeAgents.get(id) !== agent) {
+      controller?.abort()
+      agentLifetimes.delete(agent)
+      return
+    }
     const cachePrefix = `dsh-recall-v1:${hash(id)}:`
     for (const key of recallCache.keys()) {
       if (key.startsWith(cachePrefix)) recallCache.delete(key)
     }
     const queue = queues.get(id)
+    if (queue?.agent === agent && (queue.running || queue.pending.length)) {
+      closingAgents.add(agent)
+      queue.closing = true
+      queue.closingTimer = setTimeout(() => {
+        controller?.abort()
+        queue.controller.abort()
+      }, DISPOSE_GRACE_MS)
+      return
+    }
+    controller?.abort()
+    agentLifetimes.delete(agent)
+    activeAgents.delete(id)
     if (queue?.agent === agent) {
       queue.controller.abort()
       queue.pending.length = 0
@@ -682,10 +700,10 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
     return controller
   }
 
-  const scheduleRecovery = (agent) => {
+  const scheduleRecovery = (agent, signal) => {
     if (recoveryScheduled.has(agent)) return
     recoveryScheduled.add(agent)
-    setImmediate(() => void recoverRecentTurns(agent))
+    setImmediate(() => void recoverRecentTurns(agent, signal))
   }
 
   const enqueueCapture = (session, turn, agent, events) => {
@@ -695,6 +713,7 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
     if (typeof sessionId !== 'string' || !agentLifetime
       || agentLifetime.signal.aborted || !isActiveAgent(agent)) return
     let queue = queues.get(sessionId)
+    if (queue?.closing) return
     if (queue && queue.agent !== agent) {
       queue.controller.abort()
       queues.delete(sessionId)
@@ -707,6 +726,8 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
         pending: [],
         turns: new Set(),
         running: false,
+        closing: false,
+        closingTimer: null,
         controller: new AbortController(),
       }
       queues.set(sessionId, queue)
@@ -836,7 +857,14 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
     } finally {
       queue.running = false
       if (queues.get(sessionId) !== queue) return
-      if (!queue.pending.length || disposed || queue.controller.signal.aborted) {
+      if (queue.closing) {
+        if (queue.closingTimer) clearTimeout(queue.closingTimer)
+        agentLifetimes.get(queue.agent)?.abort()
+        agentLifetimes.delete(queue.agent)
+        closingAgents.delete(queue.agent)
+        if (activeAgents.get(sessionId) === queue.agent) activeAgents.delete(sessionId)
+        queues.delete(sessionId)
+      } else if (!queue.pending.length || disposed || queue.controller.signal.aborted) {
         queues.delete(sessionId)
       } else {
         queue.drainPromise = drainCapture(sessionId, session, queue)
@@ -844,48 +872,50 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
     }
   }
 
-  const recoverRecentTurns = async (agent) => {
-    if (!config.auto_capture.enabled || disposed) return
+  const recoverRecentTurns = async (agent, signal) => {
+    if (!config.auto_capture.enabled || disposed || signal?.aborted) return
     const session = agent?.session
     if (!session?.id) return
     const agentLifetime = agentLifetimes.get(agent)
     if (!agentLifetime) return
-    const signal = AbortSignal.any([lifetime.signal, agentLifetime.signal])
+    const recoverySignal = AbortSignal.any([lifetime.signal, agentLifetime.signal, ...(signal ? [signal] : [])])
     try {
       const flushed = await awaitWithSignal(
         () => ctx.sessions.flush(session),
-        signal,
+        recoverySignal,
         'DSH recovery flush was cancelled',
       )
-      if (flushed !== true || !isActiveAgent(agent, signal)) return
+      if (flushed !== true || !isActiveAgent(agent, recoverySignal)) return
       const snapshot = await awaitWithSignal(
         () => ctx.sessionQuery.readSession(session.id),
-        signal,
+        recoverySignal,
         'DSH recovery read was cancelled',
       )
-      if (!isActiveAgent(agent, signal)) return
+      if (!isActiveAgent(agent, recoverySignal)) return
       // A fork inherits the parent's prefix. Only turns after that prefix
       // belong to this session; recapturing inherited history would create
       // duplicate memories under a new session identity.
       const inherited = Number.isInteger(session.inheritedEventCount)
         ? session.inheritedEventCount
         : 0
-      const ownEvents = inherited > 0 ? snapshot.events.slice(inherited) : snapshot.events
+      const ownEvents = inherited > 0
+        ? snapshot.events.filter((event) => Number.isInteger(event?.seq) && event.seq > inherited)
+        : snapshot.events
       const turns = completedTurns(ownEvents).slice(-MAX_RECOVERY_TURNS)
       if (turns.length) metrics.capture_recovery_count += 1
       for (const turn of turns) {
-        if (!isActiveAgent(agent, signal)) return
+        if (!isActiveAgent(agent, recoverySignal)) return
         enqueueCapture(session, turn, agent, snapshot.events)
       }
     } catch {
-      if (isActiveAgent(agent, signal)) {
+      if (isActiveAgent(agent, recoverySignal)) {
         safeLog(ctx, 'warn', 'Qdrant Memory recovery could not read the durable DSH session log.')
       }
     }
   }
 
-  listeners.push(ctx.on('agent/created', ({ agent }) => {
-    if (registerAgent(agent)) scheduleRecovery(agent)
+  listeners.push(ctx.on('agent/created', ({ agent, signal }) => {
+    if (registerAgent(agent)) scheduleRecovery(agent, signal)
   }))
 
   listeners.push(ctx.on('agent/disposed', ({ agent }) => {
@@ -944,6 +974,7 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
       metrics.injected_context_chars += recalled.chars
       return { ...decision, messages: [...decision.messages, recalled.message] }
     } catch {
+      if (recallTurn.get(agent) === turn) recallTurn.delete(agent)
       if (requestSignal.aborted || disposed) metrics.recall_cancelled += 1
       else metrics.recall_failures += 1
       if (!disposed) safeLog(ctx, 'warn', 'Qdrant Memory recall is unavailable; continuing without recalled context.')
@@ -970,8 +1001,12 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
     if (disposed) return
     disposed = true
     lifetime.abort()
-    for (const queue of queues.values()) queue.controller.abort()
+    for (const queue of queues.values()) {
+      if (queue.closingTimer) clearTimeout(queue.closingTimer)
+      queue.controller.abort()
+    }
     queues.clear()
+    closingAgents.clear()
     for (const agent of activeAgents.values()) agentLifetimes.get(agent)?.abort()
     activeAgents.clear()
     for (const dispose of listeners) {
