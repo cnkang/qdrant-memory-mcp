@@ -5,6 +5,7 @@ import os
 import shutil
 import subprocess
 from pathlib import Path
+from urllib.request import urlopen
 
 
 def test_official_dsh_client(sandbox):
@@ -72,7 +73,7 @@ console.log('Office ZIP roundtrip and malformed ZIP64 rejection passed');
 
 
 def test_official_dsh_cli_overlay_preserves_user_patches(tmp_path):
-    root = Path(__file__).resolve().parents[1]
+    """The tagged overlay composes without modifying the selected profile patch."""
     cli = Path(os.environ['DSH_TEST_MODULES']) / '@deepseek-ai/dsh/lib/bin.js'
     assert cli.is_file()
     home = tmp_path / 'dsh-home'
@@ -86,7 +87,17 @@ def test_official_dsh_cli_overlay_preserves_user_patches(tmp_path):
     sentinel.write_text('# unrelated profile\n[]\n', encoding='utf-8')
     env = {key: value for key, value in os.environ.items() if key in {'PATH', 'SYSTEMROOT', 'WINDIR', 'TEMP', 'TMP'}}
     env.update(DSH_HOME=str(home), HOME=str(tmp_path), USERPROFILE=str(tmp_path))
-    result = subprocess.run(['node', str(cli), 'web', '--patch', str(root / 'integrations/dsh/qdrant-memory.cordis.yml'), '--dump-config'], env=env, capture_output=True, text=True, timeout=60)
+    overlay_url = (
+        'https://raw.githubusercontent.com/cnkang/qdrant-memory-mcp/'
+        'v0.3.1/integrations/dsh/qdrant-memory.cordis.yml'
+    )
+    tagged_overlay = tmp_path / 'tagged-qdrant-memory.cordis.yml'
+    with urlopen(overlay_url, timeout=30) as response:
+        assert response.status == 200
+        overlay_bytes = response.read()
+    tagged_overlay.write_bytes(overlay_bytes)
+    assert b'qdrant-memory-mcp==0.3.1' in overlay_bytes
+    result = subprocess.run(['node', str(cli), 'web', '--patch', str(tagged_overlay), '--dump-config'], env=env, capture_output=True, text=True, timeout=60)
     assert result.returncode == 0, result.stderr
     assert result.stdout.count('id: cnkang-qdrant-memory-mcp') == 1
     assert "name: '@deepseek-ai/dsh-mcp-client'" in result.stdout
