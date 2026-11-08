@@ -79,6 +79,10 @@ directory selected by `QDRANT_MEMORY_DSH_PROFILE` (scope, embedding model, and
 service address). A fresh selected directory does not inherit settings from
 `~/.qdrant-memory-dsh`; `init`, `doctor`, and the MCP server all use the selected
 directory.
+Use an absolute path such as `"$HOME/memory"` for a literal
+`QDRANT_MEMORY_DSH_PROFILE` value; `~/memory` is not expanded inside a quoted
+variable. The examples expand the fallback with `$HOME` so shell file operations
+and the Runtime select the same directory.
 
 Before reusing an existing patch, verify that its `--home` points at the selected
 profile; update it before launch if it hardcodes another home.
@@ -101,17 +105,22 @@ uvx --from qdrant-memory-mcp==0.3.1 qdrant-memory-mcp --home "$PROFILE" doctor &
       echo "Patch download failed; DSH was not launched." >&2
     fi
   fi
-  PATCH_ACTIVE=""
+  PATCH_BLOCK=""
   if [ -e "$PATCH" ]; then
-    PATCH_ACTIVE=$(awk '{ sub(/#.*/, ""); print }' "$PATCH")
+    PATCH_BLOCK=$(awk -v target="cnkang-qdrant-memory-mcp" '
+      { sub(/#.*/, "") }
+      !inside && index($0, "id:") && index($0, target) { inside=1; print; next }
+      inside && /^[[:space:]]*-[[:space:]]*id:/ { exit }
+      inside { print }
+    ' "$PATCH")
   fi
   PATCH_HAS_PLUGIN=0
   PATCH_PIN_OLD=0
   PATCH_HAS_VERSION=0
-  if [ -n "$PATCH_ACTIVE" ]; then
-    grep -Eq "id:[[:space:]]*[\"']?cnkang-qdrant-memory-mcp[\"']?[[:space:]]*$" <<< "$PATCH_ACTIVE" && PATCH_HAS_PLUGIN=1
-    grep -Eq "qdrant-memory-mcp[[:space:]]*==[[:space:]]*0\.3\.0[[:space:]]*$" <<< "$PATCH_ACTIVE" && PATCH_PIN_OLD=1
-    grep -Eq "qdrant-memory-mcp[[:space:]]*==[[:space:]]*0\.3\.1[[:space:]]*$" <<< "$PATCH_ACTIVE" && PATCH_HAS_VERSION=1
+  if [ -n "$PATCH_BLOCK" ]; then
+    grep -Eq "id:[[:space:]]*[\"']?cnkang-qdrant-memory-mcp[\"']?[[:space:]]*$" <<< "$PATCH_BLOCK" && PATCH_HAS_PLUGIN=1
+    grep -Eq "^[[:space:]]*-[[:space:]]*[\"']?qdrant-memory-mcp[[:space:]]*==[[:space:]]*0\.3\.0[\"']?[[:space:]]*$" <<< "$PATCH_BLOCK" && PATCH_PIN_OLD=1
+    grep -Eq "^[[:space:]]*-[[:space:]]*[\"']?qdrant-memory-mcp[[:space:]]*==[[:space:]]*0\.3\.1[\"']?[[:space:]]*$" <<< "$PATCH_BLOCK" && PATCH_HAS_VERSION=1
   fi
   if [ "$PATCH_PIN_OLD" = 1 ]; then
     echo "The existing patch still pins qdrant-memory-mcp==0.3.0; update it to 0.3.1 before launching DSH." >&2
@@ -159,8 +168,11 @@ $PatchText = if (Test-Path $Patch) {
 } else { @() }
 $PatchActive = $PatchText -join "`n"
 $PatchHasPlugin = $PatchActive -match '(?m)^\s*-\s*id:\s*["'']?cnkang-qdrant-memory-mcp["'']?\s*$'
-$PatchPinned = $PatchActive -match '(?m)^\s*-\s*qdrant-memory-mcp\s*==\s*0\.3\.0\s*$'
-$PatchHasVersion = $PatchActive -match '(?m)^\s*-\s*qdrant-memory-mcp\s*==\s*0\.3\.1\s*$'
+$PatchBlock = if ($PatchHasPlugin) {
+  [regex]::Match($PatchActive, '(?s)id:\s*["'']?cnkang-qdrant-memory-mcp["'']?\s*.*?(?=\n\s*-\s*id:|\z)').Value
+} else { '' }
+$PatchPinned = $PatchBlock -match '(?m)^\s*-\s*["'']?qdrant-memory-mcp\s*==\s*0\.3\.0["'']?\s*$'
+$PatchHasVersion = $PatchBlock -match '(?m)^\s*-\s*["'']?qdrant-memory-mcp\s*==\s*0\.3\.1["'']?\s*$'
 if (-not (Test-Path $Patch)) {
   throw "Patch is unavailable; DSH was not launched."
 } elseif ($PatchPinned) {
