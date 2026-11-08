@@ -4,7 +4,7 @@
 
 ## 状态与兼容性
 
-这是可选的源码预览，原生 npm 包为 private 且未发布。目标版本为 DSH `0.2.2-rc.1`、Node.js `>=24.9.0`，并要求 Python Runtime 0.6.1 或更高版本提供版本化候选事件和持久 receipt 重试。接口审查依据官方 DSH 发布 tag commit `66491b05e3f05ad35bcdd4f6cd7ed26041d9e3db`，并核对合并后的源码 commit `fcc0ad462172522aaf5c93a7b2e01f6b9f0b0159`。
+这是可选的源码预览，原生包源码已并入 `main`，但 npm 包仍为 private 且未发布。目标版本为 DSH `0.2.2-rc.1`、Node.js `>=24.9.0`，并要求 Python Runtime 0.6.1 或更高版本提供版本化候选事件和持久 receipt 重试。Runtime 0.6.1 已并入但尚未上 PyPI；公开最新版本为 0.6.0。接口审查依据官方 DSH 发布 tag commit `66491b05e3f05ad35bcdd4f6cd7ed26041d9e3db`，并核对合并后的源码 commit `fcc0ad462172522aaf5c93a7b2e01f6b9f0b0159`。
 
 已发布的 MCP Bundle 和 Python/uvx overlay 仍使用各自支持路径。Python Runtime 0.6.1 提供本原生包所需的 `qdrant-memory/extraction-v1` 版本化 Owner 候选事件和按 receipt 重试能力。本任务没有修改 DSH Core。
 
@@ -46,7 +46,7 @@ Owner URL、token、Runtime Python 路径和可选 CA 文件是进程环境变�
 
 只考虑至少包含一条直接用户文本和一条未中断助手文本、且结束原因为 `completed` 的 turn。忽略工具调用/结果、其他注入用户消息、`assistant/attempt`、其他 turn 结束类型。模型 route 取自最后一条完成的助手消息。替换候选必须引用一段最多 2 KiB 的原始用户文本子串。DSH 会把用户和助手文本交给候选提取模型；Owner event 没有独立的 assistant 字段，但版本化候选可能包含从助手文本提取的事实，并会发送给 Runtime。
 
-本地 JSON validator 要求严格的 `memories` 和 `replacement_context` 顶层字段，以及 Runtime 已有的四字段候选 schema。拒绝未知 key、错误类型、凭证样式数据、过长结果、非法 JSON 和未完成/max-token 输出。Owner event 的核心字段为：
+本地 JSON validator 要求严格的 `memories` 和 `replacement_context` 顶层字段，以及 Runtime 已有的四字段候选 schema。拒绝未知 key、错误类型、凭证样式数据、过长结果、非法 JSON 和未完成/max-token 输出。subagent session（`header.origin: "subagent"` 或正数 `delegationDepth`）不会注册召回或捕获；fork 后的恢复只读取 `inheritedEventCount` 之后的事件，避免把父会话历史以子会话身份再次捕获。Owner event 的核心字段为：
 
 ```json
 {

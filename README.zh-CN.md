@@ -47,11 +47,11 @@ Skill 仅提供可选指导，不是运行依赖。Hermes 的自动提取和 pre
 | Hermes | 是 | 是（通过 standalone） | 是 | 是 | 可选 | 是 | 真实宿主测试 |
 | OpenCode | 否 | 是 | 否 | 否 | 通过 Owner | 是 | 真实宿主测试（双设备） |
 | Pi | 否 | 是（扩展） | 可选适配器 | 可选适配器 | 通过 Owner | 是 | 真实宿主测试 |
-| DeepSeek Harness | 否 | 是（DSH bundle） | 否 | 否 | 通过 Owner | 是 | 真实宿主测试 |
+| DeepSeek Harness | 可选源码预览（npm private） | 是（DSH bundle） | 可选预览 | 可选预览 | 通过 Owner | 是 | DSH 0.2.2-rc.1 CI 宿主测试；真实模型/GUI 未验证 |
 | WorkBuddy | 否 | 是（connector） | 否 | 否 | 通过 Owner | 是 | 真实桌面 GUI 测试 |
 | Codex | 否 | 是 | 否 | 否 | 通过 Owner | 是 | 官方 CLI 测试 |
 
-本分发不对任何 MCP 宿主自动提取对话。自动捕获与召回需要原生 Provider 或生命周期适配器。
+本分发不对任何 MCP 宿主自动提取对话。自动捕获与召回需要原生 Provider 或生命周期适配器。DSH 原生预览需显式启用，源码已并入，但 npm 包仍为 private，Runtime 0.6.1 尚未上 PyPI；真实 DSH AgentLoop、模型与桌面 GUI 证据仍待补充。
 已测试的 CLI、源码修订和模型提供方见 [Codex 验证记录](docs/codex-plugin-verification.md)；
 桌面 GUI 与原生记忆接管需要分别验证。
 

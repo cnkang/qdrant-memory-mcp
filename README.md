@@ -64,12 +64,15 @@ SDK/CLI tested, real host tested, real desktop GUI tested, not verified.
 | Hermes | Yes | Yes (via standalone) | Yes | Yes | Opt-in | Yes | Real host tested |
 | OpenCode | No | Yes | No | No | Via Owner | Yes | Real host tested (dual-device) |
 | Pi | No | Yes (extension) | Opt-in adapter | Opt-in adapter | Via Owner | Yes | Real host tested |
-| DeepSeek Harness | No | Yes (DSH bundle) | No | No | Via Owner | Yes | Real host tested |
+| DeepSeek Harness | Opt-in source preview (npm private) | Yes (DSH bundle) | Opt-in preview | Opt-in preview | Via Owner | Yes | DSH 0.2.2-rc.1 CI host tested; real model/GUI unverified |
 | WorkBuddy | No | Yes (connector) | No | No | Via Owner | Yes | Real desktop GUI tested |
 | Codex | No | Yes | No | No | Via Owner | Yes | Official CLI tested |
 
 This distribution does not auto-extract conversations for any MCP host. Automatic
-capture and recall require a native provider or a lifecycle adapter.
+capture and recall require a native provider or a lifecycle adapter. The DSH
+native preview is opt-in and source-merged, but its npm package is private and
+Runtime 0.6.1 is not yet on PyPI. Real DSH AgentLoop, model, and desktop GUI
+evidence remains pending.
 See the [Codex validation record](docs/codex-plugin-verification.md) for the
 tested CLI, source revisions and model providers; desktop GUI and native-memory
 adoption are separate verification boundaries.
