@@ -233,7 +233,7 @@ environment stored inside the DSH project.
 
 The plugin keeps in-process counters for recall requests, hits, failures, cache
 hits, injected memory count and characters, capture turns seen, eligible and
-committed, capture failures, backlog drops, recovery attempts, and cumulative
+committed, capture failures, backlog drops, recovery scans, and cumulative
 recall latency. The disposer returned by `apply()` exposes a `metrics()` snapshot
 for programmatic hosts and tests; DSH has no native status command for it.
 Counters never include transcript text or credentials. Runtime receipts expose
