@@ -23,9 +23,9 @@ The native adapter does not call the DSH MCP Client or Skill filesystem provider
 | Runtime Owner candidate contract | `cd ../hermes-plugin-qdrant-memory && pytest -q tests/standalone/test_owner_lifecycle.py tests/standalone/test_native_backlog_counter.py` | PASS: 25 tests in the Runtime repository, not in this repo |
 | MCP cross-harness contract | `pytest -q tests/test_cross_harness.py` | PASS: 5 tests |
 | DSH CLI profile install/config/remove | `npm run validate:host` with isolated `DSH_HOME` | PASS in GitHub CI on Linux x64, macOS 15 arm64, Windows x64 |
-| Linux x64 / macOS Apple Silicon / Windows x64 workflow | [`.github/workflows/dsh-native.yml`](../../.github/workflows/dsh-native.yml) | PASS: [run 42479081529](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/42479081529) (code revision `48244f0`) |
-| Floating `next` compatibility probe | [`.github/workflows/dsh-next.yml`](../../.github/workflows/dsh-next.yml) | PASS: [run 42479081526](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/42479081526) |
-| Legacy MCP Bundle / overlay lane | [`.github/workflows/cross-harness.yml`](../../.github/workflows/cross-harness.yml) | PASS: [run 42479081411](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/42479081411) |
+| Linux x64 / macOS Apple Silicon / Windows x64 workflow | [`.github/workflows/dsh-native.yml`](../../.github/workflows/dsh-native.yml) | PASS: [run 42484265301](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/42484265301) (code revision `25fe32c`) |
+| Floating `next` compatibility probe | [`.github/workflows/dsh-next.yml`](../../.github/workflows/dsh-next.yml) | PASS: [run 42484265261](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/42484265261) |
+| Legacy MCP Bundle / overlay lane | [`.github/workflows/cross-harness.yml`](../../.github/workflows/cross-harness.yml) | PASS: [run 42484265269](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/42484265269) |
 
 The native unit fixtures call the actual adapter handlers with synthetic DSH events and an injected Owner request boundary. They verify default-off behavior, filtering, bounded injection, session-local cache cleanup, candidate payload omission of raw assistant text, receipt-based replay, fork-prefix exclusion, subagent exclusion, and capture
 timeout cleanup. The Runtime lifecycle tests verify the candidate contract, authorization boundary, replacement-context validation, durable idempotence, and backlog accounting. These are not full DSH AgentLoop tests.
