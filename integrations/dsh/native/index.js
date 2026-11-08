@@ -268,7 +268,7 @@ function runtimeTarget(env) {
   } catch {
     throw new Error('The DSH Owner endpoint is invalid')
   }
-  if (endpoint.protocol !== 'https:' || !endpoint.pathname.endsWith('/mcp')
+  if (endpoint.protocol !== 'https:' || endpoint.pathname !== '/mcp'
     || endpoint.username || endpoint.password || endpoint.search || endpoint.hash) {
     throw new Error('The DSH Owner endpoint must be an HTTPS /mcp URL without embedded credentials')
   }
@@ -613,11 +613,33 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
   const recallCache = new Map()
   const queues = new Map()
   const listeners = []
+  const metrics = {
+    recall_requests: 0,
+    recall_hits: 0,
+    recall_failures: 0,
+    recall_cache_hits: 0,
+    recall_latency_ms_total: 0,
+    recall_latency_ms_count: 0,
+    injected_memory_count: 0,
+    injected_context_chars: 0,
+    capture_turns_seen: 0,
+    capture_turns_eligible: 0,
+    capture_events_committed: 0,
+    capture_failed: 0,
+    capture_backlog: 0,
+    capture_recovery_count: 0,
+  }
 
   const isActiveAgent = (agent, signal) => {
     const id = agent?.session?.id
     return !disposed && !signal?.aborted
       && typeof id === 'string' && activeAgents.get(id) === agent
+  }
+
+  const isSubagent = (agent) => {
+    const header = agent?.session?.header
+    return header?.origin === 'subagent'
+      || (Number.isInteger(header?.delegationDepth) && header.delegationDepth > 0)
   }
 
   const unregisterAgent = (agent) => {
@@ -643,7 +665,7 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
 
   const registerAgent = (agent) => {
     const id = agent?.session?.id
-    if (typeof id !== 'string') return null
+    if (typeof id !== 'string' || isSubagent(agent)) return null
     if (activeAgents.get(id) === agent) return agentLifetimes.get(agent) ?? null
     const previous = activeAgents.get(id)
     if (previous) unregisterAgent(previous)
@@ -661,6 +683,7 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
 
   const enqueueCapture = (session, turn, agent, events) => {
     if (disposed || !config.auto_capture.enabled || !Number.isInteger(turn)) return
+    metrics.capture_turns_seen += 1
     const sessionId = session?.id
     const agentLifetime = agentLifetimes.get(agent)
     if (typeof sessionId !== 'string' || !agentLifetime
@@ -684,6 +707,7 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
     }
     if (queue.turns.has(turn)) return queue.drainPromise
     if (queue.turns.size >= MAX_PENDING_TURNS) {
+      metrics.capture_backlog += 1
       safeLog(ctx, 'warn', 'Qdrant Memory capture queue is full; the source turn remains in the DSH session log.')
       return
     }
@@ -717,6 +741,7 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
     }
     const turn = compileTurn(events, session.id, turnNumber, config.auto_capture.max_input_chars)
     if (!turn) return
+    metrics.capture_turns_eligible += 1
 
     const status = await retryRequest(
       () => runtimeRequest('remote-event', { event_id: turn.event_id }, {
@@ -739,7 +764,10 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
       )
       if (!isActiveAgent(agent, signal)) return
       if (result.status !== 'COMMITTED' && result.status !== 'CANCELLED') {
+        metrics.capture_failed += 1
         safeLog(ctx, 'warn', `Qdrant Memory capture remains in Owner recovery (status: ${String(result.status ?? 'unknown')}).`)
+      } else if (result.status === 'COMMITTED') {
+        metrics.capture_events_committed += 1
       }
       return
     }
@@ -769,7 +797,10 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
     )
     if (!isActiveAgent(agent, signal)) return
     if (result.status !== 'COMMITTED' && result.status !== 'CANCELLED') {
+      metrics.capture_failed += 1
       safeLog(ctx, 'warn', `Qdrant Memory capture was not committed (status: ${String(result.status ?? 'unknown')}).`)
+    } else if (result.status === 'COMMITTED') {
+      metrics.capture_events_committed += 1
     }
   }
 
@@ -787,6 +818,7 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
           ]))
         } catch {
           if (!disposed && !queue.controller.signal.aborted && !queue.agentSignal.aborted) {
+            metrics.capture_failed += 1
             safeLog(ctx, 'warn', 'Qdrant Memory capture did not complete; the DSH session log is retained for recovery.')
           }
         } finally {
@@ -824,9 +856,17 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
         'DSH recovery read was cancelled',
       )
       if (!isActiveAgent(agent, signal)) return
-      const turns = completedTurns(snapshot.events).slice(-MAX_RECOVERY_TURNS)
+      // A fork inherits the parent's prefix. Only turns after that prefix
+      // belong to this session; recapturing inherited history would create
+      // duplicate memories under a new session identity.
+      const inherited = Number.isInteger(session.inheritedEventCount)
+        ? session.inheritedEventCount
+        : 0
+      const ownEvents = inherited > 0 ? snapshot.events.slice(inherited) : snapshot.events
+      const turns = completedTurns(ownEvents).slice(-MAX_RECOVERY_TURNS)
       for (const turn of turns) {
         if (!isActiveAgent(agent, signal)) return
+        metrics.capture_recovery_count += 1
         enqueueCapture(session, turn, agent, snapshot.events)
       }
     } catch {
@@ -846,7 +886,7 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
 
   listeners.push(ctx.on('agent/pre-step', async ({ agent, messages, turn, signal }, next) => {
     const decision = await next()
-    if (disposed || decision.kind !== 'enter'
+    if (disposed || decision.kind !== 'enter' || isSubagent(agent)
       || !config.auto_recall.enabled || !config.memory_injection.enabled) return decision
     if (recallTurn.get(agent) === turn) return decision
     const direct = Array.isArray(messages)
@@ -860,12 +900,20 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
       const cacheKey = `dsh-recall-v1:${hash(agent.session.id)}:${hash(query)}`
       const cached = config.auto_recall.cache ? recallCache.get(cacheKey) : undefined
       const cacheValid = cached && cached.expiresAt > Date.now()
-      const result = cacheValid
-        ? cached.result
-        : await runtimeRequest('remote-call', { query }, {
+      let result
+      if (cacheValid) {
+        metrics.recall_cache_hits += 1
+        result = cached.result
+      } else {
+        const started = Date.now()
+        metrics.recall_requests += 1
+        result = await runtimeRequest('remote-call', { query }, {
           signal: requestSignal,
           timeoutMs: config.auto_recall.timeout_ms,
         })
+        metrics.recall_latency_ms_total += Date.now() - started
+        metrics.recall_latency_ms_count += 1
+      }
       if (config.auto_recall.cache && !cacheValid && !requestSignal.aborted && !disposed) {
         recallCache.set(cacheKey, {
           result,
@@ -879,8 +927,12 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
         ...config.memory_injection,
       })
       if (!recalled) return decision
+      metrics.recall_hits += 1
+      metrics.injected_memory_count += recalled.source.memoryIds.length
+      metrics.injected_context_chars += recalled.content[0].text.length
       return { ...decision, messages: [...decision.messages, recalled] }
     } catch {
+      metrics.recall_failures += 1
       if (!disposed) safeLog(ctx, 'warn', 'Qdrant Memory recall is unavailable; continuing without recalled context.')
       return decision
     }
@@ -914,5 +966,6 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
     }
   }
   ctx.effect(() => cleanup)
+  cleanup.metrics = () => ({ ...metrics })
   return cleanup
 }

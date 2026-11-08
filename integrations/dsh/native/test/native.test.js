@@ -79,6 +79,30 @@ test('runtime launcher reports an unsuccessful local Runtime process', async () 
   }
 })
 
+test('runtime launcher rejects a prefixed Owner endpoint path', async () => {
+  const runtimeEnvironment = {
+    QDRANT_MEMORY_RUNTIME_PYTHON: process.execPath,
+    QDRANT_MEMORY_DSH_OWNER_URL: 'https://owner.example/prefix/mcp',
+    QDRANT_MEMORY_DSH_OWNER_TOKEN: 't'.repeat(32),
+    QDRANT_MEMORY_RUNTIME_CA_FILE: process.execPath,
+  }
+  const previousEnvironment = Object.fromEntries(
+    Object.keys(runtimeEnvironment).map((key) => [key, process.env[key]]),
+  )
+  Object.assign(process.env, runtimeEnvironment)
+  try {
+    assert.throws(
+      () => runRuntimeRequest('remote-call', { query: 'x' }, { timeoutMs: 1000 }),
+      /HTTPS \/mcp/u,
+    )
+  } finally {
+    for (const [key, value] of Object.entries(previousEnvironment)) {
+      if (value === undefined) delete process.env[key]
+      else process.env[key] = value
+    }
+  }
+})
+
 test('runtime launcher round-trips remote calls and events through a stub process', async () => {
   const runtimeEnvironment = {
     QDRANT_MEMORY_RUNTIME_PYTHON: '/private/runtime/bin/python',
@@ -416,6 +440,13 @@ test('opt-in recall enters the current pre-step decision once and keeps session 
   }
   assert.equal(typeof cleanup, 'function')
   assert.equal(handlers.size, 0)
+  const metrics = dispose.metrics()
+  assert.equal(metrics.recall_requests, 3)
+  assert.equal(metrics.recall_cache_hits, 1)
+  assert.equal(metrics.recall_hits, 4)
+  assert.equal(metrics.injected_memory_count, 4)
+  assert.equal(metrics.recall_latency_ms_count, 3)
+  assert.ok(metrics.injected_context_chars > 0)
 })
 
 test('completed capture flushes the DSH log and retries from its stable Owner receipt', async () => {
@@ -576,6 +607,106 @@ test('completed capture flushes the DSH log and retries from its stable Owner re
     clearTimeout(recoveryTimer)
     replayDispose()
   }
+})
+
+test('fork recovery captures only child-owned turns', async () => {
+  const parentEvents = [
+    { type: 'turn/start', seq: 1, data: { turn: 1 } },
+    { type: 'user/message', seq: 2, data: {
+      source: { kind: 'user' },
+      content: [{ type: 'text', text: 'Parent fact.' }],
+    } },
+    { type: 'assistant/message', seq: 3, data: {
+      turn: 1,
+      message: {
+        source: { kind: 'model', provider: 'provider-a', model: 'model-a' },
+        content: [{ type: 'text', text: 'Parent ack.' }],
+      },
+    } },
+    { type: 'turn/end', seq: 4, data: { turn: 1, reason: { kind: 'completed' } } },
+  ]
+  const childEvents = [
+    { type: 'turn/start', seq: 5, data: { turn: 2 } },
+    { type: 'user/message', seq: 6, data: {
+      source: { kind: 'user' },
+      content: [{ type: 'text', text: 'Child fact.' }],
+    } },
+    { type: 'assistant/message', seq: 7, data: {
+      turn: 2,
+      message: {
+        source: { kind: 'model', provider: 'provider-a', model: 'model-a' },
+        content: [{ type: 'text', text: 'Child ack.' }],
+      },
+    } },
+    { type: 'turn/end', seq: 8, data: { turn: 2, reason: { kind: 'completed' } } },
+  ]
+  const session = { id: 'fork-session', inheritedEventCount: 4 }
+  const snapshot = { events: [...parentEvents, ...childEvents] }
+  const agent = {
+    session,
+    model: { current: () => ({ provider: 'provider-a', model: 'model-a' }) },
+  }
+  const handlers = new Map()
+  let cleanup
+  const ctx = {
+    on(event, handler) {
+      handlers.set(event, handler)
+      return () => handlers.delete(event)
+    },
+    effect(register) { cleanup = register() },
+    logger: { warn() {} },
+    llm: {
+      async *stream() {
+        yield {
+          type: 'text-delta',
+          text: JSON.stringify({
+            memories: [{
+              text: 'Child fact.',
+              category: ['project'],
+              importance: 0.8,
+              replacement_intent: false,
+            }],
+            replacement_context: '',
+          }),
+        }
+        yield { type: 'finish', reason: { kind: 'stop' } }
+      },
+    },
+    sessions: { flush: async () => true },
+    sessionQuery: { readSession: async () => snapshot },
+    agents: { get() { return agent }, list() { return [agent] } },
+  }
+  const config = {
+    ...DEFAULT_CONFIG,
+    auto_capture: { ...DEFAULT_CONFIG.auto_capture, enabled: true },
+  }
+  const submitted = []
+  let resolveSubmitted
+  const submittedPromise = new Promise((resolve) => { resolveSubmitted = resolve })
+  const dispose = apply(ctx, config, async (_mode, payload, options) => {
+    if (options.action === 'status') return { status: 'NOT_FOUND' }
+    if (options.action === 'submit') {
+      submitted.push(payload)
+      resolveSubmitted()
+      return { status: 'COMMITTED' }
+    }
+    throw new Error('unexpected Runtime call')
+  })
+  let timer
+  try {
+    await Promise.race([
+      submittedPromise,
+      new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('fork recovery timed out')), 3000) }),
+    ])
+    assert.equal(submitted.length, 1)
+    assert.equal(submitted[0].event_id, compileTurn(childEvents, 'fork-session', 2).event_id)
+    assert.equal(submitted[0].candidates[0].text, 'Child fact.')
+  } finally {
+    clearTimeout(timer)
+    dispose()
+  }
+  assert.equal(typeof cleanup, 'function')
+  assert.equal(handlers.size, 0)
 })
 
 test('stalled DSH extraction times out and releases the capture worker', async () => {
@@ -775,6 +906,58 @@ test('disposing an agent cancels delayed recovery before it can enqueue Owner wo
     dispose()
   }
   assert.equal(typeof cleanup, 'function')
+})
+
+test('subagent sessions never recall or capture', async () => {
+  const handlers = new Map()
+  let cleanup
+  const calls = []
+  const ctx = {
+    on(event, handler) {
+      handlers.set(event, handler)
+      return () => handlers.delete(event)
+    },
+    effect(register) { cleanup = register() },
+    logger: { warn() {} },
+    agents: { get() { return undefined }, list() { return [] } },
+  }
+  const config = {
+    ...DEFAULT_CONFIG,
+    auto_recall: { ...DEFAULT_CONFIG.auto_recall, enabled: true },
+    auto_capture: { ...DEFAULT_CONFIG.auto_capture, enabled: true },
+    memory_injection: { ...DEFAULT_CONFIG.memory_injection, enabled: true },
+  }
+  const dispose = apply(ctx, config, async (mode, payload) => {
+    calls.push({ mode, payload })
+    return { memories: [] }
+  })
+  const subagent = {
+    session: { id: 'subagent-session', header: { origin: 'subagent', delegationDepth: 1 } },
+    model: { current: () => ({ provider: 'provider-a', model: 'model-a' }) },
+  }
+  const messages = [{
+    role: 'user',
+    source: { kind: 'user' },
+    content: [{ type: 'text', text: 'Delegated child prompt.' }],
+  }]
+  const decision = { kind: 'enter', messages }
+  try {
+    handlers.get('agent/created')({ agent: subagent })
+    const result = await handlers.get('agent/pre-step')(
+      { agent: subagent, messages, turn: 1 },
+      async () => decision,
+    )
+    assert.equal(result, decision)
+    await handlers.get('session/event')(subagent.session, {
+      type: 'turn/end',
+      data: { turn: 1, reason: { kind: 'completed' } },
+    })
+    assert.equal(calls.length, 0)
+  } finally {
+    dispose()
+  }
+  assert.equal(typeof cleanup, 'function')
+  assert.equal(handlers.size, 0)
 })
 
 test('disabled plugin hooks preserve the current pre-step decision', async () => {
