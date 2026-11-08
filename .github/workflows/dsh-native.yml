@@ -3,16 +3,6 @@ name: DSH native adapter
 on:
   push:
     branches: [main, 'codex/**']
-    paths:
-      - 'integrations/dsh/native/**'
-      - 'integrations/dsh/README.md'
-      - 'docs/dsh-native/**'
-      - 'docs/dsh-integration.md'
-      - 'docs/dsh-integration.zh-CN.md'
-      - 'docs/dsh-validation.md'
-      - 'tests/test_cross_harness.py'
-      - '.github/workflows/dsh-native.yml'
-      - '.github/ci-deps/dsh-native/**'
   pull_request:
     paths:
       - 'integrations/dsh/native/**'

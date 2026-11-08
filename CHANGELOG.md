@@ -12,6 +12,13 @@
 - Resolve a relative inherited `SSL_CERT_FILE` and each relative
   `SSL_CERT_DIR` entry against the DSH working directory before starting the
   Runtime from the interpreter directory.
+- Exclude a DSH fork's inherited event prefix from recent-turn recovery, so a
+  forked session captures only its own completed turns. Skip recall and capture
+  for subagent sessions, require the exact `/mcp` Owner path, and expose
+  in-process recall and capture counters on the plugin disposer for diagnostics.
+- Run the DSH native adapter workflow on every main push and include it in the
+  tag release gate; the host profile check now asserts the plugin id and all
+  three default-off switches instead of only printing the config.
 
 ## 0.3.1
 

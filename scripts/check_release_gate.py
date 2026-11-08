@@ -12,6 +12,7 @@ import sys
 REQUIRED_WORKFLOWS = (
     "Distribution CI",
     "Cross-harness integration",
+    "DSH native adapter",
     "Repository quality",
     "CodeQL",
 )
