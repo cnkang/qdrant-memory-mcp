@@ -23,7 +23,7 @@
 | Runtime Owner 候选契约 | `pytest -q tests/standalone/test_owner_lifecycle.py tests/standalone/test_native_backlog_counter.py` | PASS：22 项测试 |
 | MCP 跨 Harness 契约 | `pytest -q tests/test_cross_harness.py` | PASS：5 项测试 |
 | DSH CLI profile 安装/配置/移除 | 设置隔离 `DSH_HOME` 后运行 `npm run validate:host` | 在 GitHub CI 的 Linux x64、macOS 15 arm64、Windows x64 上 PASS |
-| Linux x64 / macOS Apple Silicon / Windows x64 工作流 | [`.github/workflows/dsh-native.yml`](../../.github/workflows/dsh-native.yml) | PASS：[run 42454963156](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/42454963156) |
+| Linux x64 / macOS Apple Silicon / Windows x64 工作流 | [`.github/workflows/dsh-native.yml`](../../.github/workflows/dsh-native.yml) | PASS：[run 42454963156](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/42454963156)（代码修订 `84cf8b7`） |
 | 浮动 `next` 兼容探测 | [`.github/workflows/dsh-next.yml`](../../.github/workflows/dsh-next.yml) | PASS：[run 42454963293](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/42454963293) |
 | 旧 MCP Bundle / overlay 测试线 | [`.github/workflows/cross-harness.yml`](../../.github/workflows/cross-harness.yml) | PASS：[run 42454963217](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/42454963217) |
 
