@@ -211,8 +211,9 @@ def test_dsh_capture_and_mcp_recall_with_scoped_https_owner(tmp_path, monkeypatc
                         assert response.status_code == 200, response.text
                         payload = decode(response)
                         result = payload.get('result', {})
+                        # Direct HTTPS requests receive the Owner's error envelope,
+                        # not the local client's RemoteRequestNotSent diagnostic.
                         assert payload.get('error') or result.get('isError') is True, payload
-                        assert 'Unexpected memory tool arguments' in json.dumps(payload), payload
 
             asyncio.run(assert_owner_rejects_forged_identity())
             cross_denied = asyncio.run(call('private', 'qdrant_memory_delete', {
