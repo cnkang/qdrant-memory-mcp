@@ -1,0 +1,13 @@
+services:
+  qdrant:
+    image: qdrant/qdrant:v1.20.0
+    ports:
+      - '127.0.0.1::6333'
+    mem_limit: 512m
+    cpus: 1
+    pids_limit: 128
+    security_opt: [no-new-privileges:true]
+    volumes:
+      - qdrant-test:/qdrant/storage
+volumes:
+  qdrant-test:
