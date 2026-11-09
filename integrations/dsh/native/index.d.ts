@@ -17,6 +17,7 @@ export declare const name: string
 export declare const inject: readonly string[]
 export declare const CANDIDATE_SCHEMA: 'qdrant-memory/extraction-v1'
 export declare const SUPPORTED_DSH_RELEASE: '0.2.2-rc.1'
+export declare const RECOVERY_PROGRESS_RECORD: 'plugin:qdrant-memory/recovery-progress'
 export type NativeConfig = {
   auto_recall: Readonly<{
     enabled: boolean
