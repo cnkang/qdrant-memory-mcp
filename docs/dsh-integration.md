@@ -110,9 +110,13 @@ uvx --from qdrant-memory-mcp==0.3.1 qdrant-memory-mcp --home "$PROFILE" doctor &
   PATCH="$PROFILE/qdrant-memory.cordis.yml"
   if [ ! -e "$PATCH" ]; then
     TMP="$(mktemp "${PATCH}.XXXXXX")"
+    # Bash can exit before the failure branch runs, for example on Ctrl-C, so
+    # keep the partial file out of the profile directory in every exit path.
+    trap 'rm -f "$TMP"' EXIT INT
     if curl -fsSL -o "$TMP" \
       https://raw.githubusercontent.com/cnkang/qdrant-memory-mcp/v0.3.1/integrations/dsh/qdrant-memory.cordis.yml; then
       mv "$TMP" "$PATCH"
+      trap - EXIT INT
     else
       rm -f "$TMP"
       echo "Patch download failed; DSH was not launched." >&2
@@ -146,6 +150,11 @@ def profile_servers(node, ancestors=()):
     if isinstance(node, MappingNode):
         item = mapping(node)
         assert not (item.get('id') and item['id'].value == 'cnkang-qdrant-memory-mcp'), 'Memory plugin already installed'
+        # Count actual plugin entries only: a profile may reference this entry
+        # from unrelated metadata, and the dump expands such references into
+        # mappings without an id or config that do not add servers.
+        if not item.get('id'):
+            return
         name = item.get('name')
         if name and name.value == '@deepseek-ai/dsh-mcp-client':
             assert name.tag == 'tag:yaml.org,2002:str'
@@ -261,7 +270,9 @@ if (-not (Test-Path $Patch)) {
     Invoke-WebRequest -UseBasicParsing -Uri "https://raw.githubusercontent.com/cnkang/qdrant-memory-mcp/v0.3.1/integrations/dsh/qdrant-memory.cordis.yml" -OutFile $Draft -ErrorAction Stop
     Move-Item -Force $Draft $Patch
   } catch {
-    Write-Error "Patch download failed; DSH was not launched."
+    # Write-Error keeps running under the default error preference; a thrown
+    # string stops before the config dump can report a misleading failure.
+    throw "Patch download failed; DSH was not launched."
   } finally {
     Remove-Item -Force $Draft -ErrorAction SilentlyContinue
   }
@@ -291,6 +302,11 @@ def profile_servers(node, ancestors=()):
     if isinstance(node, MappingNode):
         item = mapping(node)
         assert not (item.get('id') and item['id'].value == 'cnkang-qdrant-memory-mcp'), 'Memory plugin already installed'
+        # Count actual plugin entries only: a profile may reference this entry
+        # from unrelated metadata, and the dump expands such references into
+        # mappings without an id or config that do not add servers.
+        if not item.get('id'):
+            return
         name = item.get('name')
         if name and name.value == '@deepseek-ai/dsh-mcp-client':
             assert name.tag == 'tag:yaml.org,2002:str'

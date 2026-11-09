@@ -77,7 +77,7 @@ identity used to publish the score.
 
 | ID | Severity | Finding | Status |
 | --- | --- | --- | --- |
-| F-01 | High | `publish.yml` verified only that the tag matched the version and that the commit was an ancestor of `main`. A commit whose required workflows failed could publish. | Fixed. `scripts/check_release_gate.py` requires a successful push-to-`main` run of `Distribution CI`, `Cross-harness integration`, `DSH native adapter`, `Repository quality` and `CodeQL` for the exact 40-character tagged SHA, before the build starts. |
+| F-01 | High | `publish.yml` verified only that the tag matched the version and that the commit was an ancestor of `main`. A commit whose required workflows failed could publish. | Fixed. `scripts/check_release_gate.py` requires a successful push-to-`main` run of `Distribution CI`, `Cross-harness integration`, `DSH native adapter`, `DSH cross-client acceptance`, `Repository quality` and `CodeQL` for the exact 40-character tagged SHA, before the build starts. |
 | F-02 | Medium | Release jobs read the Actions cache through `setup-go` and `setup-node`. A lower-privilege run can write that cache. | Fixed. Caching is disabled in both release workflows. |
 | F-03 | Medium | Distributions had no provenance statement outside PyPI Trusted Publishing. | Fixed. The build job attests only newly built `dist/*`; when it reuses public PyPI bytes it skips attestation. `attestations: write` is limited to that build job. |
 | F-04 | Medium | Workflows were linted but not security-audited, and no job scanned incoming commits for secrets. | Fixed. The required `Python and workflow lint` job now also runs zizmor 1.32.0 and gitleaks 8.30.1, so both are covered by the existing branch protection without changing a required-check name. |
