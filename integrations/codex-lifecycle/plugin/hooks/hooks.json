@@ -1,5 +1,5 @@
 {
-  "description": "Optional Qdrant Memory lifecycle experiment. Events follow the released Codex hooks contract (learn.chatgpt.com/docs/hooks). The Runtime owns every memory operation; these hooks never read Codex transcripts or rollout files.",
+  "description": "Optional Qdrant Memory lifecycle experiment. Events follow the released Codex hooks contract (learn.chatgpt.com/docs/hooks). The Runtime owns every memory operation; these hooks never read Codex transcripts or rollout files. Auto-capture stages bounded turn snapshots locally; extraction and admission are separate explicit steps with their own consent.",
   "hooks": {
     "SessionStart": [
       {
@@ -25,6 +25,31 @@
             "command": "python3 ${PLUGIN_ROOT}/hooks/user_prompt_capture.py",
             "commandWindows": "py -3 ${PLUGIN_ROOT}\\hooks\\user_prompt_capture.py",
             "timeout": 20
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${PLUGIN_ROOT}/hooks/turn_capture.py",
+            "commandWindows": "py -3 ${PLUGIN_ROOT}\\hooks\\turn_capture.py",
+            "async": true,
+            "timeout": 20
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${PLUGIN_ROOT}/hooks/prune_scratch.py",
+            "commandWindows": "py -3 ${PLUGIN_ROOT}\\hooks\\prune_scratch.py",
+            "timeout": 3
           }
         ]
       }
