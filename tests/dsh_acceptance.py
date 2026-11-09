@@ -9,6 +9,7 @@ from pathlib import Path
 from urllib.request import urlopen
 
 from ruamel.yaml import YAML
+from ruamel.yaml.comments import TaggedScalar
 
 TRUSTED_HOME_EXPRESSION = (
     "process.env.QDRANT_MEMORY_DSH_PROFILE || "
@@ -18,11 +19,11 @@ TRUSTED_HOME_EXPRESSION = (
 
 
 def _load_dsh_config(text):
-    """Parse a dumped DSH config, keeping !!js expressions as scalar strings."""
+    """Parse a dumped DSH config, preserving !!js tags without evaluating expressions."""
     yaml = YAML(typ='safe')
     yaml.constructor.add_constructor(
         'tag:yaml.org,2002:js',
-        lambda loader, node: loader.construct_scalar(node),
+        lambda loader, node: TaggedScalar(loader.construct_scalar(node), tag=node.tag),
     )
     return yaml.load(text)
 
@@ -108,6 +109,43 @@ console.log('Office ZIP roundtrip and malformed ZIP64 rejection passed');
     assert 'malformed ZIP64 rejection passed' in result.stdout
 
 
+def _assert_overlay_composes(cli, overlay, env):
+    """Validate parsed plugin settings and the tagged home in a real CLI dump."""
+    result = subprocess.run(['node', str(cli), 'web', '--patch', str(overlay), '--dump-config'], env=env, capture_output=True, encoding='utf-8', timeout=60)
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.count('id: cnkang-qdrant-memory-mcp') == 1, result.stdout
+    composed = _load_dsh_config(result.stdout)
+    plugin = _find_plugin(composed, 'cnkang-qdrant-memory-mcp')
+    assert plugin is not None, result.stdout
+    assert plugin.get('name') == '@deepseek-ai/dsh-mcp-client', result.stdout
+    assert plugin.get('enabled', True) is not False, result.stdout
+    assert plugin.get('disabled', False) is False, result.stdout
+    args = plugin.get('config', {}).get('args')
+    assert isinstance(args, list), result.stdout
+    assert plugin.get('config', {}).get('command') == 'uvx', result.stdout
+    from_indexes = [index for index, value in enumerate(args) if value == '--from']
+    assert from_indexes, result.stdout
+    for index in from_indexes:
+        assert args[index + 1] == 'qdrant-memory-mcp==0.3.1', result.stdout
+    home_indexes = [index for index, value in enumerate(args) if value == '--home']
+    assert home_indexes, result.stdout
+    for index in home_indexes:
+        configured_home = args[index + 1]
+        assert isinstance(configured_home, TaggedScalar), result.stdout
+        assert str(configured_home.tag) == 'tag:yaml.org,2002:js', result.stdout
+        assert ' '.join(configured_home.value.split()) == TRUSTED_HOME_EXPRESSION, result.stdout
+
+
+def test_official_dsh_cli_composes_checkout_overlay(tmp_path):
+    """Compose the checkout overlay offline so local regressions are exercised."""
+    cli, env = dsh_cli(tmp_path / 'dsh-home', tmp_path)
+    selected = tmp_path / 'selected-profile'
+    selected.mkdir()
+    env['QDRANT_MEMORY_DSH_PROFILE'] = str(selected)
+    overlay = Path(__file__).resolve().parents[1] / 'integrations/dsh/qdrant-memory.cordis.yml'
+    _assert_overlay_composes(Path(cli[1]), overlay, env)
+
+
 def test_official_dsh_cli_overlay_preserves_user_patches(tmp_path):
     """The tagged overlay composes without modifying the selected profile patch."""
     cli = Path(os.environ['DSH_TEST_MODULES']) / '@deepseek-ai/dsh/lib/bin.js'
@@ -140,35 +178,7 @@ def test_official_dsh_cli_overlay_preserves_user_patches(tmp_path):
         overlay_bytes = response.read()
     tagged_overlay.write_bytes(overlay_bytes)
     assert re.search(rb'-\s*qdrant-memory-mcp==0\.3\.1(?:\s|$)', overlay_bytes), overlay_bytes[:2000]
-    result = subprocess.run(['node', str(cli), 'web', '--patch', str(tagged_overlay), '--dump-config'], env=env, capture_output=True, text=True, timeout=60)
-    assert result.returncode == 0, result.stderr
-    assert result.stdout.count('id: cnkang-qdrant-memory-mcp') == 1, result.stdout
-    composed = _load_dsh_config(result.stdout)
-    plugin = _find_plugin(composed, 'cnkang-qdrant-memory-mcp')
-    assert plugin is not None, result.stdout
-    assert plugin.get('name') == '@deepseek-ai/dsh-mcp-client', result.stdout
-    assert plugin.get('enabled', True) is not False, result.stdout
-    args = plugin.get('config', {}).get('args')
-    assert isinstance(args, list), result.stdout
-    assert plugin.get('config', {}).get('command') == 'uvx', result.stdout
-    from_indexes = [index for index, value in enumerate(args) if value == '--from']
-    assert from_indexes, result.stdout
-    for index in from_indexes:
-        assert args[index + 1] == 'qdrant-memory-mcp==0.3.1', result.stdout
-    home_indexes = [index for index, value in enumerate(args) if value == '--home']
-    assert home_indexes, result.stdout
-    for index in home_indexes:
-        configured_home = args[index + 1]
-        normalized_home = ' '.join(configured_home.split())
-        assert (
-            configured_home == str(selected_profile)
-            or normalized_home == TRUSTED_HOME_EXPRESSION
-        ), result.stdout
-    assert re.search(
-        r'--home[\s\S]{0,200}?!!js\s*>?-\s*process\.env\.QDRANT_MEMORY_DSH_PROFILE',
-        result.stdout,
-    ), result.stdout
-    assert "name: '@deepseek-ai/dsh-mcp-client'" in result.stdout
+    _assert_overlay_composes(cli, tagged_overlay, env)
     assert patch.read_text() == '[]\n'
     assert sentinel.read_text() == '# unrelated profile\n[]\n'
 
