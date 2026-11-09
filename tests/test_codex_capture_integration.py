@@ -88,7 +88,7 @@ def test_capture_extract_admit_search_round_trip(sandbox, tmp_path, monkeypatch)
             },
         )(),
     )
-    assert capture.main() == 0
+    assert capture.main() is None
 
     stop = load("turn_capture")
     monkeypatch.setattr(
@@ -109,12 +109,12 @@ def test_capture_extract_admit_search_round_trip(sandbox, tmp_path, monkeypatch)
             },
         )(),
     )
-    assert stop.main() == 0
+    assert stop.main() is None
 
     pending = list((profile / "events/codex/pending").glob("*.json"))
     assert len(pending) == 1
 
-    ExtractionStub.replies = [
+    monkeypatch.setattr(ExtractionStub, "replies", [
         {
             "choices": [
                 {
@@ -134,7 +134,7 @@ def test_capture_extract_admit_search_round_trip(sandbox, tmp_path, monkeypatch)
                 }
             ]
         }
-    ]
+    ])
     server = ThreadingHTTPServer(("127.0.0.1", 0), ExtractionStub)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     try:
@@ -144,7 +144,7 @@ def test_capture_extract_admit_search_round_trip(sandbox, tmp_path, monkeypatch)
             "--model", "fixture-extractor",
             "--confirm",
         ]
-        assert extractor.main(argv) == 0
+        assert extractor.main(argv) is None
     finally:
         server.shutdown()
         server.server_close()
@@ -154,7 +154,8 @@ def test_capture_extract_admit_search_round_trip(sandbox, tmp_path, monkeypatch)
     stored_event = json.loads(extracted[0].read_text(encoding="utf-8"))
     assert stored_event["status"] == "extracted"
     record_id = stored_event["candidates"][0]["record_id"]
-    assert isinstance(record_id, str) and record_id
+    assert isinstance(record_id, str)
+    assert record_id
 
     # Real Runtime CLI: the admitted text is discoverable in the profile scope.
     result = cli("search", "--query", "pending memory buffer holds")

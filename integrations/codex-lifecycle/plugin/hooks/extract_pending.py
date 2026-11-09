@@ -237,6 +237,53 @@ def show_plan(outcomes, dropped_overflow: int) -> None:
     print(json.dumps(report, ensure_ascii=False, indent=2))
 
 
+def _admit_event(outcome, admit) -> dict:
+    """Admit one staged event's candidates and persist its post-run state."""
+    errors = []
+    event_state = {
+        "event_id": outcome["event_id"],
+        "admitted": [],
+        "skipped": [],
+        "rejected": outcome["rejected"],
+    }
+    if outcome.get("extraction_error"):
+        errors.append(outcome["extraction_error"])
+    for candidate in outcome["candidates"]:
+        if is_duplicate(candidate["text"], admit):
+            event_state["skipped"].append(
+                {"text": candidate["text"], "reason": "duplicate"}
+            )
+            continue
+        status, body, err = admit("add", "--text", candidate["text"])
+        if status != 0:
+            errors.append(runtime.safe_error(body, err))
+            continue
+        try:
+            record_id = json.loads(body).get("id")
+        except ValueError:
+            record_id = None
+        event_state["admitted"].append(
+            {
+                "text": candidate["text"],
+                "record_id": record_id,
+                "category": candidate["category"],
+            }
+        )
+    if errors:
+        event_state["last_error"] = " | ".join(errors)[:600]
+    new_status = "extracted" if not errors else "pending"
+    finalize_event(outcome["_path"], event_state, new_status)
+    return {
+        "event_id": outcome["event_id"],
+        "status": new_status,
+        "admitted": [item["text"] for item in event_state["admitted"]],
+        "skipped": event_state["skipped"],
+        "rejected": event_state["rejected"],
+        "extraction_error": outcome.get("extraction_error"),
+        "last_error": event_state.get("last_error"),
+    }
+
+
 def admit_all(outcomes, *, runtime_home_cli=None) -> dict:
     """Confirm path: admit validated candidates through the Runtime CLI.
 
@@ -244,56 +291,7 @@ def admit_all(outcomes, *, runtime_home_cli=None) -> dict:
     argument) so operator/test substitution behaves predictably.
     """
     admit = runtime_home_cli or runtime.call_runtime
-    report = {"mode": "confirm", "events": []}
-    for outcome in outcomes:
-        errors = []
-        event_state = {
-            "event_id": outcome["event_id"],
-            "admitted": [],
-            "skipped": [],
-            "rejected": outcome["rejected"],
-        }
-        if outcome.get("extraction_error"):
-            errors.append(outcome["extraction_error"])
-        candidates = outcome["candidates"]
-        for candidate in candidates:
-            if is_duplicate(candidate["text"], admit):
-                event_state["skipped"].append(
-                    {"text": candidate["text"], "reason": "duplicate"}
-                )
-                continue
-            status, body, err = admit("add", "--text", candidate["text"])
-            if status != 0:
-                errors.append(runtime.safe_error(body, err))
-                continue
-            try:
-                record_id = json.loads(body).get("id")
-            except ValueError:
-                record_id = None
-            event_state["admitted"].append(
-                {
-                    "text": candidate["text"],
-                    "record_id": record_id,
-                    "category": candidate["category"],
-                }
-            )
-        if errors:
-            event_state["last_error"] = " | ".join(errors)[:600]
-        complete = not errors  # empty candidate sets are valid terminal states
-        new_status = "extracted" if complete else "pending"
-        finalize_event(outcome["_path"], event_state, new_status)
-        report["events"].append(
-            {
-                "event_id": outcome["event_id"],
-                "status": new_status,
-                "admitted": [item["text"] for item in event_state["admitted"]],
-                "skipped": event_state["skipped"],
-                "rejected": event_state["rejected"],
-                "extraction_error": outcome.get("extraction_error"),
-                "last_error": event_state.get("last_error"),
-            }
-        )
-    return report
+    return {"mode": "confirm", "events": [_admit_event(o, admit) for o in outcomes]}
 
 
 def is_duplicate(text: str, runtime_home_cli) -> bool:
@@ -340,7 +338,7 @@ def finalize_event(path, event_state, new_status) -> None:
         pass
 
 
-def main(argv=None) -> int:
+def main(argv=None) -> None:
     """Read pending events, extract with the configured provider, report/confirm."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -373,7 +371,7 @@ def main(argv=None) -> int:
                 }
             )
         )
-        return 0
+        return
     provider = ExtractionProvider(args.base_url, args.model)
     outcomes = []
     for event in events:
@@ -388,24 +386,16 @@ def main(argv=None) -> int:
             good, rejected = validate_candidates(document, event)
             outcome["candidates"] = good
             outcome["rejected"] = rejected
-        except (
-            ValueError,
-            KeyError,
-            urllib.error.HTTPError,
-            urllib.error.URLError,
-            TimeoutError,
-            OSError,
-        ) as error:
+        except (ValueError, KeyError, OSError) as error:
             outcome["extraction_error"] = redact(str(error))[:300]
         outcomes.append(outcome)
     if args.confirm:
         result = admit_all(outcomes)
     else:
         show_plan(outcomes, dropped_overflow)
-        return 0
+        return
     print(json.dumps(result, ensure_ascii=False, indent=2))
-    return 0
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    main()

@@ -18,14 +18,13 @@ sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parent))
 import lifecycle_runtime as runtime  # noqa: E402
 
 
-def main() -> int:
+def main() -> None:
     """Prune expired scratch silently; any failure is swallowed (advisory)."""
     try:
         runtime.prune_stale_scratch()
     except Exception:  # noqa: BLE001 - advisory hook only
         pass
-    return 0
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    main()

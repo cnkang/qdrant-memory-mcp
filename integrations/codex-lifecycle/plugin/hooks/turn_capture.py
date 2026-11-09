@@ -34,8 +34,8 @@ sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parent))
 import lifecycle_runtime as runtime  # noqa: E402
 
 
-def capture(event: dict) -> int:
-    """Store one pending event for this completed turn; return the exit code."""
+def capture(event: dict) -> None:
+    """Store one pending event for this completed turn; never fail the turn."""
     session_id = event.get("session_id")
     turn_id = event.get("turn_id")
     if (
@@ -44,27 +44,28 @@ def capture(event: dict) -> int:
         or not session_id
         or not turn_id
     ):
-        return 0
+        return
     if event.get("stop_hook_active") is True:
-        return 0  # continuation turn of a decided Stop; do not chain captures
+        return  # continuation turn of a decided Stop; do not chain captures
     assistant_raw = event.get("last_assistant_message")
     if not isinstance(assistant_raw, str) or not assistant_raw.strip():
-        return 0
+        return
     scratch = runtime.read_json(runtime.scratch_path_for(session_id, turn_id))
     if not isinstance(scratch, dict):
         # Interrupted or tool-only turn: nothing paired, nothing captured.
-        return 0
+        return
     user_excerpt = scratch.get("user_excerpt")
     if not isinstance(user_excerpt, str) or not user_excerpt.strip():
-        return 0
+        return
     if runtime.pending_count() >= runtime.MAX_PENDING_EVENTS:
         runtime.mark_overflow()
-        return runtime.emit(
+        runtime.emit(
             system_message=(
                 "Qdrant Memory capture paused: pending buffer is full; "
                 "run the extractor (extract_pending.py) to free space."
             )
         )
+        return
     assistant_text, assistant_truncated = runtime.truncate_utf8(
         assistant_raw.strip(), runtime.ASSISTANT_TEXT_BYTES
     )
@@ -94,19 +95,17 @@ def capture(event: dict) -> int:
         runtime.scratch_path_for(session_id, turn_id).unlink()
     except OSError:
         pass
-    return 0
 
 
-def main() -> int:
+def main() -> None:
     """Read the Stop event, capture best-effort, then prune stale scratch."""
     try:
         event = runtime.read_hook_input()
-        exit_code = capture(event)
+        capture(event)
         runtime.prune_stale_scratch()
-        return exit_code
     except Exception:  # noqa: BLE001 - hooks must never break the turn
-        return 0
+        pass
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    main()
