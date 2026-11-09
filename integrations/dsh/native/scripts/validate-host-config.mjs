@@ -43,6 +43,7 @@ for (let cursor = pluginAt + 1; cursor < lines.length; cursor += 1) {
 }
 const bodyLines = lines.slice(pluginAt, pluginEnd)
 
+/** Return whether the named section has a direct enabled=false setting. */
 const sectionEnabled = (key) => {
   const heading = new RegExp(`^\\s*${key}:\\s*$`, 'u')
   const index = bodyLines.findIndex((line) => heading.test(line))
