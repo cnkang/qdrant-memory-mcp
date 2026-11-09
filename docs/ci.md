@@ -25,6 +25,11 @@ Both jobs reject skipped tests.
   composes the plugin in a disposable profile, asserts the three default-off
   switches, removes it, and prints the pack file list on Linux, macOS, and Windows.
   It runs on every `main` push and is required by the tag release gate.
+- DSH cross-client acceptance drives the real DSH AgentLoop and MCP surface
+  against the TLS Owner and a disposable fixed-version Qdrant container on
+  `main` pushes only. It requires executed, never skipped, acceptance tests and
+  is required by the tag release gate. Workflow dispatches run in an isolated
+  concurrency group, so a manual rerun cannot cancel the gated push run.
 - Repository quality runs Ruff on release scripts and tests.
   It runs actionlint on every workflow, including shell steps.
   CI verifies the SHA256 digest of the actionlint archive.
@@ -107,8 +112,8 @@ The upstream Runtime repository scans Runtime business code.
 
 Publication requires a tag, the existing protected environments, and explicit confirmation.
 The build job first verifies that `Distribution CI`, `Cross-harness integration`,
-`DSH native adapter`, `Repository quality` and `CodeQL` each produced a successful
-push-to-`main` run for the exact tagged commit.
+`DSH native adapter`, `DSH cross-client acceptance`, `Repository quality` and `CodeQL`
+each produced a successful push-to-`main` run for the exact tagged commit.
 A failed, cancelled, skipped or missing run blocks the build before any
 distribution exists.
 The job attests newly built `dist/*` with GitHub artifact attestations, in
