@@ -214,6 +214,7 @@ function safeJson(value) {
   return JSON.stringify(value).replace(/[<>&]/gu, (char) => `\\u${char.codePointAt(0).toString(16).padStart(4, '0')}`)
 }
 
+/** Format bounded, deduplicated memory context and report its character count. */
 export function formatMemories(
   result,
   maxChars = DEFAULT_CONFIG.memory_injection.max_chars,
@@ -257,6 +258,7 @@ export function formatMemories(
   }
 }
 
+/** Resolve the local Owner profile or validate the exact remote HTTPS endpoint. */
 function runtimeTarget(env) {
   const python = env.QDRANT_MEMORY_RUNTIME_PYTHON
   const ownerUrl = env.QDRANT_MEMORY_DSH_OWNER_URL
@@ -575,6 +577,7 @@ async function extractWithDsh(ctx, agent, turn, signal, config) {
   }
 }
 
+/** Build an untrusted-memory user message with injection size metrics. */
 function newRecallMessage(result, query, config) {
   const formatted = formatMemories(result, config.max_chars, {
     topK: config.top_k,
@@ -610,6 +613,7 @@ async function retryRequest(request, signal) {
   throw lastError
 }
 
+/** Attach opt-in recall and durable capture handlers; return cleanup and metrics. */
 export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
   let disposed = false
   const lifetime = new AbortController()
@@ -641,6 +645,7 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
 
   const closingAgents = new Set()
 
+  /** Check session ownership and allow a closing agent to drain its capture queue. */
   const isActiveAgent = (agent, signal) => {
     const id = agent?.session?.id
     if (signal?.aborted || typeof id !== 'string' || activeAgents.get(id) !== agent) {
@@ -649,12 +654,14 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
     return !disposed || closingAgents.has(agent)
   }
 
+  /** Identify delegated sessions that must not participate in automatic memory. */
   const isSubagent = (agent) => {
     const header = agent?.session?.header
     return header?.origin === 'subagent'
       || (Number.isInteger(header?.delegationDepth) && header.delegationDepth > 0)
   }
 
+  /** Drain pending captures within the grace period before releasing agent state. */
   const unregisterAgent = (agent) => {
     const id = agent?.session?.id
     const controller = agentLifetimes.get(agent)
@@ -691,6 +698,7 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
     }
   }
 
+  /** Register a primary agent lifetime, replacing any previous session owner. */
   const registerAgent = (agent) => {
     const id = agent?.session?.id
     if (typeof id !== 'string' || isSubagent(agent)) return null
@@ -703,12 +711,14 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
     return controller
   }
 
+  /** Schedule one cancellable recovery pass per agent lifetime. */
   const scheduleRecovery = (agent, signal) => {
     if (recoveryScheduled.has(agent)) return
     recoveryScheduled.add(agent)
     setImmediate(() => void recoverRecentTurns(agent, signal))
   }
 
+  /** Queue a bounded capture and transfer pending work to a replacement agent. */
   const enqueueCapture = (session, turn, agent, events) => {
     if (disposed || !config.auto_capture.enabled || !Number.isInteger(turn)) return
     const sessionId = session?.id
@@ -793,6 +803,7 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
     return queue.drainPromise
   }
 
+  /** Recover or submit one eligible completed turn through the Python Owner. */
   const captureTurn = async (session, turnNumber, agent, sourceEvents, signal) => {
     if (!isActiveAgent(agent, signal)) return
     let events = sourceEvents
@@ -881,6 +892,7 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
     }
   }
 
+  /** Drain captures serially and release closing agents after their final item. */
   async function drainCapture(sessionId, session, queue) {
     queue.running = true
     try {
@@ -923,6 +935,7 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
     }
   }
 
+  /** Recover recent completed turns while excluding inherited fork history. */
   const recoverRecentTurns = async (agent, signal) => {
     if (!config.auto_capture.enabled || disposed || signal?.aborted) return
     const session = agent?.session
@@ -1050,6 +1063,7 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
     }
   }
 
+  /** Abort pending work and release listeners and agent state exactly once. */
   const cleanup = () => {
     if (disposed) return
     disposed = true

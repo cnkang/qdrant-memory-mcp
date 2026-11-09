@@ -9,6 +9,7 @@ const shellArgs = (args) => (windows ? ['/d', '/s', '/c', `dsh ${args.join(' ')}
 const home = mkdtempSync(join(tmpdir(), 'dsh-native-ci-'))
 const env = { ...process.env, DSH_HOME: home }
 
+/** Terminate a timed-out validation process tree and briefly await exit. */
 const stopProcessTree = (pid) => {
   if (!Number.isInteger(pid)) return
   if (windows) {
@@ -31,6 +32,7 @@ const stopProcessTree = (pid) => {
   }
 }
 
+/** Run DSH in the isolated test home and return a failure status on timeout. */
 const runDsh = (args) => {
   const result = spawnSync(dsh, shellArgs(args), {
     cwd: process.cwd(),
