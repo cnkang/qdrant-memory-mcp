@@ -410,8 +410,21 @@ def test_readline_with_deadline_fails_instead_of_blocking():
             time.sleep(5)
             return b""
 
+    stream = StallingStream()
     with pytest.raises(RuntimeError, match="no response within"):
-        module.readline_with_deadline(StallingStream(), timeout=0.05)
+        module.readline_with_deadline(stream, timeout=0.05)
+
+
+def test_recover_after_kill_surfaces_data_loss_immediately(monkeypatch):
+    module = load_e2e()
+
+    async def fake_session(launcher, env, fact_b_id, evidence):
+        raise AssertionError("fact_b is missing")
+
+    monkeypatch.setattr(module, "fresh_session_persistence", fake_session)
+    evidence = module.Evidence()
+    with pytest.raises(AssertionError, match="fact_b is missing"):
+        module.recover_after_kill("l", {}, "fact", evidence, deadline=5)
 
 
 def test_recover_after_kill_retries_the_replacement_session(monkeypatch):

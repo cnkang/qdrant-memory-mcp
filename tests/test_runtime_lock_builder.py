@@ -447,8 +447,9 @@ def test_verify_offline_fails_when_the_console_probe_fails(work, monkeypatch):
 
     monkeypatch.setattr(module.subprocess, "run", fake_subprocess)
     monkeypatch.setattr(module.platform, "machine", lambda: "arm64")
+    meta = pinned_meta(wheel.name)
     with pytest.raises(RuntimeError, match="broken"):
-        module.verify_offline("macos-arm64", wheelhouse, pinned_meta(wheel.name))
+        module.verify_offline("macos-arm64", wheelhouse, meta)
 
 
 def test_verify_offline_uses_a_private_requirements_file_per_run(work, monkeypatch):
@@ -587,7 +588,10 @@ def test_main_routes_by_flags(work, monkeypatch, tmp_path):
     monkeypatch.setattr("sys.argv", ["locks"])
     module.main()
     assert routed["locks"] == 1
-    assert (sandbox_locks / "README.md").read_text(encoding="utf-8").startswith("# Runtime")
+    readme = (sandbox_locks / "README.md").read_text(encoding="utf-8")
+    assert readme.startswith("# Runtime")
+    assert "not committed here" in readme
+    assert "gated on the host architecture" in readme
 
 
 def test_main_verify_requires_existing_wheelhouse(work, monkeypatch):
