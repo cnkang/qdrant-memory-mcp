@@ -2,6 +2,7 @@
 
 import json
 import os
+import shlex
 import shutil
 import subprocess
 from pathlib import Path
@@ -120,7 +121,8 @@ def test_dsh_native_bundle_pins_release_and_keeps_automation_disabled():
 def test_native_host_cleanup_behavior(tmp_path, add, dump, remove, rm_failures, expected):
     """Run the real host validator against fake DSH and injected cleanup failures."""
     node = shutil.which('node')
-    assert node
+    if not node:
+        pytest.skip('Node is unavailable, so the host validator cannot run', allow_module_level=False)
     binary = tmp_path / 'bin'
     binary.mkdir()
     log = tmp_path / 'actions.jsonl'
@@ -158,8 +160,10 @@ process.exit(status)
         (binary / 'dsh.cmd').write_text(f'@"{node}" "{fake}" %*\n', encoding='utf-8')
     else:
         command = binary / 'dsh'
-        # An extensionless Node launcher is CommonJS, so use dynamic import.
-        command.write_text(f'#!{node}\nimport("./fake-dsh.mjs")\n', encoding='utf-8')
+        # A shell launcher quotes the interpreter, so a Node path containing
+        # spaces cannot split into two arguments before the fake runs.
+        launcher = f'#!/bin/sh\nexec {shlex.quote(node)} {shlex.quote(str(fake))} "$@"\n'
+        command.write_text(launcher, encoding='utf-8')
         command.chmod(0o755)
     preload = tmp_path / 'cleanup.mjs'
     preload.write_text('''import fs from 'node:fs'
@@ -191,7 +195,8 @@ syncBuiltinESMExports()
     try:
         assert result.returncode == expected, result
         removal = next(item for item in actions if 'remove' in item.get('args', []))
-        assert removal['profileExisted'] and removal['profileRemoved']
+        assert removal['profileExisted'], removal
+        assert removal['profileRemoved'], removal
         assert home.exists() == (rm_failures == 3)
         assert len([item for item in actions if 'cleanup' in item]) == min(rm_failures + 1, 3)
         assert ('cleanup failed: EBUSY' in result.stderr) == (rm_failures == 3)

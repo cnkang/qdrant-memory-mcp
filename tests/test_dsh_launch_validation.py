@@ -162,7 +162,8 @@ exit "$status"
             if sys.platform == 'win32' else 'bash')
     result = subprocess.run([bash, '--noprofile', '--norc', '-s'], input=wrapper,
                             env=env, capture_output=True, encoding='utf-8', timeout=10)
-    assert result.returncode != 0 and survived.exists(), result
+    assert result.returncode != 0, result
+    assert survived.exists(), result
     assert 'Patch download failed' in result.stderr
     assert not marker.exists()
     assert not list(profile.glob('qdrant-memory.cordis.yml*'))

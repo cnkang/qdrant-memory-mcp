@@ -51,8 +51,9 @@ def test_bundle_manifest_and_patch_contract():
 
 @pytest.mark.parametrize('version', ['../escape', '0.2.0/escape', '01.2.0', '0.2.0-rc.0', '0.2.0+unreviewed'])
 def test_bundle_identity_rejects_path_and_unreviewed_versions(version):
+    module = packer()
     with pytest.raises(ValueError, match='identity'):
-        packer().validate_identity({'name': '@cnkang/qdrant-memory-dsh-bundle', 'version': version})
+        module.validate_identity({'name': '@cnkang/qdrant-memory-dsh-bundle', 'version': version})
 
 
 @pytest.mark.parametrize("bad", ["extra", "symlink", "changed", "missing"])
