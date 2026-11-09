@@ -231,7 +231,8 @@ if sys.platform == 'win32':
             patch.write_text(patch.read_text(encoding='utf-8').replace(
                 'serverName: qdrant-memory', 'serverName: 共享记忆'), encoding='utf-8')
         launched = tmp_path / 'launched'
-        stubs = '''[Console]::OutputEncoding = [Text.Encoding]::GetEncoding(1252)
+        stubs = '''$PSNativeCommandArgumentPassing = 'Legacy'
+[Console]::OutputEncoding = [Text.Encoding]::GetEncoding(1252)
 function uvx { $global:LASTEXITCODE = 0 }
 function uv {
   $Source = $input -join "`n"
@@ -240,7 +241,7 @@ function uv {
 }
 function dsh {
   if ($args[0] -eq 'web' -and $args[1] -eq '--dump-config') {
-    & $env:VALIDATOR_PYTHON -c 'import os,sys; sys.stdout.buffer.write(os.environ["COMPOSED_CONFIG"].encode("utf-8")); sys.exit(int(os.environ["DUMP_FAIL"]))'
+    'import os,sys; sys.stdout.buffer.write(os.environ["COMPOSED_CONFIG"].encode("utf-8")); sys.exit(int(os.environ["DUMP_FAIL"]))' | & $env:VALIDATOR_PYTHON -
     $global:LASTEXITCODE = $LASTEXITCODE
     return
   }
@@ -256,7 +257,8 @@ function dsh {
         result = subprocess.run(['powershell.exe', '-NoProfile', '-NonInteractive', '-File', str(script)],
                                 env=env, capture_output=True, timeout=30)
         allowed = version == '0.3.1' and base in ('clean', 'unrelated')
-        assert (result.returncode == 0) == allowed, result
-        assert launched.exists() == allowed, result
+        diagnostic = (result.stdout + result.stderr).decode('utf-8', errors='replace')
+        assert (result.returncode == 0) == allowed, diagnostic
+        assert launched.exists() == allowed, diagnostic
         if launched.exists():
             assert Path(launched.read_text(encoding='utf-8')) == patch
