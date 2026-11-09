@@ -21,6 +21,7 @@ in files are platform-reproducible, unlike resolver output.
 import argparse
 import hashlib
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -30,6 +31,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 REQUIREMENTS = ROOT / "plugins/qdrant-memory/requirements.txt"
 LOCKS = ROOT / "runtime-locks"
+RUNTIME_WHEEL_FILENAME = "runtime-wheel.json"
 PLATFORM_LOCKS = {
     "linux-x64": ("x86_64-unknown-linux-gnu", "3.11"),
     "macos-arm64": ("aarch64-apple-darwin", "3.11"),
@@ -46,6 +48,13 @@ def run(argv, cwd, *, check=True):
     return completed
 
 
+def validate_runtime_commit(commit: object) -> str:
+    """Accept only a full Git object ID before using it as a fetch argument."""
+    if not isinstance(commit, str) or re.fullmatch(r"[0-9a-f]{40}", commit) is None:
+        raise ValueError("runtime_commit must be a full lowercase 40-character Git SHA")
+    return commit
+
+
 def build_runtime_wheel(work: Path, save_dir: Path | None = None) -> dict:
     """Clone the pinned Runtime commit and build one platform-neutral wheel.
 
@@ -56,7 +65,7 @@ def build_runtime_wheel(work: Path, save_dir: Path | None = None) -> dict:
     release = json.loads(
         (ROOT / "plugins/qdrant-memory/release.json").read_text(encoding="utf-8")
     )
-    commit = release["runtime_commit"]
+    commit = validate_runtime_commit(release["runtime_commit"])
     source = work / "runtime-source"
     run(["git", "init", str(source)], work)
     run(
@@ -85,7 +94,7 @@ def build_runtime_wheel(work: Path, save_dir: Path | None = None) -> dict:
     if save_dir is not None:
         save_dir.mkdir(parents=True, exist_ok=True)
         shutil.copy2(wheel, save_dir / wheel.name)
-        (save_dir / "runtime-wheel.json").write_text(
+        (save_dir / RUNTIME_WHEEL_FILENAME).write_text(
             json.dumps(
                 {
                     "wheel": wheel.name,
@@ -211,9 +220,12 @@ def host_platforms() -> list:
     return sorted(name for name in PLATFORM_LOCKS if name.startswith(prefix))
 
 
-def hashed_requirements(lock: Path, work: Path) -> Path:
+def hashed_requirements(platform: str, work: Path) -> Path:
     """Requirements copy without the unhashable direct-URL Runtime line."""
-    target = work / f"hashed-{lock.stem}.txt"
+    if platform not in PLATFORM_LOCKS:
+        raise ValueError(f"Unsupported runtime lock platform: {platform}")
+    lock = LOCKS / f"{platform}.txt"
+    target = work / f"hashed-{platform}.txt"
     lines = [
         line
         for line in lock.read_text(encoding="utf-8").splitlines()
@@ -239,7 +251,7 @@ def build_wheelhouse(work_dir: Path) -> Path:
         work = Path(temp)
         python = seeded_python(work)
         for target in host_platforms():
-            filtered = hashed_requirements(LOCKS / f"{target}.txt", work)
+            filtered = hashed_requirements(target, work)
             run(
                 [
                     str(python),
@@ -260,26 +272,8 @@ def build_wheelhouse(work_dir: Path) -> Path:
     return wheelhouse
 
 
-def main():
-    """Build the locks, build this host's wheelhouse, or verify offline install."""
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--verify", choices=sorted(PLATFORM_LOCKS))
-    parser.add_argument(
-        "--wheelhouse",
-        type=Path,
-        help="with --wheelhouse: download wheels; with --verify: use this directory",
-    )
-    args = parser.parse_args()
-    if args.verify:
-        if not args.wheelhouse or not args.wheelhouse.is_dir():
-            parser.error("--verify needs a --wheelhouse built with --wheelhouse")
-        meta_file = args.wheelhouse / "runtime-wheel.json"
-        meta = json.loads(meta_file.read_text(encoding="utf-8"))
-        print(json.dumps(verify_offline(args.verify, args.wheelhouse, meta)))
-        return 0
-    if args.wheelhouse:
-        print(json.dumps({"wheelhouse": str(build_wheelhouse(args.wheelhouse))}))
-        return 0
+def build_lock_files() -> None:
+    """Build the pinned Runtime wheel and all platform lock artifacts."""
     with tempfile.TemporaryDirectory(prefix="qm-lock-build-") as temp:
         work = Path(temp)
         LOCKS.mkdir(parents=True, exist_ok=True)
@@ -319,7 +313,7 @@ def main():
             + "\n",
             encoding="utf-8",
         )
-        wheel_meta = LOCKS / "runtime-wheel.json"
+        wheel_meta = LOCKS / RUNTIME_WHEEL_FILENAME
         wheel_meta.write_text(json.dumps(built, indent=2) + "\n", encoding="utf-8")
         print(
             json.dumps(
@@ -330,7 +324,27 @@ def main():
                 indent=2,
             )
         )
-        return 0
+
+def main() -> None:
+    """Build the locks, build this host's wheelhouse, or verify offline install."""
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--verify", choices=sorted(PLATFORM_LOCKS))
+    parser.add_argument(
+        "--wheelhouse",
+        type=Path,
+        help="with --wheelhouse: download wheels; with --verify: use this directory",
+    )
+    args = parser.parse_args()
+    if args.verify:
+        if not args.wheelhouse or not args.wheelhouse.is_dir():
+            parser.error("--verify needs a --wheelhouse built with --wheelhouse")
+        meta_file = args.wheelhouse / RUNTIME_WHEEL_FILENAME
+        meta = json.loads(meta_file.read_text(encoding="utf-8"))
+        print(json.dumps(verify_offline(args.verify, args.wheelhouse, meta)))
+    elif args.wheelhouse:
+        print(json.dumps({"wheelhouse": str(build_wheelhouse(args.wheelhouse))}))
+    else:
+        build_lock_files()
 
 
 if __name__ == "__main__":

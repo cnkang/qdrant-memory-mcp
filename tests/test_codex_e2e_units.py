@@ -192,8 +192,9 @@ def test_setup_profile_args_match_protected_acceptance(tmp_path):
 def test_decode_tool_parses_runtime_payload():
     module = load_e2e()
     assert module.decode_tool(FakeResult(json.dumps({"id": "abc"}))) == {"id": "abc"}
+    error_result = FakeResult("{}", is_error=True)
     with pytest.raises(AssertionError):
-        module.decode_tool(FakeResult("{}", is_error=True))
+        module.decode_tool(error_result)
 
 
 def test_env_forwarding_visibility(monkeypatch, tmp_path):
@@ -274,7 +275,8 @@ def test_inventory_decodes_runtime_list(monkeypatch):
     module = load_e2e()
 
     def fake_run(argv, env, cwd, **kwargs):
-        assert "--limit" in argv and "100" in argv
+        assert "--limit" in argv
+        assert "100" in argv
         return json.dumps(
             {
                 "count": {"truncated": False},
@@ -314,10 +316,9 @@ def test_four_tool_lifecycle_rejects_drifted_duplicate(monkeypatch, tmp_path):
     module = load_e2e()
     session = FakeSession([("result", {"id": "id-a"}), ("result", {"id": "id-Z"})])
     fake_launcher(monkeypatch, module, [session])
+    lifecycle = module.four_tool_lifecycle(str(tmp_path / "l.mjs"), {}, module.Evidence())
     with pytest.raises(AssertionError, match="duplicate"):
-        module.asyncio.run(
-            module.four_tool_lifecycle(str(tmp_path / "l.mjs"), {}, module.Evidence())
-        )
+        module.asyncio.run(lifecycle)
 
 
 def test_four_tool_lifecycle_rejects_wrong_update(monkeypatch, tmp_path):
@@ -331,10 +332,9 @@ def test_four_tool_lifecycle_rejects_wrong_update(monkeypatch, tmp_path):
         ]
     )
     fake_launcher(monkeypatch, module, [session])
+    lifecycle = module.four_tool_lifecycle(str(tmp_path / "l.mjs"), {}, module.Evidence())
     with pytest.raises(AssertionError):
-        module.asyncio.run(
-            module.four_tool_lifecycle(str(tmp_path / "l.mjs"), {}, module.Evidence())
-        )
+        module.asyncio.run(lifecycle)
 
 
 def test_fresh_session_persistence(monkeypatch):
@@ -352,10 +352,9 @@ def test_fresh_session_persistence_requires_the_record(monkeypatch):
     module = load_e2e()
     session = FakeSession([("result", {"memories": []})])
     fake_launcher(monkeypatch, module, [session])
+    persistence = module.fresh_session_persistence("l.mjs", {}, "id-b", module.Evidence())
     with pytest.raises(AssertionError):
-        module.asyncio.run(
-            module.fresh_session_persistence("l.mjs", {}, "id-b", module.Evidence())
-        )
+        module.asyncio.run(persistence)
 
 
 def test_other_profile_probe_returns_empty_when_isolated(monkeypatch):

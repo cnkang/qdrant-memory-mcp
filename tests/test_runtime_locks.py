@@ -51,7 +51,8 @@ def test_locks_keep_plugin_pins():
     for target in TARGETS:
         text = (LOCKS / f"{target}.txt").read_text(encoding="utf-8")
         assert f"qdrant-memory-mcp=={release['mcp_distribution_version']}" in text
-        assert "@" in text and release["runtime_commit"] in text
+        assert "@" in text
+        assert release["runtime_commit"] in text
         assert "-arm64" in text or target != "macos-arm64"
         if target == "windows-x64":
             assert "x86_64-pc-windows-msvc" in text

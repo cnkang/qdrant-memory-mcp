@@ -95,9 +95,8 @@ def test_explicit_capture_saves_directive_text(hook_env, monkeypatch, capsys):
     monkeypatch.setattr(
         "sys.stdin", type("S", (), {"read": staticmethod(lambda: json.dumps({"prompt": "Remember: dish soap runs low."}))})()
     )
-    exit_code = module.main()
+    module.main()
     output = capsys.readouterr().out.strip()
-    assert exit_code == 0
     assert "hookSpecificOutput" not in output  # no model-visible injection
     assert "systemMessage" in json.loads(output)
     assert saved == [["add", "--text", "dish soap runs low."]]
@@ -115,7 +114,7 @@ def test_explicit_capture_ignores_non_directives(hook_env, monkeypatch, capsys):
     monkeypatch.setattr(
         "sys.stdin", type("S", (), {"read": staticmethod(lambda: json.dumps({"prompt": "tell me a joke"}))})()
     )
-    assert module.main() == 0
+    module.main()
     assert saved == []
     assert capsys.readouterr().out == ""
 
@@ -133,7 +132,7 @@ def test_explicit_capture_rejects_oversized_lines(hook_env, monkeypatch, capsys)
         "sys.stdin",
         type("S", (), {"read": staticmethod(lambda: json.dumps({"prompt": "remember: " + "x" * 600}))})(),
     )
-    assert module.main() == 0
+    module.main()
     assert saved == []
     assert "did not save" in capsys.readouterr().out
 
@@ -153,9 +152,8 @@ def test_session_recall_emits_additional_context(hook_env, monkeypatch, capsys):
         "sys.stdin",
         type("S", (), {"read": staticmethod(lambda: json.dumps({"cwd": "/tmp/demo-project", "source": "resume"}))})(),
     )
-    exit_code = module.main()
+    module.main()
     out = capsys.readouterr().out.strip()
-    assert exit_code == 0
     payload = json.loads(out)
     context = payload["hookSpecificOutput"]["additionalContext"]
     assert "Prefers green notebooks." in context
@@ -175,7 +173,7 @@ def test_session_recall_stays_silent_without_matches(hook_env, monkeypatch, caps
         "sys.stdin",
         type("S", (), {"read": staticmethod(lambda: json.dumps({"cwd": "/tmp/empty"}))})(),
     )
-    assert module.main() == 0
+    module.main()
     assert capsys.readouterr().out == ""
 
 
@@ -190,10 +188,23 @@ def test_session_recall_reports_runtime_failure_gradefully(hook_env, monkeypatch
     monkeypatch.setattr(
         "sys.stdin", type("S", (), {"read": staticmethod(lambda: json.dumps({"cwd": "/x"}))})()
     )
-    assert module.main() == 0
+    module.main()
     payload = json.loads(capsys.readouterr().out)
     assert "Runtime missing" in payload["systemMessage"]
     assert "hookSpecificOutput" not in payload
+
+
+def test_safe_error_prefers_stderr_then_stdout(hook_env):
+    runtime = load("session_recall").runtime
+    assert runtime.safe_error("stdout", "stderr\nignored") == "stderr"
+    assert runtime.safe_error("stdout\nignored", "  ") == "stdout"
+    assert runtime.safe_error(" ", "") == "unknown error"
+
+
+def test_emit_without_payload_stays_silent(hook_env, capsys):
+    runtime = load("session_recall").runtime
+    runtime.emit()
+    assert capsys.readouterr().out == ""
 
 
 def test_session_recall_requires_session_cwd(monkeypatch, capsys):
@@ -212,7 +223,7 @@ def test_session_recall_requires_session_cwd(monkeypatch, capsys):
     monkeypatch.setattr(
         "sys.stdin", type("S", (), {"read": staticmethod(lambda: "")})()
     )
-    assert module.main() == 0
+    module.main()
     output = capsys.readouterr().out.strip()
     payload = json.loads(output) if output else {}
     assert "systemMessage" in payload  # no cwd → skip, with a message

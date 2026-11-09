@@ -37,7 +37,7 @@ jobs:
           codex --version
       - run: |
           python -m pip install --require-hashes --only-binary=:all: -r .github/requirements-sonar-ci.txt
-          python -m pip install --only-binary=:all: --no-deps .
+          python -m pip install --only-binary=:all: --no-deps --no-build-isolation .
       - run: python scripts/build_codex_plugin.py --validate
       - run: python -m pytest -q tests/test_codex_plugin.py
       - name: Install, check setup file, disable and uninstall without credentials
@@ -78,7 +78,7 @@ jobs:
           python-version: '3.11'
       - run: |
           python -m pip install --require-hashes --only-binary=:all: -r .github/requirements-sonar-ci.txt
-          python -m pip install --only-binary=:all: --no-deps .
+          python -m pip install --only-binary=:all: --no-deps --no-build-isolation .
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: cnkang/skills
@@ -141,7 +141,8 @@ jobs:
           python-version: '3.11'
       - run: npm install --global --ignore-scripts @openai/codex@0.165.0
       - run: "python -m pip install --only-binary=:all: uv==0.13.6"
-      - run: "python -m pip install --only-binary=:all: ."
+      - run: "python -m pip install --require-hashes --only-binary=:all: -r .github/requirements-sonar-ci.txt"
+      - run: "python -m pip install --only-binary=:all: --no-deps --no-build-isolation ."
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: cnkang/skills
