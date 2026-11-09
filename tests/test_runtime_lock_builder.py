@@ -46,7 +46,89 @@ def test_run_rejects_unapproved_option_arguments(work, monkeypatch):
     )
 
     with pytest.raises(ValueError, match="unapproved option"):
-        module.run(["git", "fetch", "--upload-pack=/tmp/evil"], work)
+        module.run("git", ["fetch", "--upload-pack=/tmp/evil"], work)
+
+
+@pytest.mark.parametrize(
+    "executable",
+    ["sh", "./git", "/bin/sh", "/tmp/venv/bin/rm", "/tmp/attacker/python", "", 42],
+)
+def test_run_rejects_unapproved_executables(work, monkeypatch, executable):
+    module = load_locks()
+    monkeypatch.setattr(
+        module.subprocess,
+        "run",
+        lambda *_args, **_kwargs: pytest.fail(
+            "unapproved executable reached subprocess"
+        ),
+    )
+
+    with pytest.raises(ValueError):
+        module.run(executable, ["--version"], work)
+
+
+def test_run_accepts_a_local_interpreter_under_the_temp_root(work, monkeypatch):
+    module = load_locks()
+    calls = []
+
+    def fake_run(argv, **kwargs):
+        calls.append(argv)
+        return types.SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(module.subprocess, "run", fake_run)
+    builder = work / "qm-lock-verify-test"
+    python = builder / "venv" / (
+        "Scripts/python.exe" if sys.platform == "win32" else "bin/python"
+    )
+    python.parent.mkdir(parents=True)
+
+    module.run(str(python), ["--help"], work)
+
+    assert calls == [[str(python.resolve()), "--help"]]
+
+
+def test_run_accepts_a_symlinked_venv_interpreter(work, monkeypatch):
+    module = load_locks()
+    calls = []
+    monkeypatch.setattr(
+        module.subprocess,
+        "run",
+        lambda argv, **kwargs: calls.append(argv)
+        or types.SimpleNamespace(returncode=0, stdout="", stderr=""),
+    )
+    builder = work / "qm-lock-verify-test"
+    base = work / "base-python"
+    base.write_text("")
+    python = builder / "venv" / (
+        "Scripts/python.exe" if sys.platform == "win32" else "bin/python"
+    )
+    python.parent.mkdir(parents=True)
+    if sys.platform == "win32":
+        # Windows venv interpreters are copies; symlinks need a privilege.
+        python.write_text("")
+    else:
+        python.symlink_to(base)
+
+    module.run(str(python), ["--help"], work)
+
+    assert calls == [[str(python), "--help"]]
+
+
+def test_run_rejects_executables_outside_the_run_root(work, monkeypatch):
+    module = load_locks()
+    monkeypatch.setattr(
+        module.subprocess,
+        "run",
+        lambda *_args, **_kwargs: pytest.fail("unapproved executable reached subprocess"),
+    )
+    attacker = work.parent / "attacker" / "python"
+
+    with pytest.raises(ValueError, match="not an approved command"):
+        module.run(str(attacker), ["--help"], work)
+
+    lookalike = work.parent / "qm-lock-attacker" / "python"
+    with pytest.raises(ValueError, match="not an approved command"):
+        module.run(str(lookalike), ["--help"], work)
 
 
 def test_run_allows_approved_options_and_paths_with_spaces(work, monkeypatch):
@@ -59,14 +141,14 @@ def test_run_allows_approved_options_and_paths_with_spaces(work, monkeypatch):
 
     monkeypatch.setattr(module.subprocess, "run", fake_run)
     output_dir = work / "wheel output"
-    command = ["uv", "build", "--wheel", "--out-dir", str(output_dir), str(work)]
+    arguments = ["build", "--wheel", "--out-dir", str(output_dir), str(work)]
 
-    result = module.run(command, work)
+    result = module.run("uv", arguments, work)
 
     assert result.returncode == 0
     assert calls == [
         (
-            command,
+            ["uv", *arguments],
             {"cwd": work, "capture_output": True, "text": True},
         )
     ]
@@ -116,14 +198,46 @@ def test_validate_runtime_commit_rejects_non_object_ids(commit):
         module.validate_runtime_commit(commit)
 
 
+@pytest.mark.parametrize(
+    "name",
+    ["../evil.whl", "/tmp/evil.whl", "dir/evil.whl", "wheel.txt", "", 7],
+)
+def test_validate_runtime_wheel_rejects_paths_and_other_files(name):
+    module = load_locks()
+    with pytest.raises(ValueError, match="plain .whl filename"):
+        module.validate_runtime_wheel(name)
+
+
+def test_validate_runtime_wheel_accepts_a_builder_wheel_name():
+    module = load_locks()
+    name = "hermes_plugin_qdrant_memory-0.6.0-py3-none-any.whl"
+    assert module.validate_runtime_wheel(name) == name
+
+
+@pytest.mark.parametrize("digest", ["a" * 63, "A" * 64, "g" * 64, "", 5])
+def test_validate_sha256_rejects_non_lowercase_hex(digest):
+    module = load_locks()
+    with pytest.raises(ValueError, match="64 lowercase hex"):
+        module.validate_sha256(digest)
+
+
+def test_verify_offline_rejects_an_unknown_platform(work):
+    module = load_locks()
+    with pytest.raises(ValueError, match="Unsupported runtime lock platform"):
+        module.verify_offline("../outside", work, {})
+
+
 def test_validate_runtime_commit_accepts_full_object_id():
     module = load_locks()
     commit = "a" * 40
     assert module.validate_runtime_commit(commit) == commit
 
 
-def test_offline_requirements_substitute_the_recorded_wheel(work):
+def test_offline_requirements_substitute_the_recorded_wheel(work, monkeypatch):
     module = load_locks()
+    lock_dir = work / "locks"
+    lock_dir.mkdir()
+    monkeypatch.setattr(module, "LOCKS", lock_dir)
     wheelhouse = work / "wh"
     wheelhouse.mkdir()
     wheel = wheelhouse / "hermes_plugin_qdrant_memory-0.6.0-py3-none-any.whl"
@@ -134,31 +248,33 @@ def test_offline_requirements_substitute_the_recorded_wheel(work):
         "commit": "d" * 40,
         "runtime_version": "0.6.0",
     }
-    lock = work / "macos-arm64.txt"
-    lock.write_text(
+    (lock_dir / "macos-arm64.txt").write_text(
         "annotated-types==0.8.0\n"
         "hermes-plugin-qdrant-memory @ git+https://github.com/x@dee6777432f17523db75f6be32cf3ef15e48235c\n",
         encoding="utf-8",
     )
-    target = module.offline_requirements(lock, wheelhouse, meta)
+    target = module.offline_requirements("macos-arm64", wheelhouse, meta, work)
     text = target.read_text(encoding="utf-8")
     assert wheel.resolve().as_uri() in text
     assert f"--hash=sha256:{'a' * 64}" in text
     assert "git+" not in text
 
 
-def test_offline_requirements_require_exact_one_substitution(work):
+def test_offline_requirements_require_exact_one_substitution(work, monkeypatch):
     module = load_locks()
+    lock_dir = work / "locks"
+    lock_dir.mkdir()
+    monkeypatch.setattr(module, "LOCKS", lock_dir)
     wheelhouse = work / "wh"
     wheelhouse.mkdir()
     (wheelhouse / "hermes_plugin_qdrant_memory-0.6.0-py3-none-any.whl").write_bytes(b"x")
     meta = {"wheel": "hermes_plugin_qdrant_memory-0.6.0-py3-none-any.whl",
             "sha256": "b" * 64, "commit": "c" * 40, "runtime_version": "0.6.0"}
-    source = work / "l.txt"
+    source = lock_dir / "macos-arm64.txt"
     source.write_text("annotated-types==0.8.0\n"
                       "hermes-plugin-qdrant-memory @ git+https://x@dee6777432f17523db75f6be32cf3ef15e48235c\n"
                       "qdrant-memory-mcp==0.3.1\n", encoding="utf-8")
-    target = module.offline_requirements(source, wheelhouse, meta)
+    target = module.offline_requirements("macos-arm64", wheelhouse, meta, work)
     subs = [line for line in target.read_text(encoding="utf-8").splitlines() if "file://" in line]
     assert len(subs) == 1
 
@@ -167,8 +283,8 @@ def test_compile_lock_uses_expected_flags(work, monkeypatch):
     module = load_locks()
     argv_seen = []
 
-    def fake_run(argv, cwd, **kwargs):
-        argv_seen.append(list(argv))
+    def fake_run(executable, arguments, cwd, **kwargs):
+        argv_seen.append([executable, *arguments])
         return types.SimpleNamespace(returncode=0, stdout="", stderr="")
 
     monkeypatch.setattr(module, "run", fake_run)
@@ -196,20 +312,20 @@ def test_build_runtime_wheel_records_hash_and_save(work, monkeypatch):
     module = load_locks()
     created = []
 
-    def fake_run(argv, cwd, **kwargs):
-        if argv[:2] == ["uv", "build"]:
+    def fake_run(executable, arguments, cwd, **kwargs):
+        if executable == "uv" and arguments[:1] == ["build"]:
             wheel_dir = cwd / "wheel"
             wheel_dir.mkdir(parents=True, exist_ok=True)
             target = wheel_dir / "hermes_plugin_qdrant_memory-0.6.0-py3-none-any.whl"
             target.write_bytes(b"wheel-bytes")
-        created.append(argv[:2])
+        created.append((executable, arguments[:1]))
         return types.SimpleNamespace(returncode=0, stdout="", stderr="")
 
     monkeypatch.setattr(module, "run", fake_run)
     meta = module.build_runtime_wheel(work, save_dir=work / "saved")
-    assert created[0][:2] == ["git", "init"]
-    assert ["git", "-C"] in created
-    assert ["uv", "build"] in created
+    assert created[0] == ("git", ["init"])
+    assert ("git", ["-C"]) in created
+    assert ("uv", ["build"]) in created
     assert meta["sha256"] == __import__("hashlib").sha256(b"wheel-bytes").hexdigest()
     assert meta["commit"] == json.loads(
         (ROOT / "plugins/qdrant-memory/release.json").read_text(encoding="utf-8")
@@ -223,8 +339,8 @@ def test_build_runtime_wheel_records_hash_and_save(work, monkeypatch):
 def test_build_runtime_wheel_fails_on_build_error(work, monkeypatch):
     module = load_locks()
 
-    def fake_run(argv, cwd, **kwargs):
-        if argv[:2] == ["uv", "build"]:
+    def fake_run(executable, arguments, cwd, **kwargs):
+        if executable == "uv" and arguments[:1] == ["build"]:
             return types.SimpleNamespace(returncode=1, stdout="", stderr="wheel boom")
         return types.SimpleNamespace(returncode=0, stdout="", stderr="")
 
@@ -253,12 +369,14 @@ def test_verify_offline_hashes_wheels_and_probes_console(work, monkeypatch):
     lockfile = module.LOCKS / "macos-arm64.txt"
     assert lockfile.is_file()
     steps = {"install": 0}
+    install_calls = []
 
-    def fake_run(argv, cwd, **kwargs):
-        if argv[1:3] == ["m", "pip"] or "pip" in argv:
+    def fake_run(executable, arguments, cwd, **kwargs):
+        if arguments[:3] == ["-P", "-m", "pip"]:
             steps["install"] += 1
+            install_calls.append((arguments, cwd))
             return types.SimpleNamespace(returncode=0, stdout="Installed", stderr="")
-        if argv[-1] == "--help":
+        if arguments == ["--help"]:
             return types.SimpleNamespace(returncode=0, stdout="runtime help", stderr="")
         return types.SimpleNamespace(returncode=0, stdout="", stderr="")
 
@@ -269,6 +387,43 @@ def test_verify_offline_hashes_wheels_and_probes_console(work, monkeypatch):
         "require_hashes": True, "console_probe": True,
     }
     assert steps["install"] == 1
+    arguments, cwd = install_calls[0]
+    assert cwd == wheelhouse
+    assert arguments[:3] == ["-P", "-m", "pip"]
+    assert str(wheelhouse) not in arguments
+    requirements = Path(arguments[arguments.index("-r") + 1])
+    assert requirements.is_absolute()
+    assert requirements.parent.name.startswith("qm-lock-verify-")
+    assert wheelhouse not in requirements.parents
+    assert requirements.name == module.VERIFY_REQUIREMENTS_FILENAME
+    assert arguments[arguments.index("--find-links") + 1] == "."
+
+
+def test_verify_offline_uses_a_private_requirements_file_per_run(work, monkeypatch):
+    module = load_locks()
+    wheelhouse = work / "wh"
+    wheelhouse.mkdir()
+    (wheelhouse / "hermes_plugin_qdrant_memory-0.6.0-py3-none-any.whl").write_bytes(b"w")
+    meta = {"wheel": "hermes_plugin_qdrant_memory-0.6.0-py3-none-any.whl",
+            "sha256": "a" * 64, "commit": "b" * 40, "runtime_version": "0.6.0"}
+    requirements_paths = []
+
+    def fake_run(executable, arguments, cwd, **kwargs):
+        if arguments[:3] == ["-P", "-m", "pip"]:
+            requirements_paths.append(arguments[arguments.index("-r") + 1])
+        return types.SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(module, "run", fake_run)
+    module.verify_offline("macos-arm64", wheelhouse, meta)
+    module.verify_offline("macos-arm64", wheelhouse, meta)
+
+    assert len(requirements_paths) == 2
+    assert requirements_paths[0] != requirements_paths[1]
+    for candidate in requirements_paths:
+        path = Path(candidate)
+        assert path.is_absolute()
+        assert path.parent != wheelhouse
+        assert wheelhouse not in path.parents
 
 
 def test_verify_offline_fails_when_install_fails(work, monkeypatch):
@@ -280,7 +435,7 @@ def test_verify_offline_fails_when_install_fails(work, monkeypatch):
             "sha256": "e" * 64, "commit": "f" * 40, "runtime_version": "0.6.0"}
     call = {"n": 0}
 
-    def fake_run(argv, cwd, **kwargs):
+    def fake_run(executable, arguments, cwd, **kwargs):
         call["n"] += 1
         if call["n"] == 2:  # the pip install step after uv venv
             return types.SimpleNamespace(returncode=1, stdout="", stderr="hash check failed")
@@ -295,8 +450,8 @@ def test_seeded_python_uses_uv_venv(work, monkeypatch):
     module = load_locks()
     seen = []
 
-    def fake_run(argv, cwd, **kwargs):
-        seen.append(tuple(argv[:2]))
+    def fake_run(executable, arguments, cwd, **kwargs):
+        seen.append((executable, arguments[0]))
         env_dir = cwd / "pip-venv"
         (env_dir / ("Scripts" if sys.platform == "win32" else "bin")).mkdir(
             parents=True, exist_ok=True
@@ -314,14 +469,14 @@ def test_build_wheelhouse_downloads_for_host_and_saves_wheel(work, monkeypatch):
     pip_calls = []
     wheelbuilt = {"done": False}
 
-    def fake_run(argv, cwd, **kwargs):
-        if "pip" in argv:
-            pip_calls.append([str(item) for item in argv])
-            wheelhouse_flag = argv[argv.index("-d") + 1]
-            destination = Path(wheelhouse_flag)
+    def fake_run(executable, arguments, cwd, **kwargs):
+        if arguments[:3] == ["-P", "-m", "pip"]:
+            pip_calls.append(([executable, *arguments], cwd))
+            wheelhouse_flag = arguments[arguments.index("-d") + 1]
+            destination = cwd if wheelhouse_flag == "." else Path(wheelhouse_flag)
             destination.mkdir(parents=True, exist_ok=True)
             (destination / "annotated_types-0.8.0-py3-none-any.whl").write_bytes(b"w")
-        if argv[:2] == ["uv", "build"]:
+        if executable == "uv" and arguments[:1] == ["build"]:
             wheel_dir = cwd / "wheel"
             wheel_dir.mkdir(parents=True, exist_ok=True)
             (wheel_dir / "hermes_plugin_qdrant_memory-0.6.0-py3-none-any.whl").write_bytes(b"w")
@@ -334,10 +489,16 @@ def test_build_wheelhouse_downloads_for_host_and_saves_wheel(work, monkeypatch):
     assert (wheelhouse / "runtime-wheel.json").is_file()
     expected_targets = module.host_platforms()
     assert pip_calls, "pip download must run for each host platform lock"
-    source_flags = [line for line in pip_calls[0] if line.endswith("requirements.txt")]
-    _ = source_flags  # the lock is filtered per host platform
+    download_arguments, download_cwd = pip_calls[0]
+    assert download_cwd == wheelhouse
+    assert download_arguments[1:4] == ["-P", "-m", "pip"]
+    assert str(wheelhouse.resolve()) not in download_arguments
+    assert download_arguments[download_arguments.index("-d") + 1] == "."
     for platform in expected_targets:
-        assert any(f"hashed-{platform}" in " ".join(call) for call in pip_calls)
+        assert any(
+            f"hashed-{platform}" in " ".join(arguments)
+            for arguments, _cwd in pip_calls
+        )
 
 
 def test_main_routes_by_flags(work, monkeypatch, tmp_path):
