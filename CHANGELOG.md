@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+- Add a credential-free real-Codex-CLI end-to-end lane
+  (`scripts/codex_plugin_e2e.py`, CI job `lifecycle-e2e`): isolated `CODEX_HOME`
+  installs from both the repository marketplace and the exact rebuilt ZIP,
+  verifies the eight overlay environment names through `codex mcp get`, runs
+  the pinned Runtime install from the plugin requirements, and drives the
+  four-tool lifecycle through the real launcher — duplicate-add idempotency,
+  exact-ID update/delete, fresh-session persistence, SIGKILL recovery, scope
+  isolation and post-uninstall data retention.
+- Ship the optional lifecycle preview as a separate
+  `integrations/codex-lifecycle` plugin (manual install only, hooks ineligible
+  for the public directory): `SessionStart` recall and explicit `remember:`
+  capture through the released hooks contract; no hooks in the public package.
+- Generate per-platform hash-locked desktop runtime dependency locks
+  (`runtime-locks/*.txt`) plus the pinned-commit Runtime wheel record, with
+  offline `--require-hashes` installs verified on macOS arm64/x64.
+- Require the `Codex plugin` workflow for tagged releases in the release
+  gate, and add launcher/regression tests for a runtime venv missing the
+  pinned MCP distribution plus real-MCP scope isolation.
+
+### Codex plugin readiness (from this branch)
+
 - Launch the DSH native Runtime with isolated-mode Python (`-I -S -X utf8`) from
   the interpreter directory, using a fixed bootstrap that adds the interpreter's
   site-packages (honoring `include-system-site-packages`) without processing

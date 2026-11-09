@@ -2,6 +2,47 @@
 
 Date: 2026-11-03. Status: implementation candidate, public release gated.
 
+## Update 2026-11-09: verified spec deltas and Mode B separation
+
+Released-spec verification changed three recorded claims:
+
+1. **Hooks are officially documented for plugins.** `extensions.com.openai`
+   gains a `hooks` mapping (path, path list, or inline object) loading
+   `hooks/hooks.json` by default; events `SessionStart` (with
+   `startup|resume|clear|compact|fork` source matching), `UserPromptSubmit`,
+   `Stop` (turn completion, `last_assistant_message`), `SessionEnd`,
+   `PreToolUse`/`PostToolUse` and others are public per the released hooks
+   reference. Hooks load only for manually installed Codex desktop plugins,
+   are skipped until trust-checked per definition hash, and are barred from
+   public-directory submission. Decision unchanged, now sharpened: **the
+   public-ready portable package carries no hooks** (asserted by tests), and
+   lifecycle experiments live only in
+   `integrations/codex-lifecycle/` as a separate manual-install preview that
+   reuses the single Runtime profile. Automatic turn extraction stays
+   unimplemented (no official extraction service; heuristics are forbidden).
+   [Build plugins](https://developers.openai.com/plugins/build/plugins),
+   [Submission](https://developers.openai.com/plugins/deploy/submission),
+   [Hooks](https://learn.chatgpt.com/docs/hooks).
+
+2. **The portable MCP schema has no `env_vars`.** The released 1.0.0 schema
+   allows `type|command|args|cwd|env` only. The Codex overlay `env_vars`
+   remains a Codex-specific passthrough, validated by the real CLI surfacing
+   all eight names with masked values. Creator-side normalization for a
+   portable upload derives `.mcp.json`/`.codex-plugin/plugin.json` from the
+   root manifests; whether the eight names survive that derivation for this
+   candidate is NOT VERIFIED and stays a blocker for the Creator copy.
+
+3. **Per-platform packaging remains open.** The released MCP schema still has
+   no OS/arch field and the desktop-only page still documents a single stdio
+   command plus "the server and its dependencies"; only hook handlers have
+   `commandWindows`. A universal ZIP therefore needs a dispatcher whose Node
+   availability on a clean desktop install is unverified. Meanwhile the
+   dependency payload now has a real prototype:
+   `runtime-locks/*.txt` (hash-locked per-platform transitive resolutions)
+   plus the pinned-commit Runtime wheel SHA-256, with `--require-hashes`
+   offline installs verified on macOS arm64 and x64. NO-GO is unchanged: no
+   bundle layout, SBOM, license aggregation or desktop launch route exists.
+
 ## Decision
 
 One Memory. Multiple Agents. No Lock-in. Readable exports, documented import
