@@ -94,13 +94,15 @@ dsh() { : > "$LAUNCH_MARKER"; }
 
 @pytest.mark.parametrize('guide', GUIDES, ids=lambda path: path.name)
 @pytest.mark.parametrize('before', [False, True])
-@pytest.mark.parametrize('conflict', [False, True])
+@pytest.mark.parametrize('conflict', ['none', 'memory', 'additional'])
 def test_mcp_server_name_conflicts(tmp_path, guide, before, conflict):
     """Reject a competing MCP server regardless of its insertion order."""
     patch = (ROOT / 'integrations/dsh/qdrant-memory.cordis.yml').read_text(encoding='utf-8')
     other = patch.replace('id: cnkang-qdrant-memory-mcp', 'id: another-mcp')
-    if not conflict:
+    if conflict != 'memory':
         other = other.replace('serverName: qdrant-memory', 'serverName: another-server')
+    if conflict == 'additional':
+        other += '\n' + other.replace('id: another-mcp', 'id: third-mcp')
     selected = tmp_path / 'patch.yml'
     selected.write_text(other + '\n' + patch if before else patch + '\n' + other, encoding='utf-8')
     for validator in re.findall(r'(import sys\nimport yaml\n.*?)(?=\nPY\n|\n\'@)', guide.read_text(encoding='utf-8'), re.S):
@@ -108,7 +110,7 @@ def test_mcp_server_name_conflicts(tmp_path, guide, before, conflict):
             [sys.executable, '-c', validator, str(selected), 'qdrant-memory-mcp==0.3.1', str(tmp_path)],
             capture_output=True, encoding='utf-8', timeout=10,
         )
-        assert (result.returncode != 0) == conflict, result
+        assert (result.returncode != 0) == (conflict != 'none'), result
 
 
 @pytest.mark.parametrize('guide', GUIDES, ids=lambda path: path.name)
