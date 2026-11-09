@@ -22,6 +22,7 @@ import argparse
 import hashlib
 import json
 import os
+import platform
 import re
 import shutil
 import subprocess
@@ -38,6 +39,12 @@ PLATFORM_LOCKS = {
     "macos-arm64": ("aarch64-apple-darwin", "3.11"),
     "macos-x64": ("x86_64-apple-darwin", "3.11"),
     "windows-x64": ("x86_64-pc-windows-msvc", "3.11"),
+}
+TARGET_MACHINES = {
+    "linux-x64": "x86_64",
+    "macos-arm64": "arm64",
+    "macos-x64": "x86_64",
+    "windows-x64": "AMD64",
 }
 _SAFE_SUBPROCESS_ARGUMENT = re.compile(
     r"^(?:"
@@ -228,14 +235,32 @@ def verify_offline(target: str, wheelhouse: Path, runtime_meta: dict) -> dict:
     """Install the hashed lock completely offline from recorded wheels only."""
     if target not in PLATFORM_LOCKS:
         raise ValueError(f"Unsupported runtime lock platform: {target}")
+    expected = TARGET_MACHINES[target]
+    actual = platform.machine()
+    if actual != expected:
+        raise RuntimeError(
+            f"--verify {target} requires host architecture {expected}; this host reports {actual}"
+        )
+    if not isinstance(runtime_meta, dict):
+        raise ValueError("runtime-wheel.json must contain a JSON object")
+    release = json.loads(
+        (ROOT / "plugins/qdrant-memory/release.json").read_text(encoding="utf-8")
+    )
+    if (
+        runtime_meta.get("commit") != release["runtime_commit"]
+        or runtime_meta.get("runtime_version") != release["runtime_version"]
+    ):
+        raise ValueError("wheelhouse runtime metadata does not match the pinned release")
     work = Path(tempfile.mkdtemp(prefix="qm-lock-verify-"))
     try:
         verify_req = offline_requirements(target, wheelhouse, runtime_meta, work)
         venv_dir = work / "venv"
-        run("uv", ["venv", "--seed", "--python", "3.11", str(venv_dir)], work)
+        run("uv", ["venv", "--python", "3.11", str(venv_dir)], work)
         python = venv_dir / (
             "Scripts/python.exe" if sys.platform == "win32" else "bin/python"
         )
+        # ensurepip ships pip inside the interpreter, so seeding stays offline.
+        run(str(python), ["-m", "ensurepip"], work)
         result = run(
             str(python),
             [
@@ -263,7 +288,7 @@ def verify_offline(target: str, wheelhouse: Path, runtime_meta: dict) -> dict:
             if sys.platform == "win32"
             else "bin/qdrant-memory"
         )
-        probe = run(str(console), ["--help"], work, check=False)
+        probe = run(str(console), ["--help"], work)
         return {
             "target": target,
             "installed": True,
