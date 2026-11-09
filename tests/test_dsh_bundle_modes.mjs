@@ -29,11 +29,30 @@ after(async () => {
 
 const recordingContext = () => {
   const plugins = []
+  const listeners = new Set()
+  const mcpRuntime = { fibers: [] }
+  const register = (fiber) => {
+    mcpRuntime.fibers.push(fiber)
+    for (const listener of listeners) listener(fiber)
+  }
   return {
     plugins,
+    register,
     ctx: {
       tools: { definitions: () => [] },
-      plugin: async (module, settings) => { plugins.push({ module, settings }) },
+      root: {
+        on: (event, listener) => {
+          assert.equal(event, 'internal/plugin')
+          listeners.add(listener)
+          return () => listeners.delete(listener)
+        },
+      },
+      registry: { get: () => mcpRuntime },
+      effect: (effect) => effect(),
+      plugin: async (module, settings) => {
+        if (settings?.serverName === 'qdrant-memory') register({ config: settings })
+        plugins.push({ module, settings })
+      },
     },
   }
 }
@@ -120,14 +139,18 @@ withOwnerTargetEnv(() => {
 
   test('native-owner activates the native plugin alone', async () => {
     assert.ok(isAbsolute(process.env.QDRANT_MEMORY_RUNTIME_PYTHON))
-    const { ctx, plugins } = recordingContext()
+    const { ctx, plugins, register } = recordingContext()
     await bundle.apply(ctx, { ...bundle.Config({}), mode: 'native-owner' })
     assert.equal(plugins.length, 1)
     assert.equal(plugins[0].module.name, 'qdrant-memory-dsh-native')
+    assert.throws(
+      () => register({ config: { serverName: 'qdrant-memory', transport: 'stdio' } }),
+      /only one qdrant-memory MCP route/u,
+    )
   })
 
   test('unified-owner binds the streamable HTTP Owner and the native plugin', async () => {
-    const { ctx, plugins } = recordingContext()
+    const { ctx, plugins, register } = recordingContext()
     await bundle.apply(ctx, { ...bundle.Config({}), mode: 'unified-owner' })
     assert.equal(plugins.length, 2)
     assert.equal(plugins[0].settings.transport, 'streamable-http')
@@ -135,5 +158,9 @@ withOwnerTargetEnv(() => {
     assert.equal(plugins[0].settings.failOnStartupError, true)
     assert.equal(plugins[0].settings.headers.Authorization, `Bearer ${process.env.QDRANT_MEMORY_DSH_OWNER_TOKEN}`)
     assert.equal(plugins[1].module.name, 'qdrant-memory-dsh-native')
+    assert.throws(
+      () => register({ config: { serverName: 'qdrant-memory', transport: 'stdio' } }),
+      /only one qdrant-memory MCP route/u,
+    )
   })
 })
