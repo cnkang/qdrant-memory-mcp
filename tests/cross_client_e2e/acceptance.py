@@ -1,4 +1,4 @@
-"""Real DSH AgentLoop and MCP client against one TLS Owner and Docker Qdrant.
+"""Explicit acceptance: real DSH AgentLoop and MCP against TLS Owner and Docker Qdrant.
 
 The model and embedding are deterministic. This is not Cloud, Hermes, Pi or
 Codex Host acceptance. The Runtime must be installed from the reviewed wheel.
@@ -164,6 +164,39 @@ def test_dsh_capture_and_mcp_recall_with_scoped_https_owner(tmp_path, monkeypatc
                 asyncio.run(call('private', 'qdrant_memory_delete', {'id': captured[0]['id'], 'request_id': 'cross-private'}))
             # Persisted Owner receipts and Qdrant IDs, not the assistant's prose.
             assert rt.ledger.db.execute('SELECT COUNT(*) FROM owner_events_v1').fetchone()[0] >= 1
+            packed = subprocess.run([sys.executable, 'scripts/pack_dsh_bundle.py', '--output-dir', str(tmp_path / 'packed')],
+                                    cwd=ROOT, capture_output=True, text=True, check=True, timeout=120)
+            archive = json.loads(packed.stdout)['archive']
+            install_env = {key: value for key, value in os.environ.items()
+                           if key in {'PATH', 'SYSTEMROOT', 'WINDIR', 'TEMP', 'TMP'}}
+            install_env.update(HOME=str(tmp_path), DSH_HOME=str(tmp_path / 'packed-home'))
+            cli = ROOT / '.github/ci-deps/dsh-native/node_modules/@deepseek-ai/dsh/lib/bin.js'
+            installed = subprocess.run(['node', str(cli), 'plugin', '--profile', 'packed-native', 'add', archive],
+                                       cwd=ROOT, env=install_env, capture_output=True, text=True, timeout=300)
+            assert installed.returncode == 0, installed.stdout + installed.stderr
+            packed_fact = 'Synthetic Project Iris uses PostgreSQL PITR.'
+            packed_env = {**env, 'QM_DSH_BUNDLE_PROFILE': str(tmp_path / 'packed-home/profiles/packed-native'),
+                          'QM_DSH_CAPTURE_FACT': packed_fact, 'NODE_EXTRA_CA_CERTS': str(cert)}
+            # Package install sees no Owner/Cloud credentials; only the isolated
+            # Host process receives the explicitly provisioned synthetic grant.
+            combined = subprocess.run(['node', '--test', '--test-name-pattern=packed Bundle runs',
+                                      'tests/dsh_native_e2e/agent-loop.test.mjs'], cwd=ROOT, env=packed_env,
+                                     capture_output=True, text=True, timeout=240)
+            diagnostics = combined.stdout + combined.stderr
+            if cloud_key:
+                diagnostics = diagnostics.replace(cloud_key, '[REDACTED]')
+            assert combined.returncode == 0, diagnostics
+            bundle_metrics = {}
+            for line in combined.stdout.splitlines():
+                candidate = line.removeprefix('# ')
+                if candidate.startswith('{'):
+                    metrics = json.loads(candidate)
+                    if 'bundle_model_calls' in metrics:
+                        bundle_metrics = metrics
+            combined_rows = asyncio.run(call('mcp', 'qdrant_memory_search', {'query': 'Iris'}))['memories']
+            packed_rows = [row for row in combined_rows if row['text'] == packed_fact]
+            assert len(packed_rows) == 1
+            assert client.retrieve(collection, [packed_rows[0]['id']])[0].payload['text'] == packed_fact
             report = {'model': os.environ['SOAK_LLM_MODEL'] if os.environ.get('QM_DSH_CLOUD') == '1' else 'deterministic',
                       'embedding': 'deterministic-3d',
                       'dsh_process_seconds': round(dsh_seconds, 3),
@@ -171,6 +204,9 @@ def test_dsh_capture_and_mcp_recall_with_scoped_https_owner(tmp_path, monkeypatc
                       'qdrant_client_version': version('qdrant-client'),
                       'commit_sha': os.environ.get('GITHUB_SHA', 'local checkout'),
                       'model_metrics': model_metrics,
+                      'bundle_model_metrics': bundle_metrics,
+                      'model_calls': model_metrics.get('model_calls', 0) + bundle_metrics.get('bundle_model_calls', 0),
+                      'packed_unified_bundle': 'PASS',
                       'scope': 'synthetic-alice/project/iris', 'memory_id': captured[0]['id'],
                       'directions': {'DSH->MCP': 'PASS', 'MCP->DSH': 'PASS',
                                      'Hermes->DSH': 'NOT RUN', 'DSH->Pi': 'PASS (two fresh processes)', 'Codex->DSH': 'NOT RUN'}}

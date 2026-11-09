@@ -19,6 +19,8 @@ def test_manifest_excludes_test_only_harness_artifacts():
     assert "tests/test_managed_bootstrap.mjs" not in manifest
     # Development-only security audits stay out of the sdist.
     assert "prune tests/dev" in manifest
+    assert "prune tests/cross_client_e2e" in manifest
+    assert "exclude integrations/dsh/bundle/package-lock.json" in manifest
     # The opt-in DSH acceptance harness needs files the sdist does not carry.
     assert "exclude tests/dsh_acceptance.py" in manifest
     # The existing-host handoff harness needs an external Runtime checkout.
@@ -48,6 +50,7 @@ def test_dev_security_audits_live_outside_shipped_tests():
         assert not any(
             name.endswith("tests/dev/test_dsh_lock_audit.py") for name in names
         )
+        assert not any(name.startswith('tests/cross_client_e2e/') for name in names)
         assert not any(
             name.endswith(
                 (

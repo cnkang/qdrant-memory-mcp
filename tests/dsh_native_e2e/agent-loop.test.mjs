@@ -27,15 +27,17 @@ const Query = await load('dsh-session-query')
 const Boot = await load('dsh-app-boot')
 const resolutionHome = await mkdtemp(join(tmpdir(), 'dsh-acceptance-resolution-'))
 const resolutionContext = new Context()
-const sourceProfile = join(resolutionHome, 'profiles/source')
+const sourceProfile = process.env.QM_DSH_BUNDLE_PROFILE || join(resolutionHome, 'profiles/source')
 const sourcePackage = fileURLToPath(new URL('../../integrations/dsh/native/', import.meta.url))
-await mkdir(join(sourceProfile, 'node_modules/@cnkang'), { recursive: true })
-await symlink(sourcePackage, join(sourceProfile, 'node_modules/@cnkang/qdrant-memory-dsh-native'), process.platform === 'win32' ? 'junction' : 'dir')
-await writeFile(join(sourceProfile, 'package.json'), JSON.stringify({
+if (!process.env.QM_DSH_BUNDLE_PROFILE) {
+  await mkdir(join(sourceProfile, 'node_modules/@cnkang'), { recursive: true })
+  await symlink(sourcePackage, join(sourceProfile, 'node_modules/@cnkang/qdrant-memory-dsh-native'), process.platform === 'win32' ? 'junction' : 'dir')
+  await writeFile(join(sourceProfile, 'package.json'), JSON.stringify({
   name: 'dsh-native-source-acceptance', private: true,
   dependencies: { '@cnkang/qdrant-memory-dsh-native': `file:${sourcePackage}` },
   dsh: { profile: { bundles: ['@cnkang/qdrant-memory-dsh-native'] } },
-}))
+  }))
+}
 await resolutionContext.plugin(Boot.PluginPackages, { resolution: await Boot.createRuntimeResolution({
   installAnchor: require.resolve('@deepseek-ai/dsh/package.json'), home: resolutionHome,
   profile: Boot.loadProfileDirectory('dsh', sourceProfile, require.resolve('@deepseek-ai/dsh/package.json')),
@@ -44,7 +46,9 @@ after(async () => {
   await resolutionContext.fiber.dispose()
   await rm(resolutionHome, { recursive: true, force: true })
 })
-const Native = await import('../../integrations/dsh/native/index.js')
+const Native = await import(process.env.QM_DSH_BUNDLE_PROFILE
+  ? pathToFileURL(join(sourceProfile, 'node_modules/@cnkang/qdrant-memory-dsh-bundle/native/index.js'))
+  : new URL('../../integrations/dsh/native/index.js', import.meta.url))
 
 const fact = 'Synthetic Project Iris uses SQLite WAL.'
 const captureFact = process.env.QM_DSH_CAPTURE_FACT || fact
@@ -115,7 +119,7 @@ export async function harness(t, config = {}, directory) {
   const usage = []
   ctx.on('llm/stream', (options, next) => {
     provider.requests.push(options)
-    if (cloud && provider.requests.length > 8) throw new Error('Cloud acceptance model-call budget exceeded')
+    if (cloud && provider.requests.length > 4) throw new Error('Cloud acceptance per-process model-call budget exceeded')
     const start = Date.now()
     return (async function* () {
       try {
@@ -195,7 +199,7 @@ test('complete DSH process restart resumes durable opt-in and uncaptured turns',
     const env = { ...process.env, QM_DSH_PROCESS_PHASE: phase, QM_DSH_PROCESS_ROOT: directory }
     delete env.NODE_TEST_CONTEXT
     const child = spawnSync(process.execPath, ['--test', '--test-name-pattern=persisted process fixture',
-      new URL('./process-fixture.mjs', import.meta.url).pathname], {
+      fileURLToPath(new URL('./process-fixture.mjs', import.meta.url))], {
       env,
       encoding: 'utf8', timeout: 12000,
     })
@@ -203,6 +207,40 @@ test('complete DSH process restart resumes durable opt-in and uncaptured turns',
     assert.match(child.stdout, /tests 1\b/, 'the child must actually execute its fixture')
   }
 })
+
+if (process.env.QM_DSH_BUNDLE_PROFILE) {
+  test('packed Bundle runs Native and four MCP tools against one real Owner', { timeout: 30000 }, async (t) => {
+    const h = await harness(t, Native.DEFAULT_CONFIG)
+    await h.plugin.dispose()
+    const Bundle = await import(pathToFileURL(join(sourceProfile, 'node_modules/@cnkang/qdrant-memory-dsh-bundle/index.js')))
+    const bundle = await h.ctx.plugin(Bundle, {
+      mode: 'unified-owner',
+      auto_recall: { enabled: true }, auto_capture: { enabled: true }, memory_injection: { enabled: true },
+    })
+    const names = h.ctx.tools.definitions().map((tool) => tool.name).filter((name) => name.startsWith('mcp__qdrant-memory__'))
+    assert.equal(names.length, 4)
+    const agent = await h.create('iris-packed-bundle')
+    await h.send(agent, captureFact)
+    assert.ok(h.provider.requests.some((r) => JSON.stringify(r.messages).includes('Synthetic Project Iris')))
+    let found
+    const deadline = Date.now() + 10000
+    do {
+      const rows = await Native.runRuntimeRequest('remote-call', { query: 'Iris' })
+      found = rows.memories.find((row) => row.text === captureFact)
+      if (found) break
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    } while (Date.now() < deadline)
+    assert.ok(found, 'packed Native capture must reach the real Owner')
+    await bundle.dispose()
+    assert.equal(h.ctx.tools.definitions().filter((tool) => tool.name.startsWith('mcp__qdrant-memory__')).length, 0)
+    const count = h.provider.requests.length
+    await h.send(agent, 'Ordinary conversation after packed Bundle unload.')
+    assert.equal(h.provider.requests.length, count + 1)
+    assert.notEqual(h.provider.requests.at(-1).purpose, 'qdrant-memory-extraction')
+    console.log(JSON.stringify({ bundle_model_calls: h.provider.requests.length,
+      model_latency_ms: h.latency, usage: h.usage }))
+  })
+}
 
 test('real AgentLoop injects recall into Provider requests and durable Session, then captures', { timeout: 180000 }, async (t) => {
   const h = await harness(t)

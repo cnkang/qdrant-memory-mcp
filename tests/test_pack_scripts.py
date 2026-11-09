@@ -37,7 +37,8 @@ def write_archive(destination, module, source, executable):
     destination.parent.mkdir(parents=True, exist_ok=True)
     with tarfile.open(destination, "w:gz") as package:
         for name in sorted(module.FILES):
-            data = (source / name).read_bytes()
+            path = module.payload_path(source, name) if hasattr(module, 'payload_path') else source / name
+            data = path.read_bytes()
             member = tarfile.TarInfo("package/" + name)
             member.mode = 0o755 if name == executable else 0o644
             member.size = len(data)

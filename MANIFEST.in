@@ -12,11 +12,13 @@ exclude tests/dsh_acceptance.py
 exclude tests/test_native_pi_handoff.py
 exclude tests/test_managed_bridge.py
 prune tests/dev
+prune tests/cross_client_e2e
 recursive-include integrations/workbuddy *.py *.json *.svg *.md
 recursive-include integrations/managed *.mjs *.md *.json
 include integrations/managed/requirements.in integrations/managed/requirements.lock integrations/managed/LICENSE
 include integrations/dsh/README.md integrations/dsh/qdrant-memory.cordis.yml
 recursive-include integrations/dsh/bundle *.json *.yml *.md
+exclude integrations/dsh/bundle/package-lock.json
 prune integrations/dsh/node_modules
 include docs/architecture.md docs/ci.md docs/publishing.md
 include docs/quickstart.md docs/quickstart.zh-CN.md

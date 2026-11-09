@@ -34,6 +34,11 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: '3.11'
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1
+        with:
+          version: '11.28.5'
+          package_json_file: integrations/dsh/native/package.json
+          run_install: false
       - name: Install exact DSH and build the source-snapshot Runtime wheel
         run: |
           npm ci --prefix .github/ci-deps/dsh-native --ignore-scripts --no-audit --no-fund
@@ -48,7 +53,7 @@ jobs:
         run: |
           QDRANT_E2E_URL="http://$(docker compose -p dsh-ci -f tests/cross_client_e2e/docker-compose.yml port qdrant 6333)"
           export QDRANT_E2E_URL
-          python -m pytest -q -s tests/cross_client_e2e/test_dsh_owner.py --junitxml=dsh-cross-client.xml -W error::pytest.PytestUnhandledThreadExceptionWarning
+          python -m pytest -q -s tests/cross_client_e2e/acceptance.py --junitxml=dsh-cross-client.xml -W error::pytest.PytestUnhandledThreadExceptionWarning
       - name: Require executed acceptance
         run: python -c "import xml.etree.ElementTree as E; s=E.parse('dsh-cross-client.xml').findall('.//testsuite'); assert sum(int(x.get('tests',0)) for x in s)>=1; assert all(int(x.get('skipped',0))==0 for x in s)"
       - name: Remove only disposable test resources

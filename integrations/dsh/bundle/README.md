@@ -32,6 +32,8 @@ One trusted identity owns one DSH profile. Do not share an Owner-enabled Host
 among independently authorized users. Grants come from the Owner policy,
 never model content or a supplied user/agent/scope field. Do not install this
 Bundle alongside the old overlay or the private Native bundle.
+Owner modes refuse activation while an existing `qdrant-memory` MCP route
+still exposes tools, before opening another connection.
 
 Changing mode does not migrate any data. Legacy and remote Owner data remain
 separate until an operator explicitly previews, backs up, verifies and approves
