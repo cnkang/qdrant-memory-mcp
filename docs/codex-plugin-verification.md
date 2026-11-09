@@ -32,7 +32,8 @@ without any subscription. Executed run (canonical evidence JSON:
 | exact-ID `update` then exact-ID `delete` | correct IDs; neighborhood scope unchanged (inventory) |
 | fresh-session persistence (new client process) | PASS |
 | hard `SIGKILL` of the launcher mid-session after a real initialize, then a new session | data intact (exit signal −9 observed; recovery PASS) |
-| sibling profile isolation | zero leaking records; cross-profile exact-ID `delete` rejected as an MCP error |
+| sibling profile isolation | zero leaking records in the E2E lane |
+| cross-profile exact-ID `delete` | rejected as an MCP error in the regression suite (`tests/test_codex_plugin.py`), not in the E2E lane |
 | disable via `config.toml`, `plugin remove`, marketplace removal | PASS; uninstall never deleted data |
 | post-uninstall data retention | the Runtime binary alone still serves the record over stdio MCP ("uninstall_preserved_record") |
 
@@ -90,9 +91,11 @@ clearly labeled preview under `integrations/codex-lifecycle/` with:
 `UserPromptSubmit` explicit `remember:` directive capture (no model, no
 extraction, verbatim text only). Real-CLI verification on 0.165.0: the preview
 marketplace installed the hooks plugin (`qdrant-memory-lifecycle@cnkang-lifecycle-preview`),
-its hooks cache resolved, `codex mcp list` stayed untouched (the preview
-declares no server), and remove/cleanup passed. Handler units
-(`tests/test_codex_lifecycle_hooks.py`, 12 cases) verify the released output
+`codex mcp list` stayed untouched (the preview declares no server), and
+remove/cleanup passed. **Hook registration and firing in a real session were
+not observed on 0.165.0**; the manifest install alone is not evidence that the
+file-backed declarations register. Handler units
+(`tests/test_codex_lifecycle_hooks.py`, 18 cases) verify the released output
 contract, size limits, scope enforcement and failure surfacing. **A real
 trust-reviewed Codex session firing both hooks is NOT VERIFIED** (needs a
 subscribed, hook-enabled client session); `Stop`-based automatic capture is
@@ -111,11 +114,18 @@ the recorded artifact). Offline acceptance on this host:
 
 ```text
 pip download (hashes, binary-only) → 64 wheels, 64 MB
-venv + pip install --require-hashes --only-binary=:all: \
+venv + ensurepip + pip install --require-hashes --only-binary=:all: \
        --no-index --no-cache-dir --find-links wheelhouse \
        -r verify-macos-arm64.txt   → PASS, console probe OK (qdrant-memory --help)
-same for macos-x64                                        → PASS, console probe OK
 ```
+
+`--verify` now refuses a target whose architecture differs from the host. The
+lock files carry the universal hash set, so an arm64 host selecting arm64
+wheels does not prove an x64 install. A macOS x64 pass is therefore **NOT
+VERIFIED**: it needs an Intel host, and `cryptography==50.0.2` publishes no
+macOS x86_64 wheel, so the binary-only requirement cannot be satisfied for
+that target until the dependency set changes. The earlier "same for
+macos-x64 → PASS" observation is withdrawn: it was produced on an arm64 host.
 
 Windows and Ubuntu offline installs remain **NOT VERIFIED here** (resolved
 locks exist; runner-proof pending). This does NOT complete a Desktop-only
