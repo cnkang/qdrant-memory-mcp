@@ -58,9 +58,9 @@ Session reads remain performance work; no unbounded in-memory queue was added.
 
 | Layer | Result and scope |
 | --- | --- |
-| Native tests | 44 tests: 26 existing contract fixtures plus 18 real AgentLoop tests; Node 24.18.0, official locked 0.2.2-rc.1 packages |
+| Native tests | 45 tests: 26 existing contract fixtures plus 19 real AgentLoop tests; Node 24.18.0, official locked 0.2.2-rc.1 packages |
 | Actual loop | Provider request contains injected memory and IDs; system messages retain their content; JSONL replay retains injected user messages; tool continuation recalls once; completed turns capture; failed/cancelled turns do not; delegated Agents have no automatic memory authority |
-| History | First-enable exclusion, disabled history, HMR, actual persisted resume and fork, full process restart with eight uncaptured turns, 8/16/32/100-turn sequential and Owner-outage recovery |
+| History | First-enable exclusion, disabled history, HMR, actual persisted resume and fork, real Agent takeover during an executing capture, full process restart with eight uncaptured turns, 8/16/32/100-turn sequential and Owner-outage recovery |
 | Docker | Real Qdrant 1.20.0, Client 1.20.0, one WriterLease/ledger, verified self-signed TLS Owner, separate device tokens, exact Qdrant ID/content and Owner receipt assertions |
 | Real clients | DSH -> independent MCP, MCP -> DSH model request, DSH -> real Pi Host twice in fresh processes |
 | Authorization | Private/project separation, read-only delete rejection, forged identity/scope rejection, foreign-ID delete rejection; invalid tokens denied for search, submit, status and retry |
@@ -144,8 +144,6 @@ No performance optimization is justified by these samples.
 ## Remaining acceptance and Desktop checklist
 
 - Run final-head Linux, macOS ARM64 and Windows CI, including Node 24.9.0.
-- Exercise in-flight takeover under the real Host. Existing narrow fixtures
-  cover executing-capture ownership transfer, but are not real-Host evidence.
 - Run Hermes -> DSH, DSH -> Hermes, and Codex -> DSH using actual Host paths;
   these directions remain NOT RUN, not Owner-API substitutes.
 - Complete real Cloud UPDATE/CONFLICT, model-output and shared-context checks
@@ -161,7 +159,7 @@ No performance optimization is justified by these samples.
 | Required decision | Status | Reason |
 | --- | --- | --- |
 | RUNTIME_0_6_1_RELEASE_READY | NO | Corrected exact-main gates and accepted main Soak remain outstanding |
-| PR_81_MERGE_READY | NO | Final-head blocking CI and remaining in-flight takeover coverage need review |
+| PR_81_MERGE_READY | NO | Final-head blocking CI remains pending |
 | DSH_NATIVE_E2E_VERIFIED | NOT VERIFIED | Core actual-loop/Docker evidence passed; full Host matrix above is incomplete |
 | BUNDLE_IN_PLACE_UPGRADE_SAFE | NOT VERIFIED | Actual local install/upgrade/rollback passed; full platform and Desktop acceptance outstanding |
 | OLLAMA_CLOUD_ACCEPTANCE_VERIFIED | NOT VERIFIED | Protected main/public-wheel dependency; full real-model matrix not executed |

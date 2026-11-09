@@ -106,7 +106,7 @@ export async function harness(t, config = {}, directory) {
   const ctx = new Context()
   t.after(async () => { await ctx.fiber.dispose(); if (!directory) await rm(root, { recursive: true, force: true }) })
   for (const plugin of [LlmRuntime, SessionStore, Projections, SystemPrompt, ToolRuntime, Agents]) {
-    await ctx.plugin(plugin)
+    await ctx.plugin(plugin, plugin === SystemPrompt ? { personaPrefix: 'Synthetic system prompt: preserve exactly.' } : undefined)
   }
   await ctx.plugin(ToolExecutor)
   await ctx.plugin(Persistence, { root, compression: 'none' })
@@ -147,6 +147,12 @@ export async function harness(t, config = {}, directory) {
   const runtime = async (mode, payload, options) => {
     calls.push({ mode, payload, action: options?.action })
     if (ownerState.unavailable) throw new Error('synthetic Owner outage')
+    if (options?.action === 'status' && ownerState.statusBarrier) {
+      const barrier = ownerState.statusBarrier
+      ownerState.statusBarrier = null
+      barrier.started()
+      await barrier.promise
+    }
     if (process.env.QM_DSH_REAL_OWNER === '1') {
       const start = performance.now()
       try {
@@ -253,6 +259,7 @@ test('real AgentLoop injects recall into Provider requests and durable Session, 
   assert.match(JSON.stringify(injected), /Synthetic Project Iris/)
   assert.ok(injected[0].source.memoryIds.includes(process.env.QM_DSH_SEED_ID || 'synthetic-memory-iris'))
   assert.ok(!JSON.stringify(request.messages.filter((m) => m.role === 'system')).includes(fact))
+  assert.match(JSON.stringify(request.messages.filter((m) => m.role === 'system')), /Synthetic system prompt: preserve exactly\./u)
   await h.ctx.sessions.flush(agent.session)
   const snapshot = await h.ctx.sessionQuery.readSession(agent.session.id)
   assert.ok(snapshot.events.some((e) => e.type === 'user/message' && e.data.source?.kind === 'qdrant-memory'))
@@ -344,6 +351,31 @@ test('real persisted AgentLoop resume retains receipts and captures only its nex
   await until(() => h.receipts.length === 2, 'resumed new turn receipt')
   assert.equal(new Set(h.receipts.map((r) => r.event_id)).size, 2)
   await resumed.dispose()
+})
+
+test('real Agent takeover recovers an executing capture exactly once', { timeout: 15000 }, async (t) => {
+  const h = await harness(t)
+  const blocked = Promise.withResolvers()
+  const release = Promise.withResolvers()
+  t.after(() => release.resolve())
+  h.ownerState.statusBarrier = { started: blocked.resolve, promise: release.promise }
+  const id = SessionId('iris-executing-takeover')
+  const first = await h.ctx.agents.create({ sessionId: id,
+    agentOptions: { provider: 'acceptance', model: 'synthetic' },
+  })
+  await h.send(first.agent, captureFact)
+  await blocked.promise
+  await first.dispose()
+  const replacement = await h.ctx.agents.resume({ resumeSessionId: id,
+    agentOptions: { provider: 'acceptance', model: 'synthetic' },
+  })
+  release.resolve()
+  await until(() => h.receipts.length === 1, 'takeover receipt')
+  assert.equal(h.receipts[0].event_id, Native.compileTurn(replacement.agent.session.snapshotEvents(), id, 1).event_id)
+  await h.send(replacement.agent, captureFact)
+  await until(() => h.receipts.length === 2, 'replacement new turn receipt')
+  assert.equal(new Set(h.receipts.map((r) => r.event_id)).size, 2)
+  await replacement.dispose()
 })
 
 test('real fork excludes the inherited parent history from capture', { timeout: 15000 }, async (t) => {
