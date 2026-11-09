@@ -228,9 +228,7 @@ def seeded_python(work: Path) -> Path:
     """A pip-capable interpreter for hash-checked wheel downloads."""
     env_dir = work / "pip-venv"
     run(["uv", "venv", "--seed", "--python", "3.11", str(env_dir)], work)
-    return env_dir / (
-        "Scripts/python.exe" if sys.platform == "win32" else "bin/python"
-    )
+    return env_dir / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
 
 
 def build_wheelhouse(work_dir: Path) -> Path:
@@ -332,7 +330,8 @@ def main():
                 indent=2,
             )
         )
+        return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
