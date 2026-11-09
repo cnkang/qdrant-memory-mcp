@@ -144,19 +144,24 @@ failed, or quarantined work is left for Owner recovery rather than re-extracted
 under the same ID. The Python client also replays a single candidate body with
 the same event ID after an uncertain response.
 
-The queue is bounded to 16 turns and recovery checks at most the latest eight
-completed turns when a DSH agent is created. If no durable session flush handler
-is registered, capture is skipped. Before DSH flush and an Owner receipt, a
-process crash can leave a turn uncaptured. This is a bounded recovery design,
-not a zero-loss claim. Queue overflow and owner failures are logged without
+The queue is bounded to 16 turns. Recovery processes every completed turn that
+follows the saved activation boundary in batches of eight, and each batch
+persists a durable `recovery-progress` record in the session log, so a resumed
+session replays only work without a durable outcome. When the last
+`capture-state` record is disabled or absent, enabling capture starts at the
+activation position, which excludes earlier turns; enabling it again cannot
+backfill them. A capture without a durable flush handler keeps retrying
+initialization within the capture timeout instead of disabling capture
+permanently. Before DSH flush and an Owner receipt, a process crash can leave
+a turn uncaptured. This is a bounded recovery design, not a zero-loss claim. Queue overflow and owner failures are logged without
 transcript content or credentials.
 
-Applying the plugin to a host with live agents schedules the same bounded
-recovery. If capture was disabled before, enabling it can send the latest eight
-completed turns of each live agent to extraction; use a fresh profile or accept
-that one-time backfill. On `agent/disposed`, queued captures get a five-second
-drain before the agent lifetime is aborted. Plugin unload is not a flush point:
-it aborts immediately and relies on the durable DSH log for the next recovery.
+Applying the plugin to a host with live agents schedules the same recovery.
+Because the activation position excludes earlier turns, enabling capture on a
+previously disabled agent does not backfill its completed turns. On
+`agent/disposed`, queued captures get a five-second drain before the agent
+lifetime is aborted. Plugin unload is not a flush point: it aborts immediately
+and relies on the durable DSH log for the next recovery.
 
 Rollback disables the three switches and removes only the native plugin, then
 restarts the selected profile. It does not delete the profile, Owner receipts,
