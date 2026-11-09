@@ -131,18 +131,23 @@ def profile_servers(node, ancestors=()):
     if isinstance(node, MappingNode):
         item = mapping(node)
         assert not (item.get('id') and item['id'].value == 'cnkang-qdrant-memory-mcp'), 'Memory plugin already installed'
-        # Count actual plugin entries only: a profile may reference this entry
-        # from unrelated metadata, and the dump expands such references into
-        # mappings without an id or config that do not add servers.
-        if not item.get('id'):
-            return
         name = item.get('name')
+        group = item.get('group')
+        is_group = group is not None and group.value == 'true'
+        # Plugin groups store their child entries under config. Inspect those
+        # entries even when the group itself has no profile id.
+        if not item.get('id') and not is_group and not (
+            name and name.value == '@deepseek-ai/dsh-mcp-client'
+        ):
+            return
         if name and name.value == '@deepseek-ai/dsh-mcp-client':
             assert name.tag == 'tag:yaml.org,2002:str'
             server = mapping(item['config'])['serverName']
             assert isinstance(server, ScalarNode) and server.tag == 'tag:yaml.org,2002:str'
             yield server.value
-        children = [value for _, value in node.value]
+        children = [item['config']] if is_group and isinstance(item.get('config'), SequenceNode) else [
+            value for _, value in node.value
+        ]
     elif isinstance(node, SequenceNode):
         children = node.value
     else:
@@ -283,18 +288,23 @@ def profile_servers(node, ancestors=()):
     if isinstance(node, MappingNode):
         item = mapping(node)
         assert not (item.get('id') and item['id'].value == 'cnkang-qdrant-memory-mcp'), 'Memory plugin already installed'
-        # Count actual plugin entries only: a profile may reference this entry
-        # from unrelated metadata, and the dump expands such references into
-        # mappings without an id or config that do not add servers.
-        if not item.get('id'):
-            return
         name = item.get('name')
+        group = item.get('group')
+        is_group = group is not None and group.value == 'true'
+        # Plugin groups store their child entries under config. Inspect those
+        # entries even when the group itself has no profile id.
+        if not item.get('id') and not is_group and not (
+            name and name.value == '@deepseek-ai/dsh-mcp-client'
+        ):
+            return
         if name and name.value == '@deepseek-ai/dsh-mcp-client':
             assert name.tag == 'tag:yaml.org,2002:str'
             server = mapping(item['config'])['serverName']
             assert isinstance(server, ScalarNode) and server.tag == 'tag:yaml.org,2002:str'
             yield server.value
-        children = [value for _, value in node.value]
+        children = [item['config']] if is_group and isinstance(item.get('config'), SequenceNode) else [
+            value for _, value in node.value
+        ]
     elif isinstance(node, SequenceNode):
         children = node.value
     else:
