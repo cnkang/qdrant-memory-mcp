@@ -266,7 +266,7 @@ function dsh {
                    COMPOSED_CONFIG=COMPOSED_CONFIGS[base], DUMP_FAIL=str(int(base == 'dump-failure')))
         result = subprocess.run(['powershell.exe', '-NoProfile', '-NonInteractive', '-File', str(script)],
                                 env=env, capture_output=True, timeout=30)
-        allowed = version == '0.3.1' and base in ('clean', 'unrelated')
+        allowed = version == '0.3.1' and base in ('clean', 'unrelated', 'group-unrelated')
         diagnostic = (result.stdout + result.stderr).decode('utf-8', errors='replace')
         assert (result.returncode == 0) == allowed, diagnostic
         assert launched.exists() == allowed, diagnostic
