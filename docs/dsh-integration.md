@@ -91,6 +91,9 @@ The launch guard uses uv to fetch pinned PyYAML and inspects YAML nodes without
 evaluating `!!js` tags. It accepts the documented `config.args` prefix with
 `--from PACKAGE` or `--from=PACKAGE` in an insert-only overlay. Other patch
 operations fail before launch because they could override the validated args.
+The guard also rejects duplicate MCP server names and a `--home` that differs
+from the prepared profile. Keep the published dynamic home expression or use
+the prepared profile's literal path.
 
 ```sh
 PROFILE="${QDRANT_MEMORY_DSH_PROFILE:-$HOME/.qdrant-memory-dsh}"
@@ -111,9 +114,10 @@ uvx --from qdrant-memory-mcp==0.3.1 qdrant-memory-mcp --home "$PROFILE" doctor &
     fi
   fi
   # Parse YAML nodes only: !!js expressions are never evaluated.
-  if uv run --no-project --with PyYAML==6.0.3 python -I - "$PATCH" qdrant-memory-mcp==0.3.1 <<'PY'
+  if uv run --no-project --with PyYAML==6.0.3 python -I - "$PATCH" qdrant-memory-mcp==0.3.1 "$PROFILE" <<'PY'
 import sys
 import yaml
+from pathlib import Path
 from yaml.nodes import MappingNode, ScalarNode, SequenceNode
 
 
@@ -133,20 +137,31 @@ try:
         root = yaml.compose(source, Loader=yaml.BaseLoader)
     assert isinstance(root, SequenceNode)
     plugins = []
+    servers = []
     for operation in root.value:
         entries = mapping(operation)['insert']
         assert isinstance(entries, SequenceNode)
         for entry in entries.value:
             plugin = mapping(entry)
+            name = plugin.get('name')
+            if name is not None:
+                assert isinstance(name, ScalarNode) and name.tag == 'tag:yaml.org,2002:str'
+            if name and name.value == '@deepseek-ai/dsh-mcp-client':
+                server = mapping(plugin['config'])['serverName']
+                assert isinstance(server, ScalarNode) and server.tag == 'tag:yaml.org,2002:str'
+                servers.append(server.value)
             if plugin.get('id') and plugin['id'].value == 'cnkang-qdrant-memory-mcp':
                 plugins.append(plugin)
     assert len(plugins) == 1, 'Expected exactly one memory plugin'
+    name = plugins[0]['name']
+    assert name.tag == 'tag:yaml.org,2002:str' and name.value == '@deepseek-ai/dsh-mcp-client'
     config = mapping(plugins[0]['config'])
+    assert servers.count(config['serverName'].value) == 1, 'Conflicting MCP serverName'
     command = config['command']
     assert command.tag == 'tag:yaml.org,2002:str' and command.value == 'uvx'
     args = config['args']
     assert isinstance(args, SequenceNode)
-    # Later --home/env tags stay as YAML nodes and are never evaluated.
+    # Tagged values stay as YAML nodes and are never evaluated.
     prefix = []
     for arg in args.value[:3]:
         assert isinstance(arg, ScalarNode) and arg.tag == 'tag:yaml.org,2002:str'
@@ -154,8 +169,27 @@ try:
     package = sys.argv[2]
     assert (prefix == ['--from', package, 'qdrant-memory-mcp']
             or prefix[:2] == ['--from=' + package, 'qdrant-memory-mcp'])
+    tail = args.value[3 if prefix[0] == '--from' else 2:]
+    assert len(tail) in (2, 3) and tail[-1].value == 'mcp'
+    assert tail[-1].tag == 'tag:yaml.org,2002:str'
+    if len(tail) == 3:
+        assert tail[0].tag == 'tag:yaml.org,2002:str' and tail[0].value == '--home'
+        home = tail[1]
+    else:
+        assert tail[0].tag == 'tag:yaml.org,2002:str' and tail[0].value.startswith('--home=')
+        home = ScalarNode('tag:yaml.org,2002:str', tail[0].value[len('--home='):])
+    assert isinstance(home, ScalarNode)
+    if home.tag == 'tag:yaml.org,2002:js':
+        trusted = (
+            "process.env.QDRANT_MEMORY_DSH_PROFILE || "
+            "require('node:path').join(require('node:os').homedir(), '.qdrant-memory-dsh')"
+        )
+        assert ' '.join(home.value.split()) == trusted, 'Unverified dynamic home'
+    else:
+        assert home.tag == 'tag:yaml.org,2002:str'
+        assert Path(home.value).expanduser().resolve() == Path(sys.argv[3]).expanduser().resolve(), 'Profile mismatch'
 except (AssertionError, KeyError, AttributeError, OSError, yaml.YAMLError):
-    sys.exit('Invalid patch: config.args must select qdrant-memory-mcp==0.3.1; DSH was not launched.')
+    sys.exit('Invalid patch: require one unambiguous memory server, qdrant-memory-mcp==0.3.1 and the prepared profile; DSH was not launched.')
 PY
   then
     dsh web --patch "$PATCH"
@@ -195,6 +229,7 @@ if (-not (Test-Path $Patch)) {
 $ValidatePatch = @'
 import sys
 import yaml
+from pathlib import Path
 from yaml.nodes import MappingNode, ScalarNode, SequenceNode
 
 
@@ -214,20 +249,31 @@ try:
         root = yaml.compose(source, Loader=yaml.BaseLoader)
     assert isinstance(root, SequenceNode)
     plugins = []
+    servers = []
     for operation in root.value:
         entries = mapping(operation)['insert']
         assert isinstance(entries, SequenceNode)
         for entry in entries.value:
             plugin = mapping(entry)
+            name = plugin.get('name')
+            if name is not None:
+                assert isinstance(name, ScalarNode) and name.tag == 'tag:yaml.org,2002:str'
+            if name and name.value == '@deepseek-ai/dsh-mcp-client':
+                server = mapping(plugin['config'])['serverName']
+                assert isinstance(server, ScalarNode) and server.tag == 'tag:yaml.org,2002:str'
+                servers.append(server.value)
             if plugin.get('id') and plugin['id'].value == 'cnkang-qdrant-memory-mcp':
                 plugins.append(plugin)
     assert len(plugins) == 1, 'Expected exactly one memory plugin'
+    name = plugins[0]['name']
+    assert name.tag == 'tag:yaml.org,2002:str' and name.value == '@deepseek-ai/dsh-mcp-client'
     config = mapping(plugins[0]['config'])
+    assert servers.count(config['serverName'].value) == 1, 'Conflicting MCP serverName'
     command = config['command']
     assert command.tag == 'tag:yaml.org,2002:str' and command.value == 'uvx'
     args = config['args']
     assert isinstance(args, SequenceNode)
-    # Later --home/env tags stay as YAML nodes and are never evaluated.
+    # Tagged values stay as YAML nodes and are never evaluated.
     prefix = []
     for arg in args.value[:3]:
         assert isinstance(arg, ScalarNode) and arg.tag == 'tag:yaml.org,2002:str'
@@ -235,10 +281,29 @@ try:
     package = sys.argv[2]
     assert (prefix == ['--from', package, 'qdrant-memory-mcp']
             or prefix[:2] == ['--from=' + package, 'qdrant-memory-mcp'])
+    tail = args.value[3 if prefix[0] == '--from' else 2:]
+    assert len(tail) in (2, 3) and tail[-1].value == 'mcp'
+    assert tail[-1].tag == 'tag:yaml.org,2002:str'
+    if len(tail) == 3:
+        assert tail[0].tag == 'tag:yaml.org,2002:str' and tail[0].value == '--home'
+        home = tail[1]
+    else:
+        assert tail[0].tag == 'tag:yaml.org,2002:str' and tail[0].value.startswith('--home=')
+        home = ScalarNode('tag:yaml.org,2002:str', tail[0].value[len('--home='):])
+    assert isinstance(home, ScalarNode)
+    if home.tag == 'tag:yaml.org,2002:js':
+        trusted = (
+            "process.env.QDRANT_MEMORY_DSH_PROFILE || "
+            "require('node:path').join(require('node:os').homedir(), '.qdrant-memory-dsh')"
+        )
+        assert ' '.join(home.value.split()) == trusted, 'Unverified dynamic home'
+    else:
+        assert home.tag == 'tag:yaml.org,2002:str'
+        assert Path(home.value).expanduser().resolve() == Path(sys.argv[3]).expanduser().resolve(), 'Profile mismatch'
 except (AssertionError, KeyError, AttributeError, OSError, yaml.YAMLError):
-    sys.exit('Invalid patch: config.args must select qdrant-memory-mcp==0.3.1; DSH was not launched.')
+    sys.exit('Invalid patch: require one unambiguous memory server, qdrant-memory-mcp==0.3.1 and the prepared profile; DSH was not launched.')
 '@
-$ValidatePatch | uv run --no-project --with PyYAML==6.0.3 python -I - $Patch qdrant-memory-mcp==0.3.1
+$ValidatePatch | uv run --no-project --with PyYAML==6.0.3 python -I - $Patch qdrant-memory-mcp==0.3.1 $MemoryProfile
 if ($LASTEXITCODE -ne 0) { throw "Patch validation failed; DSH was not launched." }
 dsh web --patch $Patch
 ```
