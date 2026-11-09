@@ -38,13 +38,34 @@ PLATFORM_LOCKS = {
     "macos-x64": ("x86_64-apple-darwin", "3.11"),
     "windows-x64": ("x86_64-pc-windows-msvc", "3.11"),
 }
+_SAFE_SUBPROCESS_ARGUMENT = re.compile(
+    r"^(?:"
+    r"-C|-m|-o|-r|-d|--depth|--wheel|--out-dir|--python-version|"
+    r"--python-platform|--generate-hashes|--seed|--python|--require-hashes|"
+    r"--only-binary=:all:|--no-deps|--no-index|--no-cache-dir|--find-links|--help"
+    r"|[^-\x00-\x1f\x7f][^\x00-\x1f\x7f]*"
+    r")$"
+)
+_PATH_COMMANDS = frozenset({"git", "uv"})
 
 
-def run(argv, cwd, *, check=True):
-    """Run a subprocess and cascade failures with the captured stderr."""
-    completed = subprocess.run(argv, cwd=cwd, capture_output=True, text=True)
+def run(argv: list[str], cwd: Path, *, check=True):
+    """Run an approved CLI command without accepting injected option tokens."""
+    if not isinstance(argv, list) or not argv or not isinstance(argv[0], str):
+        raise ValueError("subprocess command must be a non-empty argument list")
+    executable = argv[0]
+    if executable not in _PATH_COMMANDS and not Path(executable).is_absolute():
+        raise ValueError("subprocess executable must be an approved command or absolute path")
+
+    safe_argv = []
+    for argument in argv:
+        if not isinstance(argument, str) or _SAFE_SUBPROCESS_ARGUMENT.fullmatch(argument) is None:
+            raise ValueError("subprocess arguments contain an unapproved option or control character")
+        safe_argv.append(argument)
+
+    completed = subprocess.run(safe_argv, cwd=cwd, capture_output=True, text=True)
     if check and completed.returncode:
-        raise RuntimeError(f"{' '.join(argv[:2])} failed: {completed.stderr[-800:]}")
+        raise RuntimeError(f"{' '.join(safe_argv[:2])} failed: {completed.stderr[-800:]}")
     return completed
 
 
@@ -348,4 +369,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    main()
