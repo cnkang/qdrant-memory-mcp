@@ -26,6 +26,7 @@ COMPOSED_CONFIGS = {
     'conflict': OTHER_MCP + OTHER_MCP.replace('installed-mcp', 'second-mcp'),
     'malformed': 'plugins: [',
     'dump-failure': '[]',
+    'unicode-conflict': BASE_MCP.replace('qdrant-memory', '共享记忆'),
 }
 
 
@@ -68,17 +69,20 @@ def test_effective_args_select_prepared_package(tmp_path, guide, inline, version
     lambda text: text + '\n- id: cnkang-qdrant-memory-mcp\n  config:\n    args: [--from=qdrant-memory-mcp==0.3.0, qdrant-memory-mcp]\n',
     lambda text: text + '\n' + text,
 ])
-def test_invalid_active_configuration_is_rejected(tmp_path, mutation):
+@pytest.mark.parametrize('guide', GUIDES, ids=lambda path: path.name)
+def test_invalid_active_configuration_is_rejected(tmp_path, mutation, guide):
     """Ambiguous, dynamic, missing, and unsupported launch prefixes fail closed."""
-    text = GUIDES[0].read_text(encoding='utf-8')
-    validator = re.search(r'(import sys\nimport yaml\n.*?)\nPY\n', text, re.S)[1]
+    text = guide.read_text(encoding='utf-8')
+    validators = re.findall(r'(import sys\nimport yaml\n.*?)(?=\nPY\n|\n\'@)', text, re.S)
+    assert len(validators) == 2
     selected = tmp_path / 'patch.yml'
     selected.write_text(mutation((ROOT / 'integrations/dsh/qdrant-memory.cordis.yml').read_text(encoding='utf-8')), encoding='utf-8')
-    result = subprocess.run(
-        [sys.executable, '-c', validator, str(selected), 'qdrant-memory-mcp==0.3.1', str(tmp_path), str(tmp_path / 'composed.yml')],
-        capture_output=True, encoding='utf-8', timeout=10,
-    )
-    assert result.returncode != 0
+    for validator in validators:
+        result = subprocess.run(
+            [sys.executable, '-c', validator, str(selected), 'qdrant-memory-mcp==0.3.1', str(tmp_path), str(tmp_path / 'composed.yml')],
+            capture_output=True, encoding='utf-8', timeout=10,
+        )
+        assert result.returncode != 0
 
 
 @pytest.mark.parametrize('guide', GUIDES, ids=lambda path: path.name)
@@ -91,6 +95,8 @@ def test_shell_launch_gate(tmp_path, guide, version, base):
     patch = (ROOT / 'integrations/dsh/qdrant-memory.cordis.yml').read_text(encoding='utf-8')
     patch = patch.replace('qdrant-memory-mcp==0.3.1', f'qdrant-memory-mcp=={version}')
     patch = patch.replace('      config:', '      decoy: [--from, qdrant-memory-mcp==0.3.1]\n      config:')
+    if base == 'unicode-conflict':
+        patch = patch.replace('serverName: qdrant-memory', 'serverName: 共享记忆')
     (profile / 'qdrant-memory.cordis.yml').write_text(patch, encoding='utf-8')
     launched = tmp_path / 'launched'
     # Stub provisioning, while executing the real validator with CI's Python.
@@ -124,6 +130,42 @@ dsh() {
     assert (result.returncode == 0) == allowed, result
     if launched.exists():
         assert Path(launched.read_text(encoding='utf-8')) == profile / 'qdrant-memory.cordis.yml'
+
+
+@pytest.mark.parametrize('guide', GUIDES, ids=lambda path: path.name)
+@pytest.mark.parametrize('sourced', [False, True])
+def test_failed_download_stops_before_validation(tmp_path, guide, sourced):
+    """Download failure returns failure while the calling shell remains alive."""
+    body = re.search(r'```sh\n(PROFILE=.*?)\n```', guide.read_text(encoding='utf-8'), re.S)[1]
+    script = tmp_path / 'setup.sh'
+    script.write_text('''uvx() { return 0; }
+curl() { printf partial > "$3"; return 22; }
+uv() { : > "$CHECK_MARKER"; return 1; }
+dsh() { : > "$CHECK_MARKER"; return 1; }
+''' + body, encoding='utf-8', newline='\n')
+    marker = tmp_path / 'validated'
+    survived = tmp_path / 'survived'
+    profile = tmp_path / 'profile'
+    env = dict(os.environ, QDRANT_MEMORY_DSH_PROFILE=profile.as_posix(),
+               CHECK_MARKER=marker.as_posix(), SURVIVED=survived.as_posix(),
+               SOURCE_SCRIPT=script.as_posix(), SOURCE_MODE=str(int(sourced)))
+    wrapper = '''if [ "$SOURCE_MODE" = 1 ]; then
+  . "$SOURCE_SCRIPT"
+else
+  "$BASH" "$SOURCE_SCRIPT"
+fi
+status=$?
+: > "$SURVIVED"
+exit "$status"
+'''
+    bash = (str(Path(os.environ['ProgramFiles']) / 'Git/bin/bash.exe')
+            if sys.platform == 'win32' else 'bash')
+    result = subprocess.run([bash, '--noprofile', '--norc', '-s'], input=wrapper,
+                            env=env, capture_output=True, encoding='utf-8', timeout=10)
+    assert result.returncode != 0 and survived.exists(), result
+    assert 'Patch download failed' in result.stderr
+    assert not marker.exists()
+    assert not list(profile.glob('qdrant-memory.cordis.yml*'))
 
 
 @pytest.mark.parametrize('guide', GUIDES, ids=lambda path: path.name)
@@ -185,8 +227,12 @@ if sys.platform == 'win32':
         patch = profile / 'qdrant-memory.cordis.yml'
         patch.write_text((ROOT / 'integrations/dsh/qdrant-memory.cordis.yml').read_text(encoding='utf-8').replace(
             'qdrant-memory-mcp==0.3.1', f'qdrant-memory-mcp=={version}'), encoding='utf-8')
+        if base == 'unicode-conflict':
+            patch.write_text(patch.read_text(encoding='utf-8').replace(
+                'serverName: qdrant-memory', 'serverName: 共享记忆'), encoding='utf-8')
         launched = tmp_path / 'launched'
-        stubs = '''function uvx { $global:LASTEXITCODE = 0 }
+        stubs = '''[Console]::OutputEncoding = [Text.Encoding]::GetEncoding(1252)
+function uvx { $global:LASTEXITCODE = 0 }
 function uv {
   $Source = $input -join "`n"
   $Source | & $env:VALIDATOR_PYTHON @($args[5..($args.Length - 1)])
@@ -194,8 +240,8 @@ function uv {
 }
 function dsh {
   if ($args[0] -eq 'web' -and $args[1] -eq '--dump-config') {
-    $global:LASTEXITCODE = [int]$env:DUMP_FAIL
-    if ($LASTEXITCODE -eq 0) { Write-Output $env:COMPOSED_CONFIG }
+    & $env:VALIDATOR_PYTHON -c 'import os,sys; sys.stdout.buffer.write(os.environ["COMPOSED_CONFIG"].encode("utf-8")); sys.exit(int(os.environ["DUMP_FAIL"]))'
+    $global:LASTEXITCODE = $LASTEXITCODE
     return
   }
   if ($args[0] -ne 'web' -or $args[1] -ne '--patch') { throw 'Unexpected DSH args' }
