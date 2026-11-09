@@ -18,7 +18,7 @@ const config = Bundle.Config({})
 assert.equal(config.mode, 'legacy')
 for (const key of ['auto_capture', 'auto_recall', 'memory_injection']) assert.equal(config[key].enabled, false)
 const calls = []
-const ctx = { plugin: async (module, settings) => { calls.push({ module, settings }) } }
+const ctx = { tools: { definitions: () => [] }, plugin: async (module, settings) => { calls.push({ module, settings }) } }
 await Bundle.apply(ctx, config)
 assert.equal(calls.length, 1)
 assert.equal(calls[0].settings.transport, 'stdio')
@@ -38,5 +38,10 @@ assert.equal(calls[2].module.name, 'qdrant-memory-dsh-native')
 await Bundle.apply(ctx, { ...config, mode: 'native-owner' })
 assert.equal(calls.length, 4)
 assert.equal(calls[3].module.name, 'qdrant-memory-dsh-native')
+ctx.tools.definitions = () => [{ name: 'mcp__qdrant-memory__qdrant_memory_search' }]
+for (const mode of ['native-owner', 'unified-owner']) {
+  await assert.rejects(Bundle.apply(ctx, { ...config, mode }), /Remove the existing/u)
+}
+assert.equal(calls.length, 4, 'an existing Legacy route must block Owner activation before another connection starts')
 console.log('Installed bundle: legacy defaults, mode refusal and one unified Owner target verified')
 await root.fiber.dispose()

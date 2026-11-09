@@ -69,14 +69,21 @@ Session reads remain performance work; no unbounded in-memory queue was added.
 | Official DSH client | Five existing official CLI/client/CRUD tests pass with the upgraded 0.2.2-rc.1 test lock |
 | npm tarball | Exact six-file whitelist, symlink/path rejection, manifest validation, canonical Native byte comparison, SHA256; two fresh npm packs produce identical bytes |
 | Upgrade/rollback | Actual official Plugin Manager: published 0.1.6 tgz -> candidate tgz -> 0.1.6 tgz -> remove; one stable entry throughout; synthetic profile sentinel retained; Host module imported through official profile package resolution |
+| Packed Unified Owner | Actual tarball installed by the official Plugin Manager, then imported with the official package resolver into the real AgentLoop: four real HTTPS MCP tools, automatic recall/capture against the same Owner, exact new Qdrant record, and clean tool removal/ordinary conversation on unload |
 
 The reviewed candidate archive SHA256 is
-`5f682747835b7cd133002eacacdaaef06afb627bd93f7ee8e0e50f1837d3abc5`.
+`eff91e374a9882c2cb760d5aaa07dad63de430b2ea9bfbf5023fd720eb91d75d`.
 Files are `package.json`, `index.js`, `native/index.js`, `cordis.patch.yml`,
 `README.md`, and `LICENSE`. Repository locks pin the source dependencies.
 The release script accepts an rc version, requires the exact current main SHA,
 and the draft-asset workflow now checks exact-SHA blocking CI before packing.
 No npm or PyPI upload, tag, Release or merge has been performed.
+
+Full ordinary Python source suite after rebuilding current distributions:
+409 passed, one existing platform-specific skip. The external Docker acceptance
+is explicitly invoked by its dedicated blocking workflow, not collected by
+the ordinary Python distribution suite. Fresh sdist inspection confirms that
+neither its external harness nor npm lockfiles ship to PyPI.
 
 ## Runtime readiness
 
@@ -137,8 +144,6 @@ No performance optimization is justified by these samples.
 ## Remaining acceptance and Desktop checklist
 
 - Run final-head Linux, macOS ARM64 and Windows CI, including Node 24.9.0.
-- Verify the combined tarball's Native operation under the complete Host
-  Loader, beyond module resolution/configuration and canonical source tests.
 - Exercise in-flight takeover under the real Host. Existing narrow fixtures
   cover executing-capture ownership transfer, but are not real-Host evidence.
 - Run Hermes -> DSH, DSH -> Hermes, and Codex -> DSH using actual Host paths;
@@ -156,7 +161,7 @@ No performance optimization is justified by these samples.
 | Required decision | Status | Reason |
 | --- | --- | --- |
 | RUNTIME_0_6_1_RELEASE_READY | NO | Corrected exact-main gates and accepted main Soak remain outstanding |
-| PR_81_MERGE_READY | NO | Final-head blocking CI and remaining real packaged Host coverage need review |
+| PR_81_MERGE_READY | NO | Final-head blocking CI and remaining in-flight takeover coverage need review |
 | DSH_NATIVE_E2E_VERIFIED | NOT VERIFIED | Core actual-loop/Docker evidence passed; full Host matrix above is incomplete |
 | BUNDLE_IN_PLACE_UPGRADE_SAFE | NOT VERIFIED | Actual local install/upgrade/rollback passed; full platform and Desktop acceptance outstanding |
 | OLLAMA_CLOUD_ACCEPTANCE_VERIFIED | NOT VERIFIED | Protected main/public-wheel dependency; full real-model matrix not executed |

@@ -28,6 +28,9 @@ export async function apply(ctx, config) {
     return
   }
   if (!['native-owner', 'unified-owner'].includes(config.mode)) throw new Error('Unknown Qdrant Memory storage mode')
+  if (ctx.tools.definitions().some((tool) => tool.name.startsWith('mcp__qdrant-memory__'))) {
+    throw new Error('Remove the existing qdrant-memory MCP route before selecting an Owner mode')
+  }
   const target = Native.runtimeTarget(process.env)
   if (config.mode === 'unified-owner') {
     await ctx.plugin(McpClient, {
