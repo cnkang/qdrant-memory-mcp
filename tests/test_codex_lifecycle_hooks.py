@@ -4,6 +4,7 @@ import importlib.util
 import json
 import shutil
 import sys
+import types
 from pathlib import Path
 
 import pytest
@@ -777,3 +778,213 @@ def test_extractor_records_rejections_and_never_adds(hook_env, monkeypatch, caps
     )
     assert stored["candidates"] == []
     assert not any(argv and argv[0] == "add" for argv in attempted)
+
+
+# --- Top-up: runtime helper errors + recall/capture edge branches ---
+
+
+def test_call_runtime_surfaces_os_failure(hook_env, monkeypatch):
+    runtime = load("lifecycle_runtime")
+
+    def raise_os(*argv, **kwargs):
+        raise FileNotFoundError("gone")
+
+    monkeypatch.setattr(runtime, "subprocess", types.SimpleNamespace(run=raise_os))
+    with pytest.raises(runtime.HookError, match="gone"):
+        runtime.call_runtime("search", "--query", "x")
+
+
+def test_call_runtime_surfaces_timeouts(hook_env, monkeypatch):
+    import subprocess as real_subprocess
+
+    runtime = load("lifecycle_runtime")
+
+    def raise_timeout(*argv, **kwargs):
+        raise real_subprocess.TimeoutExpired(cmd="rt", timeout=1)
+
+    monkeypatch.setattr(runtime.subprocess, "run", raise_timeout)
+    with pytest.raises(runtime.HookError, match="timed out"):
+        runtime.call_runtime("search", "--query", "x")
+
+
+def test_call_runtime_passes_direct_argv(hook_env, monkeypatch):
+    runtime = load("lifecycle_runtime")
+    seen = []
+
+    def fake(argv, **kwargs):
+        seen.append(argv)
+        return types.SimpleNamespace(returncode=0, stdout='{"ok": 1}', stderr="")
+
+    monkeypatch.setattr(runtime.subprocess, "run", fake)
+    code = runtime.call_runtime("search", "--query", "x")
+    assert code == (0, '{"ok": 1}', "")
+    assert seen[0][1:3] == ["--home", str(runtime.profile_path())]
+    assert "search" in seen[0] and "--query" in seen[0]
+
+
+def test_emit_with_only_system_message(hook_env, capsys):
+    runtime = load("lifecycle_runtime")
+    assert runtime.emit(system_message="note only") == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload == {"systemMessage": "note only"}
+
+
+def test_emit_both_context_and_message(hook_env, capsys):
+    runtime = load("lifecycle_runtime")
+    assert runtime.emit(additional_context="ctx", system_message="warn") == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["systemMessage"] == "warn"
+    assert payload["hookSpecificOutput"]["additionalContext"] == "ctx"
+
+
+def test_read_hook_input_rejects_not_object(hook_env, monkeypatch):
+    runtime = load("lifecycle_runtime")
+    monkeypatch.setattr("sys.stdin", type("S", (), {"read": staticmethod(lambda: "[1]")})())
+    with pytest.raises(runtime.HookError, match="JSON object"):
+        runtime.read_hook_input()
+
+
+def test_read_hook_input_rejects_malformed(hook_env, monkeypatch):
+    runtime = load("lifecycle_runtime")
+    monkeypatch.setattr("sys.stdin", type("S", (), {"read": staticmethod(lambda: "{oops")})())
+    with pytest.raises(runtime.HookError, match="Invalid hook input"):
+        runtime.read_hook_input()
+
+
+def test_recall_query_fallback_for_root_path(monkeypatch):
+    module = load("session_recall")
+    assert module.recall_query({"cwd": "/"}) == "/"
+
+
+def test_recall_misread_runtime_output(hook_env, monkeypatch, capsys):
+    module = load("session_recall")
+    monkeypatch.setattr(module.runtime, "load_scope", lambda: ("u", "a"))
+    monkeypatch.setattr(module.runtime, "call_runtime", lambda *a, **k: (0, "not-json", ""))
+    feed_stdin(monkeypatch, {"cwd": "/tmp/demo"})
+    assert module.main() == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert "misread Runtime output" in payload["systemMessage"]
+
+
+def test_recall_tolerates_wrong_shape(hook_env, monkeypatch, capsys):
+    module = load("session_recall")
+    monkeypatch.setattr(module.runtime, "load_scope", lambda: ("u", "a"))
+    monkeypatch.setattr(module.runtime, "call_runtime", lambda *a, **k: (0, '{"nope": 1}', ""))
+    feed_stdin(monkeypatch, {"cwd": "/tmp/shape"})
+    assert module.main() == 0
+    assert capsys.readouterr().out == ""
+
+
+def test_recall_truncates_long_context(hook_env, monkeypatch, capsys):
+    module = load("session_recall")
+    monkeypatch.setattr(module.runtime, "load_scope", lambda: ("u", "a"))
+    feed_stdin(monkeypatch, {"cwd": "/tmp/demo"})
+
+    def fake(*a, **k):
+        rows = {"memories": [{"text": "z" * 4000}]}
+        return 0, json.dumps(rows), ""
+
+    monkeypatch.setattr(module.runtime, "call_runtime", fake)
+    assert module.main() == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert len(payload["hookSpecificOutput"]["additionalContext"]) <= module.runtime.DEFAULT_CONTEXT_CHARS
+
+
+def test_remember_fullwidth_colon_is_matched(hook_env, monkeypatch, capsys):
+    capture = load("user_prompt_capture")
+    calls = []
+    monkeypatch.setattr(
+        capture.runtime,
+        "call_runtime",
+        lambda *a, **k: calls.append(a) or (0, "{\"id\": \"1\"}", ""),
+    )
+    monkeypatch.setattr(capture.runtime, "load_scope", lambda: ("u", "a"))
+    feed_stdin(monkeypatch, {"prompt": "Remember：use warm mugs."})
+    assert capture.main() == 0
+    _ = json.loads(capsys.readouterr().out)
+    assert calls and calls[0][-1] == "use warm mugs."
+
+
+def test_capture_non_string_prompt_is_ignored(hook_env, monkeypatch, capsys):
+    capture = load("user_prompt_capture")
+    feed_stdin(monkeypatch, {"prompt": 42})
+    assert capture.main() == 0
+    assert capsys.readouterr().out == ""
+
+
+def test_capture_blank_prompt_is_ignored(hook_env, monkeypatch, capsys):
+    capture = load("user_prompt_capture")
+    feed_stdin(monkeypatch, {"prompt": "   "})
+    assert capture.main() == 0
+    assert capsys.readouterr().out == ""
+
+
+def test_capture_add_failure_surfaces(hook_env, monkeypatch, capsys):
+    capture = load("user_prompt_capture")
+    monkeypatch.setattr(capture.runtime, "call_runtime", lambda *a, **k: (2, "{}", "runtime down"))
+    monkeypatch.setattr(capture.runtime, "load_scope", lambda: ("u", "a"))
+    feed_stdin(monkeypatch, {"prompt": "Remember: keep it."})
+    assert capture.main() == 0
+    assert "runtime down" in json.loads(capsys.readouterr().out)["systemMessage"]
+
+
+def test_capture_stage_write_failure_is_not_fatal(hook_env, monkeypatch):
+    capture = load("user_prompt_capture")
+    runtime = load("lifecycle_runtime")
+    monkeypatch.setattr(runtime, "write_json_private", lambda *a, **k: (_ for _ in ()).throw(OSError("disk full")))
+    feed_stdin(monkeypatch, {"prompt": "whatever, no remember:"})
+    assert capture.main() == 0
+
+
+def test_extract_provider_missing_key_header_is_empty_for_local(monkeypatch):
+    cli = load("extract_pending")
+    monkeypatch.delenv("EXTRACTION_API_KEY", raising=False)
+    assert cli._extraction_key() == ""
+    monkeypatch.setenv("EXTRACTION_API_KEY", "k-123")
+    assert cli._extraction_key() == "k-123"
+
+
+def test_extract_parse_model_json_tolerates_fences(monkeypatch):
+    cli = load("extract_pending")
+    document = cli._parse_model_json('```json\n{"memories": []}\n```')
+    assert document == {"memories": []}
+    with pytest.raises(ValueError):
+        cli._parse_model_json('{"oops": 1}')
+
+
+def test_extract_validate_bounds_categories_and_importance(monkeypatch):
+    cli = load("extract_pending")
+    good, rejected = cli.validate_candidates(
+        {
+            "memories": [
+                {"text": "plain", "category": ["codex-auto", "project"], "importance": 0.5},
+                {"text": "with long" + " y" * 300, "importance": 0.5},
+                {"text": "bad type", "category": "project", "importance": 0.5},
+                {"text": "range", "importance": 1.5},
+            ]
+        },
+        {},
+    )
+    assert len(good) == 1
+    assert good[0]["category"] == ["codex-auto", "project"]
+    assert len(rejected) == 3
+
+
+def test_extract_truncates_extra_candidates(monkeypatch):
+    cli = load("extract_pending")
+    good, rejected = cli.validate_candidates(
+        {
+            "memories": [
+                {"text": f"number-{index}", "importance": 0.3} for index in range(5)
+            ]
+        },
+        {},
+    )
+    assert [c["text"] for c in good] == ["number-0", "number-1", "number-2"]
+    assert any("extra candidates dropped" in item for item in rejected)
+
+
+def test_extract_redacts_environment_keys(monkeypatch):
+    cli = load("extract_pending")
+    monkeypatch.setenv("MY_SAMPLE_KEY", "topsecretvalue")
+    assert "topsecretvalue" not in cli.redact("entered topsecretvalue here")
