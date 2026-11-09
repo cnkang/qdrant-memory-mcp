@@ -18,8 +18,6 @@ import threading
 import time
 import uuid
 
-import pytest
-
 ROOT = Path(__file__).resolve().parents[2]
 FACT = 'Synthetic Project Iris uses SQLite WAL.'
 CAPTURE_FACT = 'Synthetic Project Iris requires encrypted daily backups.'
