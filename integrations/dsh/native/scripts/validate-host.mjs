@@ -78,6 +78,20 @@ try {
     '@cnkang/qdrant-memory-dsh-native',
   ])
   if (status === 0) status = removal
-  rmSync(home, { recursive: true, force: true })
+  let cleanupError
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      rmSync(home, { recursive: true, force: true })
+      cleanupError = undefined
+      break
+    } catch (error) {
+      cleanupError = error
+      if (attempt < 2) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100)
+    }
+  }
+  if (cleanupError) {
+    console.error(`DSH temporary home cleanup failed: ${cleanupError.code || 'unknown'}`)
+    if (status === 0) status = 1
+  }
 }
 process.exit(status)

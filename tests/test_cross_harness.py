@@ -1,8 +1,12 @@
 """Keep adapter schemas, isolation, and source packaging aligned with Runtime."""
 
 import json
+import os
+import shutil
+import subprocess
 from pathlib import Path
 
+import pytest
 from ruamel.yaml import YAML
 
 from qdrant_memory.tools import schemas
@@ -46,10 +50,6 @@ def test_dsh_native_bundle_pins_release_and_keeps_automation_disabled():
     assert 'validate:pnpm' not in package['scripts']
     assert package['scripts']['validate:host'] == 'node ./scripts/validate-host.mjs'
     assert not any(key.startswith('validate:host:') for key in package['scripts'])
-    host_runner = (ROOT / 'integrations/dsh/native/scripts/validate-host.mjs').read_text()
-    assert 'mkdtempSync' in host_runner
-    assert 'DSH_HOME' in host_runner
-    assert 'rmSync(home' in host_runner
     assert package['dependencies'] == {
         '@deepseek-ai/dsh-llm': '0.2.2-rc.1',
         '@deepseek-ai/schemastery': '3.19.0',
@@ -108,6 +108,93 @@ def test_dsh_native_bundle_pins_release_and_keeps_automation_disabled():
     )
     assert pack_step['run'] == 'npm pack --dry-run --json'
     assert pack_step['working-directory'] == 'integrations/dsh/native'
+
+
+@pytest.mark.parametrize('add,dump,remove,rm_failures,expected', [
+    (0, 0, 0, 0, 0), (7, 0, 0, 0, 7), (0, 9, 0, 0, 1),
+    (0, 0, 11, 0, 11), (0, 0, 0, 1, 0), (0, 0, 0, 3, 1),
+    (7, 0, 0, 3, 7), (0, 0, 11, 3, 11),
+])
+def test_native_host_cleanup_behavior(tmp_path, add, dump, remove, rm_failures, expected):
+    """Run the real host validator against fake DSH and injected cleanup failures."""
+    node = shutil.which('node')
+    assert node
+    binary = tmp_path / 'bin'
+    binary.mkdir()
+    log = tmp_path / 'actions.jsonl'
+    fake = binary / 'fake-dsh.mjs'
+    fake.write_text('''import { appendFileSync, mkdirSync, rmSync, existsSync } from 'node:fs'
+import { join } from 'node:path'
+const args = process.argv.slice(2)
+const home = process.env.DSH_HOME
+const profile = join(home, 'profiles/qdrant-native-ci')
+const event = { args, home }
+let status = 0
+if (args.includes('add')) {
+  mkdirSync(profile, { recursive: true })
+  status = Number(process.env.FAKE_ADD)
+} else if (args.includes('remove')) {
+  event.profileExisted = existsSync(profile)
+  rmSync(profile, { recursive: true, force: true })
+  event.profileRemoved = !existsSync(profile)
+  status = Number(process.env.FAKE_REMOVE)
+} else if (args.includes('--dump-config')) {
+  console.log(`- id: qdrant-memory-native
+  config:
+    auto_recall:
+      enabled: false
+    auto_capture:
+      enabled: false
+    memory_injection:
+      enabled: false`)
+  status = Number(process.env.FAKE_DUMP)
+} else { status = 99 }
+appendFileSync(process.env.FAKE_LOG, JSON.stringify(event) + '\\n')
+process.exit(status)
+''', encoding='utf-8')
+    if os.name == 'nt':
+        (binary / 'dsh.cmd').write_text(f'@"{node}" "{fake}" %*\n', encoding='utf-8')
+    else:
+        command = binary / 'dsh'
+        # An extensionless Node launcher is CommonJS, so use dynamic import.
+        command.write_text(f'#!{node}\nimport("./fake-dsh.mjs")\n', encoding='utf-8')
+        command.chmod(0o755)
+    preload = tmp_path / 'cleanup.mjs'
+    preload.write_text('''import fs from 'node:fs'
+import { basename } from 'node:path'
+import { syncBuiltinESMExports } from 'node:module'
+const original = fs.rmSync
+let attempts = 0
+fs.rmSync = (path, options) => {
+  if (basename(String(path)).startsWith('dsh-native-ci-')) {
+    attempts += 1
+    fs.appendFileSync(process.env.FAKE_LOG, JSON.stringify({ cleanup: attempts }) + '\\n')
+    if (attempts <= Number(process.env.FAKE_RM_FAILURES)) {
+      throw Object.assign(new Error('injected busy directory'), { code: 'EBUSY' })
+    }
+  }
+  return original(path, options)
+}
+syncBuiltinESMExports()
+''', encoding='utf-8')
+    env = dict(os.environ, PATH=str(binary) + os.pathsep + os.environ['PATH'],
+               FAKE_ADD=str(add), FAKE_DUMP=str(dump), FAKE_REMOVE=str(remove),
+               FAKE_RM_FAILURES=str(rm_failures), FAKE_LOG=str(log),
+               NODE_OPTIONS=f'--import={preload.as_uri()}')
+    result = subprocess.run([node, './scripts/validate-host.mjs'],
+                            cwd=ROOT / 'integrations/dsh/native', env=env,
+                            capture_output=True, encoding='utf-8', timeout=20)
+    actions = [json.loads(line) for line in log.read_text(encoding='utf-8').splitlines()]
+    home = Path(next(item['home'] for item in actions if 'home' in item))
+    try:
+        assert result.returncode == expected, result
+        removal = next(item for item in actions if 'remove' in item.get('args', []))
+        assert removal['profileExisted'] and removal['profileRemoved']
+        assert home.exists() == (rm_failures == 3)
+        assert len([item for item in actions if 'cleanup' in item]) == min(rm_failures + 1, 3)
+        assert ('cleanup failed: EBUSY' in result.stderr) == (rm_failures == 3)
+    finally:
+        shutil.rmtree(home, ignore_errors=True)
 
 
 def test_sonar_classifies_dsh_fixtures_and_validators_as_tests():
