@@ -87,6 +87,11 @@ and the Runtime select the same directory.
 Before reusing an existing patch, verify that its `--home` points at the selected
 profile; update it before launch if it hardcodes another home.
 
+The launch guard uses uv to fetch pinned PyYAML and inspects YAML nodes without
+evaluating `!!js` tags. It accepts the documented `config.args` prefix with
+`--from PACKAGE` or `--from=PACKAGE` in an insert-only overlay. Other patch
+operations fail before launch because they could override the validated args.
+
 ```sh
 PROFILE="${QDRANT_MEMORY_DSH_PROFILE:-$HOME/.qdrant-memory-dsh}"
 export QDRANT_MEMORY_DSH_PROFILE="$PROFILE"
@@ -105,54 +110,57 @@ uvx --from qdrant-memory-mcp==0.3.1 qdrant-memory-mcp --home "$PROFILE" doctor &
       echo "Patch download failed; DSH was not launched." >&2
     fi
   fi
-  PATCH_BLOCK=""
-  if [ -e "$PATCH" ]; then
-    PATCH_BLOCK=$(awk -v target="cnkang-qdrant-memory-mcp" '
-      { sub(/#.*/, "") }
-      !inside && index($0, "id:") && index($0, target) { inside=1; print; next }
-      inside && /^[[:space:]]*-[[:space:]]*id:/ { exit }
-      inside { print }
-    ' "$PATCH")
-  fi
-  PATCH_HAS_PLUGIN=0
-  PATCH_FROM_VALUES=""
-  if [ -n "$PATCH_BLOCK" ]; then
-    grep -Eq "id:[[:space:]]*[\"']?cnkang-qdrant-memory-mcp[\"']?[[:space:]]*$" <<< "$PATCH_BLOCK" && PATCH_HAS_PLUGIN=1
-    PATCH_FROM_VALUES=$(awk '
-      { sub(/#.*/, "") }
-      /^[[:space:]]*-[[:space:]]*--from[[:space:]]*$/ { want=1; next }
-      want {
-        want=0
-        sub(/^[[:space:]]*-[[:space:]]*/, "", $0)
-        gsub(/^[[:space:]]+|[[:space:]]+$/, "", $0)
-        print
-      }
-      END { if (want) print "__MISSING__" }
-    ' <<< "$PATCH_BLOCK")
-  fi
-  PATCH_PIN_OLD=0
-  PATCH_HAS_VERSION=0
-  if [ -n "$PATCH_FROM_VALUES" ]; then
-    PATCH_HAS_VERSION=1
-    while IFS= read -r value; do
-      value="${value#\"}"; value="${value%\"}"
-      value="${value#\'}"; value="${value%\'}"
-      value="${value//[[:space:]]/}"
-      [ "$value" = "qdrant-memory-mcp==0.3.0" ] && PATCH_PIN_OLD=1
-      [ "$value" = "qdrant-memory-mcp==0.3.1" ] || PATCH_HAS_VERSION=0
-    done <<< "$PATCH_FROM_VALUES"
-  fi
-  if [ "$PATCH_PIN_OLD" = 1 ]; then
-    echo "The existing patch still pins qdrant-memory-mcp==0.3.0; update it to 0.3.1 before launching DSH." >&2
-    false
-  elif [ "$PATCH_HAS_PLUGIN" != 1 ]; then
-    echo "The existing patch does not contain the qdrant-memory plugin; replace it before launching DSH." >&2
-    false
-  elif [ "$PATCH_HAS_VERSION" != 1 ]; then
-    echo "The existing patch does not pin qdrant-memory-mcp==0.3.1; replace it before launching DSH." >&2
-    false
-  elif [ -e "$PATCH" ]; then
+  # Parse YAML nodes only: !!js expressions are never evaluated.
+  if uv run --no-project --with PyYAML==6.0.3 python -I - "$PATCH" qdrant-memory-mcp==0.3.1 <<'PY'
+import sys
+import yaml
+from yaml.nodes import MappingNode, ScalarNode, SequenceNode
+
+
+def mapping(node):
+    """Read a mapping without constructing or evaluating tagged values."""
+    assert isinstance(node, MappingNode)
+    result = {}
+    for key, value in node.value:
+        assert isinstance(key, ScalarNode) and key.tag == 'tag:yaml.org,2002:str'
+        assert key.value not in result, 'Duplicate YAML key'
+        result[key.value] = value
+    return result
+
+
+try:
+    with open(sys.argv[1], encoding='utf-8') as source:
+        root = yaml.compose(source, Loader=yaml.BaseLoader)
+    assert isinstance(root, SequenceNode)
+    plugins = []
+    for operation in root.value:
+        entries = mapping(operation)['insert']
+        assert isinstance(entries, SequenceNode)
+        for entry in entries.value:
+            plugin = mapping(entry)
+            if plugin.get('id') and plugin['id'].value == 'cnkang-qdrant-memory-mcp':
+                plugins.append(plugin)
+    assert len(plugins) == 1, 'Expected exactly one memory plugin'
+    config = mapping(plugins[0]['config'])
+    command = config['command']
+    assert command.tag == 'tag:yaml.org,2002:str' and command.value == 'uvx'
+    args = config['args']
+    assert isinstance(args, SequenceNode)
+    # Later --home/env tags stay as YAML nodes and are never evaluated.
+    prefix = []
+    for arg in args.value[:3]:
+        assert isinstance(arg, ScalarNode) and arg.tag == 'tag:yaml.org,2002:str'
+        prefix.append(arg.value)
+    package = sys.argv[2]
+    assert (prefix == ['--from', package, 'qdrant-memory-mcp']
+            or prefix[:2] == ['--from=' + package, 'qdrant-memory-mcp'])
+except (AssertionError, KeyError, AttributeError, OSError, yaml.YAMLError):
+    sys.exit('Invalid patch: config.args must select qdrant-memory-mcp==0.3.1; DSH was not launched.')
+PY
+  then
     dsh web --patch "$PATCH"
+  else
+    false
   fi
 }
 ```
@@ -183,35 +191,56 @@ if (-not (Test-Path $Patch)) {
     Remove-Item -Force $Draft -ErrorAction SilentlyContinue
   }
 }
-$PatchText = if (Test-Path $Patch) {
-  Get-Content -Path $Patch | ForEach-Object { $_ -replace '#.*$', '' }
-} else { @() }
-$PatchActive = $PatchText -join "`n"
-$PatchHasPlugin = $PatchActive -match '(?m)^\s*-\s*id:\s*["'']?cnkang-qdrant-memory-mcp["'']?\s*$'
-$PatchBlock = if ($PatchHasPlugin) {
-  [regex]::Match($PatchActive, '(?s)id:\s*["'']?cnkang-qdrant-memory-mcp["'']?\s*.*?(?=\n\s*-\s*id:|\z)').Value
-} else { '' }
-$PatchFrom = @()
-$PatchLines = @($PatchBlock -split "`n")
-for ($i = 0; $i -lt $PatchLines.Count; $i++) {
-  if ($PatchLines[$i] -match '^\s*-\s*--from\s*$' -and ($i + 1) -lt $PatchLines.Count) {
-    $value = $PatchLines[$i + 1] -replace '^\s*-\s*', '' -replace '^["'']|["'']$', '' -replace '\s', ''
-    $PatchFrom += $value
-  }
-}
-$PatchPinned = $PatchFrom -contains 'qdrant-memory-mcp==0.3.0'
-$PatchHasVersion = ($PatchFrom.Count -gt 0) -and (($PatchFrom | Where-Object { $_ -ne 'qdrant-memory-mcp==0.3.1' }).Count -eq 0)
-if (-not (Test-Path $Patch)) {
-  throw "Patch is unavailable; DSH was not launched."
-} elseif ($PatchPinned) {
-  throw "The existing patch still pins qdrant-memory-mcp==0.3.0; update it to 0.3.1 before launching DSH."
-} elseif (-not $PatchHasPlugin) {
-  throw "The existing patch does not contain the qdrant-memory plugin; replace it before launching DSH."
-} elseif (-not $PatchHasVersion) {
-  throw "The existing patch does not pin qdrant-memory-mcp==0.3.1; replace it before launching DSH."
-} else {
-  dsh web --patch $Patch
-}
+# Parse YAML nodes only: !!js expressions are never evaluated.
+$ValidatePatch = @'
+import sys
+import yaml
+from yaml.nodes import MappingNode, ScalarNode, SequenceNode
+
+
+def mapping(node):
+    """Read a mapping without constructing or evaluating tagged values."""
+    assert isinstance(node, MappingNode)
+    result = {}
+    for key, value in node.value:
+        assert isinstance(key, ScalarNode) and key.tag == 'tag:yaml.org,2002:str'
+        assert key.value not in result, 'Duplicate YAML key'
+        result[key.value] = value
+    return result
+
+
+try:
+    with open(sys.argv[1], encoding='utf-8') as source:
+        root = yaml.compose(source, Loader=yaml.BaseLoader)
+    assert isinstance(root, SequenceNode)
+    plugins = []
+    for operation in root.value:
+        entries = mapping(operation)['insert']
+        assert isinstance(entries, SequenceNode)
+        for entry in entries.value:
+            plugin = mapping(entry)
+            if plugin.get('id') and plugin['id'].value == 'cnkang-qdrant-memory-mcp':
+                plugins.append(plugin)
+    assert len(plugins) == 1, 'Expected exactly one memory plugin'
+    config = mapping(plugins[0]['config'])
+    command = config['command']
+    assert command.tag == 'tag:yaml.org,2002:str' and command.value == 'uvx'
+    args = config['args']
+    assert isinstance(args, SequenceNode)
+    # Later --home/env tags stay as YAML nodes and are never evaluated.
+    prefix = []
+    for arg in args.value[:3]:
+        assert isinstance(arg, ScalarNode) and arg.tag == 'tag:yaml.org,2002:str'
+        prefix.append(arg.value)
+    package = sys.argv[2]
+    assert (prefix == ['--from', package, 'qdrant-memory-mcp']
+            or prefix[:2] == ['--from=' + package, 'qdrant-memory-mcp'])
+except (AssertionError, KeyError, AttributeError, OSError, yaml.YAMLError):
+    sys.exit('Invalid patch: config.args must select qdrant-memory-mcp==0.3.1; DSH was not launched.')
+'@
+$ValidatePatch | uv run --no-project --with PyYAML==6.0.3 python -I - $Patch qdrant-memory-mcp==0.3.1
+if ($LASTEXITCODE -ne 0) { throw "Patch validation failed; DSH was not launched." }
+dsh web --patch $Patch
 ```
 
 The overlay patch is part of the published `v0.3.1` tag, so fetch it directly;
