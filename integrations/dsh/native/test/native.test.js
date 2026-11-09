@@ -722,7 +722,8 @@ test('fork recovery captures only child-owned turns', async () => {
   assert.equal(handlers.size, 0)
 })
 
-test('agent disposal drains a capture already in flight', async () => {
+for (const takeoverTurn of [1, 2]) {
+test(`agent takeover on turn ${takeoverTurn} recovers the executing capture once`, { timeout: 5000 }, async () => {
   const session = { id: 'dispose-drain-session' }
   const events = [
     { type: 'turn/start', seq: 1, data: { turn: 1 } },
@@ -739,6 +740,17 @@ test('agent disposal drains a capture already in flight', async () => {
     } },
     { type: 'turn/end', seq: 4, data: { turn: 1, reason: { kind: 'completed' } } },
   ]
+  if (takeoverTurn === 2) {
+    events.push(...structuredClone(events).map((event) => ({
+      ...event,
+      seq: event.seq + 4,
+      data: { ...event.data, ...(Number.isInteger(event.data.turn) ? { turn: 2 } : {}) },
+    })))
+  }
+  let extractionStarted
+  const extractionGate = new Promise((resolve) => { extractionStarted = resolve })
+  let releaseExtraction
+  const finishExtraction = new Promise((resolve) => { releaseExtraction = resolve })
   const handlers = new Map()
   let cleanup
   let releaseStatus
@@ -753,6 +765,8 @@ test('agent disposal drains a capture already in flight', async () => {
     logger: { warn() {} },
     llm: {
       async *stream() {
+        extractionStarted()
+        await finishExtraction
         yield { type: 'text-delta', text: JSON.stringify({
           memories: [{
             text: 'Disposal fact.',
@@ -800,19 +814,28 @@ test('agent disposal drains a capture already in flight', async () => {
     handlers.get('agent/created')({ agent: replacement })
     const replacementDrain = handlers.get('session/event')(session, {
       type: 'turn/end',
-      data: { turn: 1, reason: { kind: 'completed' } },
+      data: { turn: takeoverTurn, reason: { kind: 'completed' } },
     })
     releaseStatus({ status: 'NOT_FOUND' })
-    await Promise.all([drain, replacementDrain])
-    assert.equal(submitted.length, 1)
+    await extractionGate
+    const repeatedRecovery = handlers.get('session/event')(session, {
+      type: 'turn/end',
+      data: { turn: takeoverTurn, reason: { kind: 'completed' } },
+    })
+    releaseExtraction()
+    await Promise.all([drain, replacementDrain, repeatedRecovery])
+    assert.equal(submitted.length, takeoverTurn)
+    assert.equal(new Set(submitted.map((payload) => payload.event_id)).size, takeoverTurn)
+    assert.ok(submitted.some((payload) => payload.event_id === compileTurn(events, session.id, 1).event_id))
     assert.equal(submitted[0].kind, 'turn_completed')
-    assert.equal(dispose.metrics().capture_events_committed, 1)
+    assert.equal(dispose.metrics().capture_events_committed, takeoverTurn)
   } finally {
     dispose()
   }
   assert.equal(typeof cleanup, 'function')
   assert.equal(handlers.size, 0)
 })
+}
 
 test('retained Owner receipts do not trigger re-extraction', async () => {
   const events = [

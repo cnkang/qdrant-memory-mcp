@@ -762,6 +762,14 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
           queue.turnAgents.set(item.turn, agent)
         }
       }
+      // The executing item has already left pending. Replay it under the new
+      // lifetime too: its old-agent capture will stop at its next ownership check.
+      for (const queuedTurn of queue.turns) {
+        if (!queue.pending.some((item) => item.turn === queuedTurn)) {
+          queue.pending.push({ turn: queuedTurn, events, agent })
+        }
+        queue.turnAgents.set(queuedTurn, agent)
+      }
     } else if (queue && queue.agent !== agent) {
       queue.controller.abort()
       queues.delete(sessionId)
@@ -783,6 +791,7 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
     }
     if (queue.turns.has(turn)) {
       if (queue.turnAgents.get(turn) !== agent && !queue.pending.some((item) => item.turn === turn)) {
+        queue.turnAgents.set(turn, agent)
         queue.pending.push({ turn, events, agent })
       }
       if (!queue.running && queue.pending.length) {
