@@ -20,7 +20,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: dsh-native-${{ github.ref }}-${{ github.sha }}
+  group: dsh-native-${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && github.sha || github.ref }}
   cancel-in-progress: true
 
 jobs:
