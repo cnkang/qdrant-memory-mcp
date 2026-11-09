@@ -384,6 +384,8 @@ class DummyProcess:
 
 
 def test_hard_kill_probe_kills_after_initialize(monkeypatch):
+    if sys.platform == "win32":
+        pytest.skip("hard-killing the launcher mid-session is a POSIX-signal probe; the CI e2e lane keeps Windows out for the same reason")
     module = load_e2e()
     created = []
 
@@ -453,8 +455,9 @@ def test_runtime_direct_read_serves_records(monkeypatch):
     monkeypatch.setattr(mcp, "ClientSession", FakeClientSession)
     served = module.asyncio.run(module._runtime_direct_read("/exe", Path("/p"), "id-b"))
     assert served == 1
-    assert "--home" in list(seen["params"].args)
-    assert "/p" in [str(part) for part in seen["params"].args]
+    normalized = [str(item) for item in seen["params"].args]
+    assert "--home" in normalized
+    assert str(Path("/p")) in normalized or "/p" in normalized
 
 
 def test_owned_missing_binaries_stop_the_run(monkeypatch, tmp_path):

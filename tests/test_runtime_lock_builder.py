@@ -84,7 +84,7 @@ def test_offline_requirements_substitute_the_recorded_wheel(work):
     )
     target = module.offline_requirements(lock, wheelhouse, meta)
     text = target.read_text(encoding="utf-8")
-    assert f"file://{wheel.resolve()}" in text
+    assert wheel.resolve().as_uri() in text
     assert f"--hash=sha256:{'a' * 64}" in text
     assert "git+" not in text
 
