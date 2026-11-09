@@ -44,9 +44,9 @@ jobs:
           npm ci --prefix .github/ci-deps/dsh-native --ignore-scripts --no-audit --no-fund
           npm ci --prefix integrations/dsh/native --ignore-scripts --no-audit --no-fund
           npm ci --prefix integrations/agent-hosts --ignore-scripts --no-audit --no-fund
-          python -m pip install 'build==1.4.0' 'pytest==9.2.0'
+          python -m pip install --only-binary=:all: 'build==1.4.0' 'pytest==9.2.0'
           python -m build .scratch/dsh-runtime --outdir "$RUNNER_TEMP/runtime-dist"
-          python -m pip install "$RUNNER_TEMP/runtime-dist/hermes_plugin_qdrant_memory-0.6.1-py3-none-any.whl[remote]" 'qdrant-client==1.20.0'
+          python -m pip install --only-binary=:all: "$RUNNER_TEMP/runtime-dist/hermes_plugin_qdrant_memory-0.6.1-py3-none-any.whl[remote]" 'qdrant-client==1.20.0'
       - name: Start isolated fixed-version Qdrant
         run: docker compose -p dsh-ci -f tests/cross_client_e2e/docker-compose.yml up -d
       - name: Real AgentLoop capture, MCP recall and principal isolation
