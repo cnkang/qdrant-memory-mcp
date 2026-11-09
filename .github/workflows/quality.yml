@@ -102,11 +102,13 @@ jobs:
           npm ci --prefix integrations/agent-hosts --ignore-scripts --no-audit --no-fund
           # Native DSH contract tests exercise the adapter APIs without a DSH CLI install.
           npm ci --prefix integrations/dsh/native --ignore-scripts --no-audit --no-fund
+          # The bundle storage-mode tests load the real bundled plugin module.
+          npm ci --prefix integrations/dsh/bundle --ignore-scripts --no-audit --no-fund
           node --test --experimental-test-coverage \
             --test-reporter=lcov --test-reporter-destination=coverage/lcov.info \
             tests/test_managed_launcher.mjs tests/test_managed_bootstrap.mjs \
             tests/test_pi_owner_extension.mjs tests/test_pi_owner_host.mjs \
-            tests/test_pi_owner_transport.mjs \
+            tests/test_pi_owner_transport.mjs tests/test_dsh_bundle_modes.mjs \
             integrations/dsh/native/test/native.test.js
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:

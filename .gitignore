@@ -56,3 +56,4 @@ node_modules/
 .public-env-*/
 .public-sdist-env-*/
 coverage/
+integrations/dsh/bundle/native/
