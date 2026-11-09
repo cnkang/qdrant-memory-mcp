@@ -619,15 +619,8 @@ async function resolveCaptureBoundary(ctx, config, agent, id, activationSeq, con
   if (!config.auto_capture.enabled && typeof agent.session.append !== 'function') return Infinity
   let previous
   if (activationSeq > 0 || typeof agent.session.append !== 'function') {
-    const deadline = Date.now() + config.auto_capture.timeout_ms
-    for (;;) {
-      if (controller.signal.aborted) return Infinity
-      if (await ctx.sessions.flush(agent.session) === true) break
-      if (Date.now() >= deadline) {
-        safeLog(ctx, 'warn', 'Qdrant Memory session durability stays unavailable; automatic capture is disabled for this agent.')
-        return Infinity
-      }
-      await new Promise((resolve) => setTimeout(resolve, BOUNDARY_RETRY_MS))
+    if (await awaitDurableFlush(ctx, agent, controller, Date.now() + config.auto_capture.timeout_ms) !== true) {
+      return Infinity
     }
     const snapshot = await ctx.sessionQuery.readSession(id)
     previous = snapshot.events.findLast((event) => event.type === 'plugin:qdrant-memory/capture-state'
@@ -647,6 +640,22 @@ async function resolveCaptureBoundary(ctx, config, agent, id, activationSeq, con
     if (await ctx.sessions.flush(agent.session) !== true) return Infinity
   }
   return enabled ? afterSeq : Infinity
+}
+
+/**
+ * Await one durable session flush, retrying the validity handler while it is
+ * not yet available. Every attempt stays within the capture deadline; a
+ * missing handler never becomes a permanent capture disable.
+ */
+async function awaitDurableFlush(ctx, agent, controller, deadline) {
+  if (controller.signal.aborted) return undefined
+  if (await ctx.sessions.flush(agent.session) === true) return true
+  if (Date.now() >= deadline) {
+    safeLog(ctx, 'warn', 'Qdrant Memory session durability stays unavailable; automatic capture is disabled for this agent.')
+    return undefined
+  }
+  await new Promise((resolve) => setTimeout(resolve, BOUNDARY_RETRY_MS))
+  return awaitDurableFlush(ctx, agent, controller, deadline)
 }
 
 /** Attach opt-in recall and durable capture handlers; return cleanup and metrics. */
