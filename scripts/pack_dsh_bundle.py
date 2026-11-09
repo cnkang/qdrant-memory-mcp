@@ -13,6 +13,15 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGE_JSON = "package.json"
 FILES = {PACKAGE_JSON, "cordis.patch.yml", "README.md", "LICENSE", "index.js", "native/index.js"}
+PAYLOAD_LIMIT = 1024 * 1024
+
+
+def bounded_bytes(source, name):
+    """Read one reviewed payload file within the bounded inspection size."""
+    path = payload_path(source, name)
+    if path.stat().st_size > PAYLOAD_LIMIT:
+        raise ValueError('Bundle input exceeds the bounded payload size')
+    return path.read_bytes()
 
 
 def validate_identity(meta):
@@ -40,7 +49,7 @@ def inspect(archive, source):
         if len(members) != len(expected) or {m.name for m in members} != expected:
             raise ValueError("Unexpected bundle package contents")
         for member in members:
-            if not member.isfile() or member.size > 1024 * 1024:
+            if not member.isfile() or member.size > PAYLOAD_LIMIT:
                 raise ValueError("Bundle payload must contain bounded regular files")
             path = payload_path(source, member.name.removeprefix("package/"))
             if path.is_symlink() or not path.is_file():
@@ -81,7 +90,7 @@ def main():
         raise ValueError("Output symlink forbidden")
     output.mkdir(parents=True, exist_ok=True)
     # Pack in a fresh destination: never replace an existing release artifact.
-    meta = json.loads((source / PACKAGE_JSON).read_text(encoding="utf-8"))
+    meta = json.loads(bounded_bytes(source, PACKAGE_JSON))
     validate_identity(meta)
     filename = meta["name"].removeprefix("@").replace("/", "-") + "-" + meta["version"] + ".tgz"
     if (output / filename).exists():
@@ -92,7 +101,7 @@ def main():
         for name in sorted(FILES):
             target = stage / name
             target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_bytes(payload_path(source, name).read_bytes())
+            target.write_bytes(bounded_bytes(source, name))
         raw = subprocess.check_output(
             ['npm.cmd' if os.name == 'nt' else 'npm', 'pack', '--json', '--ignore-scripts'],
             cwd=stage, env=env, text=True, timeout=120,

@@ -45,8 +45,8 @@ def validate_source(root: Path, tag: str, main_ref: str = 'refs/remotes/origin/m
         raise ValueError('Current checkout does not match release tag commit')
     if subprocess.run(['git', '-C', str(root), 'merge-base', '--is-ancestor', sha, main_ref], capture_output=True).returncode:
         raise ValueError('Release commit is not merged into main')
-    if git(root, 'rev-parse', main_ref) != sha:
-        raise ValueError('Release requires the exact current main SHA')
+    # A tag stays valid when main advances after tagging: the release commit
+    # remains merged into main, which is the durable release invariant.
     if git(root, 'status', '--porcelain', '--untracked-files=no'):
         raise ValueError('Release checkout has tracked changes')
     return sha, f'DSH bundle assets for {tag}. Publication remains a maintainer decision.'
