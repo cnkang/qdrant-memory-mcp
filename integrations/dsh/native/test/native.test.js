@@ -3,6 +3,9 @@ import { EventEmitter } from 'node:events'
 import { delimiter, resolve } from 'node:path'
 import { PassThrough } from 'node:stream'
 import test from 'node:test'
+import { Context } from '@deepseek-ai/cordis'
+import SessionStore, { appendPluginRecord } from '@deepseek-ai/dsh-session'
+import { killProcessTree } from '../scripts/kill-process-tree.mjs'
 import {
   Config,
   DEFAULT_CONFIG,
@@ -20,6 +23,18 @@ const candidate = {
   importance: 0.8,
   replacement_intent: false,
 }
+
+test('process-tree cleanup ignores non-positive PIDs before signaling', { skip: process.platform === 'win32' }, () => {
+  const originalKill = process.kill
+  const calls = []
+  process.kill = (...args) => calls.push(args)
+  try {
+    for (const pid of [0, -1, 1.5]) killProcessTree(pid)
+    assert.deepEqual(calls, [])
+  } finally {
+    process.kill = originalKill
+  }
+})
 
 test('automatic recall, capture, and injection default to disabled', () => {
   assert.equal(DEFAULT_CONFIG.auto_recall.enabled, false)
@@ -1655,7 +1670,104 @@ test('the capture boundary wait times out instead of blocking turns', { timeout:
   }
 })
 
+test('turn cancellation preserves the pending capture boundary', { timeout: 8000 }, async () => {
+  const handlers = new Map()
+  let releaseFlush
+  const flushGate = new Promise((resolve) => { releaseFlush = resolve })
+  const events = turnEvents(1)
+  const runtimeCalls = []
+  const ctx = {
+    on(event, handler) {
+      handlers.set(event, handler)
+      return () => handlers.delete(event)
+    },
+    effect(register) { return register() },
+    logger: { warn() {} },
+    llm: candidateStream('Remember turn 1 fact.'),
+    sessions: { flush: () => flushGate },
+    sessionQuery: { readSession: async () => ({ events }) },
+    agents: { get() { return undefined }, list() { return [] } },
+  }
+  const agent = {
+    session: { id: 'cancelled-boundary-session' },
+    model: { current: () => ({ provider: 'provider-a', model: 'model-a' }) },
+  }
+  const config = {
+    ...DEFAULT_CONFIG,
+    auto_capture: { ...DEFAULT_CONFIG.auto_capture, enabled: true, timeout_ms: 5000 },
+  }
+  const decision = { kind: 'enter', messages: [] }
+  const dispose = apply(ctx, config, async (_mode, _payload, options) => {
+    runtimeCalls.push(options.action)
+    return options.action === 'status' ? { status: 'NOT_FOUND' } : { status: 'COMMITTED' }
+  })
+  const waitFor = async () => {
+    const deadline = Date.now() + 3000
+    while (!runtimeCalls.includes('submit') && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 10))
+    }
+  }
+  try {
+    handlers.get('agent/created')({ agent })
+    const turnSignal = new AbortController()
+    turnSignal.abort()
+    assert.equal(await handlers.get('agent/pre-step')(
+      { agent, messages: [], turn: 1, signal: turnSignal.signal }, async () => decision,
+    ), decision)
+    releaseFlush(true)
+    await waitFor()
+    assert.deepEqual(runtimeCalls, ['status', 'submit'], 'the later recovery used the original resolved boundary')
+  } finally {
+    dispose()
+  }
+  assert.equal(handlers.size, 0)
+})
+
+test('plugin disposal releases pending capture-boundary and recovery waiters', { timeout: 5000 }, async () => {
+  const handlers = new Map()
+  const never = new Promise(() => {})
+  const runtimeCalls = []
+  const ctx = {
+    on(event, handler) {
+      handlers.set(event, handler)
+      return () => handlers.delete(event)
+    },
+    effect(register) { return register() },
+    logger: { warn() {} },
+    llm: candidateStream('Remember turn 1 fact.'),
+    sessions: { flush: () => never },
+    sessionQuery: { readSession: () => never },
+    agents: { get() { return undefined }, list() { return [] } },
+  }
+  const agent = {
+    session: { id: 'disposed-boundary-session' },
+    model: { current: () => ({ provider: 'provider-a', model: 'model-a' }) },
+  }
+  const config = {
+    ...DEFAULT_CONFIG,
+    auto_capture: { ...DEFAULT_CONFIG.auto_capture, enabled: true, timeout_ms: 4000 },
+  }
+  const decision = { kind: 'enter', messages: [] }
+  const dispose = apply(ctx, config, async (...args) => {
+    runtimeCalls.push(args)
+    throw new Error('the Owner must not be called after disposal')
+  })
+  handlers.get('agent/created')({ agent })
+  const waitingTurn = handlers.get('agent/pre-step')({ agent, messages: [], turn: 1 }, async () => decision)
+  dispose()
+  assert.equal(await waitingTurn, decision)
+  assert.equal(runtimeCalls.length, 0)
+  assert.equal(handlers.size, 0)
+})
+
 test('capture boundary initialization retries a missing durability handler', { timeout: 8000 }, async () => {
+  const root = new Context()
+  await root.plugin(SessionStore)
+  const session = root.sessions.create('late-durability-session')
+  appendPluginRecord(session, 'plugin:qdrant-memory/capture-state', {
+    session_id: session.id, enabled: false, after_seq: 0,
+  })
+  let durableEvents = session.snapshotEvents()
   const handlers = new Map()
   let cleanup
   let flushCalls = 0
@@ -1672,12 +1784,16 @@ test('capture boundary initialization retries a missing durability handler', { t
     effect(register) { cleanup = register() },
     logger: { warn() {} },
     llm: candidateStream('Remember turn 1 fact.'),
-    sessions: { flush: async () => { flushCalls += 1; return durable } },
-    sessionQuery: { readSession: async () => ({ events }) },
+    sessions: { flush: async (current) => {
+      flushCalls += 1
+      if (durable) durableEvents = current.snapshotEvents()
+      return durable
+    } },
+    sessionQuery: { readSession: async () => ({ events: [...events, ...durableEvents] }) },
     agents: { get() { return undefined }, list() { return [] } },
   }
   const agent = {
-    session: { id: 'late-durability-session' },
+    session,
     model: { current: () => ({ provider: 'provider-a', model: 'model-a' }) },
   }
   const config = {
@@ -1700,6 +1816,11 @@ test('capture boundary initialization retries a missing durability handler', { t
   try {
     await handlers.get('agent/created')({ agent })
     assert.ok(flushCalls > 1, `boundary initialization retried the handler (calls: ${flushCalls})`)
+    assert.equal(
+      durableEvents.findLast((event) => event.type === 'plugin:qdrant-memory/capture-state')?.data.enabled,
+      true,
+      'the capture boundary waited for its rewritten marker to become durable',
+    )
     handlers.get('session/event')(agent.session, {
       type: 'turn/end',
       data: { turn: 1, reason: { kind: 'completed' } },
@@ -1708,34 +1829,157 @@ test('capture boundary initialization retries a missing durability handler', { t
     assert.equal(submitted.length, 1, 'the live agent captures once durability appears, keeping its activation marker')
   } finally {
     dispose()
+    await root.registry.delete(SessionStore)
   }
   assert.equal(handlers.size, 0)
 })
 
-test('recovery replays only turns above the durable progress marker', async () => {
-  const session = { id: 'progress-session' }
-  const events = [
-    ...turnEvents(1),
-    {
-      type: 'plugin:qdrant-memory/recovery-progress',
-      seq: 5, ignorable: true, data: { session_id: 'progress-session', after_turn: 1 },
-    },
-    ...turnEvents(2),
-  ]
+test('capture persists recovery progress across queues and resumes after that record', { timeout: 12000 }, async () => {
+  const root = new Context()
+  await root.plugin(SessionStore)
+  const session = root.sessions.create('progress-session')
+  const history = []
+  let persistedEvents = []
+  let readCalls = 0
+  let failFirstTurn = true
+  let firstHandlers
+  let firstDispose
+  let resumeHandlers
+  let resumeDispose
+  const config = {
+    ...DEFAULT_CONFIG,
+    auto_capture: { ...DEFAULT_CONFIG.auto_capture, enabled: true },
+  }
+  const makeContext = () => {
+    const handlers = new Map()
+    const ctx = {
+      on(event, handler) {
+        handlers.set(event, handler)
+        return () => handlers.delete(event)
+      },
+      effect(register) { return register() },
+      logger: { warn() {} },
+      llm: candidateStream('Remember the persisted progress test.'),
+      sessions: {
+        flush: async (current) => {
+          persistedEvents = current.snapshotEvents()
+          return true
+        },
+      },
+      sessionQuery: {
+        readSession: async () => {
+          readCalls += 1
+          return { events: [...history, ...persistedEvents] }
+        },
+      },
+      agents: { get() { return undefined }, list() { return [] } },
+    }
+    return { handlers, ctx }
+  }
+  const makeAgent = () => ({
+    session,
+    model: { current: () => ({ provider: 'provider-a', model: 'model-a' }) },
+  })
+  const startPlugin = (context, calls) => apply(context.ctx, config, async (_mode, payload, options) => {
+    calls.push({ payload, options })
+    if (options.action === 'status') {
+      const firstId = compileTurn(history, session.id, 1).event_id
+      return payload.event_id === firstId && failFirstTurn
+        ? { status: 'ACCEPTED' }
+        : { status: 'NOT_FOUND' }
+    }
+    if (options.action === 'retry') return { status: 'PENDING' }
+    if (options.action === 'submit') return { status: 'COMMITTED' }
+    throw new Error(`unexpected Runtime action: ${options.action}`)
+  })
+  const waitFor = async (predicate, message) => {
+    const deadline = Date.now() + 4000
+    while (!predicate() && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 10))
+    assert.ok(predicate(), message)
+  }
+
+  try {
+    const firstContext = makeContext()
+    firstHandlers = firstContext.handlers
+    const firstCalls = []
+    firstDispose = startPlugin(firstContext, firstCalls)
+    const agent = makeAgent()
+    firstHandlers.get('agent/created')({ agent })
+    await waitFor(() => readCalls > 0, 'initial recovery read completed before turns were added')
+
+    history.push(...turnEvents(1))
+    await firstHandlers.get('session/event')(session, {
+      type: 'turn/end', data: { turn: 1, reason: { kind: 'completed' } },
+    })
+    history.push(...turnEvents(2))
+    await firstHandlers.get('session/event')(session, {
+      type: 'turn/end', data: { turn: 2, reason: { kind: 'completed' } },
+    })
+    const progressRecords = () => persistedEvents.filter((event) => event.type === 'plugin:qdrant-memory/recovery-progress')
+    assert.ok(progressRecords().length > 0, 'capture flushed a real recovery-progress session record')
+    assert.ok(Math.max(...progressRecords().map((event) => event.data.after_turn)) < 2,
+      'the successful later queue did not checkpoint past failed turn 1')
+
+    failFirstTurn = false
+    await firstHandlers.get('session/event')(session, {
+      type: 'turn/end', data: { turn: 1, reason: { kind: 'completed' } },
+    })
+    assert.equal(Math.max(...progressRecords().map((event) => event.data.after_turn)), 2,
+      'progress advanced through turn 2 only after turn 1 resolved')
+    firstDispose()
+    firstDispose = undefined
+
+    history.push(...turnEvents(3))
+    const resumeContext = makeContext()
+    resumeHandlers = resumeContext.handlers
+    const resumeCalls = []
+    resumeDispose = startPlugin(resumeContext, resumeCalls)
+    resumeHandlers.get('agent/created')({ agent: makeAgent() })
+    await waitFor(() => resumeCalls.some((call) => call.options.action === 'submit'),
+      'resumed capture submitted the turn after its persisted checkpoint')
+    const recoveredStatusCalls = resumeCalls.filter((call) => call.options.action === 'status')
+    assert.equal(recoveredStatusCalls.length, 1, 'turns at or below persisted progress were not replayed')
+    assert.equal(recoveredStatusCalls[0].payload.event_id, compileTurn(history, session.id, 3).event_id)
+    resumeDispose()
+    resumeDispose = undefined
+    assert.equal(resumeHandlers.size, 0)
+  } finally {
+    firstDispose?.()
+    resumeDispose?.()
+    await root.registry.delete(SessionStore)
+  }
+})
+
+test('plugin disposal cancels a stalled recovery-progress flush', { timeout: 8000 }, async () => {
+  const root = new Context()
+  await root.plugin(SessionStore)
+  const session = root.sessions.create('cancel-progress-session')
   const handlers = new Map()
-  let cleanup
-  const statusCalls = []
-  const submitted = []
+  const history = []
+  let readCalls = 0
+  let progressFlushStarted
+  const progressStarted = new Promise((resolve) => { progressFlushStarted = resolve })
+  const never = new Promise(() => {})
+  const runtimeCalls = []
   const ctx = {
     on(event, handler) {
       handlers.set(event, handler)
       return () => handlers.delete(event)
     },
-    effect(register) { cleanup = register() },
+    effect(register) { return register() },
     logger: { warn() {} },
-    llm: candidateStream('Remember turn 1 fact.'),
-    sessions: { flush: async () => true },
-    sessionQuery: { readSession: async () => ({ events }) },
+    llm: candidateStream('Remember the cancellation test.'),
+    sessions: { flush: async (current) => {
+      if (current.snapshotEvents().some((event) => event.type === 'plugin:qdrant-memory/recovery-progress')) {
+        progressFlushStarted()
+        return never
+      }
+      return true
+    } },
+    sessionQuery: { readSession: async () => {
+      readCalls += 1
+      return { events: [...history, ...session.snapshotEvents()] }
+    } },
     agents: { get() { return undefined }, list() { return [] } },
   }
   const agent = {
@@ -1746,28 +1990,34 @@ test('recovery replays only turns above the durable progress marker', async () =
     ...DEFAULT_CONFIG,
     auto_capture: { ...DEFAULT_CONFIG.auto_capture, enabled: true },
   }
-  const dispose = apply(ctx, config, async (_mode, payload, options) => {
-    if (options.action === 'status') {
-      statusCalls.push(options)
-      return { status: 'NOT_FOUND' }
-    }
-    if (options.action === 'submit') {
-      submitted.push(payload)
-      return { status: 'COMMITTED' }
-    }
-    throw new Error('unexpected Runtime call')
+  const dispose = apply(ctx, config, async (_mode, _payload, options) => {
+    runtimeCalls.push(options.action)
+    return options.action === 'status' ? { status: 'NOT_FOUND' } : { status: 'COMMITTED' }
   })
+  const waitForInitialRead = async () => {
+    const deadline = Date.now() + 3000
+    while (!readCalls && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 10))
+    assert.ok(readCalls, 'initial recovery read completed')
+  }
   try {
     handlers.get('agent/created')({ agent })
-    await new Promise((resolve) => setTimeout(resolve, 500))
-    assert.equal(statusCalls.length, 1, 'turn 1 below the marker is never status-polled again')
-    assert.equal(submitted.length, 1)
-    assert.equal(submitted[0].event_id, compileTurn(events, session.id, 2).event_id)
+    await waitForInitialRead()
+    history.push(...turnEvents(1))
+    const captureCompletion = handlers.get('session/event')(session, {
+      type: 'turn/end', data: { turn: 1, reason: { kind: 'completed' } },
+    })
+    await progressStarted
+    dispose()
+    await Promise.race([
+      captureCompletion,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('progress drain did not settle after disposal')), 1000)),
+    ])
+    assert.deepEqual(runtimeCalls, ['status', 'submit'])
   } finally {
     dispose()
+    await root.registry.delete(SessionStore)
   }
   assert.equal(handlers.size, 0)
-  assert.ok(dispose.metrics().capture_recovery_count >= 1)
 })
 
 test('boundary initialization gives up when durability stays missing', { timeout: 8000 }, async () => {
@@ -1776,6 +2026,7 @@ test('boundary initialization gives up when durability stays missing', { timeout
   const warnings = []
   let flushCalls = 0
   const neverSubmitted = []
+  const runtimeCalls = []
   const ctx = {
     on(event, handler) {
       handlers.set(event, handler)
@@ -1796,7 +2047,10 @@ test('boundary initialization gives up when durability stays missing', { timeout
     ...DEFAULT_CONFIG,
     auto_capture: { ...DEFAULT_CONFIG.auto_capture, enabled: true, timeout_ms: 1000 },
   }
-  const dispose = apply(ctx, config, async () => { throw new Error('the Owner must never be called') })
+  const dispose = apply(ctx, config, async (...args) => {
+    runtimeCalls.push(args)
+    throw new Error('the Owner must never be called')
+  })
   try {
     const started = Date.now()
     await handlers.get('agent/created')({ agent })
@@ -1810,6 +2064,7 @@ test('boundary initialization gives up when durability stays missing', { timeout
     handlers.get('session/event')(agent.session, { type: 'turn/end', data: { turn: 1, reason: { kind: 'completed' } } })
     await new Promise((resolve) => setTimeout(resolve, 200))
     assert.equal(neverSubmitted.length, 0)
+    assert.equal(runtimeCalls.length, 0, 'capture never called Runtime after boundary initialization failed')
   } finally {
     dispose()
   }
@@ -1822,6 +2077,7 @@ test('a consent marker write failure leaves the activation watermark bound to In
   let cleanup
   const warnings = []
   const submitted = []
+  const runtimeCalls = []
   // A capture-state marker with consent disabled exists, so enabling capture
   // must rewrite the marker through the session append surface.
   const events = [
@@ -1850,13 +2106,17 @@ test('a consent marker write failure leaves the activation watermark bound to In
     ...DEFAULT_CONFIG,
     auto_capture: { ...DEFAULT_CONFIG.auto_capture, enabled: true },
   }
-  const dispose = apply(ctx, config, async () => { throw new Error('the Owner must never be called') })
+  const dispose = apply(ctx, config, async (...args) => {
+    runtimeCalls.push(args)
+    throw new Error('the Owner must never be called')
+  })
   try {
     await handlers.get('agent/created')({ agent })
     assert.ok(warnings.some((message) => message.includes('activation watermark is unavailable')), warnings)
     handlers.get('session/event')(session, { type: 'turn/end', data: { turn: 1, reason: { kind: 'completed' } } })
     await new Promise((resolve) => setTimeout(resolve, 200))
     assert.equal(submitted.length, 0)
+    assert.equal(runtimeCalls.length, 0, 'capture never called Runtime after its consent marker failed')
   } finally {
     dispose()
   }

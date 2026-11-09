@@ -8,7 +8,7 @@ import { spawnSync } from 'node:child_process'
  * the profile it is still writing. POSIX uses its detached process group.
  */
 export function killProcessTree(pid) {
-  if (!Number.isInteger(pid)) return
+  if (!Number.isInteger(pid) || pid <= 0) return
   if (process.platform === 'win32') {
     spawnSync('taskkill', ['/pid', String(pid), '/T', '/F'], { shell: false })
   } else {
