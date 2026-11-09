@@ -20,7 +20,7 @@ sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parent))
 
 import lifecycle_runtime as runtime  # noqa: E402
 
-DIRECTIVE = re.compile(r"^\s*remember\s*[:：][ \t]*(.*)$", re.IGNORECASE)
+DIRECTIVE = re.compile(r"^\s*remember\s*[:：](.*)$", re.IGNORECASE)
 
 
 def main() -> None:
@@ -34,7 +34,7 @@ def main() -> None:
         match = DIRECTIVE.match(line)
         if not match:
             return
-        text = match.group(1)
+        text = match.group(1).lstrip(" \t")
         if not text.strip():
             return
         if len(text) > runtime.MAX_CAPTURE_CHARS:

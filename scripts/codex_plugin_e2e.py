@@ -346,7 +346,10 @@ def terminate_tree(process):
             check=False,
         )
     else:
-        os.killpg(os.getpgid(process.pid), signal.SIGKILL)
+        try:
+            os.killpg(os.getpgid(process.pid), signal.SIGKILL)
+        except ProcessLookupError:
+            pass  # the child exited between the probe and the kill
 
 
 def hard_kill_probe(launcher_path, env):
@@ -398,11 +401,17 @@ def recover_after_kill(launcher_path, env, fact_b_id, evidence, deadline=30):
     end = time.monotonic() + deadline
     last_error = None
     while time.monotonic() < end:
+        remaining = max(0.1, end - time.monotonic())
         try:
             asyncio.run(
-                fresh_session_persistence(launcher_path, env, fact_b_id, evidence)
+                asyncio.wait_for(
+                    fresh_session_persistence(launcher_path, env, fact_b_id, evidence),
+                    timeout=min(10, remaining),
+                )
             )
             return
+        except AssertionError:
+            raise  # the record is gone; retrying cannot fix data loss
         except Exception as error:  # the lease can outlive the process briefly
             last_error = error
             time.sleep(1)
