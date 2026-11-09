@@ -641,7 +641,7 @@ def test_extractor_confirm_adds_through_runtime_and_finalizes(hook_env, monkeypa
             return 0, json.dumps({"memories": []}), ""
         return 0, "{}", ""
 
-    runtime.call_runtime = fake_runtime
+    monkeypatch.setattr(runtime, "call_runtime", fake_runtime)
     for server, _calls in extraction_provider_stub(monkeypatch, replies):
         argv = extractor_args(monkeypatch, server.server_port)
         argv.append("--confirm")
@@ -673,7 +673,7 @@ def test_extractor_confirm_dedupes_against_stored_text(hook_env, monkeypatch, ca
             return 0, json.dumps({"memories": [{"text": "Prefers round mugs."}]}), ""
         return 0, "{}", ""
 
-    runtime.call_runtime = fake_runtime
+    monkeypatch.setattr(runtime, "call_runtime", fake_runtime)
     added = []
     for server, _calls in extraction_provider_stub(monkeypatch, replies):
         argv = extractor_args(monkeypatch, server.server_port)
@@ -708,7 +708,7 @@ def test_extractor_rejects_secret_shaped_candidates(hook_env, monkeypatch, capsy
             return 0, json.dumps({"id": "rec-1"}), ""
         return 0, "{}", ""
 
-    runtime.call_runtime = fake_runtime
+    monkeypatch.setattr(runtime, "call_runtime", fake_runtime)
     for server, _calls in extraction_provider_stub(monkeypatch, replies):
         argv = extractor_args(monkeypatch, server.server_port)
         argv.append("--confirm")
@@ -762,7 +762,7 @@ def test_extractor_records_rejections_and_never_adds(hook_env, monkeypatch, caps
             return 0, json.dumps({"memories": []}), ""
         return 0, json.dumps({"id": "rec-x"}), ""
 
-    runtime.call_runtime = fake_runtime
+    monkeypatch.setattr(runtime, "call_runtime", fake_runtime)
     for server, _calls in extraction_provider_stub(monkeypatch, replies):
         argv = extractor_args(monkeypatch, server.server_port)
         argv.append("--confirm")
