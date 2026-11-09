@@ -216,7 +216,8 @@ def test_sonar_classifies_dsh_fixtures_and_validators_as_tests():
         'tests,integrations/dsh/native/test,integrations/dsh/native/scripts'
     )
     assert properties['sonar.exclusions'] == (
-        'integrations/dsh/native/test/**,integrations/dsh/native/scripts/**'
+        'integrations/dsh/native/test/**,integrations/dsh/native/scripts/**,'
+        'integrations/dsh/bundle/native/**'
     )
 
 
