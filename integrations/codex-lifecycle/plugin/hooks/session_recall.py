@@ -33,6 +33,7 @@ def main() -> int:
     """Emit durable records for this scope, or stop silently when none apply."""
     try:
         event = runtime.read_hook_input()
+        # Fail closed for incomplete profiles; the hook does not need the identity.
         runtime.load_scope()
         query = recall_query(event)
         if not query:
