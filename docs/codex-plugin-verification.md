@@ -1,5 +1,155 @@
 # Qdrant Memory for Codex: engineering and acceptance record
 
+## Candidate verification run (2026-11-09, codex/plugin-readiness-20261109)
+
+Environment: macOS 27.2 Apple Silicon (arm64), Codex CLI 0.165.0, Node 24.18.0,
+Python 3.11.15 (uv venv, hash-locked `.github/requirements-sonar-ci.txt`),
+MCP SDK 2.3.0, MCP distribution 0.3.1, Runtime 0.6.0 at the pinned commit
+`dee6777432f17523db75f6be32cf3ef15e48235c`, Skill 0.4.1 at
+`8f6e5280559f7f1d5e04781c6910b8c33b5f2dae`, uv 0.13.6. The run works in an
+isolated `CODEX_HOME` and a work directory outside both repositories; the DSH
+worktree (`/Volumes/2T/development/qdrant-memory-mcp`, branch
+`codex/dsh-native-v1`) was read-only from here.
+
+### New credential-free real-CLI E2E lane
+
+`scripts/codex_plugin_e2e.py` (new) drives the actual installed Codex CLI
+without any subscription. Executed run (canonical evidence JSON:
+`docs/evidence/codex-e2e-20261109.json`, reproducible in CI as workflow job
+`lifecycle-e2e`):
+
+| Step | Result |
+|---|---|
+| `plugin marketplace add` + `plugin add qdrant-memory@cnkang` from the repository marketplace | PASS, version 0.1.3, installed cache carries `.codex-plugin/plugin.json` overlay and setup skill |
+| `codex mcp get qdrant-memory` | all **eight** overlay environment names visible through the CLI (values masked by CLI) |
+| uninstall + marketplace cleanup | PASS (cache removed) |
+| build source ZIP from the exact commit with the pinned Skill snapshot | PASS (`build()` byte-for-byte archive path, SHA-256 recorded in the JSON evidence) |
+| install from the exact rebuilt ZIP through a temp ZIP marketplace | PASS, same identity/version and all eight env names |
+| Runtime install from the installed plugin's pinned `requirements.txt` into a private venv | PASS (uv venv 3.11 + pip, includes Git-pinned runtime build) |
+| `node launcher.mjs doctor` | exit 0 |
+| MCP SDK session through the real launcher | initialize + exact four tools `qdrant_memory_{search,add,update,delete}` |
+| duplicate `add` of an identical fact | **idempotent: same record ID returned** |
+| exact-ID `update` then exact-ID `delete` | correct IDs; neighborhood scope unchanged (inventory) |
+| fresh-session persistence (new client process) | PASS |
+| hard `SIGKILL` of the launcher mid-session after a real initialize, then a new session | data intact (exit signal −9 observed; recovery PASS) |
+| sibling profile isolation | zero leaking records; cross-profile exact-ID `delete` rejected as an MCP error |
+| disable via `config.toml`, `plugin remove`, marketplace removal | PASS; uninstall never deleted data |
+| post-uninstall data retention | the Runtime binary alone still serves the record over stdio MCP ("uninstall_preserved_record") |
+
+Notes: no production memory was touched; embeddings were the deterministic
+local HTTP fixture (`synthetic-fixture`, 3 dimensions) consistent with the
+protected acceptance harness; the CPU-model path is unchanged from the
+2026-11-06 evidence (first download 507.59 s, offline inference verified).
+This lane does not substitute for Desktop GUI acceptance or Plugin Creator
+evidence, and it does not invoke the four tools through a Codex model
+conversation — that remains the protected lane's evidence.
+
+Reproducibility of the new source archive on this host: two consecutive
+`build_codex_plugin.py` runs on this branch produced byte-identical archives
+(compared on disk), and the executed E2E's ZIP build record — including its
+SHA-256 — is in `docs/evidence/codex-e2e-20261109.json`. Every later commit
+needs its own exact-SHA three-OS runs, as before.
+
+### Regression coverage added
+
+`tests/test_codex_plugin.py` now covers 25 cases (was 23): a launcher failure
+injection where the runtime venv lacks the pinned MCP distribution (fails
+closed before any write), plus a real-MCP scope-isolation suite with a sibling
+profile (zero leakage, cross-profile exact-ID delete rejected as an error,
+control record preserved). Local run: **25 passed**. Release gate
+(`scripts/check_release_gate.py`) now requires the "Codex plugin" workflow for
+tagged commits; `tests/test_release_gate.py` updated.
+
+### Plugin Creator / env forwarding recheck against the released spec
+
+Released [Agent Plugins MCP schema 1.0.0](https://agent-plugins.org/schemas/1.0.0/mcp.schema.json)
+still declares only `type|command|args|cwd|env` for stdio servers and has **no
+`env_vars` field**; the Codex overlay's `env_vars` remains the working
+Codex-specific passthrough and the CLI demonstrably surfaces all eight names
+(above). The submission portal "derives `.mcp.json` and
+`.codex-plugin/plugin.json` from root `plugin.json` and `mcp.json`" for
+portable packages, which matches the recorded 0.1.1 Creator normalization
+(`env: {}`); no Creator-side evidence exists showing the eight names survive
+that derivation for this candidate, so Creator-normalized forwarding stays
+**NOT VERIFIED** and the source/Marketplace ZIP remains the validated path.
+
+### Hooks research conclusion (drives Mode B separation)
+
+Released docs confirm plugin-bundled lifecycle hooks exist, load only for
+**manually installed** Codex desktop plugins, are skipped until trusted per
+definition hash, and **"aren't eligible for the public plugin directory"**;
+"Remove lifecycle hooks before public directory submission."
+[Build plugins](https://developers.openai.com/plugins/build/plugins);
+[Submission](https://developers.openai.com/plugins/deploy/submission);
+[Codex hooks](https://learn.chatgpt.com/docs/hooks). Detailed matrix:
+`docs/codex-native-lifecycle-capability-matrix.md`.
+
+Mode A (this plugin) keeps zero hooks. Mode B ships as a separate,
+clearly labeled preview under `integrations/codex-lifecycle/` with:
+`SessionStart` recall via `hookSpecificOutput.additionalContext` and
+`UserPromptSubmit` explicit `remember:` directive capture (no model, no
+extraction, verbatim text only). Real-CLI verification on 0.165.0: the preview
+marketplace installed the hooks plugin (`qdrant-memory-lifecycle@cnkang-lifecycle-preview`),
+its hooks cache resolved, `codex mcp list` stayed untouched (the preview
+declares no server), and remove/cleanup passed. Handler units
+(`tests/test_codex_lifecycle_hooks.py`, 12 cases) verify the released output
+contract, size limits, scope enforcement and failure surfacing. **A real
+trust-reviewed Codex session firing both hooks is NOT VERIFIED** (needs a
+subscribed, hook-enabled client session); `Stop`-based automatic capture is
+NOT IMPLEMENTED by design. Guard tests assert the public package contains no
+hooks (`test_main_plugin_package_contains_no_hooks`).
+
+### Desktop-only dependency locks (prototype, still NO-GO)
+
+`scripts/build_runtime_locks.py` (new) produced `runtime-locks/*.txt` for
+`linux-x64`, `macos-arm64`, `macos-x64`, `windows-x64` — hash-locked,
+binary-only transitive resolutions of the plugin's pinned requirements (62
+pinned wheels for `macos-arm64`; 58 for `linux-x64`), plus the Runtime wheel
+built from the pinned commit with its SHA-256 recorded in
+`runtime-wheel.json` (the wheel build is not byte-reproducible; the SHA pins
+the recorded artifact). Offline acceptance on this host:
+
+```text
+pip download (hashes, binary-only) → 64 wheels, 64 MB
+venv + pip install --require-hashes --only-binary=:all: \
+       --no-index --no-cache-dir --find-links wheelhouse \
+       -r verify-macos-arm64.txt   → PASS, console probe OK (qdrant-memory --help)
+same for macos-x64                                        → PASS, console probe OK
+```
+
+Windows and Ubuntu offline installs remain **NOT VERIFIED here** (resolved
+locks exist; runner-proof pending). This does NOT complete a Desktop-only
+package: bundle layout, per-platform archive selection, SBOM, license
+aggregation, clean-Desktop launch route, and the CPU model delivery decision
+are unchanged blockers. See `docs/desktop-only-adr.md` (NO-GO).
+
+### DSH parallel-work compatibility analysis (PR #81, `codex/dsh-native-v1`)
+
+Read-only: `git diff origin/main...codex/dsh-native-v1` touches
+`integrations/dsh/**`, DSH workflows/scripts/tests, plus README/CHANGELOG and
+a one-line `scripts/check_release_gate.py` change (adds "DSH native adapter"
+to `REQUIRED_WORKFLOWS`). It does **not** change `plugins/`, the marketplace
+manifest, or `tests/test_codex_plugin.py`. This branch adds "Codex plugin" to
+the same tuple — one adjacent-line merge conflict, trivially resolvable --
+and no other shared file. Runtime pin: DSH consumes Runtime 0.6.1-era
+interfaces for native lifecycle work; this Codex branch keeps the published
+Runtime 0.6.0 pin and requires **no** Runtime upgrade (verified by the E2E
+above against 0.6.0). Runtime issue [#115](https://github.com/cnkang/hermes-plugin-qdrant-memory/issues/115)
+recheck: OPEN as of 2026-11-05 update — Windows `windows-latest` CPython 3.14.7
+probes stored 100/100 events, full suite passed, no recurrence within timeout;
+the issue is kept open expressly pending #118's interpreter comparison, with
+writer-drain diagnostics retained before any retry policy change. The Codex
+launcher/CLI path here never exercised the drained-writer failure path, so
+PROJ-05 stays NOT VERIFIED rather than PASS.
+
+### Current gate
+
+The 2026-11-06 gate remains; refreshed items (E2E lane, env-forwarding
+evidence, locks prototype, hooks preview, release-gate addition) are recorded
+above. Desktop-only stays **NO-GO**. Public-directory status stays
+NOT_SUBMITTED. No publish, tag, registry upload or Creator overwrite occurred.
+
+
 ## Current repository-marketplace candidate (2026-11-06)
 
 Plugin 0.1.3 pins MCP 0.3.1, Runtime 0.6.0 at

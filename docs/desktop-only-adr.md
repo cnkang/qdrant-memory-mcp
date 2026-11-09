@@ -3,6 +3,23 @@
 Date: 2026-11-06
 Status: **BLOCKED pending a verified Desktop/Creator launch contract**
 
+## Prototype update (2026-11-09)
+
+The dependency payload of the selected bundle direction now exists as a
+verifiable build prototype — not a package. `runtime-locks/*.txt` carries a
+hash-locked, binary-only transitive resolution of the plugin's pinned
+requirements for `linux-x64`, `macos-arm64`, `macos-x64` and `windows-x64`
+(58–62 pinned distributions each), and `runtime-locks/runtime-wheel.json`
+records the Runtime wheel built from the immutable pinned commit with its
+SHA-256. `python scripts/build_runtime_locks.py --wheelhouse <dir>` downloads
+this host's platform wheels with hash checking, and `--verify <platform>`
+installs the full resolution offline (`--require-hashes --only-binary --no-index`)
+into a fresh venv and probes the Runtime console. Verified on this host:
+**macOS arm64 and macOS x64 PASS**; Linux and Windows remain NOT VERIFIED.
+The release layout question (this file's blocker), the per-platform archive
+selector, the SBOM/licensing aggregation and the archive itself are unchanged
+and NO-GO stands.
+
 ## Decision and blocker
 
 Keep one Python Runtime and one set of four MCP schemas. No final Desktop ZIP
