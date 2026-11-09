@@ -313,7 +313,11 @@ async def fresh_session_persistence(launcher_path, env, fact_b_id, evidence):
 
 
 def hard_kill_probe(launcher_path, env):
-    """Initialize over raw stdio, then SIGKILL the launcher mid-session."""
+    """Initialize over raw stdio, then kill the launcher mid-session.
+
+    Windows terminates with TerminateProcess (SIGTERM maps there and yields a
+    process exit code instead of a signal number); POSIX uses SIGKILL.
+    """
     process = subprocess.Popen(
         ["node", str(launcher_path), "mcp"],
         env=env,
@@ -340,7 +344,7 @@ def hard_kill_probe(launcher_path, env):
     process.stdin.flush()
     response = process.stdout.readline()
     assert response.startswith(b'{"jsonrpc"'), response[:200]
-    process.send_signal(signal.SIGKILL)
+    process.send_signal(signal.SIGTERM if os.name == "nt" else signal.SIGKILL)
     return process.wait(timeout=30)
 
 
