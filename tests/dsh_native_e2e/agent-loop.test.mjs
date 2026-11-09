@@ -5,10 +5,13 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import test, { after } from 'node:test'
+import test, { after, before } from 'node:test'
 
 const [nodeMajor, nodeMinor] = process.versions.node.split('.').map(Number)
-assert.ok(nodeMajor > 24 || (nodeMajor === 24 && nodeMinor >= 9), 'AgentLoop acceptance requires Node >=24.9.0')
+
+before(() => {
+  assert.ok(nodeMajor > 24 || (nodeMajor === 24 && nodeMinor >= 9), 'AgentLoop acceptance requires Node >=24.9.0')
+})
 
 // Resolve every Host service from the exact, locked official CLI installation.
 const require = createRequire(new URL('../../.github/ci-deps/dsh-native/package.json', import.meta.url))
