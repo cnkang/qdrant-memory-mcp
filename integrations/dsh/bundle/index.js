@@ -39,7 +39,14 @@ function guardLateLegacyRoute(ctx) {
   const rejected = new WeakSet()
   const dispose = ctx.root.on('internal/plugin', (fiber) => {
     const runtime = ctx.registry?.get?.(McpClient)
-    if (!runtime?.fibers?.includes(fiber) || fiber?.config?.serverName !== 'qdrant-memory') return
+    let isMcpFiber = false
+    for (const candidate of runtime?.fibers ?? []) {
+      if (candidate === fiber) {
+        isMcpFiber = true
+        break
+      }
+    }
+    if (!isMcpFiber || fiber?.config?.serverName !== 'qdrant-memory') return
     if (allowedOwnerFibers.has(fiber)) return
     const route = fiber.config
     if (ownerRegistrationOpen && !ownerRouteRegistered

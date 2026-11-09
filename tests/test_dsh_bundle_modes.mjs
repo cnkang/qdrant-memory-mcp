@@ -30,9 +30,9 @@ after(async () => {
 const recordingContext = () => {
   const plugins = []
   const listeners = new Set()
-  const mcpRuntime = { fibers: [] }
+  const mcpRuntime = { fibers: new Set() }
   const register = (fiber) => {
-    mcpRuntime.fibers.push(fiber)
+    mcpRuntime.fibers.add(fiber)
     for (const listener of listeners) listener(fiber)
   }
   return {
