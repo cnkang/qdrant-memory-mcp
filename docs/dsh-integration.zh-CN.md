@@ -86,7 +86,7 @@ PROFILE="${QDRANT_MEMORY_DSH_PROFILE:-$HOME/.qdrant-memory-dsh}"
 export QDRANT_MEMORY_DSH_PROFILE="$PROFILE"
 uvx --from qdrant-memory-mcp==0.3.1 qdrant-memory-mcp --home "$PROFILE" init &&
 uvx --from qdrant-memory-mcp==0.3.1 qdrant-memory-mcp --home "$PROFILE" doctor &&
-{
+(
   mkdir -p "$PROFILE"
   PATCH="$PROFILE/qdrant-memory.cordis.yml"
   if [ ! -e "$PATCH" ]; then
@@ -97,6 +97,7 @@ uvx --from qdrant-memory-mcp==0.3.1 qdrant-memory-mcp --home "$PROFILE" doctor &
     else
       rm -f "$TMP"
       echo "Patch download failed; DSH was not launched." >&2
+      exit 1  # This setup block is a subshell, safe when sourced too.
     fi
   fi
   # 仅解析 YAML 节点，不执行 !!js 表达式。
@@ -217,7 +218,7 @@ PY
     echo "Profile config dump failed; DSH was not launched." >&2
     false
   fi
-}
+)
 ```
 
 Windows PowerShell 5.1 请使用对应命令：
@@ -352,7 +353,14 @@ except (AssertionError, KeyError, AttributeError, OSError, yaml.YAMLError):
 '@
 $Composed = [IO.Path]::GetTempFileName()
 try {
-  $Dump = @(dsh web --dump-config)
+  $ConsoleEncoding = [Console]::OutputEncoding
+  try {
+    # PowerShell decodes native stdout using Console.OutputEncoding.
+    [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
+    $Dump = @(dsh web --dump-config)
+  } finally {
+    [Console]::OutputEncoding = $ConsoleEncoding
+  }
   if ($LASTEXITCODE -ne 0) { throw "Profile config dump failed; DSH was not launched." }
   [IO.File]::WriteAllText($Composed, ($Dump -join "`n"))
   $ValidatePatch | uv run --no-project --with PyYAML==6.0.3 python -I - $Patch qdrant-memory-mcp==0.3.1 $MemoryProfile $Composed
