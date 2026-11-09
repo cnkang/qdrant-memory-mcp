@@ -36,9 +36,9 @@ py-modules = []
 testpaths = ["tests"]
 
 [tool.coverage.run]
-# Sonar only scans .github, integrations and scripts, so measure exactly the
+# Sonar only scans .github, integrations and scripts. Measure exactly the
 # Python that lands in that analysis; anything else would be ignored.
-source = ["integrations/workbuddy", "scripts"]
+source = ["integrations/workbuddy", "integrations/codex-lifecycle", "scripts"]
 branch = false
 
 [tool.coverage.report]
