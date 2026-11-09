@@ -3,9 +3,10 @@
 See the [English guide](../../docs/dsh-integration.md) or
 [中文指南](../../docs/dsh-integration.zh-CN.md).
 
-- `bundle/`: the configuration-only Bundle (`@cnkang/qdrant-memory-dsh-bundle`)
+- `bundle/`: the unified Host Bundle (`@cnkang/qdrant-memory-dsh-bundle`)
   for the official `dsh.bundle.patch` contract. It connects the public managed
-  launcher through the official `@deepseek-ai/dsh-mcp-client`. Install it with
+  launcher by default and can explicitly select one HTTPS Owner for tools and
+  opt-in Native lifecycle. Install it with
   `dsh plugin --profile <name> add`. Backend preparation is an explicit step.
 - `qdrant-memory.cordis.yml`: published Python/uvx overlay for `--patch` use.
   Prepare a separate profile first.
@@ -16,9 +17,9 @@ See the [English guide](../../docs/dsh-integration.md) or
   [中文设置](native/README.zh-CN.md), and the
   [validation report](../../docs/dsh-native/validation.md).
 - `package.json` / `package-lock.json`: exact official DSH packages for
-  the legacy `0.2.1-rc.2` integration tests, not a second server.
+  the official `0.2.2-rc.1` integration tests, not a second server.
 
 Use one published MCP route per profile. Never enable the Bundle and the
-overlay together. The native adapter can be layered onto one profile after its
-Runtime contract is available; its recall and capture switches remain
-independent of MCP tool use.
+overlay together. Prefer the unified Bundle for Native upgrades; keep the
+private Native source package unpublished. See [release evidence and remaining
+gates](../../docs/dsh-native/release-readiness.md).

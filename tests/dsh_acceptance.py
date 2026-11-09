@@ -187,17 +187,29 @@ def test_official_dsh_cli_installs_the_packed_bundle(tmp_path):
     """Real pnpm install of the packed Bundle; the layer composes and removes cleanly."""
     root = Path(__file__).resolve().parents[1]
     node, env = dsh_cli(tmp_path / 'dsh-home', tmp_path)
-    npm = shutil.which('npm') or shutil.which('npm.cmd')
-    assert npm, 'npm is required to pack the bundle'
     output = tmp_path / 'packed'
     output.mkdir()
     packed = subprocess.run(
-        [npm, 'pack', '--json', '--ignore-scripts', '--pack-destination', str(output)],
-        cwd=root / 'integrations/dsh/bundle', env=env, capture_output=True, text=True, timeout=120, check=True)
+        [shutil.which('python3') or shutil.which('python'), str(root / 'scripts/pack_dsh_bundle.py'), '--output-dir', str(output)],
+        cwd=root, env=env, capture_output=True, text=True, timeout=120, check=True)
     report = json.loads(packed.stdout)
-    report = list(report.values())[0] if isinstance(report, dict) else report[0]
-    tgz = output / report['filename']
+    tgz = Path(report['archive'])
     assert tgz.is_file()
+    legacy = subprocess.run(
+        [shutil.which('npm') or shutil.which('npm.cmd'), 'pack', '@cnkang/qdrant-memory-dsh-bundle@0.1.6',
+         '--ignore-scripts', '--json', '--pack-destination', str(output)],
+        env=env, capture_output=True, text=True, timeout=120, check=True,
+    )
+    legacy_report = json.loads(legacy.stdout)
+    legacy_report = list(legacy_report.values())[0] if isinstance(legacy_report, dict) else legacy_report[0]
+    legacy_tgz = output / legacy_report['filename']
+    def install(archive):
+        result = subprocess.run([*node, 'plugin', '--profile', 'memory-test', 'add', str(archive)],
+                                env=env, capture_output=True, text=True, timeout=300)
+        assert result.returncode == 0, result.stderr
+    install(legacy_tgz)
+    sentinel = tmp_path / 'dsh-home/profiles/memory-test/prepared-memory-sentinel'
+    sentinel.write_text('synthetic existing profile data')
     add = subprocess.run([*node, 'plugin', '--profile', 'memory-test', 'add', str(tgz)],
                          env=env, capture_output=True, text=True, timeout=300)
     assert add.returncode == 0, add.stderr
@@ -207,10 +219,26 @@ def test_official_dsh_cli_installs_the_packed_bundle(tmp_path):
     assert dump.returncode == 0, dump.stderr
     assert '# == @cnkang/qdrant-memory-dsh-bundle' in dump.stdout
     assert 'id: cnkang-qdrant-memory-mcp' in dump.stdout
-    assert "name: '@deepseek-ai/dsh-mcp-client'" in dump.stdout
-    assert 'command: npx' in dump.stdout
+    assert "name: '@cnkang/qdrant-memory-dsh-bundle'" in dump.stdout
+    assert 'mode: legacy' in dump.stdout
+    assert dump.stdout.count('id: cnkang-qdrant-memory-mcp') == 1
+    assert sentinel.read_text() == 'synthetic existing profile data'
+    host = tmp_path / 'dsh-home/profiles/memory-test/node_modules/@cnkang/qdrant-memory-dsh-bundle/index.js'
+    env['DSH_TEST_MODULES'] = os.environ['DSH_TEST_MODULES']
+    checked = subprocess.run(['node', str(root / 'tests/dsh_native_e2e/bundle-config.mjs'), str(host), str(tmp_path / 'dsh-home/profiles/memory-test')],
+                             env=env, capture_output=True, text=True, timeout=30)
+    assert checked.returncode == 0, checked.stderr
+    # Roll back the actual npm tarball in place and compose its original MCP row.
+    install(legacy_tgz)
+    rollback = subprocess.run([*node, '--profile', 'memory-test', '--dump-config'],
+                              env=env, capture_output=True, text=True, timeout=60)
+    assert rollback.returncode == 0, rollback.stderr
+    assert rollback.stdout.count('id: cnkang-qdrant-memory-mcp') == 1
+    assert "name: '@deepseek-ai/dsh-mcp-client'" in rollback.stdout
+    assert sentinel.read_text() == 'synthetic existing profile data'
     remove = subprocess.run([*node, 'plugin', '--profile', 'memory-test', 'remove', '@cnkang/qdrant-memory-dsh-bundle'],
                             env=env, capture_output=True, text=True, timeout=300)
     assert remove.returncode == 0, remove.stderr
     manifest = json.loads((tmp_path / 'dsh-home/profiles/memory-test/package.json').read_text(encoding='utf-8'))
     assert '@cnkang/qdrant-memory-dsh-bundle' not in manifest['dsh']['profile']['bundles']
+    assert sentinel.read_text() == 'synthetic existing profile data'

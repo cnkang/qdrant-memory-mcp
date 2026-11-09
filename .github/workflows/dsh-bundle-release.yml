@@ -20,7 +20,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
-          node-version: '20'
+          node-version: '24.9.0'
           # Release workflows never read the package-manager cache.
           package-manager-cache: false
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
@@ -29,6 +29,10 @@ jobs:
       - run: "python -m pip install --only-binary=:all: 'pytest==9.2.0' 'requests==2.34.2'"
       - name: Require the pinned public launcher before preparing release assets
         run: python integrations/workbuddy/public_install.py --require-launcher
+      - name: Require exact-SHA blocking CI
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python scripts/check_release_gate.py "$GITHUB_REPOSITORY" "$GITHUB_SHA"
       - name: Verify source and pack the reviewed bundle
         env:
           RELEASE_TAG: ${{ github.ref_name }}

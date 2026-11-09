@@ -1,12 +1,22 @@
 {
   "name": "@cnkang/qdrant-memory-dsh-bundle",
-  "version": "0.1.6",
+  "version": "0.2.0-rc.1",
   "type": "module",
-  "description": "DSH configuration bundle: connect a prepared Qdrant Memory profile through the official MCP client",
+  "description": "DSH Qdrant Memory: legacy MCP tools and opt-in unified Owner lifecycle",
+  "main": "./index.js",
+  "imports": {"#qdrant-native": "./native/index.js"},
+  "engines": {"node": ">=24.9.0", "dsh": "0.2.2-rc.1"},
   "license": "MIT",
   "repository": {"type": "git", "url": "git+https://github.com/cnkang/qdrant-memory-mcp.git", "directory": "integrations/dsh/bundle"},
   "homepage": "https://github.com/cnkang/qdrant-memory-mcp/tree/main/integrations/dsh",
-  "files": ["cordis.patch.yml", "README.md", "LICENSE"],
+  "files": ["index.js", "native/index.js", "cordis.patch.yml", "README.md", "LICENSE"],
   "dsh": {"bundle": {"patch": "./cordis.patch.yml"}},
-  "peerDependencies": {"@deepseek-ai/dsh-mcp-client": ">=0.2.0-rc.2 <0.3.0 || >=0.2.1-rc.2 <0.3.0"}
+  "dependencies": {
+    "@deepseek-ai/dsh-mcp-client": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-llm": "0.2.2-rc.1",
+    "@deepseek-ai/schemastery": "3.19.0"
+  },
+  "overrides": {"zod": "4.6.7", "undici": "8.12.3", "@modelcontextprotocol/client": "2.3.0"},
+  "peerDependencies": {"@deepseek-ai/dsh-session": "0.2.2-rc.1"},
+  "peerDependenciesMeta": {"@deepseek-ai/dsh-session": {"optional": true}}
 }

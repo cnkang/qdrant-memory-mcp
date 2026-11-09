@@ -1,22 +1,62 @@
 # Qdrant Memory Bundle for DeepSeek Harness
 
-A configuration-only DSH Bundle. It connects one prepared Qdrant Memory
-profile through the official `@deepseek-ai/dsh-mcp-client`. It contains no
-memory engine, no embeddings and no Python code. The shared Qdrant Memory
-launcher and Runtime own storage, scope, ledger and recovery.
+A Host Bundle under the existing npm name. Candidate `0.2.0-rc.1` retains
+Legacy MCP by default and adds explicitly selected Owner modes. It contains
+no memory engine, embeddings or Python code. The Python Runtime owns writes,
+scope, ledger and recovery. The private `native/` directory is canonical source
+included by the reviewed packer; it is not a second npm publication.
 
 The Bundle declares one patch layer: a single `qdrant-memory` MCP server entry.
-DSH exposes its four tools as `mcp__qdrant-memory__qdrant_memory_search`,
+In Legacy and Unified Owner mode, DSH exposes four tools as `mcp__qdrant-memory__qdrant_memory_search`,
 `..._add`, `..._update` and `..._delete`. Explicit operations only. The
-connection never captures conversation turns automatically.
+default configuration never captures conversation turns automatically.
+
+## Candidate storage modes
+
+| `mode` | Explicit tools | Automatic memory | Storage |
+| --- | --- | --- | --- |
+| `legacy` (default) | Four existing MCP tools | Rejected if enabled | Existing prepared launcher profile |
+| `native-owner` | None from this Bundle | Opt-in | Authenticated HTTPS Owner |
+| `unified-owner` | Four official HTTP MCP tools | Opt-in | The same HTTPS endpoint and token for both paths |
+
+Select a mode in this Bundle's configuration before enabling
+`auto_capture.enabled`, `auto_recall.enabled` and `memory_injection.enabled`.
+Recall needs both the recall and injection switches. Legacy needs no Owner
+token. Owner modes require an absolute `QDRANT_MEMORY_RUNTIME_PYTHON`,
+`QDRANT_MEMORY_DSH_OWNER_URL` with exact HTTPS `/mcp`, and a provisioned
+`QDRANT_MEMORY_DSH_OWNER_TOKEN`. For a private CA, configure
+`QDRANT_MEMORY_RUNTIME_CA_FILE` for Python and `NODE_EXTRA_CA_CERTS` at Host
+startup for the official Node MCP client. Never put tokens in profile YAML.
+
+One trusted identity owns one DSH profile. Do not share an Owner-enabled Host
+among independently authorized users. Grants come from the Owner policy,
+never model content or a supplied user/agent/scope field. Do not install this
+Bundle alongside the old overlay or the private Native bundle.
+
+Changing mode does not migrate any data. Legacy and remote Owner data remain
+separate until an operator explicitly previews, backs up, verifies and approves
+a migration. No migration is performed by this package. Disable and stop the
+old connection before changing storage targets. Incompatible embedding spaces
+must be resolved through the Runtime's explicit migration workflow.
+
+Capture writes a content-free activation watermark in the durable DSH Session.
+First enable excludes earlier turns; disable/re-enable establishes a new
+boundary. HMR retains the enabled boundary for receipt recovery. Backfill is
+not provided. Recovery drains batches of eight with a sixteen-turn live queue;
+it currently reads the full individual Session log once per recovery pass.
+
+Prepare the candidate tarball with `python scripts/pack_dsh_bundle.py
+--output-dir dist/dsh-bundle` from the repository root. Direct `npm pack` of
+this source directory omits the canonical Native module and is not a release
+artifact. Publication requires approved Runtime 0.6.1 public-wheel, protected
+Cloud and Desktop acceptance. When approved, publish this candidate under
+`next`, keeping `latest=0.1.6`; this task does not publish either package.
 
 ## Requirements
 
-- DeepSeek Harness with the official MCP client (`@deepseek-ai/dsh-mcp-client`).
-  The compatibility range retains `>=0.2.0-rc.2 <0.3.0` and explicitly includes
-  the `0.2.1-rc.2` prerelease line. Automated test packages pin `0.2.1-rc.2`,
-  whose upstream MCP Client dependency is the patched `2.2.0`.
-- Node.js 20 or newer for `npx`. DSH already runs on Node.js.
+- DeepSeek Harness `0.2.2-rc.1`, enforced by `engines.dsh`. Earlier Hosts
+  remain on Bundle 0.1.6 until explicitly upgraded.
+- Node.js 24.9.0 or newer. This is a compatibility boundary of candidate 0.2.
 - `pnpm` on `PATH` for `dsh plugin --profile <name> add`: the official DSH
   plugin manager forwards installation to pnpm.
 - Network access for the first launcher download and for backend preparation
