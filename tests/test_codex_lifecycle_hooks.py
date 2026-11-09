@@ -381,10 +381,20 @@ def stage_scratch(monkeypatch, runtime, *, prompt="plain question", session="ses
 
 
 def test_user_prompt_submit_stages_scratch_and_honors_remember(hook_env, monkeypatch, capsys):
-    stage_scratch(monkeypatch, load("lifecycle_runtime"), prompt="Remember: team offsite is in May.")
+    runtime = load("lifecycle_runtime")
+    # The remember branch must be testable on every OS; monkeypatching avoids
+    # executing a POSIX-only stub console script on Windows.
+    call = []
+
+    def fake_call(*args, **kwargs):
+        call.append(list(args))
+        return 0, json.dumps({"id": "rec-1"}), ""
+
+    monkeypatch.setattr(runtime, "call_runtime", fake_call)
+    stage_scratch(monkeypatch, runtime, prompt="Remember: team offsite is in May.")
     output = json.loads(capsys.readouterr().out.strip())
     assert "saved one explicit fact" in output["systemMessage"]
-    runtime = load("lifecycle_runtime")
+    assert call == [["add", "--text", "team offsite is in May."]]
     scratch = runtime.scratch_path_for("sess-1", "t-1")
     staged = json.loads(scratch.read_text(encoding="utf-8"))
     assert staged["session_id"] == "sess-1"
