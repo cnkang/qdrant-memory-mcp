@@ -19,10 +19,19 @@ BASE_MCP = """- id: installed-mcp
     serverName: qdrant-memory
 """
 OTHER_MCP = BASE_MCP.replace('qdrant-memory', 'another-server')
+GROUP_MEMORY = """- group: true
+  config:
+    - name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: qdrant-memory
+"""
+GROUP_UNRELATED = GROUP_MEMORY.replace('qdrant-memory', 'another-server')
 COMPOSED_CONFIGS = {
     'clean': '[]',
     'memory': BASE_MCP,
     'unrelated': OTHER_MCP,
+    'group-memory': GROUP_MEMORY,
+    'group-unrelated': GROUP_UNRELATED,
     'conflict': OTHER_MCP + OTHER_MCP.replace('installed-mcp', 'second-mcp'),
     'malformed': 'plugins: [',
     'dump-failure': '[]',
@@ -125,7 +134,7 @@ dsh() {
     # Feed source over stdin rather than Windows' command-line quoting rules.
     result = subprocess.run([bash, '--noprofile', '--norc', '-s'], input=script,
                             env=env, capture_output=True, encoding='utf-8', timeout=30)
-    allowed = version == '0.3.1' and base in ('clean', 'unrelated')
+    allowed = version == '0.3.1' and base in ('clean', 'unrelated', 'group-unrelated')
     assert launched.exists() == allowed, result
     assert (result.returncode == 0) == allowed, result
     if launched.exists():
