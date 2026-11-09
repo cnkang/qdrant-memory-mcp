@@ -21,6 +21,7 @@ in files are platform-reproducible, unlike resolver output.
 import argparse
 import hashlib
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -40,32 +41,76 @@ PLATFORM_LOCKS = {
 }
 _SAFE_SUBPROCESS_ARGUMENT = re.compile(
     r"^(?:"
-    r"-C|-m|-o|-r|-d|--depth|--wheel|--out-dir|--python-version|"
+    r"-C|-P|-m|-o|-r|-d|--depth|--wheel|--out-dir|--python-version|"
     r"--python-platform|--generate-hashes|--seed|--python|--require-hashes|"
     r"--only-binary=:all:|--no-deps|--no-index|--no-cache-dir|--find-links|--help"
     r"|[^-\x00-\x1f\x7f][^\x00-\x1f\x7f]*"
     r")$"
 )
 _PATH_COMMANDS = frozenset({"git", "uv"})
+_LOCAL_EXECUTABLES = frozenset(
+    {"python", "python.exe", "qdrant-memory", "qdrant-memory.exe"}
+)
 
 
-def run(argv: list[str], cwd: Path, *, check=True):
-    """Run an approved CLI command without accepting injected option tokens."""
-    if not isinstance(argv, list) or not argv or not isinstance(argv[0], str):
-        raise ValueError("subprocess command must be a non-empty argument list")
-    executable = argv[0]
-    if executable not in _PATH_COMMANDS and not Path(executable).is_absolute():
-        raise ValueError("subprocess executable must be an approved command or absolute path")
+def approved_executable(executable: object, root: Path) -> str:
+    """Return a pre-approved executable, never a caller-supplied command line.
 
-    safe_argv = []
-    for argument in argv:
-        if not isinstance(argument, str) or _SAFE_SUBPROCESS_ARGUMENT.fullmatch(argument) is None:
-            raise ValueError("subprocess arguments contain an unapproved option or control character")
-        safe_argv.append(argument)
+    Path lookups are limited to ``git`` and ``uv``. Absolute paths are accepted
+    only for the interpreter and console scripts inside ``root``, the private
+    directory of one build or verification run, so a caller cannot select an
+    arbitrary program. The path is normalized lexically, not resolved, because
+    a virtual environment interpreter is a symlink to the base interpreter.
+    """
+    if not isinstance(executable, str) or not executable:
+        raise ValueError("subprocess executable must be a non-empty string")
+    if executable in _PATH_COMMANDS:
+        return executable
+    candidate = Path(os.path.abspath(executable))
+    allowed_root = Path(os.path.abspath(root))
+    if (
+        not candidate.is_absolute()
+        or candidate.name not in _LOCAL_EXECUTABLES
+        or allowed_root not in candidate.parents
+    ):
+        raise ValueError("subprocess executable is not an approved command")
+    return str(candidate)
 
-    completed = subprocess.run(safe_argv, cwd=cwd, capture_output=True, text=True)
+
+def run(
+    executable: str,
+    arguments: list[str],
+    cwd: Path,
+    *,
+    root: Path | None = None,
+    check=True,
+):
+    """Run one approved executable with validated, non-option arguments.
+
+    The executable stays apart from the argument list on purpose: data that
+    flows in from the command line can only reach argument values, never the
+    program that gets executed.
+    """
+    command = approved_executable(executable, cwd if root is None else root)
+    if not isinstance(arguments, list):
+        raise ValueError("subprocess arguments must be an argument list")
+    safe_arguments = []
+    for argument in arguments:
+        if not isinstance(argument, str):
+            raise ValueError("subprocess arguments must be strings")
+        if _SAFE_SUBPROCESS_ARGUMENT.fullmatch(argument) is None:
+            raise ValueError(
+                "subprocess arguments contain an unapproved option or control character"
+            )
+        safe_arguments.append(argument)
+
+    completed = subprocess.run(
+        [command, *safe_arguments], cwd=cwd, capture_output=True, text=True
+    )
     if check and completed.returncode:
-        raise RuntimeError(f"{' '.join(safe_argv[:2])} failed: {completed.stderr[-800:]}")
+        raise RuntimeError(
+            f"{command} {' '.join(safe_arguments[:3])} failed: {completed.stderr[-800:]}"
+        )
     return completed
 
 
@@ -88,10 +133,10 @@ def build_runtime_wheel(work: Path, save_dir: Path | None = None) -> dict:
     )
     commit = validate_runtime_commit(release["runtime_commit"])
     source = work / "runtime-source"
-    run(["git", "init", str(source)], work)
+    run("git", ["init", str(source)], work)
     run(
+        "git",
         [
-            "git",
             "-C",
             str(source),
             "remote",
@@ -101,10 +146,11 @@ def build_runtime_wheel(work: Path, save_dir: Path | None = None) -> dict:
         ],
         work,
     )
-    run(["git", "-C", str(source), "fetch", "--depth", "1", "origin", commit], work)
-    run(["git", "-C", str(source), "checkout", "FETCH_HEAD"], work)
+    run("git", ["-C", str(source), "fetch", "--depth", "1", "origin", commit], work)
+    run("git", ["-C", str(source), "checkout", "FETCH_HEAD"], work)
     build = run(
-        ["uv", "build", "--wheel", "--out-dir", str(work / "wheel"), str(source)],
+        "uv",
+        ["build", "--wheel", "--out-dir", str(work / "wheel"), str(source)],
         work,
         check=False,
     )
@@ -136,13 +182,38 @@ def build_runtime_wheel(work: Path, save_dir: Path | None = None) -> dict:
     }
 
 
-def offline_requirements(lock: Path, wheelhouse: Path, runtime_meta: dict) -> Path:
-    """Replace the unhashable Git Runtime line with the recorded wheel."""
-    runtime_wheel = wheelhouse / runtime_meta["wheel"]
-    replacement = (
-        f"{runtime_wheel.resolve().as_uri()} --hash=sha256:{runtime_meta['sha256']}"
-    )
-    target = wheelhouse / f"verify-{lock.stem}.txt"
+VERIFY_REQUIREMENTS_FILENAME = "verify-requirements.txt"
+
+
+def validate_runtime_wheel(name: object) -> str:
+    """Accept only a plain wheel filename recorded by this builder."""
+    if not isinstance(name, str) or re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._+-]*\.whl", name) is None:
+        raise ValueError("runtime wheel must be a plain .whl filename")
+    return name
+
+
+def validate_sha256(digest: object) -> str:
+    """Accept only a lowercase SHA-256 hex digest."""
+    if not isinstance(digest, str) or re.fullmatch(r"[0-9a-f]{64}", digest) is None:
+        raise ValueError("runtime wheel sha256 must be 64 lowercase hex characters")
+    return digest
+
+
+def offline_requirements(
+    platform: str, wheelhouse: Path, runtime_meta: dict, target_dir: Path
+) -> Path:
+    """Write the offline requirements file into the run's private directory."""
+    if platform not in PLATFORM_LOCKS:
+        raise ValueError(f"Unsupported runtime lock platform: {platform}")
+    lock = LOCKS / f"{platform}.txt"
+    if not lock.is_file():
+        raise FileNotFoundError(f"Runtime lock not found: {lock}")
+    runtime_wheel = wheelhouse / validate_runtime_wheel(runtime_meta.get("wheel"))
+    if not runtime_wheel.is_file():
+        raise FileNotFoundError(f"Runtime wheel not found: {runtime_wheel}")
+    digest = validate_sha256(runtime_meta.get("sha256"))
+    replacement = f"{runtime_wheel.resolve().as_uri()} --hash=sha256:{digest}"
+    target = target_dir / VERIFY_REQUIREMENTS_FILENAME
     lines = []
     for line in lock.read_text(encoding="utf-8").splitlines():
         if line.startswith("hermes-plugin-qdrant-memory @ git+"):
@@ -155,18 +226,20 @@ def offline_requirements(lock: Path, wheelhouse: Path, runtime_meta: dict) -> Pa
 
 def verify_offline(target: str, wheelhouse: Path, runtime_meta: dict) -> dict:
     """Install the hashed lock completely offline from recorded wheels only."""
-    lock = LOCKS / f"{target}.txt"
-    verify_req = offline_requirements(lock, wheelhouse, runtime_meta)
+    if target not in PLATFORM_LOCKS:
+        raise ValueError(f"Unsupported runtime lock platform: {target}")
     work = Path(tempfile.mkdtemp(prefix="qm-lock-verify-"))
     try:
+        verify_req = offline_requirements(target, wheelhouse, runtime_meta, work)
         venv_dir = work / "venv"
-        run(["uv", "venv", "--seed", "--python", "3.11", str(venv_dir)], work)
+        run("uv", ["venv", "--seed", "--python", "3.11", str(venv_dir)], work)
         python = venv_dir / (
             "Scripts/python.exe" if sys.platform == "win32" else "bin/python"
         )
         result = run(
+            str(python),
             [
-                str(python),
+                "-P",
                 "-m",
                 "pip",
                 "install",
@@ -175,11 +248,12 @@ def verify_offline(target: str, wheelhouse: Path, runtime_meta: dict) -> dict:
                 "--no-index",
                 "--no-cache-dir",
                 "--find-links",
-                str(wheelhouse),
+                ".",
                 "-r",
-                str(verify_req.resolve()),
+                str(verify_req),
             ],
-            work,
+            wheelhouse,
+            root=work,
             check=False,
         )
         if result.returncode:
@@ -189,7 +263,7 @@ def verify_offline(target: str, wheelhouse: Path, runtime_meta: dict) -> dict:
             if sys.platform == "win32"
             else "bin/qdrant-memory"
         )
-        probe = run([str(console), "--help"], work, check=False)
+        probe = run(str(console), ["--help"], work, check=False)
         return {
             "target": target,
             "installed": True,
@@ -210,7 +284,6 @@ def compile_lock(target: str, _work: Path) -> Path:
     platform, python = PLATFORM_LOCKS[target]
     output = LOCKS / f"{target}.txt"
     args = [
-        "uv",
         "pip",
         "compile",
         "--generate-hashes",
@@ -222,7 +295,7 @@ def compile_lock(target: str, _work: Path) -> Path:
         "-o",
         f"runtime-locks/{target}.txt",
     ]
-    result = run(args, ROOT, check=False)
+    result = run("uv", args, ROOT, check=False)
     if result.returncode:
         raise RuntimeError(
             f"uv pip compile for {target} failed: {result.stderr[-1200:]}"
@@ -260,7 +333,7 @@ def hashed_requirements(platform: str, work: Path) -> Path:
 def seeded_python(work: Path) -> Path:
     """A pip-capable interpreter for hash-checked wheel downloads."""
     env_dir = work / "pip-venv"
-    run(["uv", "venv", "--seed", "--python", "3.11", str(env_dir)], work)
+    run("uv", ["venv", "--seed", "--python", "3.11", str(env_dir)], work)
     return env_dir / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
 
 
@@ -274,8 +347,9 @@ def build_wheelhouse(work_dir: Path) -> Path:
         for target in host_platforms():
             filtered = hashed_requirements(target, work)
             run(
+                str(python),
                 [
-                    str(python),
+                    "-P",
                     "-m",
                     "pip",
                     "download",
@@ -285,9 +359,10 @@ def build_wheelhouse(work_dir: Path) -> Path:
                     "-r",
                     str(filtered.resolve()),
                     "-d",
-                    str(wheelhouse),
+                    ".",
                 ],
-                work,
+                wheelhouse,
+                root=work,
             )
         build_runtime_wheel(work, save_dir=wheelhouse)
     return wheelhouse
@@ -359,9 +434,10 @@ def main() -> None:
     if args.verify:
         if not args.wheelhouse or not args.wheelhouse.is_dir():
             parser.error("--verify needs a --wheelhouse built with --wheelhouse")
-        meta_file = args.wheelhouse / RUNTIME_WHEEL_FILENAME
+        wheelhouse = args.wheelhouse.resolve()
+        meta_file = wheelhouse / RUNTIME_WHEEL_FILENAME
         meta = json.loads(meta_file.read_text(encoding="utf-8"))
-        print(json.dumps(verify_offline(args.verify, args.wheelhouse, meta)))
+        print(json.dumps(verify_offline(args.verify, wheelhouse, meta)))
     elif args.wheelhouse:
         print(json.dumps({"wheelhouse": str(build_wheelhouse(args.wheelhouse))}))
     else:
