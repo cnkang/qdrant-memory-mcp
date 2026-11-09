@@ -80,6 +80,14 @@ def test_validate_existing_tag_at_clean_merged_head(source, release_tag):
     assert module().validate_source(source, release_tag)[0] == git(source, 'rev-parse', 'HEAD')
 
 
+def test_tag_stays_valid_after_main_advances(source, release_tag):
+    """The documented tag-and-wait flow survives a later main advance."""
+    advanced = git(source, 'commit-tree', 'HEAD^{tree}', '-p', 'HEAD', '-m', 'advance main after tagging')
+    git(source, 'update-ref', 'refs/remotes/origin/main', advanced)
+    release = module()
+    assert release.validate_source(source, release_tag)[0] == git(source, 'rev-parse', 'HEAD')
+
+
 @pytest.mark.parametrize('tag', ['0.1.0', 'dsh-bundle-0.1.0', 'dsh-bundle-v0.2.0', 'dsh-bundle-v01.0.0'])
 def test_invalid_or_mismatched_tag(source, tag):
     release = module()
