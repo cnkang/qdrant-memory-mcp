@@ -7,7 +7,9 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: dsh-cross-client-${{ github.ref }}
+  # Manual dispatches get their own group, so rerunning acceptance on `main`
+  # cannot cancel the push run that the tag release gate requires.
+  group: dsh-cross-client-${{ github.ref }}${{ github.event_name == 'workflow_dispatch' && '-dispatch' || '' }}
   cancel-in-progress: true
 jobs:
   owner:
