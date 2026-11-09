@@ -377,7 +377,7 @@ def stage_scratch(monkeypatch, runtime, *, prompt="plain question", session="ses
     feed_stdin(monkeypatch, {
         "session_id": session, "turn_id": turn, "cwd": cwd, "prompt": prompt
     })
-    assert capture.main() == 0
+    assert capture.main() is None
 
 
 def test_user_prompt_submit_stages_scratch_and_honors_remember(hook_env, monkeypatch, capsys):
@@ -419,7 +419,8 @@ def test_scratch_prefers_plugin_data_and_cleans(hook_env, monkeypatch, tmp_path)
     runtime = load("lifecycle_runtime")
     stage_scratch(monkeypatch, runtime)
     staged = plugin_data / "turn_inputs"
-    assert staged.is_dir() and list(staged.glob("*.json"))
+    assert staged.is_dir()
+    assert list(staged.glob("*.json"))
     assert not (runtime.events_root() / "scratch").exists()
 
 
@@ -431,7 +432,7 @@ def test_stop_capture_pairs_and_writes_bounded_pending_event(hook_env, monkeypat
         "last_assistant_message": "Storage caps are 300 pending events per profile.",
         "stop_hook_active": False,
     })
-    assert stop.main() == 0
+    assert stop.main() is None
     runtime = load("lifecycle_runtime")
     events = sorted(runtime.pending_dir().glob("*.json"))
     assert len(events) == 1
@@ -455,7 +456,7 @@ def test_stop_capture_is_idempotent_per_turn(hook_env, monkeypatch):
             "session_id": "sess-1", "turn_id": "t-1",
             "last_assistant_message": "reply text",
         })
-        assert stop.main() == 0
+        assert stop.main() is None
     assert len(list(runtime.pending_dir().glob("*.json"))) == 1
     assert not runtime.scratch_path_for("sess-1", "t-1").exists()
 
@@ -468,7 +469,7 @@ def test_stop_capture_byte_bounds_assistant_text(hook_env, monkeypatch):
     feed_stdin(monkeypatch, {
         "session_id": "sess-1", "turn_id": "t-1", "last_assistant_message": long_reply
     })
-    assert stop.main() == 0
+    assert stop.main() is None
     stored = json.loads(next(runtime.pending_dir().glob("*.json")).read_text(encoding="utf-8"))
     assert len(stored["assistant_text"]["text"].encode("utf-8")) <= runtime.ASSISTANT_TEXT_BYTES
     assert stored["assistant_text"]["truncated"] is True
@@ -481,7 +482,7 @@ def test_stop_capture_without_pairing_captures_nothing(hook_env, monkeypatch):
         "session_id": "sess-2", "turn_id": "t-9",
         "last_assistant_message": "orphan assistant text",
     })
-    assert stop.main() == 0
+    assert stop.main() is None
     assert list(runtime.pending_dir().glob("*.json")) == []
 
 
@@ -490,13 +491,13 @@ def test_stop_capture_requires_assistant_text(hook_env, monkeypatch):
     stop = load("turn_capture")
     runtime = load("lifecycle_runtime")
     feed_stdin(monkeypatch, {"session_id": "sess-1", "turn_id": "t-1"})
-    assert stop.main() == 0
+    assert stop.main() is None
     assert list(runtime.pending_dir().glob("*.json")) == []
     # A blank pairing entry never surfaces either.
     feed_stdin(monkeypatch, {
         "session_id": "sess-1", "turn_id": "t-1", "last_assistant_message": "  "
     })
-    assert stop.main() == 0
+    assert stop.main() is None
     assert list(runtime.pending_dir().glob("*.json")) == []
 
 
@@ -515,7 +516,7 @@ def test_stop_capture_never_invokes_the_runtime(hook_env, monkeypatch):
         "session_id": "sess-1", "turn_id": "t-1",
         "last_assistant_message": "reply",
     })
-    assert stop.main() == 0
+    assert stop.main() is None
     assert invocations == []
 
 
@@ -528,7 +529,7 @@ def test_stop_capture_overflow_prepares_and_pauses(hook_env, monkeypatch, capsys
         "session_id": "sess-1", "turn_id": "t-1",
         "last_assistant_message": "reply",
     })
-    assert stop.main() == 0
+    assert stop.main() is None
     assert list(runtime.pending_dir().glob("*.json")) == []  # nothing appended
     assert runtime.count_overflow_marker() == 1
     body = json.loads(capsys.readouterr().out.strip())
@@ -546,7 +547,8 @@ def test_prune_stale_scratch_respects_ttl(hook_env, monkeypatch):
     ttl = runtime.SCRATCH_TTL_SECONDS
 
     fresh_poll = runtime.prune_stale_scratch(now=scratch.stat().st_mtime + ttl + 1)
-    assert fresh_poll == 1 and not scratch.exists()
+    assert fresh_poll == 1
+    assert not scratch.exists()
 
 
 # --- Extractor (Phase 2): dry-run contract, validation, confirm admission ---
@@ -588,7 +590,7 @@ def stage_pending(hook_env, monkeypatch, runtime, *, user="user turn", assistant
     feed_stdin(monkeypatch, {
         "session_id": session, "turn_id": turn, "last_assistant_message": assistant
     })
-    assert stop.main() == 0
+    assert stop.main() is None
 
 
 def extractor_args(monkeypatch, server_port, model="fixture-extractor"):
@@ -618,14 +620,15 @@ def test_extractor_dry_run_lists_candidates_without_writes(hook_env, monkeypatch
         calls = provider_calls
         argv = extractor_args(monkeypatch, server.server_port)
         exit_code = cli.main(argv)
-        assert exit_code == 0
+        assert exit_code is None
     report = json.loads(capsys.readouterr().out.strip())
     assert report["mode"] == "dry-run"
     assert report["pending_events"] == 1
     assert report["events"][0]["candidates"][0]["text"] == "Prefers round mugs."
     # Dry-run must not have moved or mutated the pending event.
     pending = list(runtime.pending_dir().glob("*.json"))
-    assert len(pending) == 1 and json.loads(pending[0].read_text(encoding="utf-8"))["status"] == "pending"
+    assert len(pending) == 1
+    assert json.loads(pending[0].read_text(encoding="utf-8"))["status"] == "pending"
     assert calls, "dry-run must contact the provider exactly for planning"
 
 
@@ -656,7 +659,7 @@ def test_extractor_confirm_adds_through_runtime_and_finalizes(hook_env, monkeypa
     for server, _calls in extraction_provider_stub(monkeypatch, replies):
         argv = extractor_args(monkeypatch, server.server_port)
         argv.append("--confirm")
-        assert cli.main(argv) == 0
+        assert cli.main(argv) is None
     report = json.loads(capsys.readouterr().out.strip())
     assert report["events"][0]["status"] == "extracted"
     assert added == ["Prefers round mugs.", "values quiet rooms"]
@@ -723,7 +726,7 @@ def test_extractor_rejects_secret_shaped_candidates(hook_env, monkeypatch, capsy
     for server, _calls in extraction_provider_stub(monkeypatch, replies):
         argv = extractor_args(monkeypatch, server.server_port)
         argv.append("--confirm")
-        assert cli.main(argv) == 0
+        assert cli.main(argv) is None
     report = json.loads(capsys.readouterr().out.strip())
     assert report["events"][0]["rejected"], report
     event_files = list((runtime.extracted_dir()).glob("*.json")) + list(runtime.pending_dir().glob("*.json"))
@@ -740,13 +743,14 @@ def test_extractor_extraction_failure_leaves_event_pending(hook_env, monkeypatch
     for server, _calls in extraction_provider_stub(monkeypatch, replies):
         argv = extractor_args(monkeypatch, server.server_port)
         argv.append("--confirm")
-        assert cli.main(argv) == 0
+        assert cli.main(argv) is None
     report = json.loads(capsys.readouterr().out.strip())
     assert report["events"][0]["status"] == "pending"
     assert report["events"][0].get("extraction_error")
     event_file = next(runtime.pending_dir().glob("*.json"))
     stored = json.loads(event_file.read_text(encoding="utf-8"))
-    assert stored["status"] == "pending" and stored.get("last_error")
+    assert stored["status"] == "pending"
+    assert stored.get("last_error")
     assert "gibberish-not-json" not in json.dumps(stored)  # error surfaced, not echoed
 
 
@@ -777,7 +781,7 @@ def test_extractor_records_rejections_and_never_adds(hook_env, monkeypatch, caps
     for server, _calls in extraction_provider_stub(monkeypatch, replies):
         argv = extractor_args(monkeypatch, server.server_port)
         argv.append("--confirm")
-        assert cli.main(argv) == 0
+        assert cli.main(argv) is None
     report = json.loads(capsys.readouterr().out.strip())
     rejected = report["events"][0]["rejected"]
     assert len(rejected) >= 2, rejected
@@ -829,19 +833,20 @@ def test_call_runtime_passes_direct_argv(hook_env, monkeypatch):
     code = runtime.call_runtime("search", "--query", "x")
     assert code == (0, '{"ok": 1}', "")
     assert seen[0][1:3] == ["--home", str(runtime.profile_path())]
-    assert "search" in seen[0] and "--query" in seen[0]
+    assert "search" in seen[0]
+    assert "--query" in seen[0]
 
 
 def test_emit_with_only_system_message(hook_env, capsys):
     runtime = load("lifecycle_runtime")
-    assert runtime.emit(system_message="note only") == 0
+    assert runtime.emit(system_message="note only") is None
     payload = json.loads(capsys.readouterr().out)
     assert payload == {"systemMessage": "note only"}
 
 
 def test_emit_both_context_and_message(hook_env, capsys):
     runtime = load("lifecycle_runtime")
-    assert runtime.emit(additional_context="ctx", system_message="warn") == 0
+    assert runtime.emit(additional_context="ctx", system_message="warn") is None
     payload = json.loads(capsys.readouterr().out)
     assert payload["systemMessage"] == "warn"
     assert payload["hookSpecificOutput"]["additionalContext"] == "ctx"
@@ -871,7 +876,7 @@ def test_recall_misread_runtime_output(hook_env, monkeypatch, capsys):
     monkeypatch.setattr(module.runtime, "load_scope", lambda: ("u", "a"))
     monkeypatch.setattr(module.runtime, "call_runtime", lambda *a, **k: (0, "not-json", ""))
     feed_stdin(monkeypatch, {"cwd": "/tmp/demo"})
-    assert module.main() == 0
+    assert module.main() is None
     payload = json.loads(capsys.readouterr().out)
     assert "misread Runtime output" in payload["systemMessage"]
 
@@ -881,7 +886,7 @@ def test_recall_tolerates_wrong_shape(hook_env, monkeypatch, capsys):
     monkeypatch.setattr(module.runtime, "load_scope", lambda: ("u", "a"))
     monkeypatch.setattr(module.runtime, "call_runtime", lambda *a, **k: (0, '{"nope": 1}', ""))
     feed_stdin(monkeypatch, {"cwd": "/tmp/shape"})
-    assert module.main() == 0
+    assert module.main() is None
     assert capsys.readouterr().out == ""
 
 
@@ -895,7 +900,7 @@ def test_recall_truncates_long_context(hook_env, monkeypatch, capsys):
         return 0, json.dumps(rows), ""
 
     monkeypatch.setattr(module.runtime, "call_runtime", fake)
-    assert module.main() == 0
+    assert module.main() is None
     payload = json.loads(capsys.readouterr().out)
     assert len(payload["hookSpecificOutput"]["additionalContext"]) <= module.runtime.DEFAULT_CONTEXT_CHARS
 
@@ -910,22 +915,23 @@ def test_remember_fullwidth_colon_is_matched(hook_env, monkeypatch, capsys):
     )
     monkeypatch.setattr(capture.runtime, "load_scope", lambda: ("u", "a"))
     feed_stdin(monkeypatch, {"prompt": "Remember：use warm mugs."})
-    assert capture.main() == 0
+    assert capture.main() is None
     _ = json.loads(capsys.readouterr().out)
-    assert calls and calls[0][-1] == "use warm mugs."
+    assert calls
+    assert calls[0][-1] == "use warm mugs."
 
 
 def test_capture_non_string_prompt_is_ignored(hook_env, monkeypatch, capsys):
     capture = load("user_prompt_capture")
     feed_stdin(monkeypatch, {"prompt": 42})
-    assert capture.main() == 0
+    assert capture.main() is None
     assert capsys.readouterr().out == ""
 
 
 def test_capture_blank_prompt_is_ignored(hook_env, monkeypatch, capsys):
     capture = load("user_prompt_capture")
     feed_stdin(monkeypatch, {"prompt": "   "})
-    assert capture.main() == 0
+    assert capture.main() is None
     assert capsys.readouterr().out == ""
 
 
@@ -934,7 +940,7 @@ def test_capture_add_failure_surfaces(hook_env, monkeypatch, capsys):
     monkeypatch.setattr(capture.runtime, "call_runtime", lambda *a, **k: (2, "{}", "runtime down"))
     monkeypatch.setattr(capture.runtime, "load_scope", lambda: ("u", "a"))
     feed_stdin(monkeypatch, {"prompt": "Remember: keep it."})
-    assert capture.main() == 0
+    assert capture.main() is None
     assert "runtime down" in json.loads(capsys.readouterr().out)["systemMessage"]
 
 
@@ -943,7 +949,7 @@ def test_capture_stage_write_failure_is_not_fatal(hook_env, monkeypatch):
     runtime = load("lifecycle_runtime")
     monkeypatch.setattr(runtime, "write_json_private", lambda *a, **k: (_ for _ in ()).throw(OSError("disk full")))
     feed_stdin(monkeypatch, {"prompt": "whatever, no remember:"})
-    assert capture.main() == 0
+    assert capture.main() is None
 
 
 def test_extract_provider_missing_key_header_is_empty_for_local(monkeypatch):
