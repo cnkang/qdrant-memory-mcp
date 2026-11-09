@@ -54,6 +54,8 @@ def test_dsh_native_bundle_pins_release_and_keeps_automation_disabled():
         '@deepseek-ai/dsh-llm': '0.2.2-rc.1',
         '@deepseek-ai/schemastery': '3.19.0',
     }
+    assert package['peerDependencies'] == {'@deepseek-ai/dsh-session': '0.2.2-rc.1'}
+    assert package['peerDependenciesMeta']['@deepseek-ai/dsh-session']['optional'] is True
     assert '@deepseek-ai/dsh' not in package.get('dependencies', {})
     assert '@deepseek-ai/dsh' not in package.get('devDependencies', {})
     ci_package = json.loads(

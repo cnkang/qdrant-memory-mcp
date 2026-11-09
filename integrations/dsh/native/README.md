@@ -8,8 +8,9 @@ Qdrant, create a second ledger, or change the four public MCP tools.
 The package targets the pinned DSH prerelease `0.2.2-rc.1`, Node.js 24.9 or
 newer, and Python Runtime 0.6.1 or newer. Runtime 0.6.1 supports the versioned
 candidate event and durable receipt retry used by this adapter. The DSH package
-is still distributed as a private source bundle; the MCP Bundle and Cordis
-overlay remain separate supported public paths.
+remains private canonical source. The reviewed packer includes it in the existing
+`@cnkang/qdrant-memory-dsh-bundle` candidate; do not publish a separate Native
+package. See [Bundle storage modes](../bundle/README.md#candidate-storage-modes).
 
 ## Install
 

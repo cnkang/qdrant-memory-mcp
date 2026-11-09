@@ -42,6 +42,21 @@ export type NativeConfig = {
 }
 export declare const DEFAULT_CONFIG: Readonly<NativeConfig>
 export declare const Config: unknown
+declare module '@deepseek-ai/dsh-session' {
+  interface PluginRecordMap {
+    'plugin:qdrant-memory/capture-state': {
+      session_id: string
+      enabled: boolean
+      after_seq: number
+    }
+  }
+}
+export declare function runtimeTarget(env: Record<string, string | undefined>): {
+  python: string
+  endpoint: string
+  token: string
+  caFile?: string
+}
 export declare function parseCandidates(output: string, maxCandidates?: number, userText?: string): {
   candidates: Array<{
     text: string
