@@ -168,6 +168,53 @@ def test_dsh_capture_and_mcp_recall_with_scoped_https_owner(tmp_path, monkeypatc
                     assert 'Unexpected memory tool arguments' in str(exc), exc
                 else:
                     raise AssertionError(f'forged {field} argument reached the Owner: {forged}') from None
+
+            async def assert_owner_rejects_forged_identity():
+                import httpx
+                import ssl
+
+                headers = {
+                    'Authorization': f"Bearer {token['mcp']}",
+                    'Accept': 'application/json, text/event-stream',
+                }
+                async with httpx.AsyncClient(
+                    verify=ssl.create_default_context(cafile=str(cert)),
+                    trust_env=False, follow_redirects=False, timeout=10,
+                ) as direct:
+                    initialized = await direct.post(endpoint, headers=headers, json={
+                        'jsonrpc': '2.0', 'id': 1, 'method': 'initialize',
+                        'params': {
+                            'protocolVersion': '2025-11-25', 'capabilities': {},
+                            'clientInfo': {'name': 'identity-isolation-acceptance', 'version': '1'},
+                        },
+                    })
+                    assert initialized.status_code == 200, initialized.text
+                    session_id = initialized.headers.get('mcp-session-id')
+                    if session_id:
+                        headers['Mcp-Session-Id'] = session_id
+
+                    def decode(response):
+                        if 'text/event-stream' in response.headers.get('content-type', ''):
+                            data = [line[6:] for line in response.text.splitlines() if line.startswith('data: ')]
+                            assert data, response.text
+                            return json.loads(data[-1])
+                        return response.json()
+
+                    for request_id, field in enumerate(('user_id', 'agent_id', 'scope'), start=2):
+                        response = await direct.post(endpoint, headers=headers, json={
+                            'jsonrpc': '2.0', 'id': request_id, 'method': 'tools/call',
+                            'params': {
+                                'name': 'qdrant_memory_search',
+                                'arguments': {'query': 'Iris', field: 'forged'},
+                            },
+                        })
+                        assert response.status_code == 200, response.text
+                        payload = decode(response)
+                        result = payload.get('result', {})
+                        assert payload.get('error') or result.get('isError') is True, payload
+                        assert 'Unexpected memory tool arguments' in json.dumps(payload), payload
+
+            asyncio.run(assert_owner_rejects_forged_identity())
             cross_denied = asyncio.run(call('private', 'qdrant_memory_delete', {
                 'id': captured[0]['id'], 'request_id': 'cross-private', 'expected_version': '0'}))
             assert cross_denied.get('error', {}).get('type') == 'PermissionError', cross_denied
