@@ -42,7 +42,7 @@
 - 进程内召回/捕获计数器之外的适配器运行指标。Runtime receipt 只返回状态，无法提供 mutation 类型拆分与 dedupe rate，生产延迟/token 测量尚未记录。
 - 实测延迟与 token 数、负载下的队列恢复时限、长时间运行的内存/listener 行为。
 
-GitHub workflow 会在三个真实架构 runner 上将包安装到临时 DSH profile、合成 config、移除插件、执行原生 fixture、校验精确 Node/DSH/pnpm 版本，并执行不发布的 pack。它不运行真实模型、Owner、Qdrant destination 或 GUI。
+GitHub workflow 会在三个真实架构 runner 上将包安装到临时 DSH profile、合成 config、移除插件、执行原生 fixture、校验精确 DSH/pnpm 版本，并执行不发布的 pack。Node 24.9.0 仅在 Linux x64 上精确测试；Linux x64 另有浮动 Node 24.x，macOS 15 arm64 和 Windows x64 使用浮动 Node 24.x。它不运行真实模型、Owner、Qdrant destination 或 GUI。
 
 ## 隐私、回退与发布状态
 
