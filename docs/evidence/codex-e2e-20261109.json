@@ -1,0 +1,78 @@
+{
+  "steps": [
+    {
+      "env_forwarding_all_present": true,
+      "step": "repository_marketplace_install",
+      "version": "0.1.3"
+    },
+    {
+      "step": "repository_marketplace_cleanup"
+    },
+    {
+      "files": 34,
+      "sha256": "8e2e95d1ca1333dc4dd17656548222cec7741c481a465c75d0e56559afbcb78f",
+      "source_dirty": false,
+      "step": "zip_built"
+    },
+    {
+      "step": "zip_marketplace_install",
+      "version": "0.1.3"
+    },
+    {
+      "runtime": "/private/var/folders/y4/nl6f39ys1nv1_prs1x60g1gc0000gn/T/opencode/codex-e2e-final/runtime-venv/bin/qdrant-memory",
+      "step": "runtime_venv_installed"
+    },
+    {
+      "embedding": "synthetic-fixture",
+      "profiles": 2,
+      "step": "profiles_initialized"
+    },
+    {
+      "exit": 0,
+      "mode": "doctor",
+      "step": "launch_doctor"
+    },
+    {
+      "step": "tools_listed",
+      "tools": [
+        "qdrant_memory_add",
+        "qdrant_memory_delete",
+        "qdrant_memory_search",
+        "qdrant_memory_update"
+      ]
+    },
+    {
+      "delete": "47c76fd6-1ddc-5338-ab99-6c074da85fdd",
+      "duplicate_add_idempotent": true,
+      "step": "tools_verified",
+      "update": "47c76fd6-1ddc-5338-ab99-6c074da85fdd"
+    },
+    {
+      "id": "01915332-8dd8-55e0-a655-38a119483233",
+      "step": "fresh_session_persistence"
+    },
+    {
+      "id": "01915332-8dd8-55e0-a655-38a119483233",
+      "step": "fresh_session_persistence"
+    },
+    {
+      "killed_exit": -9,
+      "step": "sigkill_recovered"
+    },
+    {
+      "leak": 0,
+      "step": "scope_isolated"
+    },
+    {
+      "step": "disabled_via_config"
+    },
+    {
+      "step": "uninstalled"
+    },
+    {
+      "served_directly": 1,
+      "step": "uninstall_preserved_record"
+    }
+  ],
+  "work": "/private/var/folders/y4/nl6f39ys1nv1_prs1x60g1gc0000gn/T/opencode/codex-e2e-final"
+}

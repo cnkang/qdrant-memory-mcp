@@ -4,6 +4,7 @@ import importlib.util
 import json
 import os
 import subprocess
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 import pytest
@@ -583,6 +584,36 @@ def test_missing_runtime_fails_without_writes(tmp_path):
     assert not (tmp_path / "absent").exists()
 
 
+def test_launcher_fails_when_runtime_venv_lacks_mcp_distribution(tmp_path):
+    """A runtime venv without the pinned MCP package fails closed before startup."""
+    import os
+    import sys
+
+    stub = tmp_path / "runtime-bin"
+    stub.mkdir()
+    executable = stub / (
+        "qdrant-memory.exe" if __import__("sys").platform == "win32" else "qdrant-memory"
+    )
+    executable.write_text("#!/bin/sh\nexit 0\n")
+    executable.chmod(0o755)
+    env = {
+        **os.environ,
+        "QDRANT_MEMORY_CODEX_EXECUTABLE": str(executable),
+        "QDRANT_MEMORY_CODEX_PYTHON": sys.executable,
+        "QDRANT_MEMORY_CODEX_PROFILE": str(tmp_path / "profile"),
+    }
+    result = subprocess.run(
+        ["node", str(ROOT / "plugins/qdrant-memory/launcher.mjs"), "mcp"],
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 1
+    assert result.stdout == ""
+    assert "No data was reset" in result.stderr
+    assert not (tmp_path / "profile").exists()
+
+
 def test_node_entrypoint_real_mcp(sandbox):
     """Run the portable plugin bridge against an installed MCP runtime."""
     import asyncio
@@ -646,5 +677,85 @@ def test_node_entrypoint_real_mcp(sandbox):
                 assert not search.model_dump(by_alias=True)["isError"]
                 records = json.loads(search.content[0].text)["memories"]
                 assert any(row["text"] == "synthetic-codex-fixture" for row in records)
+
+    asyncio.run(scenario())
+
+
+def test_node_entrypoint_scope_isolation(sandbox):
+    """A sibling profile must not observe another profile's stored records."""
+    import asyncio
+    import json
+    import sys
+    import sysconfig
+    import subprocess
+
+    from mcp import ClientSession, StdioServerParameters
+    from mcp.client.stdio import stdio_client
+
+    profile, _, config, env, _, _, _ = sandbox
+    runtime = Path(sysconfig.get_path("scripts")) / (
+        "qdrant-memory.exe" if __import__("sys").platform == "win32" else "qdrant-memory"
+    )
+    sibling = profile.parent / "sibling-profile"
+    sibling.mkdir()
+    scoped = {**config, "scope": {"user_id": "other-user", "agent_id": "other-agent"}}
+    (sibling / "qdrant-memory.json").write_text(json.dumps(scoped), encoding="utf-8")
+    init = subprocess.run(
+        [str(runtime), "--home", str(sibling), "init"],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert not json.loads(init.stdout).get("error"), init.stdout
+
+    def launcher_session(target):
+        params = StdioServerParameters(
+            command="node",
+            args=[str(ROOT / "plugins/qdrant-memory/launcher.mjs"), "mcp"],
+            env={**env, "QDRANT_MEMORY_CODEX_PROFILE": str(target),
+                 "QDRANT_MEMORY_CODEX_EXECUTABLE": str(runtime),
+                 "QDRANT_MEMORY_CODEX_PYTHON": sys.executable},
+        )
+
+        @asynccontextmanager
+        async def session():
+            async with stdio_client(params) as (read, write):
+                async with ClientSession(read, write) as live:
+                    await live.initialize()
+                    yield live
+
+        return session
+
+    async def scenario():
+        control = "scope-isolation-control-fixture"
+        async with launcher_session(profile)() as first:
+            added = await first.call_tool("qdrant_memory_add", {"text": control})
+            payload = json.loads(added.content[0].text)
+            assert not added.model_dump(by_alias=True)["isError"]
+            record_id = payload["id"] if "id" in payload else None
+
+        async with launcher_session(sibling)() as second:
+            leak = await second.call_tool(
+                "qdrant_memory_search", {"query": "scope-isolation-control-fixture"}
+            )
+            search_blob = leak.model_dump(by_alias=True)
+            assert not search_blob["isError"]
+            memories = json.loads(search_blob["content"][0]["text"])["memories"]
+            assert memories == []
+            # An exact-ID delete against another profile's record must fail, not
+            # silently succeed.
+            if record_id:
+                denial = await second.call_tool(
+                    "qdrant_memory_delete", {"id": record_id}
+                )
+                assert denial.model_dump(by_alias=True)["isError"]
+
+        async with launcher_session(profile)() as third:
+            kept = await third.call_tool(
+                "qdrant_memory_search", {"query": "scope-isolation-control-fixture"}
+            )
+            memories = json.loads(kept.content[0].text)["memories"]
+            assert any(row["text"] == control for row in memories)
 
     asyncio.run(scenario())
