@@ -1,0 +1,80 @@
+name: DSH native cloud acceptance
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: dsh-native-cloud
+  cancel-in-progress: false
+jobs:
+  preflight:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    outputs:
+      sha: ${{ steps.reviewed.outputs.sha }}
+    steps:
+      - name: Require reviewed canonical main
+        id: reviewed
+        shell: python
+        run: |
+          import os
+          from pathlib import Path
+          actual = tuple(os.environ[k] for k in ('GITHUB_EVENT_NAME', 'GITHUB_REF', 'GITHUB_REPOSITORY'))
+          if actual != ('workflow_dispatch', 'refs/heads/main', 'cnkang/qdrant-memory-mcp'):
+              raise SystemExit('Cloud acceptance requires reviewed canonical main')
+          with Path(os.environ['GITHUB_OUTPUT']).open('a') as output:
+              output.write('sha=' + os.environ['GITHUB_SHA'] + '\n')
+  cloud:
+    needs: preflight
+    runs-on: ubuntu-24.04
+    environment: soak-cloud
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.preflight.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: cnkang/hermes-plugin-qdrant-memory
+          ref: 6df73703419f061e77b9b640c15ddf6609d26e58
+          path: .scratch/dsh-runtime
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '24.9.0'
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
+        with:
+          python-version: '3.11'
+      - name: Require the public Runtime wheel and locked official DSH
+        run: |
+          npm ci --prefix .github/ci-deps/dsh-native --ignore-scripts --no-audit --no-fund
+          npm ci --prefix integrations/dsh/native --ignore-scripts --no-audit --no-fund
+          npm ci --prefix integrations/agent-hosts --ignore-scripts --no-audit --no-fund
+          python -m pip install --only-binary=:all: 'hermes-plugin-qdrant-memory[remote]==0.6.1' 'qdrant-client==1.20.0' 'pytest==9.2.0'
+      - name: Start synthetic Qdrant
+        run: docker compose -p dsh-cloud -f tests/cross_client_e2e/docker-compose.yml up -d
+      - name: Real DSH official OpenAI Completions Provider and Ollama Cloud
+        env:
+          QM_DSH_CLOUD: '1'
+          SOAK_LLM_BASE_URL: ${{ vars.SOAK_LLM_BASE_URL }}
+          SOAK_LLM_MODEL: ${{ vars.SOAK_LLM_MODEL }}
+          SOAK_LLM_API_KEY: ${{ secrets.SOAK_LLM_API_KEY }}
+          QDRANT_OWNER_RUNTIME_ROOT: ${{ github.workspace }}/.scratch/dsh-runtime
+          QDRANT_DSH_EVIDENCE: ${{ github.workspace }}/dsh-cloud.json
+          PYTHONWARNINGS: 'error:Qdrant client version:UserWarning'
+        run: |
+          QDRANT_E2E_URL="http://$(docker compose -p dsh-cloud -f tests/cross_client_e2e/docker-compose.yml port qdrant 6333)"
+          export QDRANT_E2E_URL
+          python -m pytest -q tests/cross_client_e2e/test_dsh_owner.py --junitxml=dsh-cloud.xml -W error::pytest.PytestUnhandledThreadExceptionWarning
+      - name: Clean disposable resources
+        if: always()
+        run: docker compose -p dsh-cloud -f tests/cross_client_e2e/docker-compose.yml down -v --remove-orphans
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: dsh-cloud-synthetic
+          path: |
+            dsh-cloud.xml
+            dsh-cloud.json
+          if-no-files-found: error

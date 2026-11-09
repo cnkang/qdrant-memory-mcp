@@ -1,0 +1,64 @@
+name: DSH cross-client acceptance
+on:
+  push:
+    branches: [main, 'codex/**']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: dsh-cross-client-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  owner:
+    name: Real DSH AgentLoop and MCP over HTTPS with Docker Qdrant
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      PYTHONWARNINGS: 'error:Qdrant client version:UserWarning'
+      QDRANT_OWNER_RUNTIME_ROOT: ${{ github.workspace }}/.scratch/dsh-runtime
+      QDRANT_DSH_EVIDENCE: ${{ github.workspace }}/dsh-cross-client.json
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: cnkang/hermes-plugin-qdrant-memory
+          ref: 6df73703419f061e77b9b640c15ddf6609d26e58
+          path: .scratch/dsh-runtime
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '24.9.0'
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
+        with:
+          python-version: '3.11'
+      - name: Install exact DSH and build the source-snapshot Runtime wheel
+        run: |
+          npm ci --prefix .github/ci-deps/dsh-native --ignore-scripts --no-audit --no-fund
+          npm ci --prefix integrations/dsh/native --ignore-scripts --no-audit --no-fund
+          npm ci --prefix integrations/agent-hosts --ignore-scripts --no-audit --no-fund
+          python -m pip install 'build==1.4.0' 'pytest==9.2.0'
+          python -m build .scratch/dsh-runtime --outdir "$RUNNER_TEMP/runtime-dist"
+          python -m pip install "$RUNNER_TEMP/runtime-dist/hermes_plugin_qdrant_memory-0.6.1-py3-none-any.whl[remote]" 'qdrant-client==1.20.0'
+      - name: Start isolated fixed-version Qdrant
+        run: docker compose -p dsh-ci -f tests/cross_client_e2e/docker-compose.yml up -d
+      - name: Real AgentLoop capture, MCP recall and principal isolation
+        run: |
+          QDRANT_E2E_URL="http://$(docker compose -p dsh-ci -f tests/cross_client_e2e/docker-compose.yml port qdrant 6333)"
+          export QDRANT_E2E_URL
+          python -m pytest -q -s tests/cross_client_e2e/test_dsh_owner.py --junitxml=dsh-cross-client.xml -W error::pytest.PytestUnhandledThreadExceptionWarning
+      - name: Require executed acceptance
+        run: python -c "import xml.etree.ElementTree as E; s=E.parse('dsh-cross-client.xml').findall('.//testsuite'); assert sum(int(x.get('tests',0)) for x in s)>=1; assert all(int(x.get('skipped',0))==0 for x in s)"
+      - name: Remove only disposable test resources
+        if: always()
+        run: docker compose -p dsh-ci -f tests/cross_client_e2e/docker-compose.yml down -v --remove-orphans
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: dsh-cross-client
+          path: |
+            dsh-cross-client.xml
+            dsh-cross-client.json
+          if-no-files-found: error

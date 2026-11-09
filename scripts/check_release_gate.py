@@ -13,6 +13,7 @@ REQUIRED_WORKFLOWS = (
     "Distribution CI",
     "Cross-harness integration",
     "DSH native adapter",
+    "DSH cross-client acceptance",
     "Repository quality",
     "CodeQL",
 )

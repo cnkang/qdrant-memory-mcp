@@ -221,7 +221,10 @@ test('real AgentLoop injects recall into Provider requests and durable Session, 
   assert.equal(h.receipts[0].candidates[0].text, captureFact)
   assert.equal(h.metrics().recall_owner_calls, 1)
   assert.equal(h.metrics().capture_events_committed, 1)
+  let activePlugin = h.plugin
   if (process.env.QM_DSH_CLOUD === '1') {
+    await activePlugin.dispose()
+    activePlugin = await h.mount({ auto_capture: Native.DEFAULT_CONFIG.auto_capture })
     const fresh = await h.create('iris-fresh-cloud-session')
     await h.send(fresh, 'Which synthetic Project Iris fact is in the supplied memory context?')
     const request = h.provider.requests.filter((r) => r.purpose !== 'qdrant-memory-extraction').at(-1)
@@ -230,9 +233,12 @@ test('real AgentLoop injects recall into Provider requests and durable Session, 
       model_calls: h.provider.requests.length, latency_ms: h.latency, usage: h.usage,
       scope: 'synthetic-alice/project/iris', owner_receipt: 'COMMITTED' }))
   }
-  await h.plugin.dispose()
+  await activePlugin.dispose()
+  const callsBeforeDisabledTurn = h.provider.requests.length
   await h.send(agent, 'Ordinary conversation after plugin unload.')
   assert.equal(h.receipts.length, 1)
+  assert.equal(h.provider.requests.length, callsBeforeDisabledTurn + 1)
+  assert.notEqual(h.provider.requests.at(-1).purpose, 'qdrant-memory-extraction')
   if (process.env.QM_DSH_REAL_OWNER === '1') console.log(JSON.stringify({
     node: process.version, model_calls: h.provider.requests.length,
     owner_child_request_latency_ms: h.ownerLatency, model_latency_ms: h.latency,

@@ -9,6 +9,7 @@ import { createAgentSession, DefaultResourceLoader, ModelRuntime, SessionManager
 import { createOwnerMemoryExtension, ownerRequest } from "../integrations/pi/owner-memory.mjs";
 
 test("actual Pi session automatically captures and recalls without tool calls", async () => {
+  const expectedFact = process.env.QM_PI_EXPECTED_FACT || "Project Alpha uses SQLite WAL.";
   const root = await mkdtemp(path.join(os.tmpdir(), "qm-pi-host-"));
   const calls = [], contexts = [];
   const request = async (mode, value, configured) => {
@@ -16,6 +17,9 @@ test("actual Pi session automatically captures and recalls without tool calls", 
     calls.push(call);
     if (process.env.QM_REAL_OWNER === "1") {
       const result = await ownerRequest(mode, value, configured);
+      if (mode === 'remote-call' && process.env.QM_PI_EXPECTED_ID) {
+        assert.ok(result.memories.some(row => row.id === process.env.QM_PI_EXPECTED_ID));
+      }
       call.status = result.status;
       return result;
     }
@@ -41,19 +45,19 @@ test("actual Pi session automatically captures and recalls without tool calls", 
     contexts.push(context);
     const stream = createAssistantMessageEventStream();
     const message = { role: "assistant", api: model.api, provider: model.provider, model: model.id,
-      content: [{ type: "text", text: JSON.stringify(context).includes("Project Alpha uses SQLite WAL") ? "SQLite WAL" : "unknown" }], stopReason: "stop", timestamp: Date.now(),
+      content: [{ type: "text", text: JSON.stringify(context).includes(expectedFact) ? "synthetic fact recalled" : "unknown" }], stopReason: "stop", timestamp: Date.now(),
       usage: { input: 1, output: 1, cacheRead: 0, cacheWrite: 0, totalTokens: 2,
         cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } } };
     queueMicrotask(() => { stream.push({ type: "done", reason: "stop", message }); stream.end(message); });
     return stream;
   }
   try {
-    await session.prompt("Project Alpha journal mode?");
+    await session.prompt(process.env.QM_PI_QUERY || "Project Alpha journal mode?");
     assert.ok(contexts.length, JSON.stringify({ calls: calls.map(c => c.mode), messages: session.agent.state.messages.map(m => ({ role: m.role, reason: m.stopReason, error: m.errorMessage })) }));
     assert.ok(calls.some(call => call.mode === "remote-event"), "actual turn_end must capture");
     if (process.env.QM_REAL_OWNER === "1") assert.ok(calls.some(call => call.mode === "remote-event" && call.status === "COMMITTED"));
     assert.ok(calls.some(call => call.mode === "remote-call"), "actual context hook must recall");
-    assert.match(JSON.stringify(contexts), /Project Alpha uses SQLite WAL/);
+    assert.ok(JSON.stringify(contexts).includes(expectedFact));
     assert.equal(session.agent.state.messages.some(message => message.customType === "qdrant-owner-recall"), false,
       "shared recall must not persist in host transcript");
   } finally {
