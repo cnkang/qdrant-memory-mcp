@@ -1769,3 +1769,251 @@ test('recovery replays only turns above the durable progress marker', async () =
   assert.equal(handlers.size, 0)
   assert.ok(dispose.metrics().capture_recovery_count >= 1)
 })
+
+test('boundary initialization gives up when durability stays missing', { timeout: 8000 }, async () => {
+  const handlers = new Map()
+  let cleanup
+  const warnings = []
+  let flushCalls = 0
+  const neverSubmitted = []
+  const ctx = {
+    on(event, handler) {
+      handlers.set(event, handler)
+      return () => handlers.delete(event)
+    },
+    effect(register) { cleanup = register() },
+    logger: { warn(message) { warnings.push(String(message)) } },
+    llm: candidateStream('Remember turn 1 fact.'),
+    sessions: { flush: async () => { flushCalls += 1; return false } },
+    sessionQuery: { readSession: async () => ({ events: turnEvents(1) }) },
+    agents: { get() { return undefined }, list() { return [] } },
+  }
+  const agent = {
+    session: { id: 'deadline-session' },
+    model: { current: () => ({ provider: 'provider-a', model: 'model-a' }) },
+  }
+  const config = {
+    ...DEFAULT_CONFIG,
+    auto_capture: { ...DEFAULT_CONFIG.auto_capture, enabled: true, timeout_ms: 1000 },
+  }
+  const dispose = apply(ctx, config, async () => { throw new Error('the Owner must never be called') })
+  try {
+    const started = Date.now()
+    await handlers.get('agent/created')({ agent })
+    const elapsed = Date.now() - started
+    assert.ok(elapsed < 3000, `the boundary deadline bounds initialization (${elapsed} ms)`)
+    assert.ok(warnings.some((message) => message.includes('capture boundary is unavailable')), warnings)
+    // The compute keeps retrying behind the replaced watermark and reports its
+    // own deadline once the retry loop passes it.
+    await new Promise((resolve) => setTimeout(resolve, 1500))
+    assert.ok(warnings.some((message) => message.includes('session durability stays unavailable')), warnings)
+    handlers.get('session/event')(agent.session, { type: 'turn/end', data: { turn: 1, reason: { kind: 'completed' } } })
+    await new Promise((resolve) => setTimeout(resolve, 200))
+    assert.equal(neverSubmitted.length, 0)
+  } finally {
+    dispose()
+  }
+  assert.ok(flushCalls > 4, `the deadline retry loop called the handler (calls: ${flushCalls})`)
+  assert.equal(handlers.size, 0)
+})
+
+test('a consent marker write failure leaves the activation watermark bound to Infinity', async () => {
+  const handlers = new Map()
+  let cleanup
+  const warnings = []
+  const submitted = []
+  // A capture-state marker with consent disabled exists, so enabling capture
+  // must rewrite the marker through the session append surface.
+  const events = [
+    ...turnEvents(1),
+    { type: 'plugin:qdrant-memory/capture-state', seq: 5, ignorable: true,
+      data: { session_id: 'marker-session', enabled: false, after_seq: 2 } },
+  ]
+  const session = { id: 'marker-session', append() {} }
+  const ctx = {
+    on(event, handler) {
+      handlers.set(event, handler)
+      return () => handlers.delete(event)
+    },
+    effect(register) { cleanup = register() },
+    logger: { warn(message) { warnings.push(String(message)) } },
+    llm: candidateStream('Remember turn 1 fact.'),
+    sessions: { flush: async () => true },
+    sessionQuery: { readSession: async () => ({ events }) },
+    agents: { get() { return undefined }, list() { return [] } },
+  }
+  const agent = {
+    session,
+    model: { current: () => ({ provider: 'provider-a', model: 'model-a' }) },
+  }
+  const config = {
+    ...DEFAULT_CONFIG,
+    auto_capture: { ...DEFAULT_CONFIG.auto_capture, enabled: true },
+  }
+  const dispose = apply(ctx, config, async () => { throw new Error('the Owner must never be called') })
+  try {
+    await handlers.get('agent/created')({ agent })
+    assert.ok(warnings.some((message) => message.includes('activation watermark is unavailable')), warnings)
+    handlers.get('session/event')(session, { type: 'turn/end', data: { turn: 1, reason: { kind: 'completed' } } })
+    await new Promise((resolve) => setTimeout(resolve, 200))
+    assert.equal(submitted.length, 0)
+  } finally {
+    dispose()
+  }
+  assert.equal(handlers.size, 0)
+})
+
+test('capture skips a turn once the durable session flush handler disappears', async () => {
+  const handlers = new Map()
+  let cleanup
+  const warnings = []
+  const submitted = []
+  const flushed = []
+  let durable = true
+  const session = { id: 'handoff-session' }
+  const events = turnEvents(1)
+  const ctx = {
+    on(event, handler) {
+      handlers.set(event, handler)
+      return () => handlers.delete(event)
+    },
+    effect(register) { cleanup = register() },
+    logger: { warn(message) { warnings.push(String(message)) } },
+    llm: candidateStream('Remember turn 1 fact.'),
+    sessions: { flush: async (queued) => { flushed.push(queued); return durable } },
+    sessionQuery: { readSession: async () => ({ events }) },
+    agents: { get() { return undefined }, list() { return [] } },
+  }
+  const agent = {
+    session,
+    model: { current: () => ({ provider: 'provider-a', model: 'model-a' }) },
+  }
+  const config = {
+    ...DEFAULT_CONFIG,
+    auto_capture: { ...DEFAULT_CONFIG.auto_capture, enabled: true },
+  }
+  const dispose = apply(ctx, config, async () => { throw new Error('the Owner must never be called') })
+  try {
+    await handlers.get('agent/created')({ agent })
+    durable = false
+    await handlers.get('session/event')(session, { type: 'turn/end', data: { turn: 1, reason: { kind: 'completed' } } })
+    assert.equal(submitted.length, 0)
+    assert.ok(warnings.some((message) => message.includes('no durable session flush handler')), warnings)
+    assert.ok(dispose.metrics().capture_failed === 0, 'a skipped turn is not a failed capture')
+  } finally {
+    dispose()
+  }
+  assert.equal(handlers.size, 0)
+})
+
+test('the disposal grace timer releases a stuck queue and a replacement rebuilds it', async (t) => {
+  // The drain holds one capture while the agent disposes; five seconds later
+  // the grace timer aborts both lifetimes, yet a replacement agent must still
+  // inherit and finish every queued turn.
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const session = { id: 'grace-session' }
+  const oldSession = session
+  const events = [...turnEvents(1), ...turnEvents(2)]
+  const handlers = new Map()
+  let cleanup
+  let releaseStatus
+  const statusGate = new Promise((resolve) => { releaseStatus = resolve })
+  const submitted = []
+  const flushed = []
+  const ctx = {
+    on(event, handler) {
+      handlers.set(event, handler)
+      return () => handlers.delete(event)
+    },
+    effect(register) { cleanup = register() },
+    logger: { warn() {} },
+    llm: candidateStream('Remember turn 1 fact.'),
+    sessions: { flush: async (queued) => { flushed.push(queued); return true } },
+    sessionQuery: { readSession: async () => ({ events }) },
+    agents: { get() { return undefined }, list() { return [] } },
+  }
+  const agent = {
+    session,
+    model: { current: () => ({ provider: 'provider-a', model: 'model-a' }) },
+  }
+  const config = {
+    ...DEFAULT_CONFIG,
+    auto_capture: { ...DEFAULT_CONFIG.auto_capture, enabled: true },
+  }
+  const disposePromise = apply(ctx, config, async (_mode, payload, options) => {
+    if (options.action === 'status') return statusGate
+    if (options.action === 'submit') {
+      submitted.push(payload)
+      return { status: 'COMMITTED' }
+    }
+    throw new Error('unexpected Runtime call')
+  })
+  // Simulate the replacement owner recovering through a fresh repeat pass.
+  const replacement = { session, model: agent.model }
+  try {
+    await handlers.get('agent/created')({ agent })
+    const drain = handlers.get('session/event')(session, {
+      type: 'turn/end',
+      data: { turn: 1, reason: { kind: 'completed' } },
+    })
+    handlers.get('agent/disposed')({ agent })
+    // The drain promise is held by the status gate, so the disposal timer and
+    // the aborted controller must not lose the queued work.
+    t.mock.timers.tick(6000)
+    replacement.session = { ...session }
+    handlers.get('agent/created')({ agent: replacement })
+    const replacementDrain = handlers.get('session/event')(replacement.session, {
+      type: 'turn/end',
+      data: { turn: 2, reason: { kind: 'completed' } },
+    })
+    releaseStatus({ status: 'NOT_FOUND' })
+    await Promise.all([drain, replacementDrain])
+    assert.equal(submitted.length, 2, 'the replacement owns the executing turn once the grace expires')
+    assert.ok(flushed.some((queued) => queued === replacement.session), 'the replacement session takes over the queue')
+    assert.ok(flushed.at(-1) === replacement.session, 'the last queued capture flushes through the replacement identity')
+    assert.ok(disposePromise.metrics().capture_events_committed >= 1)
+  } finally {
+    disposePromise()
+  }
+  assert.equal(handlers.size, 0)
+})
+
+test('recovery logs a failed durable read without dropping the agent', async () => {
+  const handlers = new Map()
+  let cleanup
+  const warnings = []
+  let reads = 0
+  const session = { id: 'recovery-read-session' }
+  const ctx = {
+    on(event, handler) {
+      handlers.set(event, handler)
+      return () => handlers.delete(event)
+    },
+    effect(register) { cleanup = register() },
+    logger: { warn(message) { warnings.push(String(message)) } },
+    llm: candidateStream('Remember turn 1 fact.'),
+    sessions: { flush: async () => true },
+    sessionQuery: { readSession: async () => { reads += 1; throw new Error('synthetic read failure') } },
+    agents: { get() { return undefined }, list() { return [] } },
+  }
+  const agent = {
+    session,
+    model: { current: () => ({ provider: 'provider-a', model: 'model-a' }) },
+  }
+  const config = {
+    ...DEFAULT_CONFIG,
+    auto_capture: { ...DEFAULT_CONFIG.auto_capture, enabled: true },
+  }
+  const dispose = apply(ctx, config, async () => { throw new Error('the Owner must never be called') })
+  try {
+    await handlers.get('agent/created')({ agent })
+    // Give the recovery pass a chance to run against the failing read; the
+    // initialization read fails separately and logs its own boundary warning.
+    await new Promise((resolve) => setTimeout(resolve, 200))
+    assert.ok(reads >= 1)
+    assert.ok(warnings.some((message) => message.includes('recovery could not read the durable DSH session log')), warnings)
+  } finally {
+    dispose()
+  }
+  assert.equal(handlers.size, 0)
+})
