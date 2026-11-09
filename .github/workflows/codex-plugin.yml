@@ -150,11 +150,13 @@ jobs:
           path: .skill-source
           persist-credentials: false
       - name: Run the credential-free real CLI end-to-end
+        id: e2e
         run: |
           python scripts/codex_plugin_e2e.py --work-dir "${{ runner.temp }}/codex-e2e" --skill-repo .skill-source > "${{ runner.temp }}/codex-e2e-report.json"
           cat "${{ runner.temp }}/codex-e2e-report.json"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always() && steps.e2e.outcome != 'skipped'
         with:
           name: codex-e2e-${{ matrix.os }}
           path: ${{ runner.temp }}/codex-e2e-report.json
-          if-no-files-found: error
+          if-no-files-found: warn
