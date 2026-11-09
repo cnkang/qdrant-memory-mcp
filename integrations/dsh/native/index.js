@@ -259,7 +259,7 @@ export function formatMemories(
 }
 
 /** Resolve the local Owner profile or validate the exact remote HTTPS endpoint. */
-function runtimeTarget(env) {
+export function runtimeTarget(env) {
   const python = env.QDRANT_MEMORY_RUNTIME_PYTHON
   const ownerUrl = env.QDRANT_MEMORY_DSH_OWNER_URL
   const token = env.QDRANT_MEMORY_DSH_OWNER_TOKEN
@@ -620,6 +620,7 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
   const activeAgents = new Map()
   const agentLifetimes = new WeakMap()
   const recoveryScheduled = new WeakSet()
+  const captureBoundaries = new WeakMap()
   const recallTurn = new WeakMap()
   const recallCache = new Map()
   const queues = new Map()
@@ -708,6 +709,39 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
     const controller = new AbortController()
     activeAgents.set(id, agent)
     agentLifetimes.set(agent, controller)
+    // Capture the activation position synchronously, before the Host can start
+    // a new turn. The marker is metadata, never a model-visible message.
+    const activationSeq = Number.isInteger(agent.session.seq) ? agent.session.seq : 0
+    const boundary = (async () => {
+      if (!config.auto_capture.enabled && typeof agent.session.append !== 'function') return Infinity
+      let previous
+      if (activationSeq > 0 || typeof agent.session.append !== 'function') {
+        if (await ctx.sessions.flush(agent.session) !== true) return Infinity
+        const snapshot = await ctx.sessionQuery.readSession(id)
+        previous = snapshot.events.findLast((event) => event.type === 'plugin:qdrant-memory/capture-state'
+          && event.ignorable === true
+          && event.data?.session_id === id)
+      }
+      if (controller.signal.aborted) return Infinity
+      const enabled = config.auto_capture.enabled
+      const afterSeq = enabled && previous?.data.enabled === true
+        ? previous.data.after_seq : activationSeq
+      if (!Number.isInteger(afterSeq) || afterSeq < 0) return Infinity
+      if (typeof agent.session.append === 'function') {
+        if (previous?.data.enabled !== enabled) {
+          const { appendPluginRecord } = await import('@deepseek-ai/dsh-session')
+          appendPluginRecord(agent.session, 'plugin:qdrant-memory/capture-state', {
+            session_id: id, enabled, after_seq: afterSeq,
+          })
+          if (await ctx.sessions.flush(agent.session) !== true) return Infinity
+        }
+      }
+      return enabled ? afterSeq : Infinity
+    })().catch(() => {
+      safeLog(ctx, 'warn', 'Qdrant Memory activation watermark is unavailable; automatic capture is disabled for this agent.')
+      return Infinity
+    })
+    captureBoundaries.set(agent, boundary)
     return controller
   }
 
@@ -837,6 +871,9 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
     }
     const turn = compileTurn(events, session.id, turnNumber, config.auto_capture.max_input_chars)
     if (!turn) return
+    const boundary = await captureBoundaries.get(agent)
+    const start = events.find((event) => event.type === 'turn/start' && event.data?.turn === turnNumber)
+    if (!start || start.seq < boundary) return
     metrics.capture_turns_eligible += 1
 
     const status = await retryRequest(
@@ -974,11 +1011,19 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
       const ownEvents = inherited > 0
         ? snapshot.events.filter((event) => Number.isInteger(event?.seq) && event.seq > inherited)
         : snapshot.events
-      const turns = completedTurns(ownEvents).slice(-MAX_RECOVERY_TURNS)
+      const boundary = await captureBoundaries.get(agent)
+      const eligible = ownEvents.filter((event) => event.seq >= boundary)
+      const turns = completedTurns(eligible)
       if (turns.length) metrics.capture_recovery_count += 1
-      for (const turn of turns) {
-        if (!isActiveAgent(agent, recoverySignal)) return
-        enqueueCapture(session, turn, agent, snapshot.events)
+      // Bound each in-memory batch, rather than permanently losing turns older
+      // than an eight-turn tail. Each pass reads the durable log once.
+      for (let offset = 0; offset < turns.length; offset += MAX_RECOVERY_TURNS) {
+        const pending = []
+        for (const turn of turns.slice(offset, offset + MAX_RECOVERY_TURNS)) {
+          if (!isActiveAgent(agent, recoverySignal)) return
+          pending.push(enqueueCapture(session, turn, agent, snapshot.events))
+        }
+        await Promise.all(pending)
       }
     } catch {
       if (isActiveAgent(agent, recoverySignal)) {
@@ -987,9 +1032,12 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
     }
   }
 
-  listeners.push(ctx.on('agent/created', ({ agent }) => {
+  listeners.push(ctx.on('agent/created', async ({ agent }) => {
     const lifetime = registerAgent(agent)
-    if (lifetime) scheduleRecovery(agent, lifetime.signal)
+    if (lifetime) {
+      await captureBoundaries.get(agent)
+      scheduleRecovery(agent, lifetime.signal)
+    }
   }))
 
   listeners.push(ctx.on('agent/disposed', ({ agent }) => {
@@ -997,6 +1045,9 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
   }))
 
   listeners.push(ctx.on('agent/pre-step', async ({ agent, messages, turn, signal }, next) => {
+    if (!disposed && config.auto_capture.enabled && !isSubagent(agent)) {
+      await captureBoundaries.get(agent)
+    }
     const decision = await next()
     if (disposed || decision.kind !== 'enter' || isSubagent(agent)
       || !config.auto_recall.enabled || !config.memory_injection.enabled) return decision

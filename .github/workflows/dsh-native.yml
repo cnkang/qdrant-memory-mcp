@@ -6,6 +6,9 @@ on:
   pull_request:
     paths:
       - 'integrations/dsh/native/**'
+      - 'integrations/dsh/bundle/**'
+      - 'tests/dsh_native_e2e/**'
+      - 'scripts/pack_dsh_bundle.py'
       - 'integrations/dsh/README.md'
       - 'docs/dsh-native/**'
       - 'docs/dsh-integration.md'
@@ -79,6 +82,8 @@ jobs:
           QDRANT_MEMORY_DSH_PACKAGE_JSON: ${{ github.workspace }}/.github/ci-deps/dsh-native/node_modules/@deepseek-ai/dsh/package.json
       - name: Run native lifecycle contract fixtures
         run: npm test --prefix integrations/dsh/native
+      - name: Run real AgentLoop, Provider and durable Session acceptance
+        run: node --test tests/dsh_native_e2e/agent-loop.test.mjs
       - name: Install, compose, and remove in a disposable DSH profile
         run: npm run --prefix integrations/dsh/native validate:host
         env:
