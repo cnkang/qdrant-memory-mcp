@@ -67,9 +67,9 @@ Owner URL、token、Runtime Python 路径和可选 CA 文件是进程环境变�
 
 捕获先 flush DSH session，再读取经过校验的 event log。事件 ID 由 DSH session、turn 和源事件序列确定。抽取前查询 Owner receipt；只有 `NOT_FOUND` 才会提交。已提交或已取消的事件不再重复；pending、failed、quarantined 工作由 Owner recovery 处理。Python 请求客户端在不确定响应时以同一事件 ID 重试同一候选 body。
 
-队列最多 16 个 turn；agent 创建后最多恢复最近八个完成 turn。无持久化 session flush handler 时不捕获。在 DSH flush 和 Owner receipt 之前崩溃可能留下未捕获轮次；不能承诺零丢失。跨 session private memory 不会自动合并。每个 DSH profile 应使用独立 Owner token。
+队列最多 16 个 turn；恢复按每批八个 turn 处理保存激活边界之后的所有完成 turn，且每一批都会在 session 日志写入持久的 `recovery-progress` 记录，恢复时只重放没有持久结果的轮次。最后一条 `capture-state` 记录为禁用或不存在时，启用捕获会从激活位置开始，之前的 turn 不会被回填。失败的捕获不会推进恢复进度。没有持久化 session flush handler 时，初始化会在 capture 超时时间内重试等待，而不是永久禁用捕获。在 DSH flush 和 Owner receipt 之前崩溃可能留下未捕获轮次；不能承诺零丢失。跨 session private memory 不会自动合并。每个 DSH profile 应使用独立 Owner token。
 
-把插件应用到已有 live agent 的宿主时，也会安排同样的有界恢复。如果此前关闭了 capture，启用后可能把每个 live agent 最近八个已完成 turn 送去提取；请使用新 profile，或接受这一次性回填。`agent/disposed` 时，队列中的捕获会获得五秒 drain 时间，然后才 abort agent lifetime。插件卸载不是 flush 点：它会立即 abort，并依赖持久的 DSH 日志在下次恢复。
+把插件应用到已有 live agent 的宿主时，也会安排同样的恢复。启用边界会排除更早的 turn，因此对之前关闭的 agent 启用 capture 不会回填其已完成的 turn。`agent/disposed` 时，队列中的捕获会获得五秒 drain 时间，然后才 abort agent lifetime。插件卸载不是 flush 点：它会立即 abort，并依赖持久的 DSH 日志在下次恢复。
 
 ## 验证范围
 

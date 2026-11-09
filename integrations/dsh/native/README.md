@@ -79,8 +79,10 @@ by the [shared security guide](https://github.com/cnkang/qdrant-memory-mcp/blob/
   output, and all non-completed turn endings. Credential-shaped transcripts
   and candidates are skipped.
 - Before capture it awaits DSH's public session flush and reads the validated
-  session log. On resume it checks the latest eight completed turns against
-  Owner receipts. For an `ACCEPTED` receipt, it retries by event ID only; the
+  session log. On resume it checks the completed turns that follow the saved
+  activation boundary against Owner receipts, batched in eight turns, and skips
+  turns already resolved through the durable recovery-progress marker; failed
+  captures keep retrying. For an `ACCEPTED` receipt, it retries by event ID only; the
   Runtime reuses the original immutable candidate plan. Candidate data stays out
   of the DSH session log, and the adapter does not re-extract under that ID.
   Other pending or failed receipts remain under Owner recovery.
