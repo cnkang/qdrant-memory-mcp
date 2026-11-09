@@ -48,9 +48,12 @@ def test_host_platforms_follow_the_host(monkeypatch):
         assert module.host_platforms() == expected
 
 
-def test_hashed_requirements_drop_the_git_runtime_line(work):
+def test_hashed_requirements_drop_the_git_runtime_line(work, monkeypatch):
     module = load_locks()
-    source = work / "macos-arm64.txt"
+    lock_dir = work / "locks"
+    lock_dir.mkdir()
+    monkeypatch.setattr(module, "LOCKS", lock_dir)
+    source = lock_dir / "macos-arm64.txt"
     source.write_text(
         "annotated-types==0.8.0 \\\n    --hash=sha256:aa\n"
         "hermes-plugin-qdrant-memory @ git+https://github.com/cnkang/"
@@ -58,10 +61,30 @@ def test_hashed_requirements_drop_the_git_runtime_line(work):
         "qdrant-memory-mcp==0.3.1 \\\n    --hash=sha256:bb\n",
         encoding="utf-8",
     )
-    filtered = module.hashed_requirements(source, work)
+    filtered = module.hashed_requirements("macos-arm64", work)
     text = filtered.read_text(encoding="utf-8")
     assert "git+" not in text
-    assert "annotated-types==0.8.0" in text and "qdrant-memory-mcp==0.3.1" in text
+    assert "annotated-types==0.8.0" in text
+    assert "qdrant-memory-mcp==0.3.1" in text
+
+
+def test_hashed_requirements_reject_unlisted_platform(work):
+    module = load_locks()
+    with pytest.raises(ValueError, match="Unsupported runtime lock platform"):
+        module.hashed_requirements("../outside", work)
+
+
+@pytest.mark.parametrize("commit", ["-help", "a" * 39, "g" * 40, "a" * 40 + "--"])
+def test_validate_runtime_commit_rejects_non_object_ids(commit):
+    module = load_locks()
+    with pytest.raises(ValueError, match="full lowercase 40-character Git SHA"):
+        module.validate_runtime_commit(commit)
+
+
+def test_validate_runtime_commit_accepts_full_object_id():
+    module = load_locks()
+    commit = "a" * 40
+    assert module.validate_runtime_commit(commit) == commit
 
 
 def test_offline_requirements_substitute_the_recorded_wheel(work):
@@ -117,7 +140,8 @@ def test_compile_lock_uses_expected_flags(work, monkeypatch):
     output = module.compile_lock("windows-x64", work)
     assert output == module.LOCKS / "windows-x64.txt"
     args = argv_seen[0]
-    assert "--python-platform" in args and "x86_64-pc-windows-msvc" in args
+    assert "--python-platform" in args
+    assert "x86_64-pc-windows-msvc" in args
     assert "--generate-hashes" in args
     assert args[args.index("-o") + 1].startswith("runtime-locks/")
     assert "plugins/qdrant-memory/requirements.txt" in args
@@ -309,13 +333,13 @@ def test_main_routes_by_flags(work, monkeypatch, tmp_path):
         encoding="utf-8",
     )
     monkeypatch.setattr("sys.argv", ["locks", "--verify", "macos-arm64", "--wheelhouse", str(house)])
-    assert module.main() == 0
+    module.main()
     assert routed["verify"] == 1
     monkeypatch.setattr("sys.argv", ["locks", "--wheelhouse", str(work / "new-house")])
-    assert module.main() == 0
+    module.main()
     assert routed["wheelhouse"] == 1
     monkeypatch.setattr("sys.argv", ["locks"])
-    assert module.main() == 0
+    module.main()
     assert routed["locks"] == 1
     assert (sandbox_locks / "README.md").read_text(encoding="utf-8").startswith("# Runtime")
 

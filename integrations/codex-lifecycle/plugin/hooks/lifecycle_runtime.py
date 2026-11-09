@@ -95,7 +95,12 @@ def call_runtime(*args: str, timeout: float = 20.0) -> tuple[int, str, str]:
 
 def safe_error(stdout: str, stderr: str) -> str:
     """Pick a single-line diagnostic without leaking payload content."""
-    line = stderr.splitlines()[0] if stderr.strip() else stdout.splitlines()[0] if stdout.strip() else "unknown error"
+    if stderr.strip():
+        line = stderr.splitlines()[0]
+    elif stdout.strip():
+        line = stdout.splitlines()[0]
+    else:
+        line = "unknown error"
     return line[:220]
 
 
@@ -116,7 +121,7 @@ def read_hook_input() -> dict:
     return event
 
 
-def emit(*, additional_context: str | None = None, system_message: str | None = None) -> int:
+def emit(*, additional_context: str | None = None, system_message: str | None = None) -> None:
     """Print the released hooks output contract for context-bearing events."""
     payload: dict = {}
     if system_message:
@@ -127,9 +132,8 @@ def emit(*, additional_context: str | None = None, system_message: str | None = 
             "additionalContext": additional_context,
         }
     elif system_message is None:
-        return 0  # exit 0 with no output means: continue silently
+        return  # no output means: continue silently
     print(json.dumps(payload))
-    return 0
 
 
 def hook_event_name() -> str:

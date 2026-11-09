@@ -253,10 +253,12 @@ async def launcher_mcp(launcher_path, env):
     params = StdioServerParameters(
         command="node", args=[str(launcher_path), "mcp"], env=env
     )
-    async with stdio_client(params) as (reader, writer):
-        async with ClientSession(reader, writer) as session:
-            await session.initialize()
-            yield session
+    async with (
+        stdio_client(params) as (reader, writer),
+        ClientSession(reader, writer) as session,
+    ):
+        await session.initialize()
+        yield session
 
 
 FACT_A = "Codex E2E synthetic fact: needs more espresso."
@@ -395,7 +397,7 @@ class FixtureHandler(BaseHTTPRequestHandler):
         self.wfile.write(payload)
 
     def log_message(self, *_args):
-        pass
+        """Keep fixture request logs out of the acceptance output."""
 
 
 class embeddings_fixture(threading.Thread):
@@ -580,13 +582,15 @@ async def _runtime_direct_read(runtime_exe, profile, fact_b_id):
         args=["--home", str(profile), "mcp"],
         env={k: v for k, v in os.environ.items() if k not in _secret_env},
     )
-    async with stdio_client(params) as (reader, writer):
-        async with ClientSession(reader, writer) as session:
-            await session.initialize()
-            result = decode_tool(
-                await session.call_tool("qdrant_memory_search", {"query": FACT_B})
-            )
-            return len([r for r in result["memories"] if r["id"] == fact_b_id])
+    async with (
+        stdio_client(params) as (reader, writer),
+        ClientSession(reader, writer) as session,
+    ):
+        await session.initialize()
+        result = decode_tool(
+            await session.call_tool("qdrant_memory_search", {"query": FACT_B})
+        )
+        return len([r for r in result["memories"] if r["id"] == fact_b_id])
 
 
 if __name__ == "__main__":
