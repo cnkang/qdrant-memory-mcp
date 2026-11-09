@@ -9,6 +9,8 @@ export const inject = ['agents', 'llm', 'sessionQuery', 'sessions']
 
 export const CANDIDATE_SCHEMA = 'qdrant-memory/extraction-v1'
 export const SUPPORTED_DSH_RELEASE = '0.2.2-rc.1'
+/** Session plugin record carrying the last durably captured turn number. */
+export const RECOVERY_PROGRESS_RECORD = 'plugin:qdrant-memory/recovery-progress'
 
 export const DEFAULT_CONFIG = Object.freeze({
   auto_recall: Object.freeze({
@@ -63,6 +65,7 @@ const MAX_PENDING_TURNS = 16
 const MAX_RECOVERY_TURNS = 8
 const DISPOSE_GRACE_MS = 5000
 const MAX_RECALL_QUERY_CHARS = 4000
+const BOUNDARY_RETRY_MS = 250
 const CREDENTIAL_PATTERNS = [
   /-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----/iu,
   /\b(?:sk-[A-Za-z0-9_-]{16,}|gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,}|xox[baprs]-[A-Za-z0-9-]{16,})\b/iu,
@@ -457,13 +460,6 @@ function safeLog(ctx, level, message) {
   }
 }
 
-function completedTurns(events) {
-  return events
-    .filter((event) => event?.type === 'turn/end' && event.data?.reason?.kind === 'completed')
-    .map((event) => event.data.turn)
-    .filter(Number.isInteger)
-}
-
 function extractSelection(agent, turn) {
   const current = agent?.model?.current?.()
   const provider = turn.provider || current?.provider
@@ -613,6 +609,46 @@ async function retryRequest(request, signal) {
   throw lastError
 }
 
+/**
+ * Resolve the capture activation watermark, or return Infinity when capture
+ * stays disabled. The session durability listener can arrive after an agent
+ * registers, so one missing flush retries within the capture timeout instead
+ * of permanently disabling automatic capture for a live agent.
+ */
+async function resolveCaptureBoundary(ctx, config, agent, id, activationSeq, controller) {
+  if (!config.auto_capture.enabled && typeof agent.session.append !== 'function') return Infinity
+  let previous
+  if (activationSeq > 0 || typeof agent.session.append !== 'function') {
+    const deadline = Date.now() + config.auto_capture.timeout_ms
+    for (;;) {
+      if (controller.signal.aborted) return Infinity
+      if (await ctx.sessions.flush(agent.session) === true) break
+      if (Date.now() >= deadline) {
+        safeLog(ctx, 'warn', 'Qdrant Memory session durability stays unavailable; automatic capture is disabled for this agent.')
+        return Infinity
+      }
+      await new Promise((resolve) => setTimeout(resolve, BOUNDARY_RETRY_MS))
+    }
+    const snapshot = await ctx.sessionQuery.readSession(id)
+    previous = snapshot.events.findLast((event) => event.type === 'plugin:qdrant-memory/capture-state'
+      && event.ignorable === true
+      && event.data?.session_id === id)
+  }
+  if (controller.signal.aborted) return Infinity
+  const enabled = config.auto_capture.enabled
+  const afterSeq = enabled && previous?.data.enabled === true
+    ? previous.data.after_seq : activationSeq
+  if (!Number.isInteger(afterSeq) || afterSeq < 0) return Infinity
+  if (typeof agent.session.append === 'function' && previous?.data.enabled !== enabled) {
+    const { appendPluginRecord } = await import('@deepseek-ai/dsh-session')
+    appendPluginRecord(agent.session, 'plugin:qdrant-memory/capture-state', {
+      session_id: id, enabled, after_seq: afterSeq,
+    })
+    if (await ctx.sessions.flush(agent.session) !== true) return Infinity
+  }
+  return enabled ? afterSeq : Infinity
+}
+
 /** Attach opt-in recall and durable capture handlers; return cleanup and metrics. */
 export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
   let disposed = false
@@ -712,32 +748,7 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
     // Capture the activation position synchronously, before the Host can start
     // a new turn. The marker is metadata, never a model-visible message.
     const activationSeq = Number.isInteger(agent.session.seq) ? agent.session.seq : 0
-    const boundary = (async () => {
-      if (!config.auto_capture.enabled && typeof agent.session.append !== 'function') return Infinity
-      let previous
-      if (activationSeq > 0 || typeof agent.session.append !== 'function') {
-        if (await ctx.sessions.flush(agent.session) !== true) return Infinity
-        const snapshot = await ctx.sessionQuery.readSession(id)
-        previous = snapshot.events.findLast((event) => event.type === 'plugin:qdrant-memory/capture-state'
-          && event.ignorable === true
-          && event.data?.session_id === id)
-      }
-      if (controller.signal.aborted) return Infinity
-      const enabled = config.auto_capture.enabled
-      const afterSeq = enabled && previous?.data.enabled === true
-        ? previous.data.after_seq : activationSeq
-      if (!Number.isInteger(afterSeq) || afterSeq < 0) return Infinity
-      if (typeof agent.session.append === 'function') {
-        if (previous?.data.enabled !== enabled) {
-          const { appendPluginRecord } = await import('@deepseek-ai/dsh-session')
-          appendPluginRecord(agent.session, 'plugin:qdrant-memory/capture-state', {
-            session_id: id, enabled, after_seq: afterSeq,
-          })
-          if (await ctx.sessions.flush(agent.session) !== true) return Infinity
-        }
-      }
-      return enabled ? afterSeq : Infinity
-    })().catch(() => {
+    const boundary = resolveCaptureBoundary(ctx, config, agent, id, activationSeq, controller).catch(() => {
       safeLog(ctx, 'warn', 'Qdrant Memory activation watermark is unavailable; automatic capture is disabled for this agent.')
       return Infinity
     })
@@ -752,84 +763,72 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
     setImmediate(() => void recoverRecentTurns(agent, signal))
   }
 
-  /** Queue a bounded capture and transfer pending work to a replacement agent. */
-  const enqueueCapture = (session, turn, agent, events) => {
-    if (disposed || !config.auto_capture.enabled || !Number.isInteger(turn)) return
-    const sessionId = session?.id
-    const agentLifetime = agentLifetimes.get(agent)
-    if (typeof sessionId !== 'string' || !agentLifetime
-      || agentLifetime.signal.aborted || !isActiveAgent(agent)) return
-    let queue = queues.get(sessionId)
-    if (queue?.closing) {
-      // A replacement agent can resume the same session while the previous
-      // queue is still draining. Keep the queue and hand its new items to the
-      // replacement lifetime instead of dropping the capture.
-      if (!agentLifetime || agentLifetime.signal.aborted) return
-      if (queue.closingTimer) clearTimeout(queue.closingTimer)
-      if (queue.controller.signal.aborted) {
-        const abandoned = queue
-        queues.delete(sessionId)
-        closingAgents.delete(abandoned.agent)
-        const pending = abandoned.pending.map((item) => ({ ...item, agent }))
-        const turnAgents = new Map(abandoned.turnAgents)
-        for (const item of pending) turnAgents.set(item.turn, agent)
-        queue = {
-          agent,
-          agentSignal: agentLifetime.signal,
-          pending,
-          turns: new Set(abandoned.turns),
-          turnAgents,
-          running: false,
-          closing: false,
-          closingTimer: null,
-          controller: new AbortController(),
-        }
-        queues.set(sessionId, queue)
-      } else {
-        closingAgents.delete(queue.agent)
-        queue.agent = agent
-        queue.agentSignal = agentLifetime.signal
-        queue.closing = false
-        queue.closingTimer = null
-        for (const item of queue.pending) {
-          item.agent = agent
-          queue.turnAgents.set(item.turn, agent)
-        }
-      }
-      // The executing item has already left pending. Replay it under the new
-      // lifetime too: its old-agent capture will stop at its next ownership check.
-      for (const queuedTurn of queue.turns) {
-        if (!queue.pending.some((item) => item.turn === queuedTurn)) {
-          queue.pending.push({ turn: queuedTurn, events, agent })
-        }
-        queue.turnAgents.set(queuedTurn, agent)
-      }
-    } else if (queue && queue.agent !== agent) {
-      queue.controller.abort()
-      queues.delete(sessionId)
-      queue = undefined
+  /**
+   * Wait for the agent's capture boundary without ever blocking a turn.
+   * Initialization races against the plugin lifetime, the current turn signal
+   * and a bounded timer, so a stalled durability read cannot hang model turns.
+   * When the boundary cannot be established it is replaced by the immediate
+   * Infinity watermark and automatic capture stays disabled for the agent.
+   */
+  const waitCaptureBoundary = async (agent, turnSignal) => {
+    if (disposed || !config.auto_capture.enabled || !agentLifetimes.get(agent)) return
+    const timeout = new AbortController()
+    const timer = setTimeout(
+      () => timeout.abort(new Error('Qdrant Memory capture boundary wait timed out')),
+      config.auto_capture.timeout_ms,
+    )
+    try {
+      await awaitWithSignal(
+        () => captureBoundaries.get(agent),
+        AbortSignal.any([timeout.signal, lifetime.signal, ...(turnSignal ? [turnSignal] : [])]),
+        'Qdrant Memory capture boundary wait was cancelled',
+      )
+    } catch {
+      safeLog(ctx, 'warn', 'Qdrant Memory capture boundary is unavailable; automatic capture is disabled for this agent.')
+      captureBoundaries.set(agent, Promise.resolve(Infinity))
+    } finally {
+      clearTimeout(timer)
     }
-    if (!queue) {
-      queue = {
-        agent,
-        agentSignal: agentLifetime.signal,
-        pending: [],
-        turns: new Set(),
-        turnAgents: new Map(),
-        running: false,
-        closing: false,
-        closingTimer: null,
-        controller: new AbortController(),
+  }
+
+  /** Build one bounded capture queue bound to one agent lifetime. */
+  const freshQueue = (agent, agentLifetime) => ({
+    agent,
+    agentSignal: agentLifetime.signal,
+    pending: [],
+    turns: new Set(),
+    turnAgents: new Map(),
+    running: false,
+    closing: false,
+    closingTimer: null,
+    controller: new AbortController(),
+    // Contiguous resolved-turn watermark for the durable recovery marker.
+    prospective: undefined,
+    unwritten: 0,
+  })
+
+  /** Rebind every queued or executing turn under the replacement agent. */
+  const replayExecutingTurns = (queue, agent, session, events) => {
+    for (const queuedTurn of queue.turns) {
+      if (!queue.pending.some((item) => item.turn === queuedTurn)) {
+        // The executing item has already left pending. Replay it under the new
+        // lifetime too: its old-agent capture will stop at its next ownership
+        // check.
+        queue.pending.push({ turn: queuedTurn, events, agent, session })
       }
-      queues.set(sessionId, queue)
+      queue.turnAgents.set(queuedTurn, agent)
     }
+  }
+
+  /** Admit one turn into the queue, or measure the backlog when it is full. */
+  const admitTurn = (queue, sessionId, session, turn, agent, events) => {
     if (queue.turns.has(turn)) {
       if (queue.turnAgents.get(turn) !== agent && !queue.pending.some((item) => item.turn === turn)) {
         queue.turnAgents.set(turn, agent)
-        queue.pending.push({ turn, events, agent })
+        queue.pending.push({ turn, events, agent, session })
       }
       if (!queue.running && queue.pending.length) {
-        queue.drainPromise = drainCapture(sessionId, session, queue)
+        queue.drainPromise = drainCapture(sessionId, queue)
       }
       return queue.drainPromise
     }
@@ -841,14 +840,92 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
     }
     queue.turns.add(turn)
     queue.turnAgents.set(turn, agent)
-    queue.pending.push({ turn, events, agent })
-    if (!queue.running) queue.drainPromise = drainCapture(sessionId, session, queue)
+    queue.pending.push({ turn, events, agent, session })
+    if (!queue.running) queue.drainPromise = drainCapture(sessionId, queue)
     return queue.drainPromise
   }
 
-  /** Recover or submit one eligible completed turn through the Python Owner. */
+  /**
+   * Move a closing queue's work onto the replacement agent without dropping
+   * it. Returns the reclaimable queue, or undefined when the incoming capture
+   * must not take over the closing queue at all.
+   */
+  const reclaimClosingQueue = (queue, sessionId, agent, agentLifetime, session, events) => {
+    // The closing agent itself may not reopen its own queue: its disposal
+    // timer and grace period would be cancelled, keeping capture work alive
+    // past the point the Host released the agent.
+    if (queue.agent === agent) return undefined
+    if (!agentLifetime || agentLifetime.signal.aborted) return undefined
+    if (queue.closingTimer) clearTimeout(queue.closingTimer)
+    if (queue.controller.signal.aborted) {
+      const abandoned = queue
+      queues.delete(sessionId)
+      closingAgents.delete(abandoned.agent)
+      const pending = abandoned.pending.map((item) => ({ ...item, agent, session }))
+      const turnAgents = new Map(abandoned.turnAgents)
+      for (const item of pending) turnAgents.set(item.turn, agent)
+      queue = {
+        ...abandoned,
+        agent,
+        agentSignal: agentLifetime.signal,
+        pending,
+        turnAgents,
+        running: false,
+        closing: false,
+        closingTimer: null,
+        controller: new AbortController(),
+      }
+      queues.set(sessionId, queue)
+    } else {
+      closingAgents.delete(queue.agent)
+      queue.agent = agent
+      queue.agentSignal = agentLifetime.signal
+      queue.closing = false
+      queue.closingTimer = null
+      for (const item of queue.pending) {
+        item.agent = agent
+        item.session = session
+        queue.turnAgents.set(item.turn, agent)
+      }
+    }
+    replayExecutingTurns(queue, agent, session, events)
+    return queue
+  }
+
+  /** Queue a bounded capture and transfer pending work to a replacement agent. */
+  const enqueueCapture = (session, turn, agent, events) => {
+    if (disposed || !config.auto_capture.enabled || !Number.isInteger(turn)) return
+    const sessionId = session?.id
+    const agentLifetime = agentLifetimes.get(agent)
+    if (typeof sessionId !== 'string' || !agentLifetime
+      || agentLifetime.signal.aborted || !isActiveAgent(agent)) return
+    let queue = queues.get(sessionId)
+    if (queue && !queue.closing && queue.agent !== agent) {
+      // A replacement agent owns the session: its queue never inherits the
+      // previous agent's abort scope or closing state.
+      queue.controller.abort()
+      queues.delete(sessionId)
+      queue = undefined
+    }
+    if (queue?.closing) {
+      const reclaimed = reclaimClosingQueue(queue, sessionId, agent, agentLifetime, session, events)
+      if (!reclaimed) return
+      queue = reclaimed
+    }
+    if (!queue) {
+      queue = freshQueue(agent, agentLifetime)
+      queues.set(sessionId, queue)
+    }
+    return admitTurn(queue, sessionId, session, turn, agent, events)
+  }
+
+  /**
+   * Recover or submit one eligible completed turn through the Python Owner.
+   * Returns true when the turn reached a durable outcome or provably holds no
+   * capturable content; false leaves the turn for a later recovery pass.
+   */
   const captureTurn = async (session, turnNumber, agent, sourceEvents, signal) => {
-    if (!isActiveAgent(agent, signal)) return
+    if (!isActiveAgent(agent, signal)) return false
     let events = sourceEvents
     if (!events) {
       const flushed = await awaitWithSignal(
@@ -856,24 +933,26 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
         signal,
         'DSH session flush was cancelled',
       )
-      if (!isActiveAgent(agent, signal)) return
+      if (!isActiveAgent(agent, signal)) return false
       if (flushed !== true) {
         safeLog(ctx, 'warn', 'Qdrant Memory capture skipped because DSH has no durable session flush handler.')
-        return
+        return false
       }
       const snapshot = await awaitWithSignal(
         () => ctx.sessionQuery.readSession(session.id),
         signal,
         'DSH session read was cancelled',
       )
-      if (!isActiveAgent(agent, signal)) return
+      if (!isActiveAgent(agent, signal)) return false
       events = snapshot.events
     }
     const turn = compileTurn(events, session.id, turnNumber, config.auto_capture.max_input_chars)
-    if (!turn) return
+    // A turn without a capturable projection has nothing to recover; replaying
+    // it on every resume would only repeat the same empty extraction.
+    if (!turn) return true
     const boundary = await captureBoundaries.get(agent)
     const start = events.find((event) => event.type === 'turn/start' && event.data?.turn === turnNumber)
-    if (!start || start.seq < boundary) return
+    if (!start || start.seq < boundary) return true
     metrics.capture_turns_eligible += 1
 
     const status = await retryRequest(
@@ -884,8 +963,8 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
       }),
       signal,
     )
-    if (!isActiveAgent(agent, signal)) return
-    if (status.status === 'COMMITTED' || status.status === 'CANCELLED') return
+    if (!isActiveAgent(agent, signal)) return false
+    if (status.status === 'COMMITTED' || status.status === 'CANCELLED') return true
     if (status.status === 'ACCEPTED') {
       const result = await retryRequest(
         () => runtimeRequest('remote-event', { event_id: turn.event_id }, {
@@ -895,23 +974,23 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
         }),
         signal,
       )
-      if (!isActiveAgent(agent, signal)) return
+      if (!isActiveAgent(agent, signal)) return false
       if (result.status !== 'COMMITTED' && result.status !== 'CANCELLED') {
         metrics.capture_failed += 1
         safeLog(ctx, 'warn', `Qdrant Memory capture remains in Owner recovery (status: ${String(result.status ?? 'unknown')}).`)
-      } else if (result.status === 'COMMITTED') {
-        metrics.capture_events_committed += 1
+        return false
       }
-      return
+      if (result.status === 'COMMITTED') metrics.capture_events_committed += 1
+      return true
     }
     if (status.status !== 'NOT_FOUND') {
       metrics.capture_failed += 1
       safeLog(ctx, 'warn', `Qdrant Memory capture retained for Owner recovery (status: ${String(status.status ?? 'unknown')}).`)
-      return
+      return false
     }
 
     const extraction = await extractWithDsh(ctx, agent, turn, signal, config.auto_capture)
-    if (!isActiveAgent(agent, signal)) return
+    if (!isActiveAgent(agent, signal)) return false
     const payload = {
       event_id: turn.event_id,
       session_id: turn.session_id,
@@ -920,7 +999,7 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
       candidates: extraction.candidates,
     }
     if (extraction.replacement_context) payload.replacement_context = extraction.replacement_context
-    if (!isActiveAgent(agent, signal)) return
+    if (!isActiveAgent(agent, signal)) return false
     const result = await retryRequest(
       () => runtimeRequest('remote-event', payload, {
         signal,
@@ -929,56 +1008,128 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
       }),
       signal,
     )
-    if (!isActiveAgent(agent, signal)) return
+    if (!isActiveAgent(agent, signal)) return false
     if (result.status !== 'COMMITTED' && result.status !== 'CANCELLED') {
       metrics.capture_failed += 1
       safeLog(ctx, 'warn', `Qdrant Memory capture was not committed (status: ${String(result.status ?? 'unknown')}).`)
-    } else if (result.status === 'COMMITTED') {
-      metrics.capture_events_committed += 1
+      return false
     }
+    if (result.status === 'COMMITTED') metrics.capture_events_committed += 1
+    return true
   }
 
   /** Drain captures serially and release closing agents after their final item. */
-  async function drainCapture(sessionId, session, queue) {
+  /** Persist the contiguous captured-turn watermark inside the session log. */
+  const saveRecoveryProgress = async (sessionId, queue) => {
+    if (typeof queue.prospective !== 'number') return
+    const session = queue.agent.session
+    try {
+      const { appendPluginRecord } = await import('@deepseek-ai/dsh-session')
+      appendPluginRecord(session, RECOVERY_PROGRESS_RECORD, {
+        session_id: sessionId, after_turn: queue.prospective,
+      })
+      if (await ctx.sessions.flush(session) !== true) return
+    } catch {
+      // A failed progress write simply replays the same turns on the next
+      // resume; failed captures always retry, never skip.
+      return
+    }
+    queue.unwritten = 0
+  }
+
+  /** Report the last turn this plugin durably resolved in the session log. */
+  const latestResolvedTurn = (snapshot, sessionId) => {
+    const record = snapshot.events.findLast((event) => event.type === RECOVERY_PROGRESS_RECORD
+      && event.ignorable === true
+      && event.data?.session_id === sessionId)
+    return Number.isInteger(record?.data?.after_turn) ? record.data.after_turn : -1
+  }
+
+  /** Drain captures serially and release closing agents after their final item. */
+  async function drainCapture(sessionId, queue) {
     queue.running = true
     try {
-      while (!queue.controller.signal.aborted
-        && !queue.agentSignal.aborted && queue.pending.length) {
-        const item = queue.pending.shift()
-        try {
-          await captureTurn(session, item.turn, item.agent ?? queue.agent, item.events, AbortSignal.any([
-            lifetime.signal,
-            queue.controller.signal,
-            queue.agentSignal,
-          ]))
-        } catch {
-          if (!disposed && !queue.controller.signal.aborted && !queue.agentSignal.aborted) {
-            metrics.capture_failed += 1
-            safeLog(ctx, 'warn', 'Qdrant Memory capture did not complete; the DSH session log is retained for recovery.')
-          }
-        } finally {
-          if (!queue.pending.some((pending) => pending.turn === item.turn)) {
-            queue.turns.delete(item.turn)
-            queue.turnAgents.delete(item.turn)
-          }
-        }
+      await drainOldestCapture(sessionId, queue)
+    } finally {
+      finalizeDrainedQueue(sessionId, queue)
+    }
+  }
+
+  /**
+   * Capture one queued turn, then continue with the next pending item. The
+   * chain replaces the drain loop: every Owner Runtime request stays serial,
+   * without awaiting inside a loop statement.
+   */
+  async function drainOldestCapture(sessionId, queue) {
+    if (queue.controller.signal.aborted || queue.agentSignal.aborted || !queue.pending.length) {
+      // The contiguous watermark is durable only once the queue settles.
+      await saveRecoveryProgress(sessionId, queue)
+      return
+    }
+    const item = queue.pending.shift()
+    let resolved = true
+    try {
+      resolved = await captureTurn(item.session, item.turn, item.agent ?? queue.agent, item.events, AbortSignal.any([
+        lifetime.signal,
+        queue.controller.signal,
+        queue.agentSignal,
+      ])) !== false
+    } catch {
+      resolved = false
+      if (!disposed && !queue.controller.signal.aborted && !queue.agentSignal.aborted) {
+        metrics.capture_failed += 1
+        safeLog(ctx, 'warn', 'Qdrant Memory capture did not complete; the DSH session log is retained for recovery.')
       }
     } finally {
-      queue.running = false
-      if (queues.get(sessionId) !== queue) return
-      if (queue.closing) {
-        if (queue.closingTimer) clearTimeout(queue.closingTimer)
-        agentLifetimes.get(queue.agent)?.abort()
-        agentLifetimes.delete(queue.agent)
-        closingAgents.delete(queue.agent)
-        if (activeAgents.get(sessionId) === queue.agent) activeAgents.delete(sessionId)
-        queues.delete(sessionId)
-      } else if (!queue.pending.length || disposed || queue.controller.signal.aborted) {
-        queues.delete(sessionId)
-      } else {
-        queue.drainPromise = drainCapture(sessionId, session, queue)
+      if (!queue.pending.some((pending) => pending.turn === item.turn)) {
+        queue.turns.delete(item.turn)
+        queue.turnAgents.delete(item.turn)
       }
     }
+    if (resolved) {
+      // Only an unbroken sequence of resolved turns may advance the durable
+      // watermark, so a single failed or cancelled capture stops advancing
+      // and its later turns replay on the next resume.
+      if (queue.prospective !== false) queue.prospective = item.turn
+      queue.unwritten += 1
+    } else if (queue.prospective !== false) {
+      queue.prospective = false
+    }
+    if (queue.unwritten >= MAX_RECOVERY_TURNS) await saveRecoveryProgress(sessionId, queue)
+    return drainOldestCapture(sessionId, queue)
+  }
+
+  /** Release agent state or restart the drain exactly once, per queue outcome. */
+  function finalizeDrainedQueue(sessionId, queue) {
+    queue.running = false
+    if (queues.get(sessionId) !== queue) return
+    if (queue.closing) {
+      if (queue.closingTimer) clearTimeout(queue.closingTimer)
+      agentLifetimes.get(queue.agent)?.abort()
+      agentLifetimes.delete(queue.agent)
+      closingAgents.delete(queue.agent)
+      if (activeAgents.get(sessionId) === queue.agent) activeAgents.delete(sessionId)
+      queues.delete(sessionId)
+    } else if (!queue.pending.length || disposed || queue.controller.signal.aborted) {
+      queues.delete(sessionId)
+    } else {
+      queue.drainPromise = drainCapture(sessionId, queue)
+    }
+  }
+
+  /**
+   * Enqueue bounded turn batches; each pass relies on one durable log read,
+   * rather than permanently losing turns older than a batch.
+   */
+  const recoverTurnBatches = async (agent, session, snapshot, turns, offset, recoverySignal) => {
+    if (offset >= turns.length) return
+    const pending = []
+    for (const turn of turns.slice(offset, offset + MAX_RECOVERY_TURNS)) {
+      if (!isActiveAgent(agent, recoverySignal)) return
+      pending.push(enqueueCapture(session, turn, agent, snapshot.events))
+    }
+    await Promise.all(pending)
+    return recoverTurnBatches(agent, session, snapshot, turns, offset + MAX_RECOVERY_TURNS, recoverySignal)
   }
 
   /** Recover recent completed turns while excluding inherited fork history. */
@@ -990,6 +1141,7 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
     if (!agentLifetime) return
     const recoverySignal = AbortSignal.any([lifetime.signal, agentLifetime.signal, ...(signal ? [signal] : [])])
     try {
+      const id = session.id
       const flushed = await awaitWithSignal(
         () => ctx.sessions.flush(session),
         recoverySignal,
@@ -997,34 +1149,28 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
       )
       if (flushed !== true || !isActiveAgent(agent, recoverySignal)) return
       const snapshot = await awaitWithSignal(
-        () => ctx.sessionQuery.readSession(session.id),
+        () => ctx.sessionQuery.readSession(id),
         recoverySignal,
         'DSH recovery read was cancelled',
       )
       if (!isActiveAgent(agent, recoverySignal)) return
       // A fork inherits the parent's prefix. Only turns after that prefix
       // belong to this session; recapturing inherited history would create
-      // duplicate memories under a new session identity.
-      const inherited = Number.isInteger(session.inheritedEventCount)
-        ? session.inheritedEventCount
-        : 0
-      const ownEvents = inherited > 0
-        ? snapshot.events.filter((event) => Number.isInteger(event?.seq) && event.seq > inherited)
-        : snapshot.events
+      // duplicate memories under a new session identity. Durable progress
+      // advances past turns whose capture already reached a durable outcome,
+      // so a resumed session never replays its whole committed history.
       const boundary = await captureBoundaries.get(agent)
-      const eligible = ownEvents.filter((event) => event.seq >= boundary)
-      const turns = completedTurns(eligible)
+      const resolvedTurn = latestResolvedTurn(snapshot, id)
+      const eligible = snapshot.events.filter((event) => Number.isInteger(event?.seq)
+        && (!Number.isInteger(session.inheritedEventCount) || event.seq > session.inheritedEventCount)
+        && event.seq >= boundary)
+      const turns = eligible
+        .filter((event) => event.type === 'turn/end' && event.data?.reason?.kind === 'completed')
+        .map((event) => event.data.turn)
+        .filter(Number.isInteger)
+        .filter((turn) => turn > resolvedTurn)
       if (turns.length) metrics.capture_recovery_count += 1
-      // Bound each in-memory batch, rather than permanently losing turns older
-      // than an eight-turn tail. Each pass reads the durable log once.
-      for (let offset = 0; offset < turns.length; offset += MAX_RECOVERY_TURNS) {
-        const pending = []
-        for (const turn of turns.slice(offset, offset + MAX_RECOVERY_TURNS)) {
-          if (!isActiveAgent(agent, recoverySignal)) return
-          pending.push(enqueueCapture(session, turn, agent, snapshot.events))
-        }
-        await Promise.all(pending)
-      }
+      await recoverTurnBatches(agent, session, snapshot, turns, 0, recoverySignal)
     } catch {
       if (isActiveAgent(agent, recoverySignal)) {
         safeLog(ctx, 'warn', 'Qdrant Memory recovery could not read the durable DSH session log.')
@@ -1035,7 +1181,7 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
   listeners.push(ctx.on('agent/created', async ({ agent }) => {
     const lifetime = registerAgent(agent)
     if (lifetime) {
-      await captureBoundaries.get(agent)
+      await waitCaptureBoundary(agent)
       scheduleRecovery(agent, lifetime.signal)
     }
   }))
@@ -1045,9 +1191,7 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
   }))
 
   listeners.push(ctx.on('agent/pre-step', async ({ agent, messages, turn, signal }, next) => {
-    if (!disposed && config.auto_capture.enabled && !isSubagent(agent)) {
-      await captureBoundaries.get(agent)
-    }
+    await waitCaptureBoundary(agent, signal)
     const decision = await next()
     if (disposed || decision.kind !== 'enter' || isSubagent(agent)
       || !config.auto_recall.enabled || !config.memory_injection.enabled) return decision

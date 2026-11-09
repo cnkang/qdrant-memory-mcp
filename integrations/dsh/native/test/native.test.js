@@ -1443,3 +1443,329 @@ test('Owner recall outage fails open without changing the current decision', asy
   assert.equal(metrics.recall_failures, 1)
   assert.equal(metrics.recall_latency_ms_count, 1)
 })
+
+const turnEvents = (turn) => [
+  { type: 'turn/start', seq: 4 * turn - 3, data: { turn } },
+  { type: 'user/message', seq: 4 * turn - 2, data: {
+    source: { kind: 'user' },
+    content: [{ type: 'text', text: `Remember turn ${turn} fact.` }],
+  } },
+  { type: 'assistant/message', seq: 4 * turn - 1, data: {
+    turn,
+    message: {
+      source: { kind: 'model', provider: 'provider-a', model: 'model-a' },
+      content: [{ type: 'text', text: `Turn ${turn} acknowledged.` }],
+    },
+  } },
+  { type: 'turn/end', seq: 4 * turn, data: { turn, reason: { kind: 'completed' } } },
+]
+
+const candidateStream = (text) => ({ async *stream() {
+  yield { type: 'text-delta', text: JSON.stringify({
+    memories: [{ text, category: ['project'], importance: 0.8, replacement_intent: false }],
+    replacement_context: '',
+  }) }
+  yield { type: 'finish', reason: { kind: 'stop' } }
+} })
+
+test('the closing agent cannot reopen its own capture queue', async () => {
+  const session = { id: 'self-reclaim-session' }
+  const events = turnEvents(1)
+  const handlers = new Map()
+  let cleanup
+  let releaseStatus
+  const statusGate = new Promise((resolve) => { releaseStatus = resolve })
+  const submitted = []
+  const flushed = []
+  const ctx = {
+    on(event, handler) {
+      handlers.set(event, handler)
+      return () => handlers.delete(event)
+    },
+    effect(register) { cleanup = register() },
+    logger: { warn() {} },
+    llm: candidateStream('Remember turn 1 fact.'),
+    sessions: { flush: async (queued) => { flushed.push(queued); return true } },
+    sessionQuery: { readSession: async () => ({ events }) },
+    agents: { get() { return undefined }, list() { return [] } },
+  }
+  const agent = {
+    session,
+    model: { current: () => ({ provider: 'provider-a', model: 'model-a' }) },
+  }
+  const config = {
+    ...DEFAULT_CONFIG,
+    auto_capture: { ...DEFAULT_CONFIG.auto_capture, enabled: true },
+  }
+  const dispose = apply(ctx, config, async (_mode, payload, options) => {
+    if (options.action === 'status') return statusGate
+    if (options.action === 'submit') {
+      submitted.push(payload)
+      return { status: 'COMMITTED' }
+    }
+    throw new Error('unexpected Runtime call')
+  })
+  try {
+    handlers.get('agent/created')({ agent })
+    const drain = handlers.get('session/event')(session, {
+      type: 'turn/end',
+      data: { turn: 1, reason: { kind: 'completed' } },
+    })
+    await new Promise((resolve) => setImmediate(resolve))
+    handlers.get('agent/disposed')({ agent })
+    const metricsAfterDispose = dispose.metrics()
+    handlers.get('session/event')(session, {
+      type: 'turn/end',
+      data: { turn: 2, reason: { kind: 'completed' } },
+    })
+    assert.equal(dispose.metrics().capture_turns_seen, metricsAfterDispose.capture_turns_seen)
+    releaseStatus({ status: 'NOT_FOUND' })
+    await drain
+    assert.equal(submitted.length, 1, 'only the pre-dispose turn submits once')
+    assert.equal(dispose.metrics().capture_turns_seen, 1)
+  } finally {
+    dispose()
+  }
+  assert.equal(handlers.size, 0)
+  assert.ok(flushed.every((queued) => queued === session))
+})
+
+test('a replacement agent flushes its own queued captures', async () => {
+  const oldSession = { id: 'replacement-session' }
+  const events = [...turnEvents(1), ...turnEvents(2)]
+  const handlers = new Map()
+  let cleanup
+  let createdReplacement
+  const replacementSeen = new Promise((resolve) => { createdReplacement = resolve })
+  const replacementAgent = {
+    get session() { createdReplacement(); return replacementAgent._session },
+    set session(value) { replacementAgent._session = value },
+    model: { current: () => ({ provider: 'provider-a', model: 'model-a' }) },
+  }
+  let releaseStatus
+  const statusGate = new Promise((resolve) => { releaseStatus = resolve })
+  const submitted = []
+  const flushed = []
+  const ctx = {
+    on(event, handler) {
+      handlers.set(event, handler)
+      return () => handlers.delete(event)
+    },
+    effect(register) { cleanup = register() },
+    logger: { warn() {} },
+    llm: candidateStream('Remember turn 1 fact.'),
+    sessions: { flush: async (queued) => { flushed.push(queued); return true } },
+    sessionQuery: { readSession: async () => ({ events }) },
+    agents: { get() { return undefined }, list() { return [] } },
+  }
+  const agent = {
+    session: oldSession,
+    model: { current: () => ({ provider: 'provider-a', model: 'model-a' }) },
+  }
+  const config = {
+    ...DEFAULT_CONFIG,
+    auto_capture: { ...DEFAULT_CONFIG.auto_capture, enabled: true },
+  }
+  const dispose = apply(ctx, config, async (_mode, payload, options) => {
+    if (options.action === 'status') return statusGate
+    if (options.action === 'submit') {
+      submitted.push(payload)
+      return { status: 'COMMITTED' }
+    }
+    throw new Error('unexpected Runtime call')
+  })
+  try {
+    handlers.get('agent/created')({ agent })
+    handlers.get('session/event')(oldSession, {
+      type: 'turn/end',
+      data: { turn: 1, reason: { kind: 'completed' } },
+    })
+    await new Promise((resolve) => setImmediate(resolve))
+    handlers.get('agent/disposed')({ agent })
+    const newSession = { id: 'replacement-session' }
+    replacementAgent.session = newSession
+    handlers.get('agent/created')({ agent: replacementAgent })
+    await replacementSeen
+    const replacementDrain = handlers.get('session/event')(newSession, {
+      type: 'turn/end',
+      data: { turn: 2, reason: { kind: 'completed' } },
+    })
+    releaseStatus({ status: 'NOT_FOUND' })
+    await replacementDrain
+    assert.equal(submitted.length, 2, 'the replacement agent finishes its own queued turn and takes over the pending one')
+    // The executing capture that already started keeps the old session, while
+    // every queued capture after the takeover flushes through the replacement
+    // session identity.
+    assert.ok(flushed.some((queued) => queued === newSession), 'the replacement identity is in use')
+    assert.ok(flushed.at(-1) === newSession, 'the last queued capture flushes through the replacement session identity')
+    assert.ok(dispose.metrics().capture_events_committed >= 2)
+  } finally {
+    dispose()
+  }
+  assert.equal(handlers.size, 0)
+})
+
+test('the capture boundary wait times out instead of blocking turns', { timeout: 6000 }, async () => {
+  const handlers = new Map()
+  let cleanup
+  let warnings = []
+  const never = new Promise(() => {})
+  const ctx = {
+    on(event, handler) {
+      handlers.set(event, handler)
+      return () => handlers.delete(event)
+    },
+    effect(register) { cleanup = register() },
+    logger: { warn(message) { warnings.push(String(message)) } },
+    llm: { async *stream() { throw new Error('capture must stay disabled while the boundary stalls') } },
+    sessions: { flush() { return never } },
+    sessionQuery: { readSession() { return never } },
+    agents: { get() { return undefined }, list() { return [] } },
+  }
+  const agent = {
+    session: { id: 'stalled-boundary-session' },
+    model: { current: () => ({ provider: 'provider-a', model: 'model-a' }) },
+  }
+  const config = {
+    ...DEFAULT_CONFIG,
+    auto_capture: { ...DEFAULT_CONFIG.auto_capture, enabled: true, timeout_ms: 1000 },
+  }
+  const decision = { kind: 'enter', messages: [] }
+  const dispose = apply(ctx, config, async () => { throw new Error('the Owner must never be called') })
+  try {
+    const started = Date.now()
+    await handlers.get('agent/created')({ agent })
+    await handlers.get('agent/pre-step')(
+      { agent, messages: [{ role: 'user', source: { kind: 'user' }, content: [{ type: 'text', text: 'hello' }] }], turn: 1 },
+      async () => decision,
+    )
+    const elapsed = Date.now() - started
+    // The active timeout_ms is 1000 ms; a wait that never unblocks would
+    // exceed any bounded run.
+    assert.ok(elapsed < 3000, `the decision must not hang behind the boundary wait (${elapsed} ms)`)
+    assert.ok(warnings.some((message) => message.includes('capture boundary is unavailable')), warnings)
+    // The watermark replacement keeps later turns unblocked too.
+    const followUp = await handlers.get('agent/pre-step')(
+      { agent, messages: [], turn: 2 },
+      async () => decision,
+    )
+    assert.equal(followUp, decision)
+  } finally {
+    dispose()
+  }
+})
+
+test('capture boundary initialization retries a missing durability handler', { timeout: 8000 }, async () => {
+  const handlers = new Map()
+  let cleanup
+  let flushCalls = 0
+  let durable = false
+  setTimeout(() => { durable = true }, 700)
+  const submitted = []
+  const receipts = new Set()
+  const events = turnEvents(1)
+  const ctx = {
+    on(event, handler) {
+      handlers.set(event, handler)
+      return () => handlers.delete(event)
+    },
+    effect(register) { cleanup = register() },
+    logger: { warn() {} },
+    llm: candidateStream('Remember turn 1 fact.'),
+    sessions: { flush: async () => { flushCalls += 1; return durable } },
+    sessionQuery: { readSession: async () => ({ events }) },
+    agents: { get() { return undefined }, list() { return [] } },
+  }
+  const agent = {
+    session: { id: 'late-durability-session' },
+    model: { current: () => ({ provider: 'provider-a', model: 'model-a' }) },
+  }
+  const config = {
+    ...DEFAULT_CONFIG,
+    auto_capture: { ...DEFAULT_CONFIG.auto_capture, enabled: true, timeout_ms: 5000 },
+  }
+  const dispose = apply(ctx, config, async (_mode, payload, options) => {
+    if (options.action === 'status') {
+      // The Owner keeps every submitted receipt idempotent, so the recovery
+      // pass after the live capture sees the durable outcome.
+      return { status: receipts.has(payload.event_id) ? 'COMMITTED' : 'NOT_FOUND' }
+    }
+    if (options.action === 'submit') {
+      receipts.add(payload.event_id)
+      submitted.push(payload)
+      return { status: 'COMMITTED' }
+    }
+    throw new Error('unexpected Runtime call')
+  })
+  try {
+    await handlers.get('agent/created')({ agent })
+    assert.ok(flushCalls > 1, `boundary initialization retried the handler (calls: ${flushCalls})`)
+    handlers.get('session/event')(agent.session, {
+      type: 'turn/end',
+      data: { turn: 1, reason: { kind: 'completed' } },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 300))
+    assert.equal(submitted.length, 1, 'the live agent captures once durability appears, keeping its activation marker')
+  } finally {
+    dispose()
+  }
+  assert.equal(handlers.size, 0)
+})
+
+test('recovery replays only turns above the durable progress marker', async () => {
+  const session = { id: 'progress-session' }
+  const events = [
+    ...turnEvents(1),
+    {
+      type: 'plugin:qdrant-memory/recovery-progress',
+      seq: 5, ignorable: true, data: { session_id: 'progress-session', after_turn: 1 },
+    },
+    ...turnEvents(2),
+  ]
+  const handlers = new Map()
+  let cleanup
+  const statusCalls = []
+  const submitted = []
+  const ctx = {
+    on(event, handler) {
+      handlers.set(event, handler)
+      return () => handlers.delete(event)
+    },
+    effect(register) { cleanup = register() },
+    logger: { warn() {} },
+    llm: candidateStream('Remember turn 1 fact.'),
+    sessions: { flush: async () => true },
+    sessionQuery: { readSession: async () => ({ events }) },
+    agents: { get() { return undefined }, list() { return [] } },
+  }
+  const agent = {
+    session,
+    model: { current: () => ({ provider: 'provider-a', model: 'model-a' }) },
+  }
+  const config = {
+    ...DEFAULT_CONFIG,
+    auto_capture: { ...DEFAULT_CONFIG.auto_capture, enabled: true },
+  }
+  const dispose = apply(ctx, config, async (_mode, payload, options) => {
+    if (options.action === 'status') {
+      statusCalls.push(options)
+      return { status: 'NOT_FOUND' }
+    }
+    if (options.action === 'submit') {
+      submitted.push(payload)
+      return { status: 'COMMITTED' }
+    }
+    throw new Error('unexpected Runtime call')
+  })
+  try {
+    handlers.get('agent/created')({ agent })
+    await new Promise((resolve) => setTimeout(resolve, 500))
+    assert.equal(statusCalls.length, 1, 'turn 1 below the marker is never status-polled again')
+    assert.equal(submitted.length, 1)
+    assert.equal(submitted[0].event_id, compileTurn(events, session.id, 2).event_id)
+  } finally {
+    dispose()
+  }
+  assert.equal(handlers.size, 0)
+  assert.ok(dispose.metrics().capture_recovery_count >= 1)
+})
