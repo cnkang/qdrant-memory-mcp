@@ -156,7 +156,7 @@ try:
     name = plugins[0]['name']
     assert name.tag == 'tag:yaml.org,2002:str' and name.value == '@deepseek-ai/dsh-mcp-client'
     config = mapping(plugins[0]['config'])
-    assert servers.count(config['serverName'].value) == 1, 'Conflicting MCP serverName'
+    assert len(servers) == len(set(servers)), 'Conflicting MCP serverName'
     command = config['command']
     assert command.tag == 'tag:yaml.org,2002:str' and command.value == 'uvx'
     args = config['args']
@@ -268,7 +268,7 @@ try:
     name = plugins[0]['name']
     assert name.tag == 'tag:yaml.org,2002:str' and name.value == '@deepseek-ai/dsh-mcp-client'
     config = mapping(plugins[0]['config'])
-    assert servers.count(config['serverName'].value) == 1, 'Conflicting MCP serverName'
+    assert len(servers) == len(set(servers)), 'Conflicting MCP serverName'
     command = config['command']
     assert command.tag == 'tag:yaml.org,2002:str' and command.value == 'uvx'
     args = config['args']
