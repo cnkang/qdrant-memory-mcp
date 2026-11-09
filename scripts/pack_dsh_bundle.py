@@ -19,9 +19,11 @@ PAYLOAD_LIMIT = 1024 * 1024
 def bounded_bytes(source, name):
     """Read one reviewed payload file within the bounded inspection size."""
     path = payload_path(source, name)
-    if path.stat().st_size > PAYLOAD_LIMIT:
+    with path.open('rb') as payload:
+        data = payload.read(PAYLOAD_LIMIT + 1)
+    if len(data) > PAYLOAD_LIMIT:
         raise ValueError('Bundle input exceeds the bounded payload size')
-    return path.read_bytes()
+    return data
 
 
 def validate_identity(meta):
@@ -51,12 +53,17 @@ def inspect(archive, source):
         for member in members:
             if not member.isfile() or member.size > PAYLOAD_LIMIT:
                 raise ValueError("Bundle payload must contain bounded regular files")
-            path = payload_path(source, member.name.removeprefix("package/"))
+            name = member.name.removeprefix("package/")
+            path = payload_path(source, name)
             if path.is_symlink() or not path.is_file():
                 raise ValueError("Bundle input must be a regular file")
-            if package.extractfile(member).read() != path.read_bytes():
+            source_data = bounded_bytes(source, name)
+            member_data = package.extractfile(member).read(PAYLOAD_LIMIT + 1)
+            if len(member_data) > PAYLOAD_LIMIT:
+                raise ValueError("Bundle payload must contain bounded regular files")
+            if member_data != source_data:
                 raise ValueError("Bundle package differs from source")
-    meta = json.loads((source / PACKAGE_JSON).read_text(encoding="utf-8"))
+    meta = json.loads(bounded_bytes(source, PACKAGE_JSON))
     if meta.get("dsh", {}).get("bundle", {}).get("patch") != "./cordis.patch.yml":
         raise ValueError("Bundle manifest must declare the reviewed patch file")
     if meta.get("private"):

@@ -19,6 +19,16 @@ def packer():
     return module
 
 
+def test_bounded_bytes_rejects_source_larger_than_the_payload_limit(tmp_path):
+    module = packer()
+    module.PAYLOAD_LIMIT = 16
+    source = tmp_path / 'bundle'
+    source.mkdir()
+    (source / 'README.md').write_bytes(b'x' * 17)
+    with pytest.raises(ValueError, match='bounded payload'):
+        module.bounded_bytes(source, 'README.md')
+
+
 def test_bundle_manifest_and_patch_contract():
     """Validate the DSH package manifest, files, and patch contract."""
     meta = json.loads((ROOT / "integrations/dsh/bundle/package.json").read_text(encoding="utf-8"))

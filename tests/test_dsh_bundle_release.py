@@ -82,9 +82,17 @@ def test_validate_existing_tag_at_clean_merged_head(source, release_tag):
 
 def test_tag_stays_valid_after_main_advances(source, release_tag):
     """The documented tag-and-wait flow survives a later main advance."""
-    advanced = git(source, 'commit-tree', 'HEAD^{tree}', '-p', 'HEAD', '-m', 'advance main after tagging')
-    git(source, 'update-ref', 'refs/remotes/origin/main', advanced)
+    unchanged = git(source, 'commit-tree', 'HEAD^{tree}', '-p', 'HEAD', '-m', 'advance main without tree changes')
+    git(source, 'update-ref', 'refs/remotes/origin/main', unchanged)
     release = module()
+    assert release.validate_source(source, release_tag)[0] == git(source, 'rev-parse', 'HEAD')
+
+    (source / 'post-tag.txt').write_text('main advanced after release tagging\n', encoding='utf-8')
+    git(source, 'add', 'post-tag.txt')
+    git(source, 'commit', '-m', 'advance main with a tree change')
+    changed = git(source, 'rev-parse', 'HEAD')
+    git(source, 'update-ref', 'refs/remotes/origin/main', changed)
+    git(source, 'checkout', '--detach', release_tag)
     assert release.validate_source(source, release_tag)[0] == git(source, 'rev-parse', 'HEAD')
 
 
