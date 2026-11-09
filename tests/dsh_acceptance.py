@@ -5,8 +5,8 @@ import os
 import re
 import shutil
 import subprocess
+import tomllib
 from pathlib import Path
-from urllib.request import urlopen
 
 from ruamel.yaml import YAML
 from ruamel.yaml.comments import TaggedScalar
@@ -15,6 +15,9 @@ TRUSTED_HOME_EXPRESSION = (
     "process.env.QDRANT_MEMORY_DSH_PROFILE || "
     "require('node:path').join(require('node:os').homedir(), '.qdrant-memory-dsh')"
 )
+MCP_SPEC = 'qdrant-memory-mcp==' + tomllib.loads(
+    (Path(__file__).resolve().parents[1] / 'pyproject.toml').read_text(encoding='utf-8'),
+)['project']['version']
 
 
 
@@ -126,7 +129,7 @@ def _assert_overlay_composes(cli, overlay, env):
     from_indexes = [index for index, value in enumerate(args) if value == '--from']
     assert from_indexes, result.stdout
     for index in from_indexes:
-        assert args[index + 1] == 'qdrant-memory-mcp==0.3.1', result.stdout
+        assert args[index + 1] == MCP_SPEC, result.stdout
     home_indexes = [index for index, value in enumerate(args) if value == '--home']
     assert home_indexes, result.stdout
     for index in home_indexes:
@@ -147,7 +150,11 @@ def test_official_dsh_cli_composes_checkout_overlay(tmp_path):
 
 
 def test_official_dsh_cli_overlay_preserves_user_patches(tmp_path):
-    """The tagged overlay composes without modifying the selected profile patch."""
+    """The vetted overlay composes without modifying the selected profile patch.
+
+    Live tag content stays inside the release gate: this fixture composes the
+    exact reviewed overlay from the repository, so offline runs keep coverage.
+    """
     cli = Path(os.environ['DSH_TEST_MODULES']) / '@deepseek-ai/dsh/lib/bin.js'
     assert cli.is_file()
     home = tmp_path / 'dsh-home'
@@ -168,17 +175,8 @@ def test_official_dsh_cli_overlay_preserves_user_patches(tmp_path):
         USERPROFILE=str(tmp_path),
         QDRANT_MEMORY_DSH_PROFILE=str(selected_profile),
     )
-    overlay_url = (
-        'https://raw.githubusercontent.com/cnkang/qdrant-memory-mcp/'
-        'v0.3.1/integrations/dsh/qdrant-memory.cordis.yml'
-    )
-    tagged_overlay = tmp_path / 'tagged-qdrant-memory.cordis.yml'
-    with urlopen(overlay_url, timeout=30) as response:
-        assert response.status == 200
-        overlay_bytes = response.read()
-    tagged_overlay.write_bytes(overlay_bytes)
-    assert re.search(rb'-\s*qdrant-memory-mcp==0\.3\.1(?:\s|$)', overlay_bytes), overlay_bytes[:2000]
-    _assert_overlay_composes(cli, tagged_overlay, env)
+    overlay = Path(__file__).resolve().parents[1] / 'integrations/dsh/qdrant-memory.cordis.yml'
+    _assert_overlay_composes(cli, overlay, env)
     assert patch.read_text() == '[]\n'
     assert sentinel.read_text() == '# unrelated profile\n[]\n'
 
@@ -198,8 +196,11 @@ def test_official_dsh_cli_installs_the_packed_bundle(tmp_path):
     legacy = subprocess.run(
         [shutil.which('npm') or shutil.which('npm.cmd'), 'pack', '@cnkang/qdrant-memory-dsh-bundle@0.1.6',
          '--ignore-scripts', '--json', '--pack-destination', str(output)],
-        env=env, capture_output=True, text=True, timeout=120, check=True,
+        env=env, capture_output=True, text=True, timeout=120, check=False,
     )
+    # A failing registry pack must surface its output; check=True would hide
+    # the diagnostic behind a bare exception.
+    assert legacy.returncode == 0, legacy.stdout + legacy.stderr
     legacy_report = json.loads(legacy.stdout)
     legacy_report = list(legacy_report.values())[0] if isinstance(legacy_report, dict) else legacy_report[0]
     legacy_tgz = output / legacy_report['filename']

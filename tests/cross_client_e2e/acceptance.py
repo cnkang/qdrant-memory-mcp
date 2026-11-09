@@ -30,7 +30,7 @@ def test_dsh_capture_and_mcp_recall_with_scoped_https_owner(tmp_path, monkeypatc
     from qdrant_client import QdrantClient
     from qdrant_memory.owner_lifecycle import OwnerLifecycle
     from qdrant_memory.ownership import WriterLease
-    from qdrant_memory.remote_client import call_remote, control_event, remote_error, send_event
+    from qdrant_memory.remote_client import RemoteRequestNotSent, call_remote, control_event, remote_error, send_event
     from qdrant_memory.remote_gateway import create_gateway
     from qdrant_memory.shared_service import SharedOwner
 
@@ -67,12 +67,14 @@ def test_dsh_capture_and_mcp_recall_with_scoped_https_owner(tmp_path, monkeypatc
     rt = helpers.runtime(tmp_path, client=client, cfg=cfg)
     owner = SharedOwner(rt, grants)
     lifecycle = OwnerLifecycle(owner)
-    cert, key = tmp_path / 'ca.pem', tmp_path / 'key.pem'
-    subprocess.run(['openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '1',
-                    '-subj', '/CN=127.0.0.1', '-addext', 'subjectAltName=IP:127.0.0.1',
-                    '-keyout', str(key), '-out', str(cert)], check=True, capture_output=True)
     server = thread = None
     try:
+        # Certificate generation stays inside the cleanup scope: a failure
+        # above must still drop the shared client below.
+        cert, key = tmp_path / 'ca.pem', tmp_path / 'key.pem'
+        subprocess.run(['openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '1',
+                        '-subj', '/CN=127.0.0.1', '-addext', 'subjectAltName=IP:127.0.0.1',
+                        '-keyout', str(key), '-out', str(cert)], check=True, capture_output=True)
         with socket.socket() as sock:
             sock.bind(('127.0.0.1', 0))
             sock.listen(64)
@@ -155,13 +157,28 @@ def test_dsh_capture_and_mcp_recall_with_scoped_https_owner(tmp_path, monkeypatc
                     assert remote_error(exc)['reason'] == 'authentication_rejected'
                 else:
                     assert rejected.get('error', {}).get('reason') == 'authentication_rejected'
-            with pytest.raises(Exception):
-                asyncio.run(call('read', 'qdrant_memory_delete', {'id': captured[0]['id'], 'request_id': 'denied'}))
+            # Shared MCP write authorization: the tool result carries the
+            # Owner's PermissionError, and no transport exception is
+            # involved. Never ship a bare identity-bound argument.
+            read_denied = asyncio.run(call('read', 'qdrant_memory_delete', {
+                'id': captured[0]['id'], 'request_id': 'denied', 'expected_version': '0'}))
+            assert read_denied.get('error', {}).get('type') == 'PermissionError', read_denied
             for field in ('user_id', 'agent_id', 'scope'):
-                with pytest.raises(Exception):
-                    asyncio.run(call('mcp', 'qdrant_memory_search', {'query': 'Iris', field: 'forged'}))
-            with pytest.raises(Exception):
-                asyncio.run(call('private', 'qdrant_memory_delete', {'id': captured[0]['id'], 'request_id': 'cross-private'}))
+                try:
+                    forged = asyncio.run(call('mcp', 'qdrant_memory_search', {'query': 'Iris', field: 'forged'}))
+                except RemoteRequestNotSent as exc:
+                    assert 'Unexpected memory tool arguments' in str(exc), exc
+                else:
+                    raise AssertionError(f'forged {field} argument reached the Owner: {forged}') from None
+            cross_denied = asyncio.run(call('private', 'qdrant_memory_delete', {
+                'id': captured[0]['id'], 'request_id': 'cross-private', 'expected_version': '0'}))
+            assert cross_denied.get('error', {}).get('type') == 'PermissionError', cross_denied
+            # The same owner accepts the delete when the client is authorized,
+            # so the denial above reflects permission, not a broken tool.
+            permitted = asyncio.run(call('mcp', 'qdrant_memory_delete', {
+                'id': seed['id'], 'request_id': 'authorized-delete',
+                'expected_version': seed['version']}))
+            assert permitted.get('action') == 'DELETE', permitted
             # Persisted Owner receipts and Qdrant IDs, not the assistant's prose.
             assert rt.ledger.db.execute('SELECT COUNT(*) FROM owner_events_v1').fetchone()[0] >= 1
             packed = subprocess.run([sys.executable, 'scripts/pack_dsh_bundle.py', '--output-dir', str(tmp_path / 'packed')],
