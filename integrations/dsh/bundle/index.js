@@ -31,6 +31,36 @@ function legacyRouteRegistered(ctx) {
   return false
 }
 
+/** Keep late MCP registrations from creating a second storage route. */
+function guardLateLegacyRoute(ctx) {
+  let ownerRegistrationOpen = false
+  let ownerRouteRegistered = false
+  const allowedOwnerFibers = new WeakSet()
+  const rejected = new WeakSet()
+  const dispose = ctx.root.on('internal/plugin', (fiber) => {
+    const runtime = ctx.registry?.get?.(McpClient)
+    if (!runtime?.fibers?.includes(fiber) || fiber?.config?.serverName !== 'qdrant-memory') return
+    if (allowedOwnerFibers.has(fiber)) return
+    const route = fiber.config
+    if (ownerRegistrationOpen && !ownerRouteRegistered
+      && route.transport === 'streamable-http'
+      && route.url === process.env.QDRANT_MEMORY_DSH_OWNER_URL
+      && route.headers?.Authorization === `Bearer ${process.env.QDRANT_MEMORY_DSH_OWNER_TOKEN}`) {
+      ownerRouteRegistered = true
+      allowedOwnerFibers.add(fiber)
+      return
+    }
+    if (rejected.has(fiber)) return
+    rejected.add(fiber)
+    throw new Error('An Owner mode profile can have only one qdrant-memory MCP route')
+  })
+  ctx.effect(() => dispose)
+  return {
+    beginOwnerRegistration() { ownerRegistrationOpen = true },
+    endOwnerRegistration() { ownerRegistrationOpen = false },
+  }
+}
+
 /** Select one storage target for the entire profile; never open a second writer. */
 export async function apply(ctx, config) {
   const enabled = config.auto_capture.enabled || config.auto_recall.enabled || config.memory_injection.enabled
@@ -46,12 +76,18 @@ export async function apply(ctx, config) {
   if (legacyRouteRegistered(ctx)) {
     throw new Error('Remove the existing qdrant-memory MCP route before selecting an Owner mode')
   }
+  const routeGuard = guardLateLegacyRoute(ctx)
   const target = Native.runtimeTarget(process.env)
   if (config.mode === 'unified-owner') {
-    await ctx.plugin(McpClient, {
-      serverName: 'qdrant-memory', transport: 'streamable-http', url: target.endpoint,
-      headers: { Authorization: `Bearer ${target.token}` }, failOnStartupError: true,
-    })
+    routeGuard.beginOwnerRegistration()
+    try {
+      await ctx.plugin(McpClient, {
+        serverName: 'qdrant-memory', transport: 'streamable-http', url: target.endpoint,
+        headers: { Authorization: `Bearer ${target.token}` }, failOnStartupError: true,
+      })
+    } finally {
+      routeGuard.endOwnerRegistration()
+    }
   }
   await ctx.plugin(Native, config)
 }
