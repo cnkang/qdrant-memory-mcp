@@ -27,7 +27,8 @@ Both jobs reject skipped tests.
   It runs on every `main` push and is required by the tag release gate.
 - DSH cross-client acceptance drives the real DSH AgentLoop and MCP surface
   against the TLS Owner and a disposable fixed-version Qdrant container on
-  `main` pushes only. It requires executed, never skipped, acceptance tests and
+  pull requests, pushes to `main` and `codex/**`, and manual dispatches. It
+  requires executed, never skipped, acceptance tests and
   is required by the tag release gate. Workflow dispatches run in an isolated
   concurrency group, so a manual rerun cannot cancel the gated push run.
 - Repository quality runs Ruff on release scripts and tests.
