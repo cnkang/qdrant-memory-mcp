@@ -13,8 +13,15 @@ HOOKS = ROOT / "integrations/codex-lifecycle/plugin/hooks"
 
 
 def load(name):
+    """Load (or reuse the imported) hook module, so patches hit the shared object."""
+    registered = sys.modules.get(name)
+    if registered is not None and getattr(registered, "__file__", None) == str(
+        HOOKS / f"{name}.py"
+    ):
+        return registered
     spec = importlib.util.spec_from_file_location(name, HOOKS / f"{name}.py")
     module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module  # hook files import each other through this cache
     spec.loader.exec_module(module)
     return module
 
@@ -54,7 +61,9 @@ def hook_env(tmp_path, monkeypatch):
 def test_digest_configuration_pins_official_events():
     """hooks.json must keep the documented events and safe thresholds."""
     hooks = json.loads((HOOKS / "hooks.json").read_text(encoding="utf-8"))
-    assert set(hooks["hooks"]) == {"SessionStart", "UserPromptSubmit"}
+    assert set(hooks["hooks"]) == {
+        "SessionStart", "UserPromptSubmit", "Stop", "SessionEnd"
+    }
     start = hooks["hooks"]["SessionStart"][0]
     assert start["matcher"] == "startup|resume|clear|compact|fork"
     assert start["hooks"][0]["type"] == "command"
@@ -62,7 +71,14 @@ def test_digest_configuration_pins_official_events():
     assert start["hooks"][0]["additionalContextLimit"] > 0
     capture = hooks["hooks"]["UserPromptSubmit"][0]["hooks"][0]
     assert "${PLUGIN_ROOT}/hooks/user_prompt_capture.py" in capture["command"]
-    assert "Stop" not in hooks["hooks"]  # no fabricated auto-capture
+    stop = hooks["hooks"]["Stop"][0]["hooks"][0]
+    assert "${PLUGIN_ROOT}/hooks/turn_capture.py" in stop["command"]
+    assert stop["async"] is True  # capture must never add turn latency
+    stop_timeout = hooks["hooks"]["Stop"][0]["hooks"][0]
+    assert stop_timeout["timeout"] <= 30
+    session_end = hooks["hooks"]["SessionEnd"][0]["hooks"][0]
+    assert "${PLUGIN_ROOT}/hooks/prune_scratch.py" in session_end["command"]
+    assert session_end["timeout"] <= 3  # SessionEnd default/max window
 
 
 def test_main_plugin_package_contains_no_hooks():
@@ -343,3 +359,421 @@ def test_lifecycle_scope_enforcement_failures(hook_env, monkeypatch):
     broken.unlink()
     with pytest.raises(runtime.HookError):
         runtime.load_scope()
+
+
+# --- Auto-capture: pairing and Stop-time journaling (Phase 1) ---
+
+
+def feed_stdin(monkeypatch, payload_bytes_or_dict):
+    """Replace stdin with one JSON hook event."""
+    raw = payload_bytes_or_dict if isinstance(payload_bytes_or_dict, str) else json.dumps(payload_bytes_or_dict)
+    monkeypatch.setattr("sys.stdin", type("S", (), {"read": staticmethod(lambda: raw)})())
+
+
+def stage_scratch(monkeypatch, runtime, *, prompt="plain question", session="sess-1", turn="t-1", cwd="/work"):
+    """Stage the pairing scratch exactly as the UserPromptSubmit hook does."""
+    capture = load("user_prompt_capture")
+    feed_stdin(monkeypatch, {
+        "session_id": session, "turn_id": turn, "cwd": cwd, "prompt": prompt
+    })
+    assert capture.main() == 0
+
+
+def test_user_prompt_submit_stages_scratch_and_honors_remember(hook_env, monkeypatch, capsys):
+    stage_scratch(monkeypatch, load("lifecycle_runtime"), prompt="Remember: team offsite is in May.")
+    output = json.loads(capsys.readouterr().out.strip())
+    assert "saved one explicit fact" in output["systemMessage"]
+    runtime = load("lifecycle_runtime")
+    scratch = runtime.scratch_path_for("sess-1", "t-1")
+    staged = json.loads(scratch.read_text(encoding="utf-8"))
+    assert staged["session_id"] == "sess-1"
+    assert staged["turn_id"] == "t-1"
+    assert staged["user_excerpt"] == "Remember: team offsite is in May."
+
+
+def test_user_prompt_submit_scratch_records_excerpt(hook_env, monkeypatch):
+    stage_scratch(monkeypatch, load("lifecycle_runtime"))
+    runtime = load("lifecycle_runtime")
+    staged = json.loads(
+        runtime.scratch_path_for("sess-1", "t-1").read_text(encoding="utf-8")
+    )
+    assert staged["user_excerpt"] == "plain question"
+    assert staged["user_truncated"] is False
+    assert staged["cwd"] == "/work"
+
+
+def test_scratch_prefers_plugin_data_and_cleans(hook_env, monkeypatch, tmp_path):
+    plugin_data = tmp_path / "plugin-data"
+    monkeypatch.setenv("PLUGIN_DATA", str(plugin_data))
+    runtime = load("lifecycle_runtime")
+    stage_scratch(monkeypatch, runtime)
+    staged = plugin_data / "turn_inputs"
+    assert staged.is_dir() and list(staged.glob("*.json"))
+    assert not (runtime.events_root() / "scratch").exists()
+
+
+def test_stop_capture_pairs_and_writes_bounded_pending_event(hook_env, monkeypatch, capsys):
+    stage_scratch(monkeypatch, load("lifecycle_runtime"))
+    stop = load("turn_capture")
+    feed_stdin(monkeypatch, {
+        "session_id": "sess-1", "turn_id": "t-1",
+        "last_assistant_message": "Storage caps are 300 pending events per profile.",
+        "stop_hook_active": False,
+    })
+    assert stop.main() == 0
+    runtime = load("lifecycle_runtime")
+    events = sorted(runtime.pending_dir().glob("*.json"))
+    assert len(events) == 1
+    stored = json.loads(events[0].read_text(encoding="utf-8"))
+    assert stored["status"] == "pending"
+    assert stored["user_text"]["excerpt"] == "plain question"
+    assert "300 pending events" in stored["assistant_text"]["text"]
+    assert events[0].name == runtime.event_id_for("sess-1", "t-1") + ".json"
+    assert stored["provenance"]["capture_source"] == "codex-hook"
+    # The pairing scratch is consumed by the Stop hook.
+    assert not runtime.scratch_path_for("sess-1", "t-1").exists()
+    assert capsys.readouterr().out == ""
+
+
+def test_stop_capture_is_idempotent_per_turn(hook_env, monkeypatch):
+    runtime = load("lifecycle_runtime")
+    stop = load("turn_capture")
+    for _ in range(2):
+        stage_scratch(monkeypatch, runtime)
+        feed_stdin(monkeypatch, {
+            "session_id": "sess-1", "turn_id": "t-1",
+            "last_assistant_message": "reply text",
+        })
+        assert stop.main() == 0
+    assert len(list(runtime.pending_dir().glob("*.json"))) == 1
+    assert not runtime.scratch_path_for("sess-1", "t-1").exists()
+
+
+def test_stop_capture_byte_bounds_assistant_text(hook_env, monkeypatch):
+    stage_scratch(monkeypatch, load("lifecycle_runtime"))
+    stop = load("turn_capture")
+    runtime = load("lifecycle_runtime")
+    long_reply = "x" * (runtime.ASSISTANT_TEXT_BYTES + 64)
+    feed_stdin(monkeypatch, {
+        "session_id": "sess-1", "turn_id": "t-1", "last_assistant_message": long_reply
+    })
+    assert stop.main() == 0
+    stored = json.loads(next(runtime.pending_dir().glob("*.json")).read_text(encoding="utf-8"))
+    assert len(stored["assistant_text"]["text"].encode("utf-8")) <= runtime.ASSISTANT_TEXT_BYTES
+    assert stored["assistant_text"]["truncated"] is True
+
+
+def test_stop_capture_without_pairing_captures_nothing(hook_env, monkeypatch):
+    stop = load("turn_capture")
+    runtime = load("lifecycle_runtime")
+    feed_stdin(monkeypatch, {
+        "session_id": "sess-2", "turn_id": "t-9",
+        "last_assistant_message": "orphan assistant text",
+    })
+    assert stop.main() == 0
+    assert list(runtime.pending_dir().glob("*.json")) == []
+
+
+def test_stop_capture_requires_assistant_text(hook_env, monkeypatch):
+    stage_scratch(monkeypatch, load("lifecycle_runtime"))
+    stop = load("turn_capture")
+    runtime = load("lifecycle_runtime")
+    feed_stdin(monkeypatch, {"session_id": "sess-1", "turn_id": "t-1"})
+    assert stop.main() == 0
+    assert list(runtime.pending_dir().glob("*.json")) == []
+    # A blank pairing entry never surfaces either.
+    feed_stdin(monkeypatch, {
+        "session_id": "sess-1", "turn_id": "t-1", "last_assistant_message": "  "
+    })
+    assert stop.main() == 0
+    assert list(runtime.pending_dir().glob("*.json")) == []
+
+
+def test_stop_capture_never_invokes_the_runtime(hook_env, monkeypatch):
+    """The capture path is storage-local: the Runtime binary must stay closed."""
+    stage_scratch(monkeypatch, load("lifecycle_runtime"))
+    stop = load("turn_capture")
+    invocations = []
+
+    def spy(*args, **kwargs):
+        invocations.append(args)
+        return 0, "", ""
+
+    monkeypatch.setattr(load("lifecycle_runtime"), "call_runtime", spy)
+    feed_stdin(monkeypatch, {
+        "session_id": "sess-1", "turn_id": "t-1",
+        "last_assistant_message": "reply",
+    })
+    assert stop.main() == 0
+    assert invocations == []
+
+
+def test_stop_capture_overflow_prepares_and_pauses(hook_env, monkeypatch, capsys):
+    runtime = load("lifecycle_runtime")
+    stop = load("turn_capture")
+    monkeypatch.setattr(runtime, "pending_count", lambda: runtime.MAX_PENDING_EVENTS)
+    stage_scratch(monkeypatch, runtime)
+    feed_stdin(monkeypatch, {
+        "session_id": "sess-1", "turn_id": "t-1",
+        "last_assistant_message": "reply",
+    })
+    assert stop.main() == 0
+    assert list(runtime.pending_dir().glob("*.json")) == []  # nothing appended
+    assert runtime.count_overflow_marker() == 1
+    body = json.loads(capsys.readouterr().out.strip())
+    assert "pending buffer is full" in body["systemMessage"]
+    assert "reply" not in body["systemMessage"]
+
+
+def test_prune_stale_scratch_respects_ttl(hook_env, monkeypatch):
+    runtime = load("lifecycle_runtime")
+    stage_scratch(monkeypatch, runtime)
+    scratch = runtime.scratch_path_for("sess-1", "t-1")
+    assert scratch.exists()
+    old = 0 if runtime.SCRATCH_TTL_SECONDS > 0 else 1
+    _ = old  # ttl semantics exercised below via timestamp math
+    ttl = runtime.SCRATCH_TTL_SECONDS
+
+    fresh_poll = runtime.prune_stale_scratch(now=scratch.stat().st_mtime + ttl + 1)
+    assert fresh_poll == 1 and not scratch.exists()
+
+
+# --- Extractor (Phase 2): dry-run contract, validation, confirm admission ---
+
+
+def extraction_provider_stub(monkeypatch, replies):
+    """Serve the OpenAI-compatible extraction endpoint from a local server."""
+    import threading
+
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    calls = []
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self):
+            calls.append(json.loads(self.rfile.read(int(self.headers["Content-Length"]))))
+            reply = replies.pop(0) if replies else {"choices": [{"message": {"content": "{\"memories\": []}"}}]}
+            payload = (json.dumps(reply).encode("utf-8"), 200)
+            self.send_response(payload[1])
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(payload[0])))
+            self.end_headers()
+            self.wfile.write(payload[0])
+
+        def log_message(self, *args):
+            pass
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    yield server, calls
+    server.shutdown()
+    server.server_close()
+
+
+def stage_pending(hook_env, monkeypatch, runtime, *, user="user turn", assistant="assistant turn",
+                  session="sess-1", turn="t-1"):
+    stage_scratch(monkeypatch, runtime, prompt=user, session=session, turn=turn)
+    stop = load("turn_capture")
+    feed_stdin(monkeypatch, {
+        "session_id": session, "turn_id": turn, "last_assistant_message": assistant
+    })
+    assert stop.main() == 0
+
+
+def extractor_args(monkeypatch, server_port, model="fixture-extractor"):
+    argv = [
+        "--base-url", f"http://127.0.0.1:{server_port}/v1",
+        "--model", model,
+        "--limit", "5",
+    ]
+    return argv
+
+
+def extractor_cli():
+    return load("extract_pending")
+
+
+def test_extractor_dry_run_lists_candidates_without_writes(hook_env, monkeypatch, capsys):
+    runtime = load("lifecycle_runtime")
+    stage_pending(hook_env, monkeypatch, runtime, user="I prefer round mugs", assistant="Noted the preference.")
+    cli = extractor_cli()
+    replies = [{
+        "choices": [{"message": {"content": json.dumps({
+            "memories": [{"text": "Prefers round mugs.", "category": ["codex-auto"], "importance": 0.7}]
+        })}}]
+    }]
+    calls = []
+    for server, provider_calls in extraction_provider_stub(monkeypatch, replies):
+        calls = provider_calls
+        argv = extractor_args(monkeypatch, server.server_port)
+        exit_code = cli.main(argv)
+        assert exit_code == 0
+    report = json.loads(capsys.readouterr().out.strip())
+    assert report["mode"] == "dry-run"
+    assert report["pending_events"] == 1
+    assert report["events"][0]["candidates"][0]["text"] == "Prefers round mugs."
+    # Dry-run must not have moved or mutated the pending event.
+    pending = list(runtime.pending_dir().glob("*.json"))
+    assert len(pending) == 1 and json.loads(pending[0].read_text(encoding="utf-8"))["status"] == "pending"
+    assert calls, "dry-run must contact the provider exactly for planning"
+
+
+def test_extractor_confirm_adds_through_runtime_and_finalizes(hook_env, monkeypatch, capsys):
+    runtime = load("lifecycle_runtime")
+    stage_pending(hook_env, monkeypatch, runtime, user="I prefer round mugs", assistant="Noted.")
+    cli = extractor_cli()
+    replies = [{
+        "choices": [{"message": {"content": json.dumps({
+            "memories": [
+                {"text": "Prefers round mugs.", "category": ["codex-auto"], "importance": 0.7},
+                {"text": "values quiet rooms", "importance": 0.4},
+            ]
+        })}}]
+    }]
+    added, searched = [], []
+
+    def fake_runtime(*argv, **kwargs):
+        if argv and argv[0] == "add":
+            added.append(argv[-1])
+            return 0, json.dumps({"id": f"rec-{len(added)}"}), ""
+        if argv and argv[0] == "search":
+            searched.append(argv[-1])
+            return 0, json.dumps({"memories": []}), ""
+        return 0, "{}", ""
+
+    runtime.call_runtime = fake_runtime
+    for server, _calls in extraction_provider_stub(monkeypatch, replies):
+        argv = extractor_args(monkeypatch, server.server_port)
+        argv.append("--confirm")
+        assert cli.main(argv) == 0
+    report = json.loads(capsys.readouterr().out.strip())
+    assert report["events"][0]["status"] == "extracted"
+    assert added == ["Prefers round mugs.", "values quiet rooms"]
+    event_file = next((runtime.extracted_dir()).glob("*.json"))
+    stored = json.loads(event_file.read_text(encoding="utf-8"))
+    assert stored["status"] == "extracted"
+    assert stored["candidates"][0]["record_id"] == "rec-1"
+    assert len(stored["candidates"]) == 2
+    assert not list(runtime.pending_dir().glob("*.json"))
+    assert searched == ["Prefers round mugs.", "values quiet rooms"]
+
+
+def test_extractor_confirm_dedupes_against_stored_text(hook_env, monkeypatch, capsys):
+    runtime = load("lifecycle_runtime")
+    stage_pending(hook_env, monkeypatch, runtime, user="same", assistant="same noted")
+    cli = extractor_cli()
+    replies = [{
+        "choices": [{"message": {"content": json.dumps({
+            "memories": [{"text": "Prefers round mugs.", "importance": 0.6}]
+        })}}]
+    }]
+
+    def fake_runtime(*argv, **kwargs):
+        if argv and argv[0] == "search":
+            return 0, json.dumps({"memories": [{"text": "Prefers round mugs."}]}), ""
+        return 0, "{}", ""
+
+    runtime.call_runtime = fake_runtime
+    added = []
+    for server, _calls in extraction_provider_stub(monkeypatch, replies):
+        argv = extractor_args(monkeypatch, server.server_port)
+        argv.append("--confirm")
+        _ = added
+        cli.main(argv)
+    report = json.loads(capsys.readouterr().out.strip())
+    assert report["events"][0]["status"] == "extracted"
+    event_file = next((runtime.extracted_dir()).glob("*.json"))
+    stored = json.loads(event_file.read_text(encoding="utf-8"))
+    assert stored["skipped"] == [{"text": "Prefers round mugs.", "reason": "duplicate"}]
+    assert stored["candidates"] == []
+
+
+def test_extractor_rejects_secret_shaped_candidates(hook_env, monkeypatch, capsys):
+    runtime = load("lifecycle_runtime")
+    stage_pending(hook_env, monkeypatch, runtime)
+    cli = extractor_cli()
+    replies = [{
+        "choices": [{"message": {"content": json.dumps({
+            "memories": [
+                {"text": "sk-abcdefghijklmnopqrs123", "importance": 0.9},
+                {"text": "keep this", "importance": 0.5},
+            ]
+        })}}]
+    }]
+
+    def fake_runtime(*argv, **kwargs):
+        if argv and argv[0] == "search":
+            return 0, json.dumps({"memories": []}), ""
+        if argv and argv[0] == "add":
+            return 0, json.dumps({"id": "rec-1"}), ""
+        return 0, "{}", ""
+
+    runtime.call_runtime = fake_runtime
+    for server, _calls in extraction_provider_stub(monkeypatch, replies):
+        argv = extractor_args(monkeypatch, server.server_port)
+        argv.append("--confirm")
+        assert cli.main(argv) == 0
+    report = json.loads(capsys.readouterr().out.strip())
+    assert report["events"][0]["rejected"], report
+    event_files = list((runtime.extracted_dir()).glob("*.json")) + list(runtime.pending_dir().glob("*.json"))
+    stored = json.loads(event_files[0].read_text(encoding="utf-8"))
+    assert "sk-abcdefghijklmnopqrs123" not in json.dumps(stored)
+
+
+def test_extractor_extraction_failure_leaves_event_pending(hook_env, monkeypatch, capsys):
+    runtime = load("lifecycle_runtime")
+    stage_pending(hook_env, monkeypatch, runtime)
+    cli = extractor_cli()
+    # A malformed model reply must fail closed: event stays pending with an error.
+    replies = [{"choices": [{"message": {"content": "gibberish-not-json"}}]}]
+    for server, _calls in extraction_provider_stub(monkeypatch, replies):
+        argv = extractor_args(monkeypatch, server.server_port)
+        argv.append("--confirm")
+        assert cli.main(argv) == 0
+    report = json.loads(capsys.readouterr().out.strip())
+    assert report["events"][0]["status"] == "pending"
+    assert report["events"][0].get("extraction_error")
+    event_file = next(runtime.pending_dir().glob("*.json"))
+    stored = json.loads(event_file.read_text(encoding="utf-8"))
+    assert stored["status"] == "pending" and stored.get("last_error")
+    assert "gibberish-not-json" not in json.dumps(stored)  # error surfaced, not echoed
+
+
+def test_extractor_records_rejections_and_never_adds(hook_env, monkeypatch, capsys):
+    """All-rejected candidates terminate the event without any memory write."""
+    runtime = load("lifecycle_runtime")
+    stage_pending(hook_env, monkeypatch, runtime)
+    cli = extractor_cli()
+    long_text = "y" * 300
+    replies = [{
+        "choices": [{"message": {"content": json.dumps({
+            "memories": [
+                {"text": long_text, "importance": 0.5},
+                {"text": "valid", "importance": 0.5, "extra_key": True},
+                {"text": "keeps", "importance": 1.4},
+            ]
+        })}}]
+    }]
+    attempted = []
+
+    def fake_runtime(*argv, **kwargs):
+        attempted.append(argv)
+        if argv and argv[0] == "search":
+            return 0, json.dumps({"memories": []}), ""
+        return 0, json.dumps({"id": "rec-x"}), ""
+
+    runtime.call_runtime = fake_runtime
+    for server, _calls in extraction_provider_stub(monkeypatch, replies):
+        argv = extractor_args(monkeypatch, server.server_port)
+        argv.append("--confirm")
+        assert cli.main(argv) == 0
+    report = json.loads(capsys.readouterr().out.strip())
+    rejected = report["events"][0]["rejected"]
+    assert len(rejected) >= 2, rejected
+    assert report["events"][0]["status"] == "extracted"  # terminal, no re-extract loop
+    assert report["events"][0]["admitted"] == []
+    stored = json.loads(
+        next((runtime.extracted_dir()).glob("*.json")).read_text(encoding="utf-8")
+    )
+    assert stored["candidates"] == []
+    assert not any(argv and argv[0] == "add" for argv in attempted)
