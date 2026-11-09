@@ -1,0 +1,34 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+  "description": "Optional Qdrant Memory lifecycle experiment. Events follow the released Codex hooks contract (learn.chatgpt.com/docs/hooks). The Runtime owns every memory operation; these hooks never read Codex transcripts or rollout files.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact|fork",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${PLUGIN_ROOT}/hooks/session_recall.py",
+            "commandWindows": "py -3 ${PLUGIN_ROOT}\\hooks\\session_recall.py",
+            "statusMessage": "Recalling durable memory",
+            "additionalContextLimit": 2000,
+            "timeout": 20,
+            "async": false
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${PLUGIN_ROOT}/hooks/user_prompt_capture.py",
+            "commandWindows": "py -3 ${PLUGIN_ROOT}\\hooks\\user_prompt_capture.py",
+            "timeout": 20
+          }
+        ]
+      }
+    ]
+  }
+}

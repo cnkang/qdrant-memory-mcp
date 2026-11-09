@@ -1,0 +1,12 @@
+{
+  "name": "cnkang-lifecycle-preview",
+  "interface": {"displayName": "Qdrant Memory lifecycle preview (hooks)"},
+  "plugins": [
+    {
+      "name": "qdrant-memory-lifecycle",
+      "source": {"source": "local", "path": "./plugin"},
+      "policy": {"installation": "AVAILABLE", "authentication": "ON_INSTALL"},
+      "category": "Productivity"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "qdrant-memory-lifecycle",
+  "version": "0.1.0",
+  "description": "Optional Qdrant Memory lifecycle experiment. Manual install only; hooks are NOT eligible for the public plugin directory.",
+  "author": {"name": "cnkang", "url": "https://github.com/cnkang"},
+  "license": "MIT",
+  "extensions": {
+    "com.openai": {
+      "hooks": "./hooks/hooks.json"
+    }
+  }
+}
