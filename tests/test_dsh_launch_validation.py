@@ -79,7 +79,8 @@ dsh() { : > "$LAUNCH_MARKER"; }
     env = dict(os.environ, VALIDATOR_PYTHON=Path(sys.executable).as_posix(),
                QDRANT_MEMORY_DSH_PROFILE=profile.as_posix(), LAUNCH_MARKER=launched.as_posix())
     script = stubs + re.search(r'```sh\n(PROFILE=.*?)\n```', guide.read_text(encoding='utf-8'), re.S)[1]
-    result = subprocess.run(['bash', '-c', script], env=env, capture_output=True,
-                            encoding='utf-8', timeout=30)
-    assert launched.exists() == (version == '0.3.1'), result.stderr
-    assert (result.returncode == 0) == (version == '0.3.1'), result.stderr
+    # Feed source over stdin rather than Windows' command-line quoting rules.
+    result = subprocess.run(['bash', '--noprofile', '--norc', '-s'], input=script,
+                            env=env, capture_output=True, encoding='utf-8', timeout=30)
+    assert launched.exists() == (version == '0.3.1'), result
+    assert (result.returncode == 0) == (version == '0.3.1'), result
