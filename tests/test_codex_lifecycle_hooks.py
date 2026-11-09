@@ -754,6 +754,22 @@ def test_extractor_extraction_failure_leaves_event_pending(hook_env, monkeypatch
     assert "gibberish-not-json" not in json.dumps(stored)  # error surfaced, not echoed
 
 
+def test_extractor_empty_choices_leaves_event_pending(hook_env, monkeypatch, capsys):
+    runtime = load("lifecycle_runtime")
+    stage_pending(hook_env, monkeypatch, runtime)
+    cli = extractor_cli()
+    replies = [{"choices": []}]
+    for server, _calls in extraction_provider_stub(monkeypatch, replies):
+        argv = extractor_args(monkeypatch, server.server_port)
+        argv.append("--confirm")
+        cli.main(argv)
+
+    event_file = next(runtime.pending_dir().glob("*.json"))
+    stored = json.loads(event_file.read_text(encoding="utf-8"))
+    assert stored["status"] == "pending"
+    assert stored.get("last_error") == "extraction response lacks message content"
+
+
 def test_extractor_records_rejections_and_never_adds(hook_env, monkeypatch, capsys):
     """All-rejected candidates terminate the event without any memory write."""
     runtime = load("lifecycle_runtime")

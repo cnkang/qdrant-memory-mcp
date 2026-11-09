@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as _dt
+import http.client
 import json
 import os
 import re
@@ -135,8 +136,17 @@ class ExtractionProvider:
         )
         with urllib.request.urlopen(request, timeout=self.timeout) as response:
             body = json.loads(response.read().decode("utf-8"))
-        content = body["choices"][0]["message"]["content"]
-        return _parse_model_json(content)
+        return _parse_model_json(_response_content(body))
+
+
+def _response_content(body) -> str:
+    """Return the assistant content from an OpenAI-compatible response."""
+    choices = body.get("choices") if isinstance(body, dict) else None
+    message = choices[0].get("message") if isinstance(choices, list) and choices else None
+    content = message.get("content") if isinstance(message, dict) else None
+    if not isinstance(content, str):
+        raise ValueError("extraction response lacks message content")
+    return content
 
 
 def _extraction_key() -> str:
@@ -386,7 +396,7 @@ def main(argv=None) -> None:
             good, rejected = validate_candidates(document, event)
             outcome["candidates"] = good
             outcome["rejected"] = rejected
-        except (ValueError, KeyError, OSError) as error:
+        except (ValueError, KeyError, OSError, http.client.HTTPException) as error:
             outcome["extraction_error"] = redact(str(error))[:300]
         outcomes.append(outcome)
     if args.confirm:
