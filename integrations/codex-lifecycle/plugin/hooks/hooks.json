@@ -1,5 +1,4 @@
 {
-  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
   "description": "Optional Qdrant Memory lifecycle experiment. Events follow the released Codex hooks contract (learn.chatgpt.com/docs/hooks). The Runtime owns every memory operation; these hooks never read Codex transcripts or rollout files.",
   "hooks": {
     "SessionStart": [

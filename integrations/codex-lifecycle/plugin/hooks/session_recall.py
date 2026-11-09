@@ -58,6 +58,8 @@ def main() -> None:
             text = str(row.get("text", "")).strip()
             if text:
                 lines.append(f"- {text}")
+        if not lines:
+            return  # rows exist but carry no text; do not inject an empty header
         context = "Durable Qdrant Memory for this project (review before acting):\n" + "\n".join(lines)
         if len(context) > runtime.DEFAULT_CONTEXT_CHARS:
             context = context[: runtime.DEFAULT_CONTEXT_CHARS - 1] + "…"
