@@ -37,6 +37,41 @@ def test_platform_matrix_is_complete():
     assert arm == ("aarch64-apple-darwin", "3.11")
 
 
+def test_run_rejects_unapproved_option_arguments(work, monkeypatch):
+    module = load_locks()
+    monkeypatch.setattr(
+        module.subprocess,
+        "run",
+        lambda *_args, **_kwargs: pytest.fail("unsafe arguments reached subprocess"),
+    )
+
+    with pytest.raises(ValueError, match="unapproved option"):
+        module.run(["git", "fetch", "--upload-pack=/tmp/evil"], work)
+
+
+def test_run_allows_approved_options_and_paths_with_spaces(work, monkeypatch):
+    module = load_locks()
+    calls = []
+
+    def fake_run(argv, **kwargs):
+        calls.append((argv, kwargs))
+        return types.SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(module.subprocess, "run", fake_run)
+    output_dir = work / "wheel output"
+    command = ["uv", "build", "--wheel", "--out-dir", str(output_dir), str(work)]
+
+    result = module.run(command, work)
+
+    assert result.returncode == 0
+    assert calls == [
+        (
+            command,
+            {"cwd": work, "capture_output": True, "text": True},
+        )
+    ]
+
+
 def test_host_platforms_follow_the_host(monkeypatch):
     module = load_locks()
     for platform, expected in (
