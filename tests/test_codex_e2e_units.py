@@ -2,6 +2,7 @@
 
 import importlib.util
 import json
+import os
 import subprocess
 import sys
 import time
@@ -680,7 +681,7 @@ def orchestrated_execute(monkeypatch, module, tmp_path):
 
     def fake_kill(launcher, env):
         tool_calls["kill"] += 1
-        return -9
+        return 1 if os.name == "nt" else -9
 
     def fake_inventory(runtime, profile, user, agent):
         tool_calls["inventory"] += 1
