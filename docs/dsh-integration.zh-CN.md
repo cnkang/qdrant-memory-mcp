@@ -76,6 +76,10 @@ shell 文件操作和 Runtime 使用同一目录。
 因此会阻止启动。
 检查还会拒绝重复的 MCP serverName 和不匹配的 `--home`；请保留发布的动态
 home 表达式，或者使用已准备 profile 的字面路径。
+启动前还会检查 `dsh web --dump-config` 返回的当前 profile 配置。若已包含
+`qdrant-memory` server，或与 overlay 存在服务名冲突，则阻止启动；请先移除
+已有 memory 连接。检查只解析 YAML 节点、不执行标签，随后删除临时文件。
+配置导出失败或内容无效时同样不会启动。
 
 ```sh
 PROFILE="${QDRANT_MEMORY_DSH_PROFILE:-$HOME/.qdrant-memory-dsh}"
@@ -96,7 +100,9 @@ uvx --from qdrant-memory-mcp==0.3.1 qdrant-memory-mcp --home "$PROFILE" doctor &
     fi
   fi
   # 仅解析 YAML 节点，不执行 !!js 表达式。
-  if uv run --no-project --with PyYAML==6.0.3 python -I - "$PATCH" qdrant-memory-mcp==0.3.1 "$PROFILE" <<'PY'
+  COMPOSED="$(mktemp)"
+  if dsh web --dump-config > "$COMPOSED"; then
+    if uv run --no-project --with PyYAML==6.0.3 python -I - "$PATCH" qdrant-memory-mcp==0.3.1 "$PROFILE" "$COMPOSED" <<'PY'
 import sys
 import yaml
 from pathlib import Path
@@ -112,6 +118,27 @@ def mapping(node):
         assert key.value not in result, 'Duplicate YAML key'
         result[key.value] = value
     return result
+
+
+def profile_servers(node, ancestors=()):
+    """Inspect composed YAML nodes without evaluating tags or following cycles."""
+    assert id(node) not in ancestors, 'Cyclic profile YAML'
+    if isinstance(node, MappingNode):
+        item = mapping(node)
+        assert not (item.get('id') and item['id'].value == 'cnkang-qdrant-memory-mcp'), 'Memory plugin already installed'
+        name = item.get('name')
+        if name and name.value == '@deepseek-ai/dsh-mcp-client':
+            assert name.tag == 'tag:yaml.org,2002:str'
+            server = mapping(item['config'])['serverName']
+            assert isinstance(server, ScalarNode) and server.tag == 'tag:yaml.org,2002:str'
+            yield server.value
+        children = [value for _, value in node.value]
+    elif isinstance(node, SequenceNode):
+        children = node.value
+    else:
+        return
+    for child in children:
+        yield from profile_servers(child, (*ancestors, id(node)))
 
 
 try:
@@ -138,7 +165,12 @@ try:
     name = plugins[0]['name']
     assert name.tag == 'tag:yaml.org,2002:str' and name.value == '@deepseek-ai/dsh-mcp-client'
     config = mapping(plugins[0]['config'])
-    assert len(servers) == len(set(servers)), 'Conflicting MCP serverName'
+    with open(sys.argv[4], encoding='utf-8-sig') as source:
+        composed = yaml.compose(source, Loader=yaml.BaseLoader)
+    assert isinstance(composed, SequenceNode), 'Invalid composed profile'
+    existing = list(profile_servers(composed))
+    assert 'qdrant-memory' not in existing, 'Memory server already installed'
+    assert len(servers + existing) == len(set(servers + existing)), 'Conflicting MCP serverName'
     command = config['command']
     assert command.tag == 'tag:yaml.org,2002:str' and command.value == 'uvx'
     args = config['args']
@@ -173,9 +205,16 @@ try:
 except (AssertionError, KeyError, AttributeError, OSError, yaml.YAMLError):
     sys.exit('Invalid patch: require one unambiguous memory server, qdrant-memory-mcp==0.3.1 and the prepared profile; DSH was not launched.')
 PY
-  then
-    dsh web --patch "$PATCH"
+    then
+      rm -f "$COMPOSED"
+      dsh web --patch "$PATCH"
+    else
+      rm -f "$COMPOSED"
+      false
+    fi
   else
+    rm -f "$COMPOSED"
+    echo "Profile config dump failed; DSH was not launched." >&2
     false
   fi
 }
@@ -226,6 +265,27 @@ def mapping(node):
     return result
 
 
+def profile_servers(node, ancestors=()):
+    """Inspect composed YAML nodes without evaluating tags or following cycles."""
+    assert id(node) not in ancestors, 'Cyclic profile YAML'
+    if isinstance(node, MappingNode):
+        item = mapping(node)
+        assert not (item.get('id') and item['id'].value == 'cnkang-qdrant-memory-mcp'), 'Memory plugin already installed'
+        name = item.get('name')
+        if name and name.value == '@deepseek-ai/dsh-mcp-client':
+            assert name.tag == 'tag:yaml.org,2002:str'
+            server = mapping(item['config'])['serverName']
+            assert isinstance(server, ScalarNode) and server.tag == 'tag:yaml.org,2002:str'
+            yield server.value
+        children = [value for _, value in node.value]
+    elif isinstance(node, SequenceNode):
+        children = node.value
+    else:
+        return
+    for child in children:
+        yield from profile_servers(child, (*ancestors, id(node)))
+
+
 try:
     with open(sys.argv[1], encoding='utf-8') as source:
         root = yaml.compose(source, Loader=yaml.BaseLoader)
@@ -250,7 +310,12 @@ try:
     name = plugins[0]['name']
     assert name.tag == 'tag:yaml.org,2002:str' and name.value == '@deepseek-ai/dsh-mcp-client'
     config = mapping(plugins[0]['config'])
-    assert len(servers) == len(set(servers)), 'Conflicting MCP serverName'
+    with open(sys.argv[4], encoding='utf-8-sig') as source:
+        composed = yaml.compose(source, Loader=yaml.BaseLoader)
+    assert isinstance(composed, SequenceNode), 'Invalid composed profile'
+    existing = list(profile_servers(composed))
+    assert 'qdrant-memory' not in existing, 'Memory server already installed'
+    assert len(servers + existing) == len(set(servers + existing)), 'Conflicting MCP serverName'
     command = config['command']
     assert command.tag == 'tag:yaml.org,2002:str' and command.value == 'uvx'
     args = config['args']
@@ -285,8 +350,16 @@ try:
 except (AssertionError, KeyError, AttributeError, OSError, yaml.YAMLError):
     sys.exit('Invalid patch: require one unambiguous memory server, qdrant-memory-mcp==0.3.1 and the prepared profile; DSH was not launched.')
 '@
-$ValidatePatch | uv run --no-project --with PyYAML==6.0.3 python -I - $Patch qdrant-memory-mcp==0.3.1 $MemoryProfile
-if ($LASTEXITCODE -ne 0) { throw "Patch validation failed; DSH was not launched." }
+$Composed = [IO.Path]::GetTempFileName()
+try {
+  $Dump = @(dsh web --dump-config)
+  if ($LASTEXITCODE -ne 0) { throw "Profile config dump failed; DSH was not launched." }
+  [IO.File]::WriteAllText($Composed, ($Dump -join "`n"))
+  $ValidatePatch | uv run --no-project --with PyYAML==6.0.3 python -I - $Patch qdrant-memory-mcp==0.3.1 $MemoryProfile $Composed
+  if ($LASTEXITCODE -ne 0) { throw "Patch/profile validation failed; DSH was not launched." }
+} finally {
+  Remove-Item -Force $Composed -ErrorAction SilentlyContinue
+}
 dsh web --patch $Patch
 ```
 

@@ -13,6 +13,26 @@ ROOT = Path(__file__).resolve().parents[1]
 GUIDES = [ROOT / 'docs' / name for name in (
     'dsh-integration.md', 'dsh-integration.zh-CN.md',
 )]
+BASE_MCP = """- id: installed-mcp
+  name: '@deepseek-ai/dsh-mcp-client'
+  config:
+    serverName: qdrant-memory
+"""
+OTHER_MCP = BASE_MCP.replace('qdrant-memory', 'another-server')
+COMPOSED_CONFIGS = {
+    'clean': '[]',
+    'memory': BASE_MCP,
+    'unrelated': OTHER_MCP,
+    'conflict': OTHER_MCP + OTHER_MCP.replace('installed-mcp', 'second-mcp'),
+    'malformed': 'plugins: [',
+    'dump-failure': '[]',
+}
+
+
+@pytest.fixture(autouse=True)
+def composed_profile(tmp_path):
+    """Supply an empty composed profile for isolated validator tests."""
+    (tmp_path / 'composed.yml').write_text('[]', encoding='utf-8')
 
 
 @pytest.mark.parametrize('guide', GUIDES, ids=lambda path: path.name)
@@ -32,7 +52,7 @@ def test_effective_args_select_prepared_package(tmp_path, guide, inline, version
     selected.write_text(patch, encoding='utf-8')
     for validator in validators:
         result = subprocess.run(
-            [sys.executable, '-c', validator, str(selected), 'qdrant-memory-mcp==0.3.1'],
+            [sys.executable, '-c', validator, str(selected), 'qdrant-memory-mcp==0.3.1', str(tmp_path), str(tmp_path / 'composed.yml')],
             capture_output=True, encoding='utf-8', timeout=10,
         )
         assert (result.returncode == 0) == (version == '0.3.1'), result.stderr
@@ -55,7 +75,7 @@ def test_invalid_active_configuration_is_rejected(tmp_path, mutation):
     selected = tmp_path / 'patch.yml'
     selected.write_text(mutation((ROOT / 'integrations/dsh/qdrant-memory.cordis.yml').read_text(encoding='utf-8')), encoding='utf-8')
     result = subprocess.run(
-        [sys.executable, '-c', validator, str(selected), 'qdrant-memory-mcp==0.3.1'],
+        [sys.executable, '-c', validator, str(selected), 'qdrant-memory-mcp==0.3.1', str(tmp_path), str(tmp_path / 'composed.yml')],
         capture_output=True, encoding='utf-8', timeout=10,
     )
     assert result.returncode != 0
@@ -63,7 +83,8 @@ def test_invalid_active_configuration_is_rejected(tmp_path, mutation):
 
 @pytest.mark.parametrize('guide', GUIDES, ids=lambda path: path.name)
 @pytest.mark.parametrize('version', ['0.3.1', '0.3.0'])
-def test_shell_launch_gate(tmp_path, guide, version):
+@pytest.mark.parametrize('base', COMPOSED_CONFIGS)
+def test_shell_launch_gate(tmp_path, guide, version, base):
     """Execute the published shell flow with inert setup and launch commands."""
     profile = tmp_path / 'profile'
     profile.mkdir()
@@ -76,10 +97,20 @@ def test_shell_launch_gate(tmp_path, guide, version):
     # Shell functions also avoid executable-bit and shebang differences on Windows.
     stubs = '''uvx() { return 0; }
 uv() { shift 5; "$VALIDATOR_PYTHON" "$@"; }
-dsh() { : > "$LAUNCH_MARKER"; }
+dsh() {
+  if [ "$1" = web ] && [ "$2" = --dump-config ]; then
+    [ "$DUMP_FAIL" = 0 ] || return 1
+    printf '%s' "$COMPOSED_CONFIG"
+  elif [ "$1" = web ] && [ "$2" = --patch ]; then
+    printf '%s' "$3" > "$LAUNCH_MARKER"
+  else
+    return 1
+  fi
+}
 '''
     env = dict(os.environ, VALIDATOR_PYTHON=Path(sys.executable).as_posix(),
-               QDRANT_MEMORY_DSH_PROFILE=profile.as_posix(), LAUNCH_MARKER=launched.as_posix())
+               QDRANT_MEMORY_DSH_PROFILE=profile.as_posix(), LAUNCH_MARKER=launched.as_posix(),
+               COMPOSED_CONFIG=COMPOSED_CONFIGS[base], DUMP_FAIL=str(int(base == 'dump-failure')))
     script = stubs + re.search(r'```sh\n(PROFILE=.*?)\n```', guide.read_text(encoding='utf-8'), re.S)[1]
     # Windows' PATH may resolve bash to the WSL launcher without a distro.
     # Use the same Git Bash installation as the Actions shell: bash steps.
@@ -88,8 +119,11 @@ dsh() { : > "$LAUNCH_MARKER"; }
     # Feed source over stdin rather than Windows' command-line quoting rules.
     result = subprocess.run([bash, '--noprofile', '--norc', '-s'], input=script,
                             env=env, capture_output=True, encoding='utf-8', timeout=30)
-    assert launched.exists() == (version == '0.3.1'), result
-    assert (result.returncode == 0) == (version == '0.3.1'), result
+    allowed = version == '0.3.1' and base in ('clean', 'unrelated')
+    assert launched.exists() == allowed, result
+    assert (result.returncode == 0) == allowed, result
+    if launched.exists():
+        assert Path(launched.read_text(encoding='utf-8')) == profile / 'qdrant-memory.cordis.yml'
 
 
 @pytest.mark.parametrize('guide', GUIDES, ids=lambda path: path.name)
@@ -107,7 +141,7 @@ def test_mcp_server_name_conflicts(tmp_path, guide, before, conflict):
     selected.write_text(other + '\n' + patch if before else patch + '\n' + other, encoding='utf-8')
     for validator in re.findall(r'(import sys\nimport yaml\n.*?)(?=\nPY\n|\n\'@)', guide.read_text(encoding='utf-8'), re.S):
         result = subprocess.run(
-            [sys.executable, '-c', validator, str(selected), 'qdrant-memory-mcp==0.3.1', str(tmp_path)],
+            [sys.executable, '-c', validator, str(selected), 'qdrant-memory-mcp==0.3.1', str(tmp_path), str(tmp_path / 'composed.yml')],
             capture_output=True, encoding='utf-8', timeout=10,
         )
         assert (result.returncode != 0) == (conflict != 'none'), result
@@ -134,7 +168,7 @@ def test_home_selects_prepared_profile(tmp_path, guide, home_kind):
     selected.write_text(patch, encoding='utf-8')
     for validator in re.findall(r'(import sys\nimport yaml\n.*?)(?=\nPY\n|\n\'@)', guide.read_text(encoding='utf-8'), re.S):
         result = subprocess.run(
-            [sys.executable, '-c', validator, str(selected), 'qdrant-memory-mcp==0.3.1', str(expected)],
+            [sys.executable, '-c', validator, str(selected), 'qdrant-memory-mcp==0.3.1', str(expected), str(tmp_path / 'composed.yml')],
             capture_output=True, encoding='utf-8', timeout=10,
         )
         assert (result.returncode == 0) == home_kind.endswith('prepared'), result
@@ -143,7 +177,8 @@ def test_home_selects_prepared_profile(tmp_path, guide, home_kind):
 if sys.platform == 'win32':
     @pytest.mark.parametrize('guide', GUIDES, ids=lambda path: path.name)
     @pytest.mark.parametrize('version', ['0.3.1', '0.3.0'])
-    def test_powershell_launch_gate(tmp_path, guide, version):
+    @pytest.mark.parametrize('base', COMPOSED_CONFIGS)
+    def test_powershell_launch_gate(tmp_path, guide, version, base):
         """Exercise Windows PowerShell validation and its selected launch path."""
         profile = tmp_path / 'profile with spaces'
         profile.mkdir()
@@ -158,6 +193,11 @@ function uv {
   $global:LASTEXITCODE = $LASTEXITCODE
 }
 function dsh {
+  if ($args[0] -eq 'web' -and $args[1] -eq '--dump-config') {
+    $global:LASTEXITCODE = [int]$env:DUMP_FAIL
+    if ($LASTEXITCODE -eq 0) { Write-Output $env:COMPOSED_CONFIG }
+    return
+  }
   if ($args[0] -ne 'web' -or $args[1] -ne '--patch') { throw 'Unexpected DSH args' }
   [IO.File]::WriteAllText($env:LAUNCH_MARKER, [string]$args[2])
 }
@@ -165,10 +205,12 @@ function dsh {
         script = tmp_path / 'launch.ps1'
         script.write_text(stubs + re.search(r'```powershell\n(.*?)\n```', guide.read_text(encoding='utf-8'), re.S)[1], encoding='utf-8-sig')
         env = dict(os.environ, VALIDATOR_PYTHON=sys.executable,
-                   QDRANT_MEMORY_DSH_PROFILE=str(profile), LAUNCH_MARKER=str(launched))
+                   QDRANT_MEMORY_DSH_PROFILE=str(profile), LAUNCH_MARKER=str(launched),
+                   COMPOSED_CONFIG=COMPOSED_CONFIGS[base], DUMP_FAIL=str(int(base == 'dump-failure')))
         result = subprocess.run(['powershell.exe', '-NoProfile', '-NonInteractive', '-File', str(script)],
                                 env=env, capture_output=True, timeout=30)
-        assert (result.returncode == 0) == (version == '0.3.1'), result
-        assert launched.exists() == (version == '0.3.1'), result
+        allowed = version == '0.3.1' and base in ('clean', 'unrelated')
+        assert (result.returncode == 0) == allowed, result
+        assert launched.exists() == allowed, result
         if launched.exists():
             assert Path(launched.read_text(encoding='utf-8')) == patch
