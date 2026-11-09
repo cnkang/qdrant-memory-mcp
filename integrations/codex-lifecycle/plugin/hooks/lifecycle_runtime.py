@@ -223,13 +223,20 @@ def event_id_for(session_id: str, turn_id: str) -> str:
 
 
 def write_json_private(path: Path, payload) -> None:
-    """Create parent directories with 0o700 and write the file 0o600."""
+    """Create private parent directories and write the file (0600 on POSIX).
+
+    Windows ignores the POSIX mode bits; the profile directory's own private
+    placement is the boundary there (documented in the lifecycle README).
+    """
     path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     tmp = path.with_name(path.name + ".tmp")
     with open(tmp, "w", encoding="utf-8", newline="\n") as handle:
-        os.chmod(handle.fileno(), 0o600)
+        if os.name != "nt":
+            os.fchmod(handle.fileno(), 0o600)
         json.dump(payload, handle, ensure_ascii=False, indent=2, sort_keys=True)
         handle.write("\n")
+    if os.name != "nt":
+        os.chmod(tmp, 0o600)
     os.replace(tmp, path)
 
 
