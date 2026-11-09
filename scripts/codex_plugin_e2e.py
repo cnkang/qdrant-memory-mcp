@@ -554,6 +554,7 @@ def execute(work, evidence, args):
         served = asyncio.run(_runtime_direct_read(runtime, profile, fact_b_id))
         assert served == 1, served
         evidence.step("uninstall_preserved_record", served_directly=served)
+        return 0
 
 
 async def _other_profile_probe(launcher_path, env, fact_b_id):
