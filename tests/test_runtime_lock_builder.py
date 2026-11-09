@@ -26,6 +26,18 @@ def work(tmp_path):
     return tmp_path
 
 
+def pinned_meta(wheel, sha="a" * 64):
+    release = json.loads(
+        (ROOT / "plugins/qdrant-memory/release.json").read_text(encoding="utf-8")
+    )
+    return {
+        "wheel": wheel,
+        "sha256": sha,
+        "commit": release["runtime_commit"],
+        "runtime_version": release["runtime_version"],
+    }
+
+
 def test_platform_matrix_is_complete():
     module = load_locks()
     assert sorted(module.PLATFORM_LOCKS) == [
@@ -364,8 +376,7 @@ def test_verify_offline_hashes_wheels_and_probes_console(work, monkeypatch):
     wheelhouse.mkdir()
     runtime_wheel = wheelhouse / "hermes_plugin_qdrant_memory-0.6.0-py3-none-any.whl"
     runtime_wheel.write_bytes(b"wheel")
-    meta = {"wheel": runtime_wheel.name, "sha256": "c" * 64,
-            "commit": "d" * 40, "runtime_version": "0.6.0"}
+    meta = pinned_meta(runtime_wheel.name, "c" * 64)
     lockfile = module.LOCKS / "macos-arm64.txt"
     assert lockfile.is_file()
     steps = {"install": 0}
@@ -381,6 +392,7 @@ def test_verify_offline_hashes_wheels_and_probes_console(work, monkeypatch):
         return types.SimpleNamespace(returncode=0, stdout="", stderr="")
 
     monkeypatch.setattr(module, "run", fake_run)
+    monkeypatch.setattr(module.platform, "machine", lambda: "arm64")
     result = module.verify_offline("macos-arm64", wheelhouse, meta)
     assert result == {
         "target": "macos-arm64", "installed": True, "offline": True,
@@ -399,13 +411,52 @@ def test_verify_offline_hashes_wheels_and_probes_console(work, monkeypatch):
     assert arguments[arguments.index("--find-links") + 1] == "."
 
 
+def test_verify_offline_rejects_a_mismatched_host_architecture(work, monkeypatch):
+    module = load_locks()
+    monkeypatch.setattr(module.platform, "machine", lambda: "x86_64")
+
+    with pytest.raises(RuntimeError, match="requires host architecture arm64"):
+        module.verify_offline("macos-arm64", work, {})
+
+
+def test_verify_offline_rejects_stale_wheelhouse_metadata(work, monkeypatch):
+    module = load_locks()
+    monkeypatch.setattr(module.platform, "machine", lambda: "arm64")
+    meta = {
+        "wheel": "hermes_plugin_qdrant_memory-0.6.0-py3-none-any.whl",
+        "sha256": "a" * 64,
+        "commit": "b" * 40,
+        "runtime_version": "0.6.0",
+    }
+
+    with pytest.raises(ValueError, match="does not match the pinned release"):
+        module.verify_offline("macos-arm64", work, meta)
+
+
+def test_verify_offline_fails_when_the_console_probe_fails(work, monkeypatch):
+    module = load_locks()
+    wheelhouse = work / "wh"
+    wheelhouse.mkdir()
+    wheel = wheelhouse / "hermes_plugin_qdrant_memory-0.6.0-py3-none-any.whl"
+    wheel.write_bytes(b"w")
+
+    def fake_subprocess(argv, **kwargs):
+        if argv[-1] == "--help":
+            return types.SimpleNamespace(returncode=2, stdout="", stderr="broken")
+        return types.SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(module.subprocess, "run", fake_subprocess)
+    monkeypatch.setattr(module.platform, "machine", lambda: "arm64")
+    with pytest.raises(RuntimeError, match="broken"):
+        module.verify_offline("macos-arm64", wheelhouse, pinned_meta(wheel.name))
+
+
 def test_verify_offline_uses_a_private_requirements_file_per_run(work, monkeypatch):
     module = load_locks()
     wheelhouse = work / "wh"
     wheelhouse.mkdir()
     (wheelhouse / "hermes_plugin_qdrant_memory-0.6.0-py3-none-any.whl").write_bytes(b"w")
-    meta = {"wheel": "hermes_plugin_qdrant_memory-0.6.0-py3-none-any.whl",
-            "sha256": "a" * 64, "commit": "b" * 40, "runtime_version": "0.6.0"}
+    meta = pinned_meta("hermes_plugin_qdrant_memory-0.6.0-py3-none-any.whl")
     requirements_paths = []
 
     def fake_run(executable, arguments, cwd, **kwargs):
@@ -414,6 +465,7 @@ def test_verify_offline_uses_a_private_requirements_file_per_run(work, monkeypat
         return types.SimpleNamespace(returncode=0, stdout="", stderr="")
 
     monkeypatch.setattr(module, "run", fake_run)
+    monkeypatch.setattr(module.platform, "machine", lambda: "arm64")
     module.verify_offline("macos-arm64", wheelhouse, meta)
     module.verify_offline("macos-arm64", wheelhouse, meta)
 
@@ -431,17 +483,15 @@ def test_verify_offline_fails_when_install_fails(work, monkeypatch):
     wheelhouse = work / "wh"
     wheelhouse.mkdir()
     (wheelhouse / "hermes_plugin_qdrant_memory-0.6.0-py3-none-any.whl").write_bytes(b"w")
-    meta = {"wheel": "hermes_plugin_qdrant_memory-0.6.0-py3-none-any.whl",
-            "sha256": "e" * 64, "commit": "f" * 40, "runtime_version": "0.6.0"}
-    call = {"n": 0}
+    meta = pinned_meta("hermes_plugin_qdrant_memory-0.6.0-py3-none-any.whl", "e" * 64)
 
     def fake_run(executable, arguments, cwd, **kwargs):
-        call["n"] += 1
-        if call["n"] == 2:  # the pip install step after uv venv
+        if arguments[:3] == ["-P", "-m", "pip"]:
             return types.SimpleNamespace(returncode=1, stdout="", stderr="hash check failed")
         return types.SimpleNamespace(returncode=0, stdout="", stderr="")
 
     monkeypatch.setattr(module, "run", fake_run)
+    monkeypatch.setattr(module.platform, "machine", lambda: "arm64")
     with pytest.raises(RuntimeError, match="hash check failed"):
         module.verify_offline("macos-arm64", wheelhouse, meta)
 
