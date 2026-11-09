@@ -18,7 +18,12 @@ const config = Bundle.Config({})
 assert.equal(config.mode, 'legacy')
 for (const key of ['auto_capture', 'auto_recall', 'memory_injection']) assert.equal(config[key].enabled, false)
 const calls = []
-const ctx = { tools: { definitions: () => [] }, plugin: async (module, settings) => { calls.push({ module, settings }) } }
+const ctx = {
+  root,
+  effect: root.effect.bind(root),
+  tools: { definitions: () => [] },
+  plugin: async (module, settings) => { calls.push({ module, settings }) },
+}
 await Bundle.apply(ctx, config)
 assert.equal(calls.length, 1)
 assert.equal(calls[0].settings.transport, 'stdio')
