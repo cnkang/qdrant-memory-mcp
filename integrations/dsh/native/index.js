@@ -627,7 +627,7 @@ async function resolveCaptureBoundary(ctx, config, agent, id, activationSeq, con
   try {
     let previous
     if (activationSeq > 0 || typeof agent.session.append !== 'function') {
-      if (await awaitDurableFlush(ctx, agent, signal, deadline) !== true) {
+      if (await awaitDurableFlush(ctx, agent, signal, deadline, timeout.signal) !== true) {
         safeLog(ctx, 'warn', 'Qdrant Memory capture boundary is unavailable; automatic capture is disabled for this agent.')
         return Infinity
       }
@@ -651,7 +651,7 @@ async function resolveCaptureBoundary(ctx, config, agent, id, activationSeq, con
       appendPluginRecord(agent.session, 'plugin:qdrant-memory/capture-state', {
         session_id: id, enabled, after_seq: afterSeq,
       })
-      if (await awaitDurableFlush(ctx, agent, signal, deadline) !== true) {
+      if (await awaitDurableFlush(ctx, agent, signal, deadline, timeout.signal) !== true) {
         safeLog(ctx, 'warn', 'Qdrant Memory capture boundary is unavailable; automatic capture is disabled for this agent.')
         return Infinity
       }
@@ -675,15 +675,20 @@ async function resolveCaptureBoundary(ctx, config, agent, id, activationSeq, con
  * not yet available. Every attempt stays within the capture deadline; a
  * missing handler never becomes a permanent capture disable.
  */
-async function awaitDurableFlush(ctx, agent, signal, deadline) {
-  if (signal.aborted) return undefined
+async function awaitDurableFlush(ctx, agent, signal, deadline, timeoutSignal) {
+  if (signal.aborted) {
+    if (timeoutSignal.aborted) {
+      safeLog(ctx, 'warn', 'Qdrant Memory session durability stays unavailable; automatic capture is disabled for this agent.')
+    }
+    return undefined
+  }
   let flushed
   try {
     flushed = await awaitWithSignal(
       () => ctx.sessions.flush(agent.session), signal, 'Qdrant Memory session durability wait was cancelled',
     )
   } catch (error) {
-    if (Date.now() < deadline) throw error
+    if (!timeoutSignal.aborted && (signal.aborted || Date.now() < deadline)) throw error
     safeLog(ctx, 'warn', 'Qdrant Memory session durability stays unavailable; automatic capture is disabled for this agent.')
     return undefined
   }
@@ -699,11 +704,11 @@ async function awaitDurableFlush(ctx, agent, signal, deadline) {
       'Qdrant Memory session durability wait was cancelled',
     )
   } catch (error) {
-    if (Date.now() < deadline) throw error
+    if (!timeoutSignal.aborted && (signal.aborted || Date.now() < deadline)) throw error
     safeLog(ctx, 'warn', 'Qdrant Memory session durability stays unavailable; automatic capture is disabled for this agent.')
     return undefined
   }
-  return awaitDurableFlush(ctx, agent, signal, deadline)
+  return awaitDurableFlush(ctx, agent, signal, deadline, timeoutSignal)
 }
 
 /** Attach opt-in recall and durable capture handlers; return cleanup and metrics. */
