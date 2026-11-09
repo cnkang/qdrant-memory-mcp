@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process'
+import { killProcessTree } from './kill-process-tree.mjs'
 
 const windows = process.platform === 'win32'
 const command = windows ? (process.env.ComSpec || 'cmd.exe') : 'dsh'
@@ -12,7 +13,10 @@ const result = spawnSync(command, args, {
 })
 
 if (result.error) {
-  console.error(`DSH profile config command could not start: ${result.error.code || 'unknown'}`)
+  // A timed-out dump on Windows kills the cmd.exe wrapper only. Terminate the
+  // whole DSH tree and wait for its exit, so the profile reads back consistently.
+  killProcessTree(result.pid)
+  console.error(`DSH profile config command could not start or finish: ${result.error.code || 'unknown'}`)
   process.exit(1)
 }
 if (result.status !== 0) {
