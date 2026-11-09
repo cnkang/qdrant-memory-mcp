@@ -14,6 +14,7 @@ REQUIRED_WORKFLOWS = (
     "Cross-harness integration",
     "DSH native adapter",
     "DSH cross-client acceptance",
+    "Codex plugin",
     "Repository quality",
     "CodeQL",
 )
