@@ -16,6 +16,21 @@ export const Config = Schema.intersect([
   }),
 ])
 
+/**
+ * Whether the legacy qdrant-memory route is still active in this profile.
+ * Tool definitions alone cannot rule out a live route: a reconnecting
+ * McpClient keeps its registered fibers while its tools are absent between
+ * connection attempts, so plugin registration is the durable lifecycle.
+ */
+function legacyRouteRegistered(ctx) {
+  if (ctx.tools.definitions().some((tool) => tool.name.startsWith('mcp__qdrant-memory__'))) return true
+  const runtime = ctx.registry?.get?.(McpClient)
+  for (const fiber of runtime?.fibers ?? []) {
+    if (fiber?.config?.serverName === 'qdrant-memory') return true
+  }
+  return false
+}
+
 /** Select one storage target for the entire profile; never open a second writer. */
 export async function apply(ctx, config) {
   const enabled = config.auto_capture.enabled || config.auto_recall.enabled || config.memory_injection.enabled
@@ -28,7 +43,7 @@ export async function apply(ctx, config) {
     return
   }
   if (!['native-owner', 'unified-owner'].includes(config.mode)) throw new Error('Unknown Qdrant Memory storage mode')
-  if (ctx.tools.definitions().some((tool) => tool.name.startsWith('mcp__qdrant-memory__'))) {
+  if (legacyRouteRegistered(ctx)) {
     throw new Error('Remove the existing qdrant-memory MCP route before selecting an Owner mode')
   }
   const target = Native.runtimeTarget(process.env)
