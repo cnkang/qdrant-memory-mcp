@@ -168,7 +168,7 @@ def verify_offline(target: str, wheelhouse: Path, runtime_meta: dict) -> dict:
             "console_probe": probe.returncode == 0,
         }
     finally:
-        subprocess.run(["rm", "-rf", str(work)], check=True)
+        shutil.rmtree(work, ignore_errors=True)
 
 
 def compile_lock(target: str, _work: Path) -> Path:
