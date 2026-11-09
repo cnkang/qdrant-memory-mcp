@@ -24,10 +24,12 @@ import hashlib
 import importlib.util
 import json
 import os
+import queue
 import shutil
 import signal
 import subprocess
 import threading
+import time
 from contextlib import asynccontextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -314,11 +316,45 @@ async def fresh_session_persistence(launcher_path, env, fact_b_id, evidence):
     return fact_b_id
 
 
-def hard_kill_probe(launcher_path, env):
-    """Initialize over raw stdio, then kill the launcher mid-session.
+def readline_with_deadline(stream, timeout):
+    """Read one line, failing instead of blocking when the child stalls."""
+    lines = queue.Queue(maxsize=1)
 
-    Windows terminates with TerminateProcess (SIGTERM maps there and yields a
-    process exit code instead of a signal number); POSIX uses SIGKILL.
+    def read():
+        try:
+            lines.put(stream.readline())
+        except Exception as error:  # pragma: no cover - transport failure
+            lines.put(error)
+
+    thread = threading.Thread(target=read, daemon=True)
+    thread.start()
+    try:
+        value = lines.get(timeout=timeout)
+    except queue.Empty as error:
+        raise RuntimeError(f"no response within {timeout}s") from error
+    if isinstance(value, Exception):
+        raise value
+    return value
+
+
+def terminate_tree(process):
+    """Kill the launcher and the Runtime child it spawned."""
+    if os.name == "nt":
+        subprocess.run(
+            ["taskkill", "/F", "/T", "/PID", str(process.pid)],
+            capture_output=True,
+            check=False,
+        )
+    else:
+        os.killpg(os.getpgid(process.pid), signal.SIGKILL)
+
+
+def hard_kill_probe(launcher_path, env):
+    """Initialize over raw stdio, then kill the launcher and its Runtime child.
+
+    Windows terminates the process tree with taskkill; POSIX starts a new
+    session and sends SIGKILL to the whole group, so the Runtime cannot keep
+    the writer lease after the probe.
     """
     process = subprocess.Popen(
         ["node", str(launcher_path), "mcp"],
@@ -326,6 +362,8 @@ def hard_kill_probe(launcher_path, env):
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
+        start_new_session=os.name != "nt",
+        creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0,
     )
     initialize = (
         json.dumps(
@@ -344,10 +382,33 @@ def hard_kill_probe(launcher_path, env):
     )
     process.stdin.write(initialize.encode())
     process.stdin.flush()
-    response = process.stdout.readline()
-    assert response.startswith(b'{"jsonrpc"'), response[:200]
-    process.send_signal(signal.SIGTERM if os.name == "nt" else signal.SIGKILL)
+    try:
+        response = readline_with_deadline(process.stdout, timeout=30)
+        assert response.startswith(b'{"jsonrpc"'), response[:200]
+    except Exception:
+        terminate_tree(process)
+        process.wait(timeout=30)
+        raise
+    terminate_tree(process)
     return process.wait(timeout=30)
+
+
+def recover_after_kill(launcher_path, env, fact_b_id, evidence, deadline=30):
+    """Retry the replacement session until the killed Runtime releases its lease."""
+    end = time.monotonic() + deadline
+    last_error = None
+    while time.monotonic() < end:
+        try:
+            asyncio.run(
+                fresh_session_persistence(launcher_path, env, fact_b_id, evidence)
+            )
+            return
+        except Exception as error:  # the lease can outlive the process briefly
+            last_error = error
+            time.sleep(1)
+    raise RuntimeError(
+        f"a replacement session did not recover within {deadline}s: {last_error}"
+    ) from last_error
 
 
 def fetch_skills_snapshot(work):
@@ -527,8 +588,11 @@ def execute(work, evidence, args):
         asyncio.run(fresh_session_persistence(launcher, scoped, fact_b_id, evidence))
 
         interrupted = hard_kill_probe(launcher, scoped)
-        assert interrupted == -9 or interrupted == 137, interrupted
-        asyncio.run(fresh_session_persistence(launcher, scoped, fact_b_id, evidence))
+        if os.name == "nt":
+            assert interrupted == 1, interrupted
+        else:
+            assert interrupted == -9 or interrupted == 137, interrupted
+        recover_after_kill(launcher, scoped, fact_b_id, evidence)
         evidence.step("sigkill_recovered", killed_exit=interrupted)
 
         leakage = asyncio.run(

@@ -4,6 +4,7 @@ import importlib.util
 import json
 import subprocess
 import sys
+import time
 import types
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -385,6 +386,7 @@ class DummyProcess:
 def test_hard_kill_probe_kills_after_initialize(monkeypatch):
     module = load_e2e()
     created = []
+    killed = []
 
     def fake_popen(argv, **kwargs):
         assert argv[0] == "node"
@@ -393,22 +395,52 @@ def test_hard_kill_probe_kills_after_initialize(monkeypatch):
         return DummyProcess(b'{"jsonrpc":"2.0"}\n')
 
     monkeypatch.setattr(module.subprocess, "Popen", fake_popen)
+    monkeypatch.setattr(module, "terminate_tree", lambda process: killed.append(process))
     result = module.hard_kill_probe("l", {})
-    # POSIX kill extends to -9 (or equivalently 137 on shells); Windows
-    # TerminateProcess yields a positive exit code instead.
-    assert result in (-9, 137, 1, 9), result
+    assert result == -9
     assert created == [["node", "l", "mcp"]]
+    assert len(killed) == 1
+
+
+def test_readline_with_deadline_fails_instead_of_blocking():
+    module = load_e2e()
+
+    class StallingStream:
+        def readline(self):
+            time.sleep(5)
+            return b""
+
+    with pytest.raises(RuntimeError, match="no response within"):
+        module.readline_with_deadline(StallingStream(), timeout=0.05)
+
+
+def test_recover_after_kill_retries_the_replacement_session(monkeypatch):
+    module = load_e2e()
+    calls = []
+
+    async def fake_session(launcher, env, fact_b_id, evidence):
+        calls.append(1)
+        if len(calls) < 3:
+            raise RuntimeError("WriterBusy")
+
+    monkeypatch.setattr(module, "fresh_session_persistence", fake_session)
+    monkeypatch.setattr(module.time, "sleep", lambda seconds: None)
+    module.recover_after_kill("l", {}, "fact", module.Evidence(), deadline=5)
+    assert len(calls) == 3
 
 
 def test_hard_kill_probe_bails_on_garbled_response(monkeypatch):
     module = load_e2e()
+    killed = []
 
     def fake_popen(argv, **kwargs):
         return DummyProcess(b"not-json\n")
 
     monkeypatch.setattr(module.subprocess, "Popen", fake_popen)
+    monkeypatch.setattr(module, "terminate_tree", lambda process: killed.append(process))
     with pytest.raises(AssertionError):
         module.hard_kill_probe("l", {})
+    assert len(killed) == 1
 
 
 def test_runtime_direct_read_serves_records(monkeypatch):
