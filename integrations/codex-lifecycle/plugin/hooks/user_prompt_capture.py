@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """UserPromptSubmit hook: capture only what the user explicitly asks to remember.
 
-The user writes a line starting with ``remember:`` (case-insensitive). The exact
-remaining text of that line is saved verbatim to the operator's own Runtime
-profile. Nothing is extracted, summarized, or guessed: there is no model call
-in this hook and no other content is captured. Any other prompt exits silently.
+The user writes a line starting with ``remember:`` or ``remember：``
+(case-insensitive). The exact remaining text of that line, including any
+trailing whitespace, is saved verbatim to the operator's own Runtime profile.
+Nothing is extracted, summarized, or guessed: there is no model call in this
+hook and no other content is captured. Any other prompt exits silently.
 """
 
 from __future__ import annotations
@@ -19,7 +20,7 @@ sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parent))
 
 import lifecycle_runtime as runtime  # noqa: E402
 
-DIRECTIVE = re.compile(r"^\s*remember\s*[:：]\s*(\S.*\S|\S)\s*$", re.IGNORECASE)
+DIRECTIVE = re.compile(r"^\s*remember\s*[:：][ \t]*(.*)$", re.IGNORECASE)
 
 
 def main() -> None:
@@ -34,6 +35,8 @@ def main() -> None:
         if not match:
             return
         text = match.group(1)
+        if not text.strip():
+            return
         if len(text) > runtime.MAX_CAPTURE_CHARS:
             runtime.emit(
                 system_message=(

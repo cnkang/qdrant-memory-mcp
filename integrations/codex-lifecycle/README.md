@@ -21,7 +21,7 @@ stays hook-free.
 | Hook | Event | Behavior contract |
 |---|---|---|
 | `session_recall.py` | `SessionStart` (`startup\|resume\|clear\|compact\|fork`) | Searches the operator's own Runtime profile with the session working directory name and returns records via the released `hookSpecificOutput.additionalContext` shape. Silent (exit 0, no output) when nothing durable matches. |
-| `user_prompt_capture.py` | `UserPromptSubmit` | When the user's prompt begins with `remember:` (case-insensitive, first line), the exact remainder of that line (≤512 chars) is saved verbatim with Runtime `add`. Everything else exits silently. No model call, no extraction, no summarization. |
+| `user_prompt_capture.py` | `UserPromptSubmit` | When the user's prompt begins with `remember:` or `remember：` (case-insensitive, first line), the exact remainder of that line (≤512 chars, trailing whitespace preserved) is saved verbatim with Runtime `add`. Everything else exits silently. No model call, no extraction, no summarization. |
 
 Automatic turn-completion capture (`Stop`, `last_assistant_message`) is
 **deliberately not implemented**: correct semantic extraction requires a
@@ -56,6 +56,11 @@ Requirements: the qdrant-memory Codex plugin (main plugin) installed and set up
 (profile at `~/.qdrant-memory/codex/profile` by default; `QDRANT_MEMORY_CODEX_*`
 environment overrides as documented in the launcher), plus `python3` on PATH
 for the hook commands.
+
+> **0.165.0 caveat:** the preview manifest installs, but we have not observed
+> 0.165.0 register these file-backed hook definitions for trust review or fire
+> them in a session. Treat the install as a manifest-level preview; verify
+> registration in your client before relying on recall or `remember:` capture.
 
 ## Verification status (2026-11-09)
 

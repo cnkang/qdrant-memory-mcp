@@ -102,6 +102,60 @@ def test_explicit_capture_saves_directive_text(hook_env, monkeypatch, capsys):
     assert saved == [["add", "--text", "dish soap runs low."]]
 
 
+def test_explicit_capture_preserves_trailing_whitespace(hook_env, monkeypatch, capsys):
+    module = load("user_prompt_capture")
+    saved = []
+
+    def fake_call(*args, **kwargs):
+        saved.append(list(args))
+        return 0, json.dumps({"id": "stub-id"}), ""
+
+    monkeypatch.setattr(module.runtime, "call_runtime", fake_call)
+    monkeypatch.setattr(module.runtime, "load_scope", lambda: ("hook-user", "hook-agent"))
+    monkeypatch.setattr(
+        "sys.stdin",
+        type("S", (), {"read": staticmethod(lambda: json.dumps({"prompt": "remember: keep two spaces  "}))})(),
+    )
+    module.main()
+    assert saved == [["add", "--text", "keep two spaces  "]]
+
+
+def test_explicit_capture_accepts_a_full_width_colon(hook_env, monkeypatch, capsys):
+    module = load("user_prompt_capture")
+    saved = []
+
+    def fake_call(*args, **kwargs):
+        saved.append(list(args))
+        return 0, json.dumps({"id": "stub-id"}), ""
+
+    monkeypatch.setattr(module.runtime, "call_runtime", fake_call)
+    monkeypatch.setattr(module.runtime, "load_scope", lambda: ("hook-user", "hook-agent"))
+    monkeypatch.setattr(
+        "sys.stdin",
+        type("S", (), {"read": staticmethod(lambda: json.dumps({"prompt": "remember：中文事实"}))})(),
+    )
+    module.main()
+    assert saved == [["add", "--text", "中文事实"]]
+
+
+def test_explicit_capture_ignores_a_blank_directive(hook_env, monkeypatch, capsys):
+    module = load("user_prompt_capture")
+    saved = []
+
+    def fake_call(*args, **kwargs):
+        saved.append(list(args))
+        return 0, "{}", ""
+
+    monkeypatch.setattr(module.runtime, "call_runtime", fake_call)
+    monkeypatch.setattr(
+        "sys.stdin",
+        type("S", (), {"read": staticmethod(lambda: json.dumps({"prompt": "remember:   "}))})(),
+    )
+    module.main()
+    assert saved == []
+    assert capsys.readouterr().out == ""
+
+
 def test_explicit_capture_ignores_non_directives(hook_env, monkeypatch, capsys):
     module = load("user_prompt_capture")
     saved = []
@@ -172,6 +226,22 @@ def test_session_recall_stays_silent_without_matches(hook_env, monkeypatch, caps
     monkeypatch.setattr(
         "sys.stdin",
         type("S", (), {"read": staticmethod(lambda: json.dumps({"cwd": "/tmp/empty"}))})(),
+    )
+    module.main()
+    assert capsys.readouterr().out == ""
+
+
+def test_session_recall_stays_silent_when_rows_have_no_text(hook_env, monkeypatch, capsys):
+    module = load("session_recall")
+
+    def fake_call(*args, **kwargs):
+        return 0, json.dumps({"memories": [{"id": "one"}, {"text": "   "}]}), ""
+
+    monkeypatch.setattr(module.runtime, "call_runtime", fake_call)
+    monkeypatch.setattr(module.runtime, "load_scope", lambda: ("hook-user", "hook-agent"))
+    monkeypatch.setattr(
+        "sys.stdin",
+        type("S", (), {"read": staticmethod(lambda: json.dumps({"cwd": "/tmp/blank"}))})(),
     )
     module.main()
     assert capsys.readouterr().out == ""
