@@ -44,6 +44,8 @@ def source(tmp_path):
     git(tmp_path, 'config', 'user.email', 'test@example.invalid')
     git(tmp_path, 'config', 'user.name', 'Test')
     shutil.copytree(ROOT / 'integrations/dsh/bundle', tmp_path / 'integrations/dsh/bundle')
+    (tmp_path / 'integrations/dsh/native').mkdir()
+    shutil.copy(ROOT / 'integrations/dsh/native/index.js', tmp_path / 'integrations/dsh/native/index.js')
     (tmp_path / 'scripts').mkdir()
     shutil.copy(ROOT / 'scripts/pack_dsh_bundle.py', tmp_path / 'scripts/pack_dsh_bundle.py')
     git(tmp_path, 'add', '.')
@@ -54,10 +56,11 @@ def source(tmp_path):
 
 
 def craft_archive(directory, bundle):
+    packer = module().load_module('test_packer', ROOT / 'scripts/pack_dsh_bundle.py')
     archive = directory / ('cnkang-qdrant-memory-dsh-bundle-' + json.loads((bundle / 'package.json').read_text(encoding='utf-8'))['version'] + '.tgz')
     with tarfile.open(archive, 'w:gz') as output:
-        for name in sorted(['package.json', 'cordis.patch.yml', 'README.md', 'LICENSE']):
-            data = (bundle / name).read_bytes()
+        for name in sorted(packer.FILES):
+            data = packer.payload_path(bundle, name).read_bytes()
             member = tarfile.TarInfo('package/' + name)
             member.size = len(data)
             output.addfile(member, io.BytesIO(data))

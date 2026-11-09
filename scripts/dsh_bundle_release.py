@@ -28,7 +28,7 @@ def git(root: Path, *args: str) -> str:
 
 def bundle_metadata(root: Path) -> dict:
     meta = json.loads((root / 'integrations/dsh/bundle/package.json').read_text(encoding='utf-8'))
-    if meta.get('private') or not re.fullmatch(r'@[a-z0-9-]+/[a-z0-9-]+', meta.get('name', '')) or not re.fullmatch(r'\d+\.\d+\.\d+', meta.get('version', ''), re.ASCII):
+    if meta.get('private') or meta.get('name') != '@cnkang/qdrant-memory-dsh-bundle' or not re.fullmatch(r'(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-rc\.[1-9]\d*)?', meta.get('version', ''), re.ASCII):
         raise ValueError('Bundle package identity is not publishable')
     return meta
 
@@ -45,6 +45,8 @@ def validate_source(root: Path, tag: str, main_ref: str = 'refs/remotes/origin/m
         raise ValueError('Current checkout does not match release tag commit')
     if subprocess.run(['git', '-C', str(root), 'merge-base', '--is-ancestor', sha, main_ref], capture_output=True).returncode:
         raise ValueError('Release commit is not merged into main')
+    if git(root, 'rev-parse', main_ref) != sha:
+        raise ValueError('Release requires the exact current main SHA')
     if git(root, 'status', '--porcelain', '--untracked-files=no'):
         raise ValueError('Release checkout has tracked changes')
     return sha, f'DSH bundle assets for {tag}. Publication remains a maintainer decision.'
