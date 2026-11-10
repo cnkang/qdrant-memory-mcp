@@ -1,4 +1,4 @@
-import { spawnSync } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -10,29 +10,40 @@ const shellArgs = (args) => (windows ? ['/d', '/s', '/c', `dsh ${args.join(' ')}
 const home = mkdtempSync(join(tmpdir(), 'dsh-native-ci-'))
 const env = { ...process.env, DSH_HOME: home }
 
-/** Run DSH in the isolated test home and return a failure status on timeout. */
-const runDsh = (args) => {
-  const result = spawnSync(dsh, shellArgs(args), {
+/** Run DSH and terminate its whole process tree before cleaning its test home. */
+const runDsh = (args) => new Promise((resolve) => {
+  const child = spawn(dsh, shellArgs(args), {
     cwd: process.cwd(),
     env,
-    encoding: 'utf8',
     shell: false,
     detached: !windows,
-    timeout: 120000,
+    stdio: 'inherit',
+    windowsHide: true,
   })
-  if (result.error) {
-    killProcessTree(result.pid)
-    console.error(`DSH command could not start: ${result.error.code || 'unknown'}`)
-    return 1
-  }
-  if (result.stdout) process.stdout.write(result.stdout)
-  if (result.stderr) process.stderr.write(result.stderr)
-  return result.status ?? 1
-}
+  let timedOut = false
+  let spawnError
+  let timer
+  child.once('spawn', () => {
+    timer = setTimeout(() => {
+      timedOut = true
+      try { killProcessTree(child.pid) } catch { /* Fall back to terminating the direct child. */ }
+      if (child.exitCode === null && child.signalCode === null) {
+        try { child.kill('SIGKILL') } catch { /* The process exited while termination was starting. */ }
+      }
+    }, 120000)
+  })
+  child.once('error', (error) => { spawnError = error })
+  child.once('close', (code) => {
+    clearTimeout(timer)
+    if (timedOut) console.error('DSH command timed out')
+    else if (spawnError) console.error(`DSH command could not start: ${spawnError.code || 'unknown'}`)
+    resolve(timedOut || spawnError ? 1 : (code ?? 1))
+  })
+})
 
 let status
 try {
-  status = runDsh(['plugin', '--profile', 'qdrant-native-ci', 'add', '.'])
+  status = await runDsh(['plugin', '--profile', 'qdrant-native-ci', 'add', '.'])
   if (status === 0) {
     const validation = spawnSync(process.execPath, ['./scripts/validate-host-config.mjs'], {
       cwd: process.cwd(),
@@ -48,7 +59,7 @@ try {
     status = validation.error ? 1 : (validation.status ?? 1)
   }
 } finally {
-  const removal = runDsh([
+  const removal = await runDsh([
     'plugin',
     '--profile',
     'qdrant-native-ci',

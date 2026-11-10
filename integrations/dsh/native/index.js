@@ -718,6 +718,7 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
   const activeAgents = new Map()
   const agentLifetimes = new WeakMap()
   const recoveryScheduled = new WeakSet()
+  const recoveryReady = new WeakSet()
   const captureBoundaries = new WeakMap()
   const recallTurn = new WeakMap()
   const recallCache = new Map()
@@ -819,6 +820,7 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
     if (activeAgents.get(id) === agent) return agentLifetimes.get(agent) ?? null
     const previous = activeAgents.get(id)
     if (previous) unregisterAgent(previous)
+    recoveryReady.delete(agent)
     const controller = new AbortController()
     activeAgents.set(id, agent)
     agentLifetimes.set(agent, controller)
@@ -840,33 +842,13 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
     setImmediate(() => void recoverRecentTurns(agent, signal))
   }
 
-  /**
-   * Wait for the agent's capture boundary without ever blocking a turn.
-   * Initialization races against the plugin lifetime, the current turn signal
-   * and a bounded timer, so a stalled durability read cannot hang model turns.
-   * When the boundary cannot be established it is replaced by the immediate
-   * Infinity watermark and automatic capture stays disabled for the agent.
-   */
-  const waitCaptureBoundary = async (agent, turnSignal) => {
-    if (disposed || !config.auto_capture.enabled || !agentLifetimes.get(agent)) return
-    const timeout = new AbortController()
-    const timer = setTimeout(
-      () => timeout.abort(new Error('Qdrant Memory capture boundary wait timed out')),
-      config.auto_capture.timeout_ms,
-    )
-    try {
-      await awaitWithSignal(
-        () => captureBoundaries.get(agent),
-        AbortSignal.any([timeout.signal, lifetime.signal, ...(turnSignal ? [turnSignal] : [])]),
-        'Qdrant Memory capture boundary wait was cancelled',
-      )
-    } catch {
-      if (turnSignal?.aborted || lifetime.signal.aborted) return
-      safeLog(ctx, 'warn', 'Qdrant Memory capture boundary is unavailable; automatic capture is disabled for this agent.')
-      captureBoundaries.set(agent, Promise.resolve(Infinity))
-    } finally {
-      clearTimeout(timer)
-    }
+  /** Start recovery once the durable activation boundary is resolved. */
+  const scheduleRecoveryAfterBoundary = (agent, signal) => {
+    const boundary = captureBoundaries.get(agent)
+    if (!boundary) return
+    void Promise.resolve(boundary).then(() => {
+      if (isActiveAgent(agent, signal)) scheduleRecovery(agent, signal)
+    })
   }
 
   /** Build one bounded capture queue bound to one agent lifetime. */
@@ -1101,6 +1083,7 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
   /** Drain captures serially and release closing agents after their final item. */
   /** Persist the contiguous captured-turn watermark inside the session log. */
   const saveRecoveryProgress = async (sessionId, queue) => {
+    if (!recoveryReady.has(queue.agent)) return
     const candidate = progressCandidates.get(sessionId)
     if (!Number.isInteger(candidate)) return
     const unresolved = unresolvedEligibleTurns.get(sessionId)
@@ -1114,13 +1097,16 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
       const { appendPluginRecord } = await awaitWithSignal(
         () => import('@deepseek-ai/dsh-session'), signal, 'Qdrant Memory progress write was cancelled',
       )
-      if (disposed || signal.aborted || activeAgents.get(sessionId) !== queue.agent) return
+      if (disposed || signal.aborted || activeAgents.get(sessionId) !== queue.agent
+        || !recoveryReady.has(queue.agent)) return
       appendPluginRecord(session, RECOVERY_PROGRESS_RECORD, {
         session_id: sessionId, after_turn: afterTurn,
       })
       if (await awaitWithSignal(
         () => ctx.sessions.flush(session), signal, 'Qdrant Memory progress flush was cancelled',
       ) !== true) return
+      if (disposed || signal.aborted || activeAgents.get(sessionId) !== queue.agent
+        || !recoveryReady.has(queue.agent)) return
     } catch {
       // A failed progress write simply replays the same turns on the next
       // resume; failed captures always retry, never skip.
@@ -1265,6 +1251,11 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
         .filter(Number.isInteger)
         .filter((turn) => turn > resolvedTurn)
       for (const turn of turns) trackEligibleTurn(id, turn)
+      // Live captures can finish before this scan returns. Open progress writes
+      // only after the snapshot's eligible turns are tracked.
+      recoveryReady.add(agent)
+      const currentQueue = queues.get(id)
+      if (currentQueue?.agent === agent) await saveRecoveryProgress(id, currentQueue)
       if (turns.length) metrics.capture_recovery_count += 1
       await recoverTurnBatches(agent, session, snapshot, turns, 0, recoverySignal)
     } catch {
@@ -1274,12 +1265,9 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
     }
   }
 
-  listeners.push(ctx.on('agent/created', async ({ agent }) => {
+  listeners.push(ctx.on('agent/created', ({ agent }) => {
     const lifetime = registerAgent(agent)
-    if (lifetime) {
-      await waitCaptureBoundary(agent)
-      scheduleRecovery(agent, lifetime.signal)
-    }
+    if (lifetime) scheduleRecoveryAfterBoundary(agent, lifetime.signal)
   }))
 
   listeners.push(ctx.on('agent/disposed', ({ agent }) => {
@@ -1287,7 +1275,6 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
   }))
 
   listeners.push(ctx.on('agent/pre-step', async ({ agent, messages, turn, signal }, next) => {
-    await waitCaptureBoundary(agent, signal)
     const decision = await next()
     if (disposed || decision.kind !== 'enter' || isSubagent(agent)
       || !config.auto_recall.enabled || !config.memory_injection.enabled) return decision
@@ -1359,7 +1346,8 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
   const liveAgents = ctx.agents?.list?.()
   if (Array.isArray(liveAgents)) {
     for (const agent of liveAgents) {
-      if (registerAgent(agent)) scheduleRecovery(agent)
+      const agentLifetime = registerAgent(agent)
+      if (agentLifetime) scheduleRecoveryAfterBoundary(agent, agentLifetime.signal)
     }
   }
 

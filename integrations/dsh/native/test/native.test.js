@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict'
+import { spawn } from 'node:child_process'
 import { EventEmitter } from 'node:events'
-import { delimiter, resolve } from 'node:path'
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { delimiter, join, resolve } from 'node:path'
+import { tmpdir } from 'node:os'
 import { PassThrough } from 'node:stream'
 import test from 'node:test'
 import { Context } from '@deepseek-ai/cordis'
@@ -33,6 +36,54 @@ test('process-tree cleanup ignores non-positive PIDs before signaling', { skip: 
     assert.deepEqual(calls, [])
   } finally {
     process.kill = originalKill
+  }
+})
+
+test('process-tree cleanup terminates a spawned descendant', { timeout: 8000 }, async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'dsh-kill-tree-'))
+  const childPidPath = join(directory, 'child.pid')
+  const source = [
+    "const { spawn } = require('node:child_process')",
+    "const { writeFileSync } = require('node:fs')",
+    "const child = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore', windowsHide: true })",
+    'writeFileSync(process.env.CHILD_PID_PATH, String(child.pid))',
+    'setInterval(() => {}, 1000)',
+  ].join('\n')
+  const parent = spawn(process.execPath, ['-e', source], {
+    env: { ...process.env, CHILD_PID_PATH: childPidPath },
+    detached: process.platform !== 'win32',
+    stdio: 'ignore',
+    windowsHide: true,
+  })
+  const parentClosed = new Promise((resolve) => parent.once('close', resolve))
+  let childPid
+  const isRunning = (pid) => {
+    try {
+      process.kill(pid, 0)
+      return true
+    } catch (error) {
+      if (error.code === 'ESRCH') return false
+      throw error
+    }
+  }
+  try {
+    const deadline = Date.now() + 3000
+    while (!existsSync(childPidPath) && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 10))
+    }
+    assert.ok(existsSync(childPidPath), 'the child process started')
+    childPid = Number(readFileSync(childPidPath, 'utf8'))
+    killProcessTree(parent.pid)
+    await parentClosed
+    const childDeadline = Date.now() + 3000
+    while (isRunning(childPid) && Date.now() < childDeadline) {
+      await new Promise((resolve) => setTimeout(resolve, 20))
+    }
+    assert.equal(isRunning(childPid), false, 'the descendant process exited')
+  } finally {
+    if (childPid) killProcessTree(childPid)
+    if (parent.pid) killProcessTree(parent.pid)
+    rmSync(directory, { recursive: true, force: true })
   }
 })
 
@@ -1620,7 +1671,7 @@ test('a replacement agent flushes its own queued captures', async () => {
   assert.equal(handlers.size, 0)
 })
 
-test('the capture boundary wait times out instead of blocking turns', { timeout: 6000 }, async () => {
+test('a pending capture boundary never blocks pre-step', { timeout: 6000 }, async () => {
   const handlers = new Map()
   let cleanup
   let warnings = []
@@ -1648,23 +1699,19 @@ test('the capture boundary wait times out instead of blocking turns', { timeout:
   const decision = { kind: 'enter', messages: [] }
   const dispose = apply(ctx, config, async () => { throw new Error('the Owner must never be called') })
   try {
-    const started = Date.now()
+    const createdAt = Date.now()
     await handlers.get('agent/created')({ agent })
-    await handlers.get('agent/pre-step')(
+    assert.ok(Date.now() - createdAt < 250, 'agent creation does not wait for the durability handler')
+    let nextCalled = false
+    const preStepAt = Date.now()
+    const result = await handlers.get('agent/pre-step')(
       { agent, messages: [{ role: 'user', source: { kind: 'user' }, content: [{ type: 'text', text: 'hello' }] }], turn: 1 },
-      async () => decision,
+      async () => { nextCalled = true; return decision },
     )
-    const elapsed = Date.now() - started
-    // The active timeout_ms is 1000 ms; a wait that never unblocks would
-    // exceed any bounded run.
-    assert.ok(elapsed < 3000, `the decision must not hang behind the boundary wait (${elapsed} ms)`)
-    assert.ok(warnings.some((message) => message.includes('capture boundary is unavailable')), warnings)
-    // The watermark replacement keeps later turns unblocked too.
-    const followUp = await handlers.get('agent/pre-step')(
-      { agent, messages: [], turn: 2 },
-      async () => decision,
-    )
-    assert.equal(followUp, decision)
+    assert.ok(Date.now() - preStepAt < 250, 'pre-step returns without waiting for boundary initialization')
+    assert.equal(nextCalled, true)
+    assert.equal(result, decision)
+    assert.deepEqual(warnings, [], 'a still-pending boundary has not timed out')
   } finally {
     dispose()
   }
@@ -1815,6 +1862,11 @@ test('capture boundary initialization retries a missing durability handler', { t
   })
   try {
     await handlers.get('agent/created')({ agent })
+    const boundaryDeadline = Date.now() + 3000
+    while (!durableEvents.some((event) => event.type === 'plugin:qdrant-memory/capture-state'
+      && event.data?.enabled === true) && Date.now() < boundaryDeadline) {
+      await new Promise((resolve) => setTimeout(resolve, 10))
+    }
     assert.ok(flushCalls > 1, `boundary initialization retried the handler (calls: ${flushCalls})`)
     assert.equal(
       durableEvents.findLast((event) => event.type === 'plugin:qdrant-memory/capture-state')?.data.enabled,
@@ -1827,6 +1879,94 @@ test('capture boundary initialization retries a missing durability handler', { t
     })
     await new Promise((resolve) => setTimeout(resolve, 300))
     assert.equal(submitted.length, 1, 'the live agent captures once durability appears, keeping its activation marker')
+  } finally {
+    dispose()
+    await root.registry.delete(SessionStore)
+  }
+  assert.equal(handlers.size, 0)
+})
+
+test('startup recovery tracks older turns before checkpointing a live capture', { timeout: 12000 }, async () => {
+  const root = new Context()
+  await root.plugin(SessionStore)
+  const session = root.sessions.create('startup-progress-session')
+  const history = [...turnEvents(1), ...turnEvents(2)]
+  const handlers = new Map()
+  const runtimeCalls = []
+  const committed = new Set()
+  let releaseInitialRead
+  const initialRead = new Promise((resolve) => { releaseInitialRead = resolve })
+  let signalInitialRead
+  const recoveryReadStarted = new Promise((resolve) => { signalInitialRead = resolve })
+  let readCalls = 0
+  const ctx = {
+    on(event, handler) {
+      handlers.set(event, handler)
+      return () => handlers.delete(event)
+    },
+    effect(register) { return register() },
+    logger: { warn() {} },
+    llm: candidateStream('Remember the startup recovery test.'),
+    sessions: { flush: async () => true },
+    sessionQuery: {
+      readSession: async () => {
+        readCalls += 1
+        if (readCalls === 1) {
+          signalInitialRead()
+          return initialRead
+        }
+        return { events: [...history, ...session.snapshotEvents()] }
+      },
+    },
+    agents: { get() { return undefined }, list() { return [] } },
+  }
+  const agent = {
+    session,
+    model: { current: () => ({ provider: 'provider-a', model: 'model-a' }) },
+  }
+  const config = {
+    ...DEFAULT_CONFIG,
+    auto_capture: { ...DEFAULT_CONFIG.auto_capture, enabled: true },
+  }
+  const dispose = apply(ctx, config, async (_mode, payload, options) => {
+    runtimeCalls.push({ payload, options })
+    if (options.action === 'status') {
+      return { status: committed.has(payload.event_id) ? 'COMMITTED' : 'NOT_FOUND' }
+    }
+    if (options.action === 'submit') {
+      committed.add(payload.event_id)
+      return { status: 'COMMITTED' }
+    }
+    throw new Error(`unexpected Runtime action: ${options.action}`)
+  })
+  const waitFor = async (predicate, message) => {
+    const deadline = Date.now() + 4000
+    while (!predicate() && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 10))
+    assert.ok(predicate(), message)
+  }
+  try {
+    handlers.get('agent/created')({ agent })
+    await Promise.race([
+      recoveryReadStarted,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('startup recovery did not read the session')), 3000)),
+    ])
+    await handlers.get('session/event')(session, {
+      type: 'turn/end', data: { turn: 2, reason: { kind: 'completed' } },
+    })
+    assert.equal(
+      session.snapshotEvents().some((event) => event.type === 'plugin:qdrant-memory/recovery-progress'),
+      false,
+      'live completion cannot persist progress before the startup scan tracks its backlog',
+    )
+
+    releaseInitialRead({ events: [...history, ...session.snapshotEvents()] })
+    const firstTurnId = compileTurn(history, session.id, 1).event_id
+    await waitFor(
+      () => runtimeCalls.some((call) => call.options.action === 'status' && call.payload.event_id === firstTurnId)
+        && session.snapshotEvents().some((event) => event.type === 'plugin:qdrant-memory/recovery-progress'
+          && event.data?.after_turn === 2),
+      'the recovery scan captures the older turn before progress advances through turn 2',
+    )
   } finally {
     dispose()
     await root.registry.delete(SessionStore)
@@ -2055,11 +2195,10 @@ test('boundary initialization gives up when durability stays missing', { timeout
     const started = Date.now()
     await handlers.get('agent/created')({ agent })
     const elapsed = Date.now() - started
-    assert.ok(elapsed < 3000, `the boundary deadline bounds initialization (${elapsed} ms)`)
-    assert.ok(warnings.some((message) => message.includes('capture boundary is unavailable')), warnings)
-    // The compute keeps retrying behind the replaced watermark and reports its
-    // own deadline once the retry loop passes it.
+    assert.ok(elapsed < 250, `agent creation does not wait for boundary initialization (${elapsed} ms)`)
+    // Boundary setup keeps retrying asynchronously and reports its own deadline.
     await new Promise((resolve) => setTimeout(resolve, 1500))
+    assert.ok(warnings.some((message) => message.includes('capture boundary is unavailable')), warnings)
     assert.ok(warnings.some((message) => message.includes('session durability stays unavailable')), warnings)
     handlers.get('session/event')(agent.session, { type: 'turn/end', data: { turn: 1, reason: { kind: 'completed' } } })
     await new Promise((resolve) => setTimeout(resolve, 200))
@@ -2112,6 +2251,11 @@ test('a consent marker write failure leaves the activation watermark bound to In
   })
   try {
     await handlers.get('agent/created')({ agent })
+    const deadline = Date.now() + 1000
+    while (!warnings.some((message) => message.includes('activation watermark is unavailable'))
+      && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 10))
+    }
     assert.ok(warnings.some((message) => message.includes('activation watermark is unavailable')), warnings)
     handlers.get('session/event')(session, { type: 'turn/end', data: { turn: 1, reason: { kind: 'completed' } } })
     await new Promise((resolve) => setTimeout(resolve, 200))

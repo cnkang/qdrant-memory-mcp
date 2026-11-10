@@ -163,4 +163,33 @@ withOwnerTargetEnv(() => {
       /only one qdrant-memory MCP route/u,
     )
   })
+
+  test('unified-owner compares the registered route with the normalized Owner endpoint', async () => {
+    const previous = process.env.QDRANT_MEMORY_DSH_OWNER_URL
+    process.env.QDRANT_MEMORY_DSH_OWNER_URL = 'https://Owner.Example:443/mcp'
+    try {
+      const { ctx, plugins } = recordingContext()
+      await bundle.apply(ctx, { ...bundle.Config({}), mode: 'unified-owner' })
+      assert.equal(plugins[0].settings.url, 'https://owner.example/mcp')
+    } finally {
+      if (previous === undefined) delete process.env.QDRANT_MEMORY_DSH_OWNER_URL
+      else process.env.QDRANT_MEMORY_DSH_OWNER_URL = previous
+    }
+  })
+
+  test('invalid Owner target validation does not leave a late-route guard installed', async () => {
+    const previous = process.env.QDRANT_MEMORY_DSH_OWNER_URL
+    process.env.QDRANT_MEMORY_DSH_OWNER_URL = 'http://owner.example/mcp'
+    try {
+      const { ctx, register } = recordingContext()
+      await assert.rejects(
+        bundle.apply(ctx, { ...bundle.Config({}), mode: 'native-owner' }),
+        /HTTPS \/mcp URL/u,
+      )
+      assert.doesNotThrow(() => register({ config: { serverName: 'qdrant-memory', transport: 'stdio' } }))
+    } finally {
+      if (previous === undefined) delete process.env.QDRANT_MEMORY_DSH_OWNER_URL
+      else process.env.QDRANT_MEMORY_DSH_OWNER_URL = previous
+    }
+  })
 })
