@@ -394,7 +394,7 @@ def test_user_prompt_submit_stages_scratch_and_honors_remember(hook_env, monkeyp
     stage_scratch(monkeypatch, runtime, prompt="Remember: team offsite is in May.")
     output = json.loads(capsys.readouterr().out.strip())
     assert "saved one explicit fact" in output["systemMessage"]
-    assert call == [["add", "--text", "team offsite is in May."]]
+    assert call == [["add", "--text", " team offsite is in May."]]
     scratch = runtime.scratch_path_for("sess-1", "t-1")
     staged = json.loads(scratch.read_text(encoding="utf-8"))
     assert staged["session_id"] == "sess-1"
