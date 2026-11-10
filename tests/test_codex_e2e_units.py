@@ -249,7 +249,7 @@ def test_install_plugin_verifies_package_and_env_names(monkeypatch, tmp_path):
         return outputs[(argv[0], argv[1])]
 
     monkeypatch.setattr(module, "codex", fake_codex)
-    installed = module.install_plugin({}, tmp_path, tmp_path)
+    installed = module.install_plugin({}, tmp_path, tmp_path, tmp_path)
     assert installed["version"] == "0.1.3"
     assert installed["env_forwarding"]["all_present"]
 
