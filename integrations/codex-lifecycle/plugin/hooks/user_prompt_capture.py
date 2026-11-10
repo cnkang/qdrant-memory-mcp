@@ -33,20 +33,25 @@ sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parent))
 import lifecycle_runtime as runtime  # noqa: E402
 
 DIRECTIVE = re.compile(r"^\s*remember\s*[:：](.*)$", re.IGNORECASE)
+STAGE_FAILURE = (
+    "Qdrant Memory could not stage this turn's input locally; "
+    "this turn will not be auto-captured."
+)
 
 
-def stage_turn_input(event: dict, prompt: str) -> bool:
+def stage_turn_input(event: dict, prompt: str) -> str | None:
     """Persist the bounded, per-turn user text scratch for Stop-time pairing.
 
     Codex documents ``turn_id`` for the Stop event but may omit it on
     ``UserPromptSubmit``. When the prompt event carries a ``turn_id`` the
     scratch is keyed by session+turn (exact pairing); otherwise it is keyed by
-    session alone and the next Stop hook in that session pairs it. Returns
-    True when a scratch entry was staged.
+    session alone and the next Stop hook in that session pairs it. Return a
+    content-free diagnostic when the scratch write fails; otherwise return
+    None.
     """
     session_id = event.get("session_id")
     if not isinstance(session_id, str) or not session_id:
-        return False
+        return None
     turn_id = event.get("turn_id")
     has_turn = isinstance(turn_id, str) and bool(turn_id)
     excerpt, truncated = runtime.truncate_utf8(prompt, runtime.USER_EXCERPT_BYTES)
@@ -67,19 +72,20 @@ def stage_turn_input(event: dict, prompt: str) -> bool:
     try:
         runtime.write_json_private(path, record)
     except OSError:
-        # Content-free diagnostic: capture missed, but the turn continues.
-        runtime.emit(
-            system_message=(
-                "Qdrant Memory could not stage this turn's input locally; "
-                "this turn will not be auto-captured."
-            )
-        )
-        return False
-    return True
+        return STAGE_FAILURE
+    return None
+
+
+def _emit_status(message: str, stage_diagnostic: str | None = None) -> int:
+    """Emit one hook response, including any best-effort staging failure."""
+    if stage_diagnostic:
+        message = f"{stage_diagnostic} {message}" if message else stage_diagnostic
+    return runtime.emit(system_message=message)
 
 
 def main() -> int:
     """Stage the turn input, then honor an explicit remember: line if present."""
+    stage_diagnostic = None
     try:
         event = runtime.read_hook_input()
         prompt = event.get("prompt")
@@ -87,32 +93,33 @@ def main() -> int:
             return 0
         # 1. Pairing record: local scratch, best effort, never fatal.
         if os.environ.get("QDRANT_MEMORY_CODEX_AUTO_CAPTURE", "1") != "0":
-            stage_turn_input(event, prompt)
+            stage_diagnostic = stage_turn_input(event, prompt)
         # 2. Explicit directive (existing contract).
         line = prompt.splitlines()[0]
         match = DIRECTIVE.match(line)
         if not match:
-            return 0
+            return _emit_status("", stage_diagnostic) if stage_diagnostic else 0
         text = match.group(1)
         if not text.strip():
-            return 0
+            return _emit_status("", stage_diagnostic) if stage_diagnostic else 0
         if len(text) > runtime.MAX_CAPTURE_CHARS:
-            return runtime.emit(
-                system_message=(
-                    "Qdrant Memory did not save: the remember: line exceeds "
-                    f"{runtime.MAX_CAPTURE_CHARS} characters; shorten and retry."
-                )
+            return _emit_status(
+                "Qdrant Memory did not save: the remember: line exceeds "
+                f"{runtime.MAX_CAPTURE_CHARS} characters; shorten and retry.",
+                stage_diagnostic,
             )
         runtime.load_scope()  # fail closed for complete profiles only
         status, out, err = runtime.call_runtime("add", "--text", text)
         if status != 0:
-            return runtime.emit(
-                system_message="Qdrant Memory did not save: "
-                + runtime.safe_error(out, err)
+            return _emit_status(
+                "Qdrant Memory did not save: " + runtime.safe_error(out, err),
+                stage_diagnostic,
             )
-        return runtime.emit(system_message="Qdrant Memory saved one explicit fact.")
+        return _emit_status("Qdrant Memory saved one explicit fact.", stage_diagnostic)
     except runtime.HookError as error:
-        return runtime.emit(system_message=f"Qdrant Memory did not save: {error}")
+        return _emit_status(
+            f"Qdrant Memory did not save: {error}", stage_diagnostic
+        )
 
 
 if __name__ == "__main__":
