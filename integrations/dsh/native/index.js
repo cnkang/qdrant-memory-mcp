@@ -857,6 +857,7 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
     pending: [],
     turns: new Set(),
     turnAgents: new Map(),
+    turnEvents: new Map(),
     running: false,
     closing: false,
     closingTimer: null,
@@ -867,13 +868,14 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
   })
 
   /** Rebind every queued or executing turn under the replacement agent. */
-  const replayExecutingTurns = (queue, agent, session, events) => {
+  const replayExecutingTurns = (queue, agent, session) => {
     for (const queuedTurn of queue.turns) {
       if (!queue.pending.some((item) => item.turn === queuedTurn)) {
         // The executing item has already left pending. Replay it under the new
-        // lifetime too: its old-agent capture will stop at its next ownership
-        // check.
-        queue.pending.push({ turn: queuedTurn, events, agent, session })
+        // lifetime too with its own event slice: the incoming event may belong
+        // to a different turn. Its old-agent capture stops at its next
+        // ownership check.
+        queue.pending.push({ turn: queuedTurn, events: queue.turnEvents.get(queuedTurn), agent, session })
       }
       queue.turnAgents.set(queuedTurn, agent)
     }
@@ -884,7 +886,7 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
     if (queue.turns.has(turn)) {
       if (queue.turnAgents.get(turn) !== agent && !queue.pending.some((item) => item.turn === turn)) {
         queue.turnAgents.set(turn, agent)
-        queue.pending.push({ turn, events, agent, session })
+        queue.pending.push({ turn, events: queue.turnEvents.get(turn), agent, session })
       }
       if (!queue.running && queue.pending.length) {
         queue.drainPromise = drainCapture(sessionId, queue)
@@ -900,6 +902,7 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
     }
     queue.turns.add(turn)
     queue.turnAgents.set(turn, agent)
+    queue.turnEvents.set(turn, events)
     queue.pending.push({ turn, events, agent, session })
     if (!queue.running) queue.drainPromise = drainCapture(sessionId, queue)
     return queue.drainPromise
@@ -949,7 +952,7 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
         queue.turnAgents.set(item.turn, agent)
       }
     }
-    replayExecutingTurns(queue, agent, session, events)
+    replayExecutingTurns(queue, agent, session)
     return queue
   }
 
@@ -1162,6 +1165,7 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
       if (!queue.pending.some((pending) => pending.turn === item.turn)) {
         queue.turns.delete(item.turn)
         queue.turnAgents.delete(item.turn)
+        queue.turnEvents.delete(item.turn)
       }
     }
     if (resolved) {
