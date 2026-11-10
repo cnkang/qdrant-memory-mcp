@@ -167,13 +167,31 @@ def assert_env_forwarding_visible(env, workdir):
     }
 
 
-def install_plugin(env, workdir, marketplace_root):
+def _resolve_within(root, candidate, label):
+    """Resolve a path and require it to remain inside a trusted test root."""
+    root = Path(root).resolve(strict=True)
+    candidate = Path(candidate)
+    if not candidate.is_absolute():
+        candidate = root / candidate
+    resolved = candidate.resolve(strict=True)
+    try:
+        resolved.relative_to(root)
+    except ValueError as exc:
+        raise RuntimeError(f"{label} is outside the isolated Codex home") from exc
+    if resolved == root:
+        raise RuntimeError(f"{label} must name a file inside the isolated Codex home")
+    return resolved
+
+
+def install_plugin(env, workdir, marketplace_root, codex_home):
     """Install the plugin from the given marketplace and verify its package."""
     codex(
         ["plugin", "marketplace", "add", str(marketplace_root), "--json"], env, workdir
     )
     installed = json.loads(codex(["plugin", "add", PLUGIN_ID, "--json"], env, workdir))
-    cache = Path(installed["installedPath"])
+    cache = _resolve_within(
+        codex_home, installed["installedPath"], "Installed plugin path"
+    )
     assert (cache / "skills/setup/SKILL.md").is_file(), "Setup skill missing"
     assert (cache / ".codex-plugin/plugin.json").is_file(), "Codex overlay missing"
     assert (
@@ -530,11 +548,12 @@ def execute(work, evidence, args):
         "QDRANT_MEMORY_SHARED_TOKEN",
     ):
         env.pop(name, None)
-    env["CODEX_HOME"] = str(work / "codex-home")
-    (work / "codex-home").mkdir(mode=0o700)
+    codex_home = work / "codex-home"
+    env["CODEX_HOME"] = str(codex_home)
+    codex_home.mkdir(mode=0o700)
 
     # A. Repository marketplace: install, inspect, disable-proof, remove.
-    repo = install_plugin(env, work, ROOT)
+    repo = install_plugin(env, work, ROOT, codex_home)
     assert repo["version"] == release["plugin_version"], repo
     assert repo["env_forwarding"]["all_present"], repo["env_forwarding"]
     evidence.step(
@@ -558,7 +577,7 @@ def execute(work, evidence, args):
     zip_marketplace = acceptance.prepare_zip_marketplace(
         (work / "plugin.zip").resolve(), work
     )
-    zip_install = install_plugin(env, work, zip_marketplace)
+    zip_install = install_plugin(env, work, zip_marketplace, codex_home)
     assert zip_install["version"] == release["plugin_version"], zip_install
     assert zip_install["env_forwarding"]["all_present"], zip_install["env_forwarding"]
     evidence.step("zip_marketplace_install", version=zip_install["version"])
@@ -614,7 +633,7 @@ def execute(work, evidence, args):
         assert set(before) == {fact_b_id}, before
 
         # F. Disable, uninstall; data must survive outside the plugin.
-        config = Path(env["CODEX_HOME"]) / "config.toml"
+        config = _resolve_within(codex_home, "config.toml", "Codex config path")
         content = config.read_text()
         config.write_text(content.replace("enabled = true", "enabled = false"))
         listing = json.loads(codex(["plugin", "list", "--json"], env, work))
