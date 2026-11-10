@@ -444,8 +444,6 @@ def resolve_archive_output(value):
     if output_root.is_symlink():
         raise ValueError("Plugin archive output directory cannot be a symlink")
     output_root = output_root.resolve()
-    if not output_root.is_relative_to(repository):
-        raise ValueError("Plugin archive output directory must stay inside the repository")
 
     output = Path(value).expanduser()
     if not output.is_absolute():

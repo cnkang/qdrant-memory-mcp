@@ -4,6 +4,7 @@ import importlib.util
 import json
 import os
 import subprocess
+import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -41,6 +42,7 @@ def test_cli_archive_output_stays_inside_dist(tmp_path, monkeypatch):
 
     output = output_root / "qdrant-memory.zip"
     assert package.resolve_archive_output(output) == output
+    assert package.resolve_archive_output(Path("dist/qdrant-memory.zip")) == output
     with pytest.raises(ValueError, match="dist directory"):
         package.resolve_archive_output(tmp_path.parent / "outside.zip")
 
@@ -65,6 +67,75 @@ def test_cli_archive_output_rejects_symlinked_parent(tmp_path, monkeypatch):
 
     with pytest.raises(ValueError, match="dist directory"):
         package.resolve_archive_output(output_root / "nested/archive.zip")
+
+
+def test_cli_archive_output_rejects_output_symlink(tmp_path, monkeypatch):
+    output_root = tmp_path / "dist"
+    output_root.mkdir()
+    target = output_root / "target.zip"
+    target.write_bytes(b"archive")
+    output = output_root / "plugin.zip"
+    output.symlink_to(target)
+    monkeypatch.setattr(package, "ROOT", tmp_path)
+
+    with pytest.raises(ValueError, match="output cannot be a symlink"):
+        package.resolve_archive_output(output)
+
+
+def test_cli_archive_output_requires_regular_file(tmp_path, monkeypatch):
+    output_root = tmp_path / "dist"
+    output_root.mkdir()
+    output = output_root / "directory.zip"
+    output.mkdir()
+    monkeypatch.setattr(package, "ROOT", tmp_path)
+
+    with pytest.raises(ValueError, match="regular file"):
+        package.resolve_archive_output(output)
+
+
+def test_cli_rejects_external_output_before_building(tmp_path, monkeypatch):
+    monkeypatch.setattr(package, "ROOT", tmp_path)
+    skill_repo = tmp_path / "skills"
+    skill_repo.mkdir()
+    output = tmp_path.parent / f"{tmp_path.name}-outside.zip"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["build_codex_plugin.py", "--skill-repo", str(skill_repo), "--output", str(output)],
+    )
+
+    with pytest.raises(SystemExit) as error:
+        package.main()
+
+    assert error.value.code == 2
+    assert not output.exists()
+
+
+def test_cli_builds_to_validated_output_path(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(package, "ROOT", tmp_path)
+    output_root = tmp_path / "dist"
+    output_root.mkdir()
+    skill_repo = tmp_path / "skills"
+    skill_repo.mkdir()
+    built = {}
+
+    def fake_build(output, source):
+        built.update(output=output, source=source)
+        return {"sha256": "fixture"}
+
+    monkeypatch.setattr(package, "build", fake_build)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["build_codex_plugin.py", "--skill-repo", str(skill_repo), "--output", "dist/plugin.zip"],
+    )
+    package.main()
+
+    assert built == {
+        "output": output_root / "plugin.zip",
+        "source": skill_repo,
+    }
+    assert json.loads(capsys.readouterr().out) == {"sha256": "fixture"}
 
 
 def test_skill_frontmatter_version_matches_release():
