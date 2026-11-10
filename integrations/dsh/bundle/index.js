@@ -32,7 +32,7 @@ function legacyRouteRegistered(ctx) {
 }
 
 /** Keep late MCP registrations from creating a second storage route. */
-function guardLateLegacyRoute(ctx) {
+function guardLateLegacyRoute(ctx, target) {
   let ownerRegistrationOpen = false
   let ownerRouteRegistered = false
   const allowedOwnerFibers = new WeakSet()
@@ -51,8 +51,8 @@ function guardLateLegacyRoute(ctx) {
     const route = fiber.config
     if (ownerRegistrationOpen && !ownerRouteRegistered
       && route.transport === 'streamable-http'
-      && route.url === process.env.QDRANT_MEMORY_DSH_OWNER_URL
-      && route.headers?.Authorization === `Bearer ${process.env.QDRANT_MEMORY_DSH_OWNER_TOKEN}`) {
+      && route.url === target.endpoint
+      && route.headers?.Authorization === `Bearer ${target.token}`) {
       ownerRouteRegistered = true
       allowedOwnerFibers.add(fiber)
       return
@@ -83,8 +83,8 @@ export async function apply(ctx, config) {
   if (legacyRouteRegistered(ctx)) {
     throw new Error('Remove the existing qdrant-memory MCP route before selecting an Owner mode')
   }
-  const routeGuard = guardLateLegacyRoute(ctx)
   const target = Native.runtimeTarget(process.env)
+  const routeGuard = guardLateLegacyRoute(ctx, target)
   if (config.mode === 'unified-owner') {
     routeGuard.beginOwnerRegistration()
     try {
