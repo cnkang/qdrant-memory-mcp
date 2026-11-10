@@ -384,6 +384,7 @@ def stage_scratch(monkeypatch, runtime, *, prompt="plain question", session="ses
 
 
 def test_user_prompt_submit_stages_scratch_and_honors_remember(hook_env, monkeypatch, capsys):
+    """Verify UserPromptSubmit stages scratch and still saves a remember line."""
     runtime = load("lifecycle_runtime")
     # The remember branch must be testable on every OS; monkeypatching avoids
     # executing a POSIX-only stub console script on Windows.
@@ -406,6 +407,7 @@ def test_user_prompt_submit_stages_scratch_and_honors_remember(hook_env, monkeyp
 
 
 def test_user_prompt_submit_scratch_records_excerpt(hook_env, monkeypatch):
+    """Verify pairing scratch stores the bounded user excerpt."""
     stage_scratch(monkeypatch, load("lifecycle_runtime"))
     runtime = load("lifecycle_runtime")
     staged = json.loads(
@@ -417,6 +419,7 @@ def test_user_prompt_submit_scratch_records_excerpt(hook_env, monkeypatch):
 
 
 def test_scratch_prefers_plugin_data_and_cleans(hook_env, monkeypatch, tmp_path):
+    """Verify scratch prefers PLUGIN_DATA and is removed after pairing."""
     plugin_data = tmp_path / "plugin-data"
     monkeypatch.setenv("PLUGIN_DATA", str(plugin_data))
     runtime = load("lifecycle_runtime")
@@ -428,6 +431,7 @@ def test_scratch_prefers_plugin_data_and_cleans(hook_env, monkeypatch, tmp_path)
 
 
 def test_stop_capture_pairs_and_writes_bounded_pending_event(hook_env, monkeypatch, capsys):
+    """Verify Stop capture pairs the turn and writes one bounded pending event."""
     stage_scratch(monkeypatch, load("lifecycle_runtime"))
     stop = load("turn_capture")
     feed_stdin(monkeypatch, {
@@ -451,6 +455,7 @@ def test_stop_capture_pairs_and_writes_bounded_pending_event(hook_env, monkeypat
 
 
 def test_stop_capture_is_idempotent_per_turn(hook_env, monkeypatch):
+    """Verify one turn maps to one deterministic pending event."""
     runtime = load("lifecycle_runtime")
     stop = load("turn_capture")
     for _ in range(2):
@@ -465,6 +470,7 @@ def test_stop_capture_is_idempotent_per_turn(hook_env, monkeypatch):
 
 
 def test_stop_capture_byte_bounds_assistant_text(hook_env, monkeypatch):
+    """Verify assistant text is truncated at the configured byte bound."""
     stage_scratch(monkeypatch, load("lifecycle_runtime"))
     stop = load("turn_capture")
     runtime = load("lifecycle_runtime")
@@ -479,6 +485,7 @@ def test_stop_capture_byte_bounds_assistant_text(hook_env, monkeypatch):
 
 
 def test_stop_capture_without_pairing_captures_nothing(hook_env, monkeypatch):
+    """Verify Stop capture without pairing scratch captures nothing."""
     stop = load("turn_capture")
     runtime = load("lifecycle_runtime")
     feed_stdin(monkeypatch, {
@@ -490,6 +497,7 @@ def test_stop_capture_without_pairing_captures_nothing(hook_env, monkeypatch):
 
 
 def test_stop_capture_requires_assistant_text(hook_env, monkeypatch):
+    """Verify a Stop event without assistant text captures nothing."""
     stage_scratch(monkeypatch, load("lifecycle_runtime"))
     stop = load("turn_capture")
     runtime = load("lifecycle_runtime")
@@ -524,6 +532,7 @@ def test_stop_capture_never_invokes_the_runtime(hook_env, monkeypatch):
 
 
 def test_stop_capture_overflow_prepares_and_pauses(hook_env, monkeypatch, capsys):
+    """Verify a full pending buffer pauses capture and reports overflow."""
     runtime = load("lifecycle_runtime")
     stop = load("turn_capture")
     monkeypatch.setattr(runtime, "pending_count", lambda: runtime.MAX_PENDING_EVENTS)
@@ -541,6 +550,7 @@ def test_stop_capture_overflow_prepares_and_pauses(hook_env, monkeypatch, capsys
 
 
 def test_prune_stale_scratch_respects_ttl(hook_env, monkeypatch):
+    """Verify scratch pruning removes only expired entries."""
     runtime = load("lifecycle_runtime")
     stage_scratch(monkeypatch, runtime)
     scratch = runtime.scratch_path_for("sess-1", "t-1")
@@ -588,6 +598,7 @@ def extraction_provider_stub(monkeypatch, replies):
 
 def stage_pending(hook_env, monkeypatch, runtime, *, user="user turn", assistant="assistant turn",
                   session="sess-1", turn="t-1"):
+    """Stage one pending event for extractor tests."""
     stage_scratch(monkeypatch, runtime, prompt=user, session=session, turn=turn)
     stop = load("turn_capture")
     feed_stdin(monkeypatch, {
@@ -610,6 +621,7 @@ def extractor_cli():
 
 
 def test_extractor_dry_run_lists_candidates_without_writes(hook_env, monkeypatch, capsys):
+    """Verify the default extractor run is a dry-run with zero writes."""
     runtime = load("lifecycle_runtime")
     stage_pending(hook_env, monkeypatch, runtime, user="I prefer round mugs", assistant="Noted the preference.")
     cli = extractor_cli()
@@ -636,6 +648,7 @@ def test_extractor_dry_run_lists_candidates_without_writes(hook_env, monkeypatch
 
 
 def test_extractor_confirm_adds_through_runtime_and_finalizes(hook_env, monkeypatch, capsys):
+    """Verify confirm admits candidates through Runtime and finalizes the event."""
     runtime = load("lifecycle_runtime")
     stage_pending(hook_env, monkeypatch, runtime, user="I prefer round mugs", assistant="Noted.")
     cli = extractor_cli()
@@ -676,6 +689,7 @@ def test_extractor_confirm_adds_through_runtime_and_finalizes(hook_env, monkeypa
 
 
 def test_extractor_confirm_dedupes_against_stored_text(hook_env, monkeypatch, capsys):
+    """Verify confirm skips a candidate already present in the profile."""
     runtime = load("lifecycle_runtime")
     stage_pending(hook_env, monkeypatch, runtime, user="same", assistant="same noted")
     cli = extractor_cli()
@@ -706,6 +720,7 @@ def test_extractor_confirm_dedupes_against_stored_text(hook_env, monkeypatch, ca
 
 
 def test_extractor_rejects_secret_shaped_candidates(hook_env, monkeypatch, capsys):
+    """Verify secret-shaped candidates are rejected before admission."""
     runtime = load("lifecycle_runtime")
     stage_pending(hook_env, monkeypatch, runtime)
     cli = extractor_cli()
@@ -738,6 +753,7 @@ def test_extractor_rejects_secret_shaped_candidates(hook_env, monkeypatch, capsy
 
 
 def test_extractor_extraction_failure_leaves_event_pending(hook_env, monkeypatch, capsys):
+    """Verify an extraction failure keeps the event pending with an error."""
     runtime = load("lifecycle_runtime")
     stage_pending(hook_env, monkeypatch, runtime)
     cli = extractor_cli()
@@ -758,6 +774,7 @@ def test_extractor_extraction_failure_leaves_event_pending(hook_env, monkeypatch
 
 
 def test_extractor_empty_choices_leaves_event_pending(hook_env, monkeypatch, capsys):
+    """Verify an empty provider choice list stays a per-event error."""
     runtime = load("lifecycle_runtime")
     stage_pending(hook_env, monkeypatch, runtime)
     cli = extractor_cli()
@@ -841,6 +858,7 @@ def test_call_runtime_surfaces_timeouts(hook_env, monkeypatch):
 
 
 def test_call_runtime_passes_direct_argv(hook_env, monkeypatch):
+    """Verify the Runtime CLI receives the prepared argument vector directly."""
     runtime = load("lifecycle_runtime")
     seen = []
 
@@ -857,6 +875,7 @@ def test_call_runtime_passes_direct_argv(hook_env, monkeypatch):
 
 
 def test_emit_with_only_system_message(hook_env, capsys):
+    """Verify emit with only a system message stays silent to the model."""
     runtime = load("lifecycle_runtime")
     assert runtime.emit(system_message="note only") is None
     payload = json.loads(capsys.readouterr().out)
@@ -864,6 +883,7 @@ def test_emit_with_only_system_message(hook_env, capsys):
 
 
 def test_emit_both_context_and_message(hook_env, capsys):
+    """Verify emit can return context and a system message together."""
     runtime = load("lifecycle_runtime")
     assert runtime.emit(additional_context="ctx", system_message="warn") is None
     payload = json.loads(capsys.readouterr().out)
@@ -886,11 +906,13 @@ def test_read_hook_input_rejects_malformed(hook_env, monkeypatch):
 
 
 def test_recall_query_fallback_for_root_path(monkeypatch):
+    """Verify recall falls back to the full path for a root working directory."""
     module = load("session_recall")
     assert module.recall_query({"cwd": "/"}) == "/"
 
 
 def test_recall_misread_runtime_output(hook_env, monkeypatch, capsys):
+    """Verify recall reports unreadable Runtime output gracefully."""
     module = load("session_recall")
     monkeypatch.setattr(module.runtime, "load_scope", lambda: ("u", "a"))
     monkeypatch.setattr(module.runtime, "call_runtime", lambda *a, **k: (0, "not-json", ""))
@@ -901,6 +923,7 @@ def test_recall_misread_runtime_output(hook_env, monkeypatch, capsys):
 
 
 def test_recall_tolerates_wrong_shape(hook_env, monkeypatch, capsys):
+    """Verify recall stays silent for an unexpected payload shape."""
     module = load("session_recall")
     monkeypatch.setattr(module.runtime, "load_scope", lambda: ("u", "a"))
     monkeypatch.setattr(module.runtime, "call_runtime", lambda *a, **k: (0, '{"nope": 1}', ""))
@@ -910,6 +933,7 @@ def test_recall_tolerates_wrong_shape(hook_env, monkeypatch, capsys):
 
 
 def test_recall_truncates_long_context(hook_env, monkeypatch, capsys):
+    """Verify recall truncates additional context to the configured limit."""
     module = load("session_recall")
     monkeypatch.setattr(module.runtime, "load_scope", lambda: ("u", "a"))
     feed_stdin(monkeypatch, {"cwd": "/tmp/demo"})
@@ -925,6 +949,7 @@ def test_recall_truncates_long_context(hook_env, monkeypatch, capsys):
 
 
 def test_remember_fullwidth_colon_is_matched(hook_env, monkeypatch, capsys):
+    """Verify the full-width colon form of remember is honored."""
     capture = load("user_prompt_capture")
     calls = []
     monkeypatch.setattr(
@@ -941,6 +966,7 @@ def test_remember_fullwidth_colon_is_matched(hook_env, monkeypatch, capsys):
 
 
 def test_capture_non_string_prompt_is_ignored(hook_env, monkeypatch, capsys):
+    """Verify a non-string prompt is ignored by the capture hook."""
     capture = load("user_prompt_capture")
     feed_stdin(monkeypatch, {"prompt": 42})
     assert capture.main() is None
@@ -948,6 +974,7 @@ def test_capture_non_string_prompt_is_ignored(hook_env, monkeypatch, capsys):
 
 
 def test_capture_blank_prompt_is_ignored(hook_env, monkeypatch, capsys):
+    """Verify a blank prompt is ignored by the capture hook."""
     capture = load("user_prompt_capture")
     feed_stdin(monkeypatch, {"prompt": "   "})
     assert capture.main() is None
@@ -955,6 +982,7 @@ def test_capture_blank_prompt_is_ignored(hook_env, monkeypatch, capsys):
 
 
 def test_capture_add_failure_surfaces(hook_env, monkeypatch, capsys):
+    """Verify a failed Runtime add is surfaced as a diagnostic."""
     capture = load("user_prompt_capture")
     monkeypatch.setattr(capture.runtime, "call_runtime", lambda *a, **k: (2, "{}", "runtime down"))
     monkeypatch.setattr(capture.runtime, "load_scope", lambda: ("u", "a"))
@@ -964,6 +992,7 @@ def test_capture_add_failure_surfaces(hook_env, monkeypatch, capsys):
 
 
 def test_capture_stage_write_failure_is_not_fatal(hook_env, monkeypatch):
+    """Verify a staging write failure never blocks the prompt."""
     capture = load("user_prompt_capture")
     runtime = load("lifecycle_runtime")
     monkeypatch.setattr(runtime, "write_json_private", lambda *a, **k: (_ for _ in ()).throw(OSError("disk full")))
@@ -972,6 +1001,7 @@ def test_capture_stage_write_failure_is_not_fatal(hook_env, monkeypatch):
 
 
 def test_extract_provider_missing_key_header_is_empty_for_local(monkeypatch):
+    """Verify a local endpoint sends no empty Authorization header."""
     cli = load("extract_pending")
     monkeypatch.delenv("EXTRACTION_API_KEY", raising=False)
     assert cli._extraction_key() == ""
@@ -980,6 +1010,7 @@ def test_extract_provider_missing_key_header_is_empty_for_local(monkeypatch):
 
 
 def test_extract_parse_model_json_tolerates_fences(monkeypatch):
+    """Verify model JSON wrapped in code fences is parsed."""
     cli = load("extract_pending")
     document = cli._parse_model_json('```json\n{"memories": []}\n```')
     assert document == {"memories": []}
@@ -988,6 +1019,7 @@ def test_extract_parse_model_json_tolerates_fences(monkeypatch):
 
 
 def test_extract_validate_bounds_categories_and_importance(monkeypatch):
+    """Verify candidate validation enforces bounds, categories and importance."""
     cli = load("extract_pending")
     good, rejected = cli.validate_candidates(
         {
@@ -1006,6 +1038,7 @@ def test_extract_validate_bounds_categories_and_importance(monkeypatch):
 
 
 def test_extract_truncates_extra_candidates(monkeypatch):
+    """Verify candidates beyond the per-turn cap are dropped."""
     cli = load("extract_pending")
     good, rejected = cli.validate_candidates(
         {
@@ -1020,6 +1053,7 @@ def test_extract_truncates_extra_candidates(monkeypatch):
 
 
 def test_extract_redacts_environment_keys(monkeypatch):
+    """Verify environment secret values are redacted from diagnostics."""
     cli = load("extract_pending")
     monkeypatch.setenv("MY_SAMPLE_KEY", "topsecretvalue")
     assert "topsecretvalue" not in cli.redact("entered topsecretvalue here")
@@ -1060,6 +1094,7 @@ def test_non_loopback_plaintext_endpoints_are_refused(hook_env):
 
 
 def test_main_refuses_unsafe_endpoints_before_any_send(hook_env, monkeypatch, capsys):
+    """Verify unsafe extraction endpoints are rejected before any send."""
     runtime = load("lifecycle_runtime")
     stage_pending(hook_env, monkeypatch, runtime)
     cli = extractor_cli()
@@ -1116,6 +1151,7 @@ def test_build_prompt_rejects_malformed_nested_fields(hook_env):
 
 
 def test_prompt_and_validation_surface_truncation(hook_env):
+    """Verify truncated inputs are surfaced to extraction and validation."""
     cli = extractor_cli()
     event = {
         "user_text": {"excerpt": "long user prompt", "truncated": True},
@@ -1136,6 +1172,7 @@ def test_prompt_and_validation_surface_truncation(hook_env):
 
 
 def test_extreme_importance_is_rejected_not_fatal(hook_env):
+    """Verify an out-of-range importance is rejected without aborting the batch."""
     cli = extractor_cli()
     good, rejected = cli.validate_candidates(
         {"memories": [{"text": "big", "importance": 10**400}]}, {}
@@ -1145,6 +1182,7 @@ def test_extreme_importance_is_rejected_not_fatal(hook_env):
 
 
 def test_malformed_choice_entries_are_per_event_errors(hook_env):
+    """Verify malformed provider choice entries stay per-event errors."""
     cli = extractor_cli()
     with pytest.raises(ValueError, match="malformed choice"):
         cli._response_content({"choices": [None]})
@@ -1156,6 +1194,7 @@ def test_malformed_choice_entries_are_per_event_errors(hook_env):
 
 
 def test_oversized_provider_responses_are_refused(hook_env, monkeypatch, capsys):
+    """Verify oversized provider responses are refused before parsing."""
     runtime = load("lifecycle_runtime")
     stage_pending(hook_env, monkeypatch, runtime)
     cli = extractor_cli()
@@ -1176,6 +1215,7 @@ def test_oversized_provider_responses_are_refused(hook_env, monkeypatch, capsys)
 
 
 def test_hook_errors_during_confirm_do_not_abort_the_batch(hook_env, monkeypatch, capsys):
+    """Verify a HookError in confirm is recorded without aborting later events."""
     runtime = load("lifecycle_runtime")
     stage_pending(hook_env, monkeypatch, runtime, session="sess-1", turn="t-1")
     stage_pending(hook_env, monkeypatch, runtime, session="sess-2", turn="t-2")
@@ -1209,6 +1249,7 @@ def test_hook_errors_during_confirm_do_not_abort_the_batch(hook_env, monkeypatch
 
 
 def test_admission_retries_preserve_earlier_receipts(hook_env, monkeypatch, capsys):
+    """Verify retries keep earlier admitted receipts and record IDs."""
     runtime = load("lifecycle_runtime")
     stage_pending(hook_env, monkeypatch, runtime)
     cli = extractor_cli()
@@ -1273,6 +1314,7 @@ def test_admission_retries_preserve_earlier_receipts(hook_env, monkeypatch, caps
 
 
 def test_replacement_intent_deletes_the_superseded_record(hook_env, monkeypatch, capsys):
+    """Verify a replacement deletes the superseded record only with explicit approval."""
     runtime = load("lifecycle_runtime")
     stage_pending(hook_env, monkeypatch, runtime)
     cli = extractor_cli()
@@ -1439,6 +1481,7 @@ def test_finalize_keeps_newer_content_pending_with_receipts(hook_env, monkeypatc
 
 
 def test_replacement_without_context_is_recorded(hook_env, monkeypatch, capsys):
+    """Verify a replacement without context is recorded without deleting anything."""
     runtime = load("lifecycle_runtime")
     stage_pending(hook_env, monkeypatch, runtime)
     cli = extractor_cli()
@@ -1471,6 +1514,7 @@ def test_replacement_without_context_is_recorded(hook_env, monkeypatch, capsys):
 
 
 def test_unreadable_pending_files_are_quarantined(hook_env, monkeypatch, capsys):
+    """Verify unreadable pending files are quarantined out of the ring."""
     runtime = load("lifecycle_runtime")
     stage_pending(hook_env, monkeypatch, runtime)
     (runtime.pending_dir() / "broken.json").write_text("{oops", encoding="utf-8")
@@ -1487,6 +1531,7 @@ def test_unreadable_pending_files_are_quarantined(hook_env, monkeypatch, capsys)
 
 
 def test_repeated_failures_do_not_starve_later_events(hook_env, monkeypatch, capsys):
+    """Verify repeatedly failing events do not starve later batches."""
     runtime = load("lifecycle_runtime")
     stage_pending(hook_env, monkeypatch, runtime, session="sess-1", turn="t-1")
     stage_pending(hook_env, monkeypatch, runtime, session="sess-2", turn="t-2")
@@ -1508,6 +1553,7 @@ def test_repeated_failures_do_not_starve_later_events(hook_env, monkeypatch, cap
 
 
 def test_capture_overwrites_its_own_event_at_capacity(hook_env, monkeypatch, capsys):
+    """Verify a repeated Stop overwrites its own event even at capacity."""
     runtime = load("lifecycle_runtime")
     stop = load("turn_capture")
     stage_scratch(monkeypatch, runtime)
@@ -1554,6 +1600,7 @@ def test_pending_ring_capacity_never_exceeds_the_cap_under_concurrency(hook_env)
 
 
 def test_concurrent_writes_share_no_tmp_file(hook_env):
+    """Verify concurrent writes use distinct temporary files."""
     runtime = load("lifecycle_runtime")
     target = runtime.pending_dir() / "shared.json"
     barrier = threading.Barrier(4)
@@ -1610,6 +1657,7 @@ def test_exclusive_lock_serializes_and_times_out(hook_env):
 
 
 def test_prune_keeps_a_concurrently_restaged_scratch(hook_env, monkeypatch):
+    """Verify pruning does not remove scratch restaged during the sweep."""
     runtime = load("lifecycle_runtime")
     stage_scratch(monkeypatch, runtime)
     scratch = runtime.scratch_path_for("sess-1", "t-1")
@@ -1622,6 +1670,7 @@ def test_prune_keeps_a_concurrently_restaged_scratch(hook_env, monkeypatch):
 
 
 def test_capture_failures_emit_content_free_diagnostics(hook_env, monkeypatch, capsys):
+    """Verify capture failures emit diagnostics without turn content."""
     runtime = load("lifecycle_runtime")
     stop = load("turn_capture")
     stage_scratch(monkeypatch, runtime)
@@ -1641,6 +1690,7 @@ def test_capture_failures_emit_content_free_diagnostics(hook_env, monkeypatch, c
 
 
 def test_stage_write_failures_emit_content_free_diagnostics(hook_env, monkeypatch, capsys):
+    """Verify staging write failures emit diagnostics without turn content."""
     capture = load("user_prompt_capture")
     runtime = load("lifecycle_runtime")
     monkeypatch.setattr(
@@ -1657,6 +1707,7 @@ def test_stage_write_failures_emit_content_free_diagnostics(hook_env, monkeypatc
 
 
 def test_prompt_without_turn_id_pairs_by_session(hook_env, monkeypatch, capsys):
+    """Verify prompts without a turn ID still pair through the session fallback."""
     runtime = load("lifecycle_runtime")
     capture = load("user_prompt_capture")
     feed_stdin(monkeypatch, {
@@ -1684,6 +1735,7 @@ def test_prompt_without_turn_id_pairs_by_session(hook_env, monkeypatch, capsys):
 
 
 def test_stale_snapshots_are_never_admitted(hook_env, monkeypatch, capsys):
+    """Verify a redelivered snapshot is never admitted under an older fingerprint."""
     runtime = load("lifecycle_runtime")
     stage_pending(hook_env, monkeypatch, runtime)
     cli = extractor_cli()
@@ -1718,6 +1770,7 @@ def test_stale_snapshots_are_never_admitted(hook_env, monkeypatch, capsys):
 
 
 def test_pending_copies_with_an_extracted_twin_are_reconciled(hook_env, monkeypatch):
+    """Verify a stale pending copy is removed when its extracted twin exists."""
     runtime = load("lifecycle_runtime")
     stage_pending(hook_env, monkeypatch, runtime)
     cli = extractor_cli()
