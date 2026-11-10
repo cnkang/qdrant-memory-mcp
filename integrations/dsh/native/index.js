@@ -1015,6 +1015,7 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
     // it on every resume would only repeat the same empty extraction.
     if (!turn) return true
     const boundary = await captureBoundaries.get(agent)
+    if (!Number.isFinite(boundary)) return false
     const start = events.find((event) => event.type === 'turn/start' && event.data?.turn === turnNumber)
     if (!start || start.seq < boundary) return true
     metrics.capture_turns_eligible += 1

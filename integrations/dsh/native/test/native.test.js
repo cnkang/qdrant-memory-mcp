@@ -2272,12 +2272,20 @@ test('plugin disposal cancels a stalled recovery-progress flush', { timeout: 800
 })
 
 test('boundary initialization fails closed when durability arrives after its deadline', { timeout: 8000 }, async () => {
+  const root = new Context()
+  await root.plugin(SessionStore)
+  const session = root.sessions.create('deadline-session')
+  appendPluginRecord(session, 'plugin:qdrant-memory/capture-state', {
+    session_id: session.id, enabled: true, after_seq: 0,
+  })
+  let durableEvents = session.snapshotEvents()
+  const history = turnEvents(1)
   const handlers = new Map()
   let cleanup
   const warnings = []
   let flushCalls = 0
   let durabilityAvailable = false
-  const neverSubmitted = []
+  let recoveryReads = 0
   const runtimeCalls = []
   const ctx = {
     on(event, handler) {
@@ -2285,14 +2293,26 @@ test('boundary initialization fails closed when durability arrives after its dea
       return () => handlers.delete(event)
     },
     effect(register) { cleanup = register() },
-    logger: { warn(message) { warnings.push(String(message)) } },
+    logger: { warn(message) {
+      const text = String(message)
+      warnings.push(text)
+      if (text.includes('capture boundary is unavailable')) durabilityAvailable = true
+    } },
     llm: candidateStream('Remember turn 1 fact.'),
-    sessions: { flush: async () => { flushCalls += 1; return durabilityAvailable } },
-    sessionQuery: { readSession: async () => ({ events: turnEvents(1) }) },
+    sessions: { flush: async (current) => {
+      flushCalls += 1
+      if (!durabilityAvailable) return false
+      durableEvents = current.snapshotEvents()
+      return true
+    } },
+    sessionQuery: { readSession: async () => {
+      recoveryReads += 1
+      return { events: [...history, ...durableEvents] }
+    } },
     agents: { get() { return undefined }, list() { return [] } },
   }
   const agent = {
-    session: { id: 'deadline-session' },
+    session,
     model: { current: () => ({ provider: 'provider-a', model: 'model-a' }) },
   }
   const config = {
@@ -2308,19 +2328,28 @@ test('boundary initialization fails closed when durability arrives after its dea
     await handlers.get('agent/created')({ agent })
     const elapsed = Date.now() - started
     assert.ok(elapsed < 250, `agent creation does not wait for boundary initialization (${elapsed} ms)`)
+    const waitFor = async (predicate, message) => {
+      const deadline = Date.now() + 3000
+      while (!predicate() && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 10))
+      assert.ok(predicate(), message)
+    }
     // Boundary setup retries only through its configured deadline and fails closed.
-    await new Promise((resolve) => setTimeout(resolve, 1500))
+    await waitFor(() => warnings.some((message) => message.includes('capture boundary is unavailable')),
+      'the activation boundary failed closed after its deadline')
     assert.ok(warnings.some((message) => message.includes('capture boundary is unavailable')), warnings)
     assert.ok(warnings.some((message) => message.includes('session durability stays unavailable')), warnings)
-    // A later recovery flush may now succeed, but it cannot reopen this agent's
-    // failed activation boundary or send turns to the Owner.
-    durabilityAvailable = true
-    handlers.get('session/event')(agent.session, { type: 'turn/end', data: { turn: 1, reason: { kind: 'completed' } } })
-    await new Promise((resolve) => setTimeout(resolve, 200))
-    assert.equal(neverSubmitted.length, 0)
+    // Recovery can flush the old enabled marker after the deadline, but must
+    // keep the failed boundary closed before the live turn is admitted.
+    await waitFor(() => recoveryReads > 0, 'the later recovery flush read the durable session')
+    await handlers.get('session/event')(session, {
+      type: 'turn/end', data: { turn: 1, reason: { kind: 'completed' } },
+    })
+    const progress = session.snapshotEvents().filter((event) => event.type === 'plugin:qdrant-memory/recovery-progress')
+    assert.equal(progress.length, 0, 'a failed boundary leaves the live turn unresolved and writes no after_turn')
     assert.equal(runtimeCalls.length, 0, 'capture never called Runtime after boundary initialization failed')
   } finally {
     dispose()
+    await root.registry.delete(SessionStore)
   }
   assert.ok(flushCalls > 4, `the deadline retry loop called the handler (calls: ${flushCalls})`)
   assert.equal(handlers.size, 0)
