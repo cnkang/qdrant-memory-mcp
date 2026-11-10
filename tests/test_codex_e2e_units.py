@@ -3,6 +3,7 @@
 import importlib.util
 import json
 import os
+import signal
 import subprocess
 import sys
 import time
@@ -401,6 +402,44 @@ def test_hard_kill_probe_kills_after_initialize(monkeypatch):
     assert result == -9
     assert created == [["node", "l", "mcp"]]
     assert len(killed) == 1
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX process groups")
+def test_terminate_tree_kills_descendants(tmp_path):
+    module = load_e2e()
+    pid_file = tmp_path / "child.pid"
+    process = subprocess.Popen(
+        ["sh", "-c", 'sleep 60 & echo $! > "$TEST_CHILD_PID_FILE"; wait'],
+        env={**os.environ, "TEST_CHILD_PID_FILE": str(pid_file)},
+        start_new_session=True,
+    )
+    child = None
+    try:
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            if pid_file.exists() and pid_file.read_text().strip():
+                child = int(pid_file.read_text().strip())
+                break
+            time.sleep(0.05)
+        assert child is not None, "shell did not record its background child PID"
+        module.terminate_tree(process)
+        process.wait(timeout=5)
+        for _ in range(50):
+            try:
+                os.kill(child, 0)
+            except ProcessLookupError:
+                return
+            time.sleep(0.1)
+        pytest.fail("descendant survived terminate_tree")
+    finally:
+        if process.poll() is None:
+            module.terminate_tree(process)
+            process.wait(timeout=5)
+        if child is not None:
+            try:
+                os.kill(child, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
 
 
 def test_readline_with_deadline_fails_instead_of_blocking():

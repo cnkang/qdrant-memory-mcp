@@ -50,7 +50,8 @@ _SAFE_SUBPROCESS_ARGUMENT = re.compile(
     r"^(?:"
     r"-C|-P|-m|-o|-r|-d|--depth|--wheel|--out-dir|--python-version|"
     r"--python-platform|--generate-hashes|--seed|--python|--require-hashes|"
-    r"--only-binary=:all:|--no-deps|--no-index|--no-cache-dir|--find-links|--help"
+    r"--only-binary=:all:|--no-deps|--no-index|--no-cache-dir|--find-links|--help|"
+    r"--offline|--no-python-downloads"
     r"|[^-\x00-\x1f\x7f][^\x00-\x1f\x7f]*"
     r")$"
 )
@@ -255,7 +256,11 @@ def verify_offline(target: str, wheelhouse: Path, runtime_meta: dict) -> dict:
     try:
         verify_req = offline_requirements(target, wheelhouse, runtime_meta, work)
         venv_dir = work / "venv"
-        run("uv", ["venv", "--python", "3.11", str(venv_dir)], work)
+        run(
+            "uv",
+            ["venv", "--offline", "--no-python-downloads", "--python", "3.11", str(venv_dir)],
+            work,
+        )
         python = venv_dir / (
             "Scripts/python.exe" if sys.platform == "win32" else "bin/python"
         )

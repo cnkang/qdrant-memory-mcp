@@ -34,7 +34,7 @@ def main() -> None:
         match = DIRECTIVE.match(line)
         if not match:
             return
-        text = match.group(1).lstrip(" \t")
+        text = match.group(1)
         if not text.strip():
             return
         if len(text) > runtime.MAX_CAPTURE_CHARS:

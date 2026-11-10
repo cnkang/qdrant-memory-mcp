@@ -16,7 +16,8 @@
   capture through the released hooks contract; no hooks in the public package.
 - Generate per-platform hash-locked desktop runtime dependency locks
   (`runtime-locks/*.txt`) plus the pinned-commit Runtime wheel record, with
-  offline `--require-hashes` installs verified on macOS arm64/x64.
+  offline `--require-hashes` installs verified on macOS arm64; macOS x64
+  remains **NOT VERIFIED**.
 - Require the `Codex plugin` workflow for tagged releases in the release
   gate, and add launcher/regression tests for a runtime venv missing the
   pinned MCP distribution plus real-MCP scope isolation.
