@@ -191,6 +191,7 @@ def build_prompt(event: dict) -> str:
 
 
 def _endpoint_is_loopback(base_url: str) -> bool:
+    """True when the endpoint host is loopback (localhost, 127.0.0.0/8, ::1)."""
     host = (urllib.parse.urlparse(base_url).hostname or "").lower()
     return host in {"localhost", "::1"} or host.startswith("127.")
 
@@ -220,6 +221,7 @@ class ExtractionProvider:
         self.timeout = timeout
 
     def extract(self, prompt: str):
+        """POST the prompt to the configured provider and return its reply."""
         payload = json.dumps(
             {
                 "model": self.model,
@@ -345,6 +347,7 @@ def validate_candidates(document, source_event: dict) -> tuple[list[dict], list[
 
 
 def _candidate_error(candidate) -> str | None:
+    """Return the rejection reason for one candidate, or None when it is valid."""
     if not isinstance(candidate, dict):
         return "candidate is not an object"
     allowed = {"text", "category", "importance", "replacement_intent"}
@@ -395,13 +398,17 @@ def show_plan(outcomes, dropped_overflow: int, quarantined=()) -> None:
 
 
 def _receipt_provenance() -> dict:
+    """Provenance block stamped onto every admitted-candidate receipt."""
     return {**runtime.PROVENANCE, "plugin_version": runtime.PLUGIN_VERSION}
 
 
 def _replacement_target(candidate: dict, admit) -> dict:
-    """Locate the outdated memory a replacement candidate supersedes.
+    """Locate the outdated memory a replacement candidate proposes to replace.
 
-    Runs BEFORE the add so the new record cannot match itself.
+    Runs BEFORE the add so the new record cannot match itself. The top search
+    hit is only a PROPOSAL: semantic search alone does not establish that the
+    record is the fact being replaced, so deletion is gated on explicit
+    operator approval (``--allow-replacement-deletes``).
     """
     context = candidate.get("replacement_context")
     if not isinstance(context, str) or not context.strip():
@@ -423,17 +430,27 @@ def _replacement_target(candidate: dict, admit) -> dict:
         result["note"] = "search returned no usable record id"
         return result
     result["target_found"] = True
-    result["replaced_record_id"] = target_id
+    result["proposed_record_id"] = target_id
     old_text = top.get("text")
     if isinstance(old_text, str):
-        result["replaced_text"] = old_text[:300]
+        result["proposed_text"] = old_text[:300]
     return result
 
 
-def _delete_replacement_target(target: dict, admit) -> dict:
-    """Delete the located superseded memory; record the outcome in the receipt."""
-    record_id = target.get("replaced_record_id")
+def _delete_replacement_target(target: dict, admit, approved: bool) -> dict:
+    """Delete the proposed superseded memory when the operator approved it.
+
+    Without approval the located proposal is recorded in the receipt only;
+    the receipt always shows what was (or would be) replaced.
+    """
+    record_id = target.get("proposed_record_id")
     if not target.get("target_found") or not isinstance(record_id, str):
+        return target
+    if not approved:
+        target["note"] = (
+            "deletion not approved; rerun with --allow-replacement-deletes "
+            "to delete the proposed target"
+        )
         return target
     status, body, err = admit("delete", "--id", record_id)
     if status != 0:
@@ -443,8 +460,14 @@ def _delete_replacement_target(target: dict, admit) -> dict:
     return target
 
 
-def _admit_event(outcome, admit) -> dict:
-    """Admit one staged event's candidates and persist its post-run state."""
+def _admit_event(outcome, admit, allow_replacement_deletes: bool = False) -> dict:
+    """Admit one staged event's candidates and persist its post-run state.
+
+    The staged snapshot is fingerprint-checked again inside
+    :func:`finalize_event` under the pending lock, so a Stop redelivery that
+    lands between loading and finalizing can never be stamped with this
+    run's status.
+    """
     errors = []
     path = outcome["_path"]
     # Stale-snapshot guard: a concurrent Stop redelivery may have overwritten
@@ -491,7 +514,19 @@ def _admit_event(outcome, admit) -> dict:
                 except ValueError:
                     record_id = None
                 if candidate.get("replacement_intent"):
-                    replacement = _delete_replacement_target(replacement or {}, admit)
+                    try:
+                        replacement = _delete_replacement_target(
+                            replacement or {}, admit, allow_replacement_deletes
+                        )
+                    except runtime.HookError as error:
+                        # The add already succeeded: never lose its receipt to
+                        # a failed delete. Record the failure on the receipt
+                        # and keep the event pending so the retry can revisit.
+                        replacement = (
+                            replacement if isinstance(replacement, dict) else {}
+                        )
+                        replacement["delete_error"] = str(error)
+                        errors.append(str(error))
         except runtime.HookError as error:
             errors.append(str(error))
             continue
@@ -511,7 +546,12 @@ def _admit_event(outcome, admit) -> dict:
     if errors:
         event_state["last_error"] = " | ".join(errors)[:600]
     new_status = "extracted" if not errors else "pending"
-    finalize_event(outcome["_path"], event_state, new_status)
+    finalize_event(
+        outcome["_path"],
+        event_state,
+        new_status,
+        loaded_fingerprint=outcome.get("_fingerprint", ""),
+    )
     return {
         "event_id": outcome["event_id"],
         "status": new_status,
@@ -523,7 +563,9 @@ def _admit_event(outcome, admit) -> dict:
     }
 
 
-def admit_all(outcomes, *, runtime_home_cli=None) -> dict:
+def admit_all(
+    outcomes, *, runtime_home_cli=None, allow_replacement_deletes: bool = False
+) -> dict:
     """Confirm path: admit validated candidates through the Runtime CLI.
 
     The runtime callable resolves at call time (never captured as a default
@@ -534,7 +576,9 @@ def admit_all(outcomes, *, runtime_home_cli=None) -> dict:
     results = []
     for outcome in outcomes:
         try:
-            results.append(_admit_event(outcome, admit))
+            results.append(
+                _admit_event(outcome, admit, allow_replacement_deletes)
+            )
         except runtime.HookError as error:
             results.append(_failed_outcome(outcome, str(error)))
         except OSError as error:
@@ -543,6 +587,7 @@ def admit_all(outcomes, *, runtime_home_cli=None) -> dict:
 
 
 def _failed_outcome(outcome, message: str) -> dict:
+    """Build the reported shape for an event whose admission failed early."""
     return {
         "event_id": outcome.get("event_id", ""),
         "status": "pending",
@@ -566,48 +611,78 @@ def is_duplicate(text: str, runtime_home_cli) -> bool:
     return any(row.get("text", "").strip() == text.strip() for row in rows)
 
 
-def finalize_event(path, event_state, new_status) -> None:
-    """Persist the post-admission event state into its staged file."""
-    event = runtime.read_json(path) or {}
-    event["status"] = new_status
-    event["processed_utc"] = _dt.datetime.now(_dt.timezone.utc).isoformat(
-        timespec="milliseconds"
-    )
-    # Retry semantics: keep every earlier admitted receipt and its record ID;
-    # this run's receipts are merged in without duplicating entries.
-    previous = event.get("candidates")
-    previous = previous if isinstance(previous, list) else []
+def _merge_admitted(previous, admitted) -> list[dict]:
+    """Merge this run's admitted receipts into any earlier ones (retry-safe)."""
     merged: dict = {}
-    for item in previous:
+    for item in previous if isinstance(previous, list) else []:
         if isinstance(item, dict):
             merged.setdefault(item.get("record_id") or item.get("text"), item)
-    for item in event_state["admitted"]:
+    for item in admitted:
         merged.setdefault(item.get("record_id") or item["text"], item)
-    event["candidates"] = list(merged.values())
-    event["skipped"] = [
+    return list(merged.values())
+
+
+def finalize_event(
+    path, event_state, new_status, loaded_fingerprint: str = ""
+) -> None:
+    """Persist the post-admission event state into its staged file.
+
+    Runs under the pending lock (the same one :func:`lifecycle_runtime.write_pending_event`
+    uses) and re-checks the snapshot fingerprint: if a Stop redelivery
+    replaced the staged content while this run processed the older snapshot,
+    the newer turn stays pending untouched and only this run's durable
+    receipts (admitted records, skips, refusals) are merged into it, so the
+    next run re-extracts the newer content and deduplicates against them.
+    """
+    skipped = [
         {"text": item["text"], "reason": item["reason"]}
         for item in event_state["skipped"]
     ]
-    event["rejected"] = event_state.get("rejected", [])
-    if event_state.get("last_error"):
-        event["last_error"] = event_state["last_error"]
-        event["attempts"] = int(event.get("attempts") or 0) + 1
-    else:
-        event.pop("last_error", None)  # the retry resolved the failure
-        event.pop("attempts", None)
-    destination_parent = (
-        runtime.extracted_dir() if new_status == "extracted" else runtime.pending_dir()
-    )
-    destination = destination_parent / path.name
-    runtime.write_json_private(destination, event)
-    if path != destination:
-        try:
-            path.unlink()
-        except OSError:
-            # Recoverable move: mark the archived copy; the next load
-            # reconciles the leftover pending duplicate before processing.
-            event["pending_cleanup_failed"] = True
-            runtime.write_json_private(destination, event)
+    rejected = event_state.get("rejected", [])
+    with runtime.exclusive_lock("pending"):
+        event = runtime.read_json(path) or {}
+        content_changed = (
+            bool(loaded_fingerprint)
+            and runtime.file_fingerprint(path) != loaded_fingerprint
+        )
+        if content_changed:
+            merged = _merge_admitted(event.get("candidates"), event_state["admitted"])
+            if merged or skipped or rejected:
+                event["candidates"] = merged
+                event["skipped"] = skipped
+                event["rejected"] = rejected
+                runtime.write_json_private(path, event)
+            return
+        event["status"] = new_status
+        event["processed_utc"] = _dt.datetime.now(_dt.timezone.utc).isoformat(
+            timespec="milliseconds"
+        )
+        # Retry semantics: keep every earlier admitted receipt and its record ID;
+        # this run's receipts are merged in without duplicating entries.
+        event["candidates"] = _merge_admitted(
+            event.get("candidates"), event_state["admitted"]
+        )
+        event["skipped"] = skipped
+        event["rejected"] = rejected
+        if event_state.get("last_error"):
+            event["last_error"] = event_state["last_error"]
+            event["attempts"] = int(event.get("attempts") or 0) + 1
+        else:
+            event.pop("last_error", None)  # the retry resolved the failure
+            event.pop("attempts", None)
+        destination_parent = (
+            runtime.extracted_dir() if new_status == "extracted" else runtime.pending_dir()
+        )
+        destination = destination_parent / path.name
+        runtime.write_json_private(destination, event)
+        if path != destination:
+            try:
+                path.unlink()
+            except OSError:
+                # Recoverable move: mark the archived copy; the next load
+                # reconciles the leftover pending duplicate before processing.
+                event["pending_cleanup_failed"] = True
+                runtime.write_json_private(destination, event)
 
 
 def main(argv=None) -> None:
@@ -622,6 +697,13 @@ def main(argv=None) -> None:
         "--confirm",
         action="store_true",
         help="admit candidates via Runtime add (default: dry-run only)",
+    )
+    parser.add_argument(
+        "--allow-replacement-deletes",
+        action="store_true",
+        help="during --confirm, delete the superseded memory located by a "
+        "candidate's replacement context (default: record the proposed "
+        "target in the receipt without deleting)",
     )
     parser.add_argument(
         "--limit",
@@ -687,7 +769,9 @@ def main(argv=None) -> None:
             outcome["extraction_error"] = redact(str(error))[:300]
         outcomes.append(outcome)
     if args.confirm:
-        result = admit_all(outcomes)
+        result = admit_all(
+            outcomes, allow_replacement_deletes=args.allow_replacement_deletes
+        )
     else:
         show_plan(outcomes, dropped_overflow, quarantined)
         return
