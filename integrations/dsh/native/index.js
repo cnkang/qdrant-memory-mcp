@@ -610,10 +610,9 @@ async function retryRequest(request, signal) {
 }
 
 /**
- * Resolve the capture activation watermark, or return Infinity when capture
- * stays disabled. The session durability listener can arrive after an agent
- * registers, so one missing flush retries within the capture timeout instead
- * of permanently disabling automatic capture for a live agent.
+ * Resolve the capture activation watermark within the configured deadline.
+ * If durable storage stays unavailable past that deadline, this agent fails
+ * closed for its lifetime rather than guessing a consent boundary.
  */
 async function resolveCaptureBoundary(ctx, config, agent, id, activationSeq, controller, lifetimeSignal) {
   if (!config.auto_capture.enabled && typeof agent.session.append !== 'function') return Infinity
@@ -672,8 +671,8 @@ async function resolveCaptureBoundary(ctx, config, agent, id, activationSeq, con
 
 /**
  * Await one durable session flush, retrying the validity handler while it is
- * not yet available. Every attempt stays within the capture deadline; a
- * missing handler never becomes a permanent capture disable.
+ * not yet available. Every attempt stays within the activation deadline; if
+ * it expires, the caller must fail closed instead of guessing a boundary.
  */
 async function awaitDurableFlush(ctx, agent, signal, deadline, timeoutSignal) {
   if (signal.aborted) {
@@ -1201,15 +1200,32 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
    * Enqueue bounded turn batches; each pass relies on one durable log read,
    * rather than permanently losing turns older than a batch.
    */
-  const recoverTurnBatches = async (agent, session, snapshot, turns, offset, recoverySignal) => {
+  /** Index each event to its turn once so recovery work is linear in log size. */
+  const indexTurnEvents = (events) => {
+    const eventsByTurn = new Map()
+    let activeTurn
+    for (const event of events) {
+      if (event?.type === 'turn/start' && Number.isInteger(event.data?.turn)) {
+        activeTurn = event.data.turn
+        if (!eventsByTurn.has(activeTurn)) eventsByTurn.set(activeTurn, [])
+      }
+      const turnEvents = eventsByTurn.get(activeTurn)
+      if (!turnEvents) continue
+      turnEvents.push(event)
+      if (event?.type === 'turn/end' && event.data?.turn === activeTurn) activeTurn = undefined
+    }
+    return eventsByTurn
+  }
+
+  const recoverTurnBatches = async (agent, session, eventsByTurn, turns, offset, recoverySignal) => {
     if (offset >= turns.length) return
     const pending = []
     for (const turn of turns.slice(offset, offset + MAX_RECOVERY_TURNS)) {
       if (!isActiveAgent(agent, recoverySignal)) return
-      pending.push(enqueueCapture(session, turn, agent, snapshot.events))
+      pending.push(enqueueCapture(session, turn, agent, eventsByTurn.get(turn) ?? []))
     }
     await Promise.all(pending)
-    return recoverTurnBatches(agent, session, snapshot, turns, offset + MAX_RECOVERY_TURNS, recoverySignal)
+    return recoverTurnBatches(agent, session, eventsByTurn, turns, offset + MAX_RECOVERY_TURNS, recoverySignal)
   }
 
   /** Recover recent completed turns while excluding inherited fork history. */
@@ -1234,6 +1250,7 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
         'DSH recovery read was cancelled',
       )
       if (!isActiveAgent(agent, recoverySignal)) return
+      const eventsByTurn = indexTurnEvents(snapshot.events)
       // A fork inherits the parent's prefix. Only turns after that prefix
       // belong to this session; recapturing inherited history would create
       // duplicate memories under a new session identity. Durable progress
@@ -1257,7 +1274,7 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
       const currentQueue = queues.get(id)
       if (currentQueue?.agent === agent) await saveRecoveryProgress(id, currentQueue)
       if (turns.length) metrics.capture_recovery_count += 1
-      await recoverTurnBatches(agent, session, snapshot, turns, 0, recoverySignal)
+      await recoverTurnBatches(agent, session, eventsByTurn, turns, 0, recoverySignal)
     } catch {
       if (isActiveAgent(agent, recoverySignal)) {
         safeLog(ctx, 'warn', 'Qdrant Memory recovery could not read the durable DSH session log.')
