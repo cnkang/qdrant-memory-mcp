@@ -1446,6 +1446,37 @@ def test_concurrent_writes_share_no_tmp_file(hook_env):
     assert not list(runtime.pending_dir().glob("*.tmp"))
 
 
+def test_write_json_private_retries_windows_access_denied(hook_env, monkeypatch):
+    """A transient Access Denied during the atomic replace is retried."""
+    runtime = load("lifecycle_runtime")
+    target = runtime.pending_dir() / "retry.json"
+    real_replace = runtime.os.replace
+    attempts = {"count": 0}
+
+    def flaky_replace(src, dst):
+        attempts["count"] += 1
+        if attempts["count"] < 3:
+            raise PermissionError(13, "Access is denied")
+        return real_replace(src, dst)
+
+    monkeypatch.setattr(runtime.time, "sleep", lambda _seconds: None)  # instant retries
+    monkeypatch.setattr(runtime.os, "replace", flaky_replace)
+    runtime.write_json_private(target, {"ok": True})
+    assert attempts["count"] == 3
+    assert json.loads(target.read_text(encoding="utf-8")) == {"ok": True}
+
+    # A permanent denial is still swallowed by quarantine (reported, not raised).
+    def always_denied(src, dst):
+        raise PermissionError(13, "Access is denied")
+
+    monkeypatch.setattr(runtime.os, "replace", always_denied)
+    quarantine_source = runtime.pending_dir() / "broken.json"
+    quarantine_source.write_text("{oops", encoding="utf-8")
+    assert runtime.quarantine_pending(quarantine_source) is None
+    monkeypatch.setattr(runtime.os, "replace", real_replace)
+    assert runtime.quarantine_pending(quarantine_source) == "broken.json.corrupt"
+
+
 def test_exclusive_lock_serializes_and_times_out(hook_env):
     runtime = load("lifecycle_runtime")
     with runtime.exclusive_lock("admit"):
