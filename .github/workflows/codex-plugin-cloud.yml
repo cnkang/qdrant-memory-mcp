@@ -68,7 +68,7 @@ jobs:
           import sys
           from pathlib import Path
           release = json.loads(Path("plugins/qdrant-memory/release.json").read_text(encoding="utf-8"))
-          archive = Path(os.environ["RUNNER_TEMP"]) / f"qdrant-memory-codex-{release['plugin_version']}.zip"
+          archive = Path.cwd() / "dist" / f"qdrant-memory-codex-{release['plugin_version']}.zip"
           result = subprocess.run(
               [sys.executable, "scripts/build_codex_plugin.py", "--skill-repo", ".skill-source", "--output", str(archive)],
               check=True,

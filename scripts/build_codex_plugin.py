@@ -437,6 +437,27 @@ def build(output, skill_repo):
     }
 
 
+def resolve_archive_output(value):
+    """Resolve an archive destination within the repository's ignored dist tree."""
+    repository = ROOT.resolve(strict=True)
+    output_root = repository / "dist"
+    if output_root.is_symlink():
+        raise ValueError("Plugin archive output directory cannot be a symlink")
+    output_root = output_root.resolve()
+
+    output = Path(value).expanduser()
+    if not output.is_absolute():
+        output = repository / output
+    if output.is_symlink():
+        raise ValueError("Plugin archive output cannot be a symlink")
+    output = output.resolve()
+    if output == output_root or not output.is_relative_to(output_root):
+        raise ValueError("Plugin archive output must stay inside the repository dist directory")
+    if output.exists() and not output.is_file():
+        raise ValueError("Plugin archive output must be a regular file")
+    return output
+
+
 def main():
     """Build the pinned plugin archive or validate its offline invariants."""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -452,7 +473,11 @@ def main():
     else:
         if args.skill_repo is None:
             parser.error("--skill-repo must contain the pinned upstream commit")
-        print(json.dumps(build(args.output, args.skill_repo)))
+        try:
+            output = resolve_archive_output(args.output)
+        except ValueError as exc:
+            parser.error(str(exc))
+        print(json.dumps(build(output, args.skill_repo)))
 
 
 if __name__ == "__main__":
