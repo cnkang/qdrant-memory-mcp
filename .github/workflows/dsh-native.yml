@@ -69,7 +69,7 @@ jobs:
           npm ci --prefix .github/ci-deps/dsh-native --ignore-scripts --no-audit --no-fund
           node -e "require('node:fs').appendFileSync(process.env.GITHUB_PATH, require('node:path').resolve('.github/ci-deps/dsh-native/node_modules/.bin') + require('node:os').EOL)"
       - name: Install the exact DSH Plugin Manager package manager
-        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115
         with:
           version: '11.28.5'
           package_json_file: integrations/dsh/native/package.json
