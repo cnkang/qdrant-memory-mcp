@@ -34,6 +34,39 @@ def test_portable_package():
     assert "qdrant-memory-mcp==" + release["mcp_distribution_version"] in requirements
 
 
+def test_cli_archive_output_stays_inside_dist(tmp_path, monkeypatch):
+    output_root = tmp_path / "dist"
+    output_root.mkdir()
+    monkeypatch.setattr(package, "ROOT", tmp_path)
+
+    output = output_root / "qdrant-memory.zip"
+    assert package.resolve_archive_output(output) == output
+    with pytest.raises(ValueError, match="dist directory"):
+        package.resolve_archive_output(tmp_path.parent / "outside.zip")
+
+
+def test_cli_archive_output_rejects_symlinked_dist(tmp_path, monkeypatch):
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (tmp_path / "dist").symlink_to(outside, target_is_directory=True)
+    monkeypatch.setattr(package, "ROOT", tmp_path)
+
+    with pytest.raises(ValueError, match="cannot be a symlink"):
+        package.resolve_archive_output(tmp_path / "dist/archive.zip")
+
+
+def test_cli_archive_output_rejects_symlinked_parent(tmp_path, monkeypatch):
+    output_root = tmp_path / "dist"
+    output_root.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (output_root / "nested").symlink_to(outside, target_is_directory=True)
+    monkeypatch.setattr(package, "ROOT", tmp_path)
+
+    with pytest.raises(ValueError, match="dist directory"):
+        package.resolve_archive_output(output_root / "nested/archive.zip")
+
+
 def test_skill_frontmatter_version_matches_release():
     """The packaged Skill snapshot must carry the release's pinned version."""
     release = json.loads((ROOT / "plugins/qdrant-memory/release.json").read_text())
