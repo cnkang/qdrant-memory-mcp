@@ -297,6 +297,27 @@ def event_id_for(session_id: str, turn_id: str) -> str:
     return f"codex-auto-{digest}"
 
 
+def _replace_atomically(tmp: Path, path: Path) -> None:
+    """``os.replace`` with a bounded retry for concurrent Windows writers.
+
+    Two simultaneous replaces onto one destination can transiently fail with
+    Access Denied on Windows while the other rename still holds the target.
+    Last-writer-wins stays atomic; the loser retries briefly instead of
+    losing the write.
+    """
+    deadline = time.monotonic() + 5.0
+    delay = 0.01
+    while True:
+        try:
+            os.replace(tmp, path)
+            return
+        except PermissionError:
+            if time.monotonic() >= deadline:
+                raise
+            time.sleep(delay)
+            delay = min(delay * 2, 0.2)
+
+
 def write_json_private(path: Path, payload) -> None:
     """Create private parent directories and write the file (0600 on POSIX).
 
@@ -316,7 +337,7 @@ def write_json_private(path: Path, payload) -> None:
             handle.write("\n")
         if os.name != "nt":
             os.chmod(tmp, 0o600)
-        os.replace(tmp, path)
+        _replace_atomically(tmp, path)
     finally:
         try:
             tmp.unlink()
@@ -361,7 +382,7 @@ def quarantine_pending(path: Path) -> str | None:
     """
     target = path.with_name(path.name + ".corrupt")
     try:
-        os.replace(path, target)
+        _replace_atomically(path, target)
         return target.name
     except OSError:
         return None
