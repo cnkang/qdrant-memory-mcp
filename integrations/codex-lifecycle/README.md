@@ -30,15 +30,20 @@ all agents.
 | Stage | Component | Writes | Consent |
 |---|---|---|---|
 | Recall | `SessionStart` (`startup\|resume\|clear\|compact\|fork`) → `session_recall.py` | none (read-only `search`; `additionalContext` injection capped by `additionalContextLimit`) | hook trust review |
-| Explicit save | `UserPromptSubmit` → `user_prompt_capture.py` | **one** Runtime `add` for a line starting with `remember:` (≤512 chars, verbatim) | user typed the directive |
-| Staging (auto) | `UserPromptSubmit` stages the turn's user text → `Stop` (`async`, no latency) `turn_capture.py` pairs it with `last_assistant_message` into one bounded local snapshot | local JSON only: `profile/events/codex/pending/` (0600; user excerpt ≤2 KiB, assistant ≤8 KiB; deterministic `event_id`; ring cap 300 pending; overflow counted, nothing dropped silently) | hook trust review; removable at any time by deleting staged files |
-| Extraction | `extract_pending.py` — **operator-run, not a hook** | with the default `dry-run`: zero writes. `--confirm`: Runtime `add` per validated candidate (`extraction-v1` contract: bound text ≤256 chars, importance 0..1, ≤3 per turn, secret-shaped text refused, category/provenance retained in the event file) | the confirm invocation itself; provider is **local Ollama by default** (`http://127.0.0.1:11434/v1`); any OpenAI-compatible endpoint requires explicit `--base-url/--model` and, if needed, `EXTRACTION_API_KEY` from the environment (never an argument) |
+| Explicit save | `UserPromptSubmit` → `user_prompt_capture.py` | **one** Runtime `add` for a line starting with `remember:` or `remember：` (≤512 chars, trailing whitespace preserved) | user typed the directive |
+| Staging (auto) | `UserPromptSubmit` stages the turn's user text → `Stop` (`async`, no latency) `turn_capture.py` pairs it with `last_assistant_message` into one bounded local snapshot | local JSON only: `profile/events/codex/pending/` (0600; user excerpt ≤2 KiB, assistant ≤8 KiB; deterministic `event_id`; ring cap 300 pending under a profile-local lock — only newly added events count and an existing event_id always overwrites; overflow counted, nothing dropped silently) | hook trust review; removable at any time by deleting staged files |
+| Extraction | `extract_pending.py` — **operator-run, not a hook** | with the default `dry-run`: zero writes and **no remote provider calls** (loopback providers only). `--confirm`: Runtime `add` per validated candidate (`extraction-v1` contract: bound text ≤256 chars, importance 0..1, ≤3 per turn, secret-shaped text refused, category/importance/provenance and replacement outcomes retained in the event receipt; Runtime 0.6.0 `add` is text-only, so memory-payload metadata lands with the planned Runtime 0.6.1 Owner endpoint). Replacement candidates search before the add and delete the superseded record after it. Dedupe + admission run under one profile-local lock. Failures keep the event `pending` with `last_error` + retry counter and never abort the batch; successful retries clear both. Non-loopback endpoints require `https://`; `EXTRACTION_API_KEY` comes from the environment (never an argument) | the confirm invocation itself; provider is **local Ollama by default** (`http://127.0.0.1:11434/v1`); any OpenAI-compatible endpoint requires explicit `--base-url/--model` |
 | Cleanup | `SessionEnd` → `prune_scratch.py` (≤3 s) | expires unpaired pairing scratch (48 h TTL) | none |
 
-Unpaired/interrupted turns are simply not captured. Re-running a Stop for the
-same turn overwrites its own event (idempotence). Failures never block the
-turn: capture failures are silent; extraction failures keep the event
-`pending` with a recorded `last_error` for the next run.
+Unpaired/interrupted turns are simply not captured (the pairing scratch is
+keyed by session+turn, with a session-level fallback when the client omits
+`turn_id` on `UserPromptSubmit`). Re-running a Stop for the same turn
+overwrites its own event (idempotence, including at ring capacity). Failures
+never block the turn: capture failures emit one content-free `systemMessage`
+diagnostic; extraction failures keep the event `pending` with a recorded
+`last_error` for the next run. Unreadable pending files are quarantined as
+`*.corrupt` (reported by the extractor) instead of silently consuming ring
+capacity.
 
 `Stop`-based **extraction** (an automatic LLM call inside the session)
 is still not part of the hooks: extraction is the operator's explicit command
@@ -58,9 +63,11 @@ the existing ledger.
 - `codex-plugin remove` (the preview plugin) and `uninstall` never delete the
   profile, staged events, extracted events, or stored memories.
 - Purge paths: delete `profile/events/codex/` (aborts staged content before
-  extraction) or use Runtime-scoped deletion for stored memories. Extraction
-  decisions (admitted / skipped / refused reasons) are recorded in each
-  event's file.
+  extraction) — and, when `PLUGIN_DATA` is set for the hooks, also
+  `$PLUGIN_DATA/turn_inputs/` (the pairing scratch lives there instead of the
+  profile) — or use Runtime-scoped deletion for stored memories. Extraction
+  decisions (admitted / skipped / refused reasons, replacement outcomes) are
+  recorded in each event's file.
 - No telemetry, no credential reading; hook diagnostics never include turn
   content.
 
@@ -80,17 +87,19 @@ launcher on Windows for hook commands.
 ## Extraction usage
 
 ```sh
-# plan only (default; zero writes):
+# plan only (default; zero writes; loopback providers only):
 python3 integrations/codex-lifecycle/plugin/hooks/extract_pending.py \
-  --model qwen3-embedding:4b --limit 25
+  --model qwen3:4b --limit 25
 # admit facts through the local Runtime:
 python3 integrations/codex-lifecycle/plugin/hooks/extract_pending.py \
   --model <model> --confirm
 ```
 
-Ollama must already serve the chosen model locally; the OpenAI-compatible
+Ollama must already serve the chosen chat model locally; the OpenAI-compatible
 client calls `POST {base_url}/chat/completions` with `temperature 0` and a
 strict JSON contract, and refuses empty/oversized/secret-shaped candidates.
+The example model must support chat completions (embedding-only models such as
+`qwen3-embedding:*` cannot answer the extraction prompt).
 
 > **0.165.0 caveat:** the preview manifest installs, but we have not observed
 > 0.165.0 register these file-backed hook definitions for trust review or fire

@@ -7,12 +7,17 @@ from ``hooks.json``):
 * Runs ``async`` so turn latency stays zero. Output only surfaces as a
   systemMessage, never in the model context.
 * Pairs ``last_assistant_message`` with the turn's locally staged user text
-  from the scratch store. If either side is missing or empty, the turn is
-  simply not captured.
+  from the scratch store (session+turn pairing, with a session-level fallback
+  for clients that omit ``turn_id``). If either side is missing or empty, the
+  turn is simply not captured.
 * Writes at most one bounded JSON snapshot per turn under the operator's
   profile ``events/codex/pending/`` (mode 0600; byte-capped 2 KiB user excerpt
   and 8 KiB assistant text). Deterministic ``event_id`` per session+turn, so
-  a repeated run for the same turn overwrites instead of duplicating.
+  a repeated run for the same turn overwrites instead of duplicating —
+  including at ring capacity, where only newly added events count.
+* The capacity check, the write and the overflow marker update run under one
+  profile-local lock, so concurrent Stop hooks cannot exceed the 300-event
+  cap or lose overflow counts.
 * Never calls the Runtime, never invokes a model, never reads Codex
   transcripts or rollout files, never writes to the Qdrant collection.
 * Best effort by design: a local failure exits silently (or with one
@@ -25,6 +30,7 @@ separate, explicit step.
 
 from __future__ import annotations
 
+import hashlib
 import sys
 
 sys.dont_write_bytecode = True
@@ -37,44 +43,41 @@ import lifecycle_runtime as runtime  # noqa: E402
 def capture(event: dict) -> None:
     """Store one pending event for this completed turn; never fail the turn."""
     session_id = event.get("session_id")
-    turn_id = event.get("turn_id")
-    if (
-        not isinstance(session_id, str)
-        or not isinstance(turn_id, str)
-        or not session_id
-        or not turn_id
-    ):
+    if not isinstance(session_id, str) or not session_id:
         return
     if event.get("stop_hook_active") is True:
         return  # continuation turn of a decided Stop; do not chain captures
+    turn_id = event.get("turn_id")
+    has_turn = isinstance(turn_id, str) and bool(turn_id)
     assistant_raw = event.get("last_assistant_message")
     if not isinstance(assistant_raw, str) or not assistant_raw.strip():
         return
-    scratch = runtime.read_json(runtime.scratch_path_for(session_id, turn_id))
+    # Pair with this turn's staged user text; fall back to the session-level
+    # entry staged when UserPromptSubmit omitted turn_id. If neither exists,
+    # the turn was interrupted or tool-only: nothing paired, nothing captured.
+    scratch = None
+    if has_turn:
+        scratch = runtime.read_json(runtime.scratch_path_for(session_id, turn_id))
     if not isinstance(scratch, dict):
-        # Interrupted or tool-only turn: nothing paired, nothing captured.
+        scratch = runtime.read_json(runtime.scratch_session_path(session_id))
+    if not isinstance(scratch, dict):
         return
     user_excerpt = scratch.get("user_excerpt")
     if not isinstance(user_excerpt, str) or not user_excerpt.strip():
         return
-    if runtime.pending_count() >= runtime.MAX_PENDING_EVENTS:
-        runtime.mark_overflow()
-        runtime.emit(
-            system_message=(
-                "Qdrant Memory capture paused: pending buffer is full; "
-                "run the extractor (extract_pending.py) to free space."
-            )
-        )
-        return
     assistant_text, assistant_truncated = runtime.truncate_utf8(
         assistant_raw.strip(), runtime.ASSISTANT_TEXT_BYTES
     )
+    # Deterministic, opaque event ID: session+turn when available, otherwise
+    # derived from the reply content so repeated redeliveries still overwrite
+    # instead of duplicating.
+    turn_key = turn_id if has_turn else f"reply:{hashlib.sha256(assistant_raw.encode('utf-8')).hexdigest()[:16]}"
     payload = {
         "format": runtime.CAPTURE_FORMAT,
         "version": runtime.CAPTURE_FORMAT_VERSION,
-        "event_id": runtime.event_id_for(session_id, turn_id),
+        "event_id": runtime.event_id_for(session_id, turn_key),
         "session_id": session_id,
-        "turn_id": turn_id,
+        "turn_id": turn_key,
         "stored_utc": runtime.now_utc(),
         "cwd": scratch.get("cwd") if isinstance(scratch.get("cwd"), str) else "",
         "user_text": {
@@ -86,15 +89,29 @@ def capture(event: dict) -> None:
             "truncated": assistant_truncated,
         },
         "status": "pending",
-        "provenance": {**runtime.PROVENANCE, "plugin_version": "0.2.0"},
+        "provenance": {
+            **runtime.PROVENANCE,
+            "plugin_version": runtime.PLUGIN_VERSION,
+        },
     }
-    runtime.write_json_private(
-        runtime.pending_dir() / (payload["event_id"] + ".json"), payload
-    )
-    try:
-        runtime.scratch_path_for(session_id, turn_id).unlink()
-    except OSError:
-        pass
+    outcome = runtime.write_pending_event(payload)
+    if outcome == "full":
+        runtime.emit(
+            system_message=(
+                "Qdrant Memory capture paused: pending buffer is full; "
+                "run the extractor (extract_pending.py) to free space."
+            )
+        )
+        return
+    # The pairing scratch is consumed once paired (both possible entries).
+    paths = {runtime.scratch_session_path(session_id)}
+    if has_turn:
+        paths.add(runtime.scratch_path_for(session_id, turn_id))
+    for path in paths:
+        try:
+            path.unlink()
+        except OSError:
+            pass
 
 
 def main() -> None:
@@ -104,7 +121,14 @@ def main() -> None:
         capture(event)
         runtime.prune_stale_scratch()
     except Exception:  # noqa: BLE001 - hooks must never break the turn
-        pass
+        # Content-free diagnostic: local storage or input failed, no turn
+        # content was read into the failure, and the turn itself continues.
+        runtime.emit(
+            system_message=(
+                "Qdrant Memory auto-capture hit a local error and skipped "
+                "this turn; no turn content was stored."
+            )
+        )
 
 
 if __name__ == "__main__":
