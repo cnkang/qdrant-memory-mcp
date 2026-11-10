@@ -1899,6 +1899,13 @@ test('startup recovery tracks older turns before checkpointing a live capture', 
   let signalInitialRead
   const recoveryReadStarted = new Promise((resolve) => { signalInitialRead = resolve })
   let readCalls = 0
+  let fullSnapshotScans = 0
+  const trackedSnapshot = (events) => new Proxy(events, {
+    get(target, property, receiver) {
+      if (property === Symbol.iterator) fullSnapshotScans += 1
+      return Reflect.get(target, property, receiver)
+    },
+  })
   const ctx = {
     on(event, handler) {
       handlers.set(event, handler)
@@ -1959,7 +1966,7 @@ test('startup recovery tracks older turns before checkpointing a live capture', 
       'live completion cannot persist progress before the startup scan tracks its backlog',
     )
 
-    releaseInitialRead({ events: [...history, ...session.snapshotEvents()] })
+    releaseInitialRead({ events: trackedSnapshot([...history, ...session.snapshotEvents()]) })
     const firstTurnId = compileTurn(history, session.id, 1).event_id
     await waitFor(
       () => runtimeCalls.some((call) => call.options.action === 'status' && call.payload.event_id === firstTurnId)
@@ -1967,6 +1974,7 @@ test('startup recovery tracks older turns before checkpointing a live capture', 
           && event.data?.after_turn === 2),
       'the recovery scan captures the older turn before progress advances through turn 2',
     )
+    assert.equal(fullSnapshotScans, 1, 'recovery indexes the complete event snapshot once for all turns')
   } finally {
     dispose()
     await root.registry.delete(SessionStore)
@@ -2160,11 +2168,12 @@ test('plugin disposal cancels a stalled recovery-progress flush', { timeout: 800
   assert.equal(handlers.size, 0)
 })
 
-test('boundary initialization gives up when durability stays missing', { timeout: 8000 }, async () => {
+test('boundary initialization fails closed when durability arrives after its deadline', { timeout: 8000 }, async () => {
   const handlers = new Map()
   let cleanup
   const warnings = []
   let flushCalls = 0
+  let durabilityAvailable = false
   const neverSubmitted = []
   const runtimeCalls = []
   const ctx = {
@@ -2175,7 +2184,7 @@ test('boundary initialization gives up when durability stays missing', { timeout
     effect(register) { cleanup = register() },
     logger: { warn(message) { warnings.push(String(message)) } },
     llm: candidateStream('Remember turn 1 fact.'),
-    sessions: { flush: async () => { flushCalls += 1; return false } },
+    sessions: { flush: async () => { flushCalls += 1; return durabilityAvailable } },
     sessionQuery: { readSession: async () => ({ events: turnEvents(1) }) },
     agents: { get() { return undefined }, list() { return [] } },
   }
@@ -2196,10 +2205,13 @@ test('boundary initialization gives up when durability stays missing', { timeout
     await handlers.get('agent/created')({ agent })
     const elapsed = Date.now() - started
     assert.ok(elapsed < 250, `agent creation does not wait for boundary initialization (${elapsed} ms)`)
-    // Boundary setup keeps retrying asynchronously and reports its own deadline.
+    // Boundary setup retries only through its configured deadline and fails closed.
     await new Promise((resolve) => setTimeout(resolve, 1500))
     assert.ok(warnings.some((message) => message.includes('capture boundary is unavailable')), warnings)
     assert.ok(warnings.some((message) => message.includes('session durability stays unavailable')), warnings)
+    // A later recovery flush may now succeed, but it cannot reopen this agent's
+    // failed activation boundary or send turns to the Owner.
+    durabilityAvailable = true
     handlers.get('session/event')(agent.session, { type: 'turn/end', data: { turn: 1, reason: { kind: 'completed' } } })
     await new Promise((resolve) => setTimeout(resolve, 200))
     assert.equal(neverSubmitted.length, 0)
