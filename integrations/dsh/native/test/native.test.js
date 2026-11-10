@@ -903,6 +903,109 @@ test(`agent takeover on turn ${takeoverTurn} recovers the executing capture once
 })
 }
 
+test('recovery takeover preserves the slice for a different executing turn', { timeout: 5000 }, async () => {
+  const session = { id: 'different-turn-takeover-session' }
+  const events = [...turnEvents(1), ...turnEvents(2)]
+  const handlers = new Map()
+  let cleanup
+  let readCalls = 0
+  let signalInitialRecoveryRead
+  const initialRecoveryRead = new Promise((resolve) => { signalInitialRecoveryRead = resolve })
+  let signalTurnTwoStatus
+  const turnTwoStatusStarted = new Promise((resolve) => { signalTurnTwoStatus = resolve })
+  let releaseTurnTwoStatus
+  const turnTwoStatus = new Promise((resolve) => { releaseTurnTwoStatus = resolve })
+  let signalReplacementRecoveryRead
+  const replacementRecoveryRead = new Promise((resolve) => { signalReplacementRecoveryRead = resolve })
+  const submitted = []
+  const ctx = {
+    on(event, handler) {
+      handlers.set(event, handler)
+      return () => handlers.delete(event)
+    },
+    effect(register) { cleanup = register() },
+    logger: { warn() {} },
+    llm: candidateStream('Remember the takeover recovery fact.'),
+    sessions: { flush: async () => true },
+    sessionQuery: {
+      readSession: async () => {
+        readCalls += 1
+        if (readCalls === 1 || readCalls === 2 || readCalls === 4) {
+          if (readCalls === 2) signalInitialRecoveryRead()
+          return { events: [] }
+        }
+        if (readCalls === 3) return { events }
+        if (readCalls === 5) {
+          signalReplacementRecoveryRead()
+          return { events }
+        }
+        return { events }
+      },
+    },
+    agents: { get() { return undefined }, list() { return [] } },
+  }
+  const agent = {
+    session,
+    model: { current: () => ({ provider: 'provider-a', model: 'model-a' }) },
+  }
+  const replacement = {
+    session,
+    model: { current: () => ({ provider: 'provider-a', model: 'model-a' }) },
+  }
+  const config = {
+    ...DEFAULT_CONFIG,
+    auto_capture: { ...DEFAULT_CONFIG.auto_capture, enabled: true },
+  }
+  let firstStatus = true
+  const turnOneId = compileTurn(events, session.id, 1).event_id
+  const turnTwoId = compileTurn(events, session.id, 2).event_id
+  const dispose = apply(ctx, config, async (_mode, payload, options) => {
+    if (options.action === 'status' && payload.event_id === turnTwoId && firstStatus) {
+      firstStatus = false
+      signalTurnTwoStatus()
+      return turnTwoStatus
+    }
+    if (options.action === 'status') return { status: 'NOT_FOUND' }
+    if (options.action === 'submit') {
+      submitted.push(payload)
+      return { status: 'COMMITTED' }
+    }
+    throw new Error(`unexpected Runtime action: ${options.action}`)
+  })
+  try {
+    handlers.get('agent/created')({ agent })
+    await initialRecoveryRead
+    await new Promise((resolve) => setImmediate(resolve))
+    const oldDrain = handlers.get('session/event')(session, {
+      type: 'turn/end', data: { turn: 2, reason: { kind: 'completed' } },
+    })
+    await turnTwoStatusStarted
+    handlers.get('agent/disposed')({ agent })
+    handlers.get('agent/created')({ agent: replacement })
+    await replacementRecoveryRead
+    await new Promise((resolve) => setImmediate(resolve))
+    releaseTurnTwoStatus({ status: 'NOT_FOUND' })
+    const captureDeadline = Date.now() + 3000
+    while (submitted.length < 2 && Date.now() < captureDeadline) {
+      await new Promise((resolve) => setTimeout(resolve, 10))
+    }
+    await oldDrain
+
+    assert.equal(submitted.length, 2, `expected both takeover turns to submit; got ${submitted.map((payload) => payload.event_id).join(', ')} after ${readCalls} session reads`)
+    assert.deepEqual(
+      new Set(submitted.map((payload) => payload.event_id)),
+      new Set([turnOneId, turnTwoId]),
+      'recovery captures both the older turn and the different turn that was executing during takeover',
+    )
+    assert.equal(dispose.metrics().capture_events_committed, 2)
+  } finally {
+    releaseTurnTwoStatus({ status: 'NOT_FOUND' })
+    dispose()
+  }
+  assert.equal(typeof cleanup, 'function')
+  assert.equal(handlers.size, 0)
+})
+
 test('retained Owner receipts do not trigger re-extraction', async () => {
   const events = [
     { type: 'turn/start', seq: 1, data: { turn: 1 } },
