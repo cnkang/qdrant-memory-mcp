@@ -39,6 +39,7 @@ from __future__ import annotations
 import argparse
 import datetime as _dt
 import http.client
+import ipaddress
 import json
 import os
 import re
@@ -96,16 +97,16 @@ def redact(text: str) -> str:
     return text
 
 
-def load_pending() -> tuple[list[dict], list[str]]:
-    """Load pending events; quarantine the unreadable, reconcile stale copies.
+def load_pending(mutate: bool = True) -> tuple[list[dict], list[str]]:
+    """Load pending events; quarantine unreadable files and reconcile leftovers.
 
-    Returns ``(events, quarantined)``. Unreadable or malformed files are
-    renamed to ``*.corrupt`` (kept on disk for the operator) so they stop
-    consuming ring capacity; a pending file whose extracted twin already
-    exists is a leftover from a partially failed move and is reconciled by
-    removing the pending copy. Events are ordered so never-failed events come
-    first (then by retry count), so repeatedly failing events do not
-    permanently occupy every ``--limit`` batch.
+    Returns ``(events, quarantined)``. Unreadable files are renamed to
+    ``*.corrupt`` only when ``mutate`` is set, so the default dry-run does not
+    touch the journal. A pending file is removed only when its extracted twin
+    is marked ``pending_cleanup_failed`` for the same ``stored_utc`` snapshot;
+    a newer Stop redelivery with the same deterministic event id is kept for
+    extraction. Events are ordered so never-failed events come first, then by
+    retry count, so repeatedly failing events do not occupy every batch.
     """
     events: list[dict] = []
     quarantined: list[str] = []
@@ -116,15 +117,22 @@ def load_pending() -> tuple[list[dict], list[str]]:
     for path in paths:
         event = runtime.read_json(path)
         if event is None or not isinstance(event, dict):
-            quarantined.append(runtime.quarantine_pending(path) or path.name)
+            renamed = runtime.quarantine_pending(path) if mutate else None
+            quarantined.append(renamed or path.name)
             continue
         if event.get("status") != "pending":
             continue
-        if (runtime.extracted_dir() / path.name).exists():
-            try:  # already archived; stale duplicate of a recoverable move
-                path.unlink()
-            except OSError:
-                pass
+        twin = runtime.read_json(runtime.extracted_dir() / path.name)
+        if (
+            isinstance(twin, dict)
+            and twin.get("pending_cleanup_failed")
+            and twin.get("stored_utc") == event.get("stored_utc")
+        ):
+            if mutate:
+                try:  # leftover of a failed move for this exact snapshot
+                    path.unlink()
+                except OSError:
+                    pass
             continue
         event["_path"] = path
         event["_fingerprint"] = runtime.file_fingerprint(path)
@@ -191,9 +199,14 @@ def build_prompt(event: dict) -> str:
 
 
 def _endpoint_is_loopback(base_url: str) -> bool:
-    """True when the endpoint host is loopback (localhost, 127.0.0.0/8, ::1)."""
+    """True when the endpoint host is localhost or a loopback IP address."""
     host = (urllib.parse.urlparse(base_url).hostname or "").lower()
-    return host in {"localhost", "::1"} or host.startswith("127.")
+    if host == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
 
 
 def _require_safe_endpoint(base_url: str) -> None:
@@ -490,9 +503,20 @@ def _admit_event(outcome, admit, allow_replacement_deletes: bool = False) -> dic
         "skipped": [],
         "rejected": outcome["rejected"],
     }
+    previous = runtime.read_json(path)
+    already_admitted = {
+        str(item.get("text", "")).strip()
+        for item in (previous.get("candidates") if isinstance(previous, dict) else []) or []
+        if isinstance(item, dict)
+    }
     if outcome.get("extraction_error"):
         errors.append(outcome["extraction_error"])
     for candidate in outcome["candidates"]:
+        if candidate["text"].strip() in already_admitted:
+            event_state["skipped"].append(
+                {"text": candidate["text"], "reason": "already admitted"}
+            )
+            continue
         try:
             # One lock around search + (replacement) + add: concurrent
             # admissions for the same candidate cannot both miss the dedupe.
@@ -719,7 +743,7 @@ def main(argv=None) -> None:
         print(json.dumps({"error": redact(str(error))}), file=sys.stderr)
         raise SystemExit(2) from None
 
-    events, quarantined = load_pending()
+    events, quarantined = load_pending(mutate=args.confirm)
     if quarantined:
         print(
             json.dumps({"quarantined_pending_files": quarantined}), file=sys.stderr
