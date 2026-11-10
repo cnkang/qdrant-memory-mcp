@@ -100,7 +100,7 @@ def test_dsh_native_bundle_pins_release_and_keeps_automation_disabled():
         step for step in workflow['jobs']['native-contract']['steps']
         if step.get('name') == 'Install the exact DSH Plugin Manager package manager'
     )
-    assert package_manager['uses'] == 'pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1'
+    assert package_manager['uses'] == 'pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115'
     assert package_manager['with']['version'] == '11.28.5'
     assert package_manager['with']['run_install'] is False
     assert 'validate:host' in workflow_text
