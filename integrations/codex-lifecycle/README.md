@@ -35,6 +35,10 @@ all agents.
 | Extraction | `extract_pending.py` — **operator-run, not a hook** | with the default `dry-run`: zero writes and **no remote provider calls** (loopback providers only). `--confirm`: Runtime `add` per validated candidate (`extraction-v1` contract: bound text ≤256 chars, importance 0..1, ≤3 per turn, secret-shaped text refused, category/importance/provenance and replacement outcomes retained in the event receipt; Runtime 0.6.0 `add` is text-only, so memory-payload metadata lands with the planned Runtime 0.6.1 Owner endpoint). Replacement candidates record the search-located proposal in the receipt; deleting it needs the explicit `--allow-replacement-deletes` flag. Dedupe + admission run under one profile-local lock. Failures keep the event `pending` with `last_error` + retry counter and never abort the batch; successful retries clear both. Non-loopback endpoints require `https://`; `EXTRACTION_API_KEY` comes from the environment (never an argument) | the confirm invocation itself; provider is **local Ollama by default** (`http://127.0.0.1:11434/v1`); any OpenAI-compatible endpoint requires explicit `--base-url/--model` |
 | Cleanup | `SessionEnd` → `prune_scratch.py` (≤3 s) | expires unpaired pairing scratch (48 h TTL) | none |
 
+Prompt staging is enabled by default. Set `QDRANT_MEMORY_CODEX_AUTO_CAPTURE=0` to
+disable it; removing only the `Stop` hook still stages prompt text until TTL
+pruning.
+
 Unpaired/interrupted turns are simply not captured (the pairing scratch is
 keyed by session+turn, with a session-level fallback when the client omits
 `turn_id` on `UserPromptSubmit`). Re-running a Stop for the same turn

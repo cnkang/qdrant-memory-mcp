@@ -8,9 +8,9 @@ Two independent behaviors, one hook:
    with the assistant's reply — keyed by session+turn when ``turn_id`` is
    present, by session alone when the client omits it. This is a bounded
    local scratch entry; it never contacts the Runtime, never builds a memory,
-   and it does not change what the Codex model sends or receives. When
-   ``auto_capture`` is disabled by removing the Stop hook from
-   ``hooks.json``, this scratch write is inert.
+   and it does not change what the Codex model sends or receives. Set
+   ``QDRANT_MEMORY_CODEX_AUTO_CAPTURE=0`` to stop this scratch write;
+   removing only the Stop hook still stages prompts until the TTL prune.
    The scratch entry's privacy scope equals the remember: switch below: local
    disk only, expiring after ``SCRATCH_TTL_SECONDS`` (48 h by default).
 

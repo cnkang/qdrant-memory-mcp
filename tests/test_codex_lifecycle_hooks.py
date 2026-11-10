@@ -1092,6 +1092,73 @@ def test_candidate_validation_rejects_new_credential_formats(monkeypatch):
         assert rejected == ["candidate looks secret-shaped"], text
 
 
+def test_extraction_provider_uses_private_opener(hook_env, monkeypatch):
+    """Ignore environment proxies and refuse redirects before sending data."""
+    cli = load("extract_pending")
+    proxy_handler = next(
+        handler
+        for handler in cli._OPENER.handlers
+        if isinstance(handler, cli.urllib.request.ProxyHandler)
+    )
+    assert proxy_handler.proxies == {}
+    redirect_handler = next(
+        handler
+        for handler in cli._OPENER.handlers
+        if isinstance(handler, cli._NoRedirect)
+    )
+    assert [
+        handler
+        for handler in cli._OPENER.handlers
+        if isinstance(handler, cli.urllib.request.HTTPRedirectHandler)
+    ] == [redirect_handler]
+
+    request = cli.urllib.request.Request(
+        "https://provider.example/v1/chat/completions",
+        data=b"private staged text",
+        headers={"Authorization": "Bearer test-key"},
+        method="POST",
+    )
+    with pytest.raises(cli.urllib.error.HTTPError) as error:
+        redirect_handler.redirect_request(
+            request, None, 302, "Found", {}, "http://attacker.example/collect"
+        )
+    assert error.value.code == 302
+
+    sent = []
+
+    class Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, traceback):
+            return False
+
+        def read(self, limit):
+            assert limit == cli.MAX_RESPONSE_BYTES + 1
+            body = {
+                "choices": [
+                    {"message": {"content": json.dumps({"memories": []})}}
+                ]
+            }
+            return json.dumps(body).encode()
+
+    def open_request(req, timeout):
+        sent.append((req, timeout))
+        return Response()
+
+    monkeypatch.setattr(cli._OPENER, "open", open_request)
+    monkeypatch.setattr(
+        cli.urllib.request,
+        "urlopen",
+        lambda *args, **kwargs: pytest.fail("default opener must not be used"),
+    )
+    provider = cli.ExtractionProvider("http://127.0.0.1:11434/v1", "m")
+    assert provider.extract("prompt") == {"memories": []}
+    assert len(sent) == 1
+    assert sent[0][0].full_url == "http://127.0.0.1:11434/v1/chat/completions"
+    assert sent[0][1] == 60.0
+
+
 def test_non_loopback_plaintext_endpoints_are_refused(hook_env):
     """HTTPS is mandatory before any staged text reaches a remote endpoint."""
     cli = load("extract_pending")
@@ -1111,7 +1178,10 @@ def test_main_refuses_unsafe_endpoints_before_any_send(hook_env, monkeypatch, ca
     cli = extractor_cli()
     sent = []
     monkeypatch.setattr(
-        cli.urllib.request, "urlopen", lambda *a, **k: sent.append(a) or (_ for _ in ()).throw(AssertionError("network send"))
+        cli._OPENER,
+        "open",
+        lambda *a, **k: sent.append(a)
+        or (_ for _ in ()).throw(AssertionError("network send")),
     )
     with pytest.raises(SystemExit) as exit_info:
         cli.main(["--base-url", "http://example.com/v1", "--model", "m"])

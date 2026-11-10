@@ -239,6 +239,25 @@ def _require_safe_endpoint(base_url: str) -> None:
     )
 
 
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """Refuse redirects so extraction can only reach the validated endpoint."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise urllib.error.HTTPError(
+            req.full_url,
+            code,
+            "extraction endpoint redirects are refused",
+            headers,
+            fp,
+        )
+
+
+_OPENER = urllib.request.build_opener(
+    urllib.request.ProxyHandler({}),
+    _NoRedirect(),
+)
+
+
 class ExtractionProvider:
     """OpenAI-compatible /chat/completions client (local Ollama default)."""
 
@@ -273,7 +292,7 @@ class ExtractionProvider:
             headers=headers,
             method="POST",
         )
-        with urllib.request.urlopen(request, timeout=self.timeout) as response:
+        with _OPENER.open(request, timeout=self.timeout) as response:
             raw = response.read(MAX_RESPONSE_BYTES + 1)
         if len(raw) > MAX_RESPONSE_BYTES:
             raise ValueError(
