@@ -626,9 +626,9 @@ def orchestrated_execute(monkeypatch, module, tmp_path):
         calls["run"].append([str(item) for item in argv])
         return ""
 
-    def fake_install(env, workdir, marketplace_root):
+    def fake_install(env, workdir, marketplace_root, codex_home):
         assert marketplace_root in {module.ROOT, work / "zip-marketplace"}
-        codex_home = Path(env["CODEX_HOME"])
+        assert codex_home == Path(env["CODEX_HOME"])
         codex_home.mkdir(mode=0o700, parents=True, exist_ok=True)
         (codex_home / "config.toml").write_text("enabled = true\n", encoding="utf-8")
         return {
