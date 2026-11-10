@@ -1302,7 +1302,7 @@ def test_replacement_intent_deletes_the_superseded_record(hook_env, monkeypatch,
     monkeypatch.setattr(runtime, "call_runtime", fake_runtime)
     for server, _calls in extraction_provider_stub(monkeypatch, replies):
         argv = extractor_args(monkeypatch, server.server_port)
-        argv.append("--confirm")
+        argv.extend(["--confirm", "--allow-replacement-deletes"])
         assert cli.main(argv) is None
     assert ("delete", "--id", "old-1") in calls
     event_file = next(runtime.extracted_dir().glob("*.json"))
@@ -1312,8 +1312,130 @@ def test_replacement_intent_deletes_the_superseded_record(hook_env, monkeypatch,
     assert receipt["importance"] == 0.6
     assert receipt["provenance"]["capture_source"] == "codex-hook"
     assert receipt["replacement"]["deleted"] is True
-    assert receipt["replacement"]["replaced_record_id"] == "old-1"
-    assert receipt["replacement"]["replaced_text"] == "Prefers light mode."
+    assert receipt["replacement"]["proposed_record_id"] == "old-1"
+    assert receipt["replacement"]["proposed_text"] == "Prefers light mode."
+
+
+def test_replacement_deletion_requires_explicit_approval(hook_env, monkeypatch, capsys):
+    """Without the flag the located target is recorded as a proposal only."""
+    runtime = load("lifecycle_runtime")
+    stage_pending(hook_env, monkeypatch, runtime)
+    cli = extractor_cli()
+    replies = [{
+        "choices": [{"message": {"content": json.dumps({
+            "memories": [{
+                "text": "Prefers dark mode.", "replacement_intent": True,
+            }],
+            "replacement_context": "prefers light mode",
+        })}}]
+    }]
+    calls = []
+
+    def fake_runtime(*argv, **kwargs):
+        calls.append(argv)
+        if argv[0] == "search":
+            if argv[-1] == "prefers light mode":
+                return 0, json.dumps({"memories": [{"id": "old-1", "text": "Prefers light mode."}]}), ""
+            return 0, json.dumps({"memories": []}), ""
+        if argv[0] == "add":
+            return 0, json.dumps({"id": "rec-1"}), ""
+        return 0, "{}", ""
+
+    monkeypatch.setattr(runtime, "call_runtime", fake_runtime)
+    for server, _calls in extraction_provider_stub(monkeypatch, replies):
+        argv = extractor_args(monkeypatch, server.server_port)
+        argv.append("--confirm")
+        assert cli.main(argv) is None
+    assert not any(argv[0] == "delete" for argv in calls)  # nothing deleted
+    event_file = next(runtime.extracted_dir().glob("*.json"))
+    stored = json.loads(event_file.read_text(encoding="utf-8"))
+    receipt = stored["candidates"][0]
+    assert receipt["replacement"]["target_found"] is True
+    assert receipt["replacement"]["proposed_record_id"] == "old-1"
+    assert "deleted" not in receipt["replacement"]
+    assert "--allow-replacement-deletes" in receipt["replacement"]["note"]
+
+
+def test_replacement_delete_hookerror_preserves_the_admitted_receipt(
+    hook_env, monkeypatch, capsys
+):
+    """A failed delete after a successful add never loses the record receipt."""
+    runtime = load("lifecycle_runtime")
+    stage_pending(hook_env, monkeypatch, runtime)
+    cli = extractor_cli()
+    replies = [{
+        "choices": [{"message": {"content": json.dumps({
+            "memories": [{
+                "text": "Prefers dark mode.", "replacement_intent": True,
+            }],
+            "replacement_context": "prefers light mode",
+        })}}]
+    }]
+
+    def fake_runtime(*argv, **kwargs):
+        if argv[0] == "search":
+            if argv[-1] == "prefers light mode":
+                return 0, json.dumps({"memories": [{"id": "old-1", "text": "Prefers light mode."}]}), ""
+            return 0, json.dumps({"memories": []}), ""
+        if argv[0] == "add":
+            return 0, json.dumps({"id": "rec-7"}), ""
+        if argv[0] == "delete":
+            raise runtime.HookError("runtime gone during delete")
+        return 0, "{}", ""
+
+    monkeypatch.setattr(runtime, "call_runtime", fake_runtime)
+    for server, _calls in extraction_provider_stub(monkeypatch, replies):
+        argv = extractor_args(monkeypatch, server.server_port)
+        argv.extend(["--confirm", "--allow-replacement-deletes"])
+        assert cli.main(argv) is None
+    report = json.loads(capsys.readouterr().out.strip())
+    assert report["events"][0]["status"] == "pending"
+    assert "runtime gone during delete" in report["events"][0]["last_error"]
+    stored = json.loads(next(runtime.pending_dir().glob("*.json")).read_text(encoding="utf-8"))
+    receipt = stored["candidates"][0]  # the admitted receipt survived
+    assert receipt["record_id"] == "rec-7"
+    assert receipt["replacement"]["delete_error"] == "runtime gone during delete"
+
+
+def test_finalize_keeps_newer_content_pending_with_receipts(hook_env, monkeypatch):
+    """A Stop redelivery during processing is never stamped with old status."""
+    runtime = load("lifecycle_runtime")
+    stage_pending(hook_env, monkeypatch, runtime)
+    cli = extractor_cli()
+    pending_file = next(runtime.pending_dir().glob("*.json"))
+    newer = json.loads(pending_file.read_text(encoding="utf-8"))
+    newer["assistant_text"]["text"] = "redelivered newer reply"
+    runtime.write_json_private(pending_file, newer)
+    event_state = {
+        "event_id": "older-run",
+        "admitted": [{
+            "text": "old fact", "record_id": "rec-1", "category": ["codex-auto"],
+            "importance": 0.5, "replacement_intent": False,
+        }],
+        "skipped": [{"text": "old fact", "reason": "duplicate"}],
+        "rejected": ["candidate looks secret-shaped"],
+    }
+    cli.finalize_event(
+        pending_file, event_state, "extracted", loaded_fingerprint="loaded-digest"
+    )
+    stored = json.loads(pending_file.read_text(encoding="utf-8"))
+    assert pending_file.parent == runtime.pending_dir()  # never moved
+    assert stored["status"] == "pending"  # newer content stays pending
+    assert "redelivered newer reply" in stored["assistant_text"]["text"]
+    assert "processed_utc" not in stored  # newer turn was not marked processed
+    assert [item["record_id"] for item in stored["candidates"]] == ["rec-1"]
+    assert stored["skipped"] == [{"text": "old fact", "reason": "duplicate"}]
+    assert stored["rejected"] == ["candidate looks secret-shaped"]
+    # The unchanged-snapshot path still finalizes normally.
+    current_fingerprint = runtime.file_fingerprint(pending_file)
+    cli.finalize_event(
+        pending_file,
+        event_state,
+        "extracted",
+        loaded_fingerprint=current_fingerprint,
+    )
+    assert next(runtime.extracted_dir().glob(pending_file.name)).exists()
+    assert not pending_file.exists()
 
 
 def test_replacement_without_context_is_recorded(hook_env, monkeypatch, capsys):

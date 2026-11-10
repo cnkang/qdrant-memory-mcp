@@ -78,6 +78,7 @@ def exclusive_lock(name: str, timeout: float = LOCK_TIMEOUT_SECONDS):
     deadline = time.monotonic() + timeout
 
     def _acquire() -> None:
+        """Try one non-blocking acquisition of the lock."""
         if os.name == "nt" and msvcrt is not None:
             handle.seek(0)
             msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
@@ -85,6 +86,7 @@ def exclusive_lock(name: str, timeout: float = LOCK_TIMEOUT_SECONDS):
             fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
 
     def _release() -> None:
+        """Release the lock; ignore errors during teardown."""
         try:
             if os.name == "nt" and msvcrt is not None:
                 handle.seek(0)
@@ -276,14 +278,17 @@ def scratch_root() -> Path:
 
 
 def pending_dir() -> Path:
+    """The pending ring directory under the profile's events tree."""
     return events_root() / "pending"
 
 
 def extracted_dir() -> Path:
+    """The directory holding finalized (extracted) event snapshots."""
     return events_root() / "extracted"
 
 
 def discarded_dir() -> Path:
+    """The directory for operator-discarded event snapshots."""
     return events_root() / "discarded"
 
 
@@ -397,12 +402,14 @@ def read_json(path: Path):
 
 
 def now_utc() -> str:
+    """Current UTC timestamp in the capture format's millisecond ISO form."""
     return _datetime.datetime.now(_datetime.timezone.utc).isoformat(
         timespec="milliseconds"
     )
 
 
 def pending_count() -> int:
+    """Number of pending event snapshots currently in the ring."""
     try:
         return sum(
             1 for p in pending_dir().glob("*.json") if not p.name.endswith(".tmp")
@@ -412,6 +419,7 @@ def pending_count() -> int:
 
 
 def count_overflow_marker() -> int:
+    """Read the dropped-overflow counter (0 when absent or unreadable)."""
     path = events_root() / "dropped.d"
     try:
         return int(path.read_text(encoding="utf-8").strip() or 0)
@@ -420,6 +428,7 @@ def count_overflow_marker() -> int:
 
 
 def mark_overflow(count: int = 1) -> None:
+    """Increment the dropped-overflow counter by ``count`` (best effort)."""
     path = events_root() / "dropped.d"
     try:
         current = count_overflow_marker()
@@ -470,6 +479,7 @@ def prune_stale_scratch(
 
 
 def scratch_path_for(session_id: str, turn_id: str) -> Path:
+    """Per-turn pairing scratch path for one session+turn pair."""
     digest = hashlib.sha256(f"{session_id}\x1f{turn_id}".encode("utf-8")).hexdigest()
     return scratch_root() / f"{digest}.json"
 
