@@ -4,11 +4,13 @@
 Two independent behaviors, one hook:
 
 1. Pairing record (auto-capture prerequisite, replaceable): the direct user
-   text for this ``turn_id`` is staged locally so a later Stop hook can pair it
-   with the assistant's reply. This is a bounded local scratch entry; it never
-   contacts the Runtime, never builds a memory, and it does not change what the
-   Codex model sends or receives. When ``auto_capture`` is disabled by removing
-   the Stop hook from ``hooks.json``, this scratch write is inert.
+   text for this turn is staged locally so a later Stop hook can pair it
+   with the assistant's reply — keyed by session+turn when ``turn_id`` is
+   present, by session alone when the client omits it. This is a bounded
+   local scratch entry; it never contacts the Runtime, never builds a memory,
+   and it does not change what the Codex model sends or receives. When
+   ``auto_capture`` is disabled by removing the Stop hook from
+   ``hooks.json``, this scratch write is inert.
    The scratch entry's privacy scope equals the remember: switch below: local
    disk only, expiring after ``SCRATCH_TTL_SECONDS`` (48 h by default).
 
@@ -33,30 +35,44 @@ DIRECTIVE = re.compile(r"^\s*remember\s*[:：](.*)$", re.IGNORECASE)
 
 
 def stage_turn_input(event: dict, prompt: str) -> bool:
-    """Persist the bounded, per-turn user text scratch for Stop-time pairing."""
+    """Persist the bounded, per-turn user text scratch for Stop-time pairing.
+
+    Codex documents ``turn_id`` for the Stop event but may omit it on
+    ``UserPromptSubmit``. When the prompt event carries a ``turn_id`` the
+    scratch is keyed by session+turn (exact pairing); otherwise it is keyed by
+    session alone and the next Stop hook in that session pairs it. Returns
+    True when a scratch entry was staged.
+    """
     session_id = event.get("session_id")
-    turn_id = event.get("turn_id")
-    if (
-        not isinstance(session_id, str)
-        or not isinstance(turn_id, str)
-        or not session_id
-        or not turn_id
-    ):
+    if not isinstance(session_id, str) or not session_id:
         return False
+    turn_id = event.get("turn_id")
+    has_turn = isinstance(turn_id, str) and bool(turn_id)
     excerpt, truncated = runtime.truncate_utf8(prompt, runtime.USER_EXCERPT_BYTES)
+    record = {
+        "session_id": session_id,
+        "cwd": event.get("cwd") if isinstance(event.get("cwd"), str) else "",
+        "user_excerpt": excerpt,
+        "user_truncated": truncated,
+        "stored_utc": runtime.now_utc(),
+    }
+    if has_turn:
+        record["turn_id"] = turn_id
+        record["pairing"] = "turn"
+        path = runtime.scratch_path_for(session_id, turn_id)
+    else:
+        record["pairing"] = "session"
+        path = runtime.scratch_session_path(session_id)
     try:
-        runtime.write_json_private(
-            runtime.scratch_path_for(session_id, turn_id),
-            {
-                "session_id": session_id,
-                "turn_id": turn_id,
-                "cwd": event.get("cwd") if isinstance(event.get("cwd"), str) else "",
-                "user_excerpt": excerpt,
-                "user_truncated": truncated,
-                "stored_utc": runtime.now_utc(),
-            },
-        )
+        runtime.write_json_private(path, record)
     except OSError:
+        # Content-free diagnostic: capture missed, but the turn continues.
+        runtime.emit(
+            system_message=(
+                "Qdrant Memory could not stage this turn's input locally; "
+                "this turn will not be auto-captured."
+            )
+        )
         return False
     return True
 

@@ -4,7 +4,10 @@ import importlib.util
 import json
 import shutil
 import sys
+import threading
+import time
 import types
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
@@ -1020,3 +1023,559 @@ def test_extract_redacts_environment_keys(monkeypatch):
     cli = load("extract_pending")
     monkeypatch.setenv("MY_SAMPLE_KEY", "topsecretvalue")
     assert "topsecretvalue" not in cli.redact("entered topsecretvalue here")
+
+
+# --- Review hardening: credentials, consent, concurrency, receipts ---
+
+
+def test_candidate_validation_rejects_new_credential_formats(monkeypatch):
+    """Bearer tokens, PATs, Slack tokens, PEM blocks and password= are refused."""
+    cli = load("extract_pending")
+    secrets = [
+        "github_pat_11ABCDEFGH2abcdefgh3xyzKey99",
+        "xoxb-1234567890abcdef",
+        "bearer AbcDef1234567890abcdef",
+        "-----BEGIN PRIVATE KEY-----\\nMIIE",
+        "password=hunter2secret",
+        "AUTH: $EXTRACTION_API_KEY",
+    ]
+    for text in secrets:  # one candidate at a time: the contract caps batches at 3
+        good, rejected = cli.validate_candidates(
+            {"memories": [{"text": text, "importance": 0.5}]}, {}
+        )
+        assert good == []
+        assert rejected == ["candidate looks secret-shaped"], text
+
+
+def test_non_loopback_plaintext_endpoints_are_refused(hook_env):
+    """HTTPS is mandatory before any staged text reaches a remote endpoint."""
+    cli = load("extract_pending")
+    with pytest.raises(ValueError, match="https"):
+        cli.ExtractionProvider("http://example.com/v1", "m")
+    with pytest.raises(ValueError, match="https"):
+        cli.ExtractionProvider("http://10.1.2.3:8000/v1", "m")
+    assert cli.ExtractionProvider("https://example.com/v1", "m").base_url
+    assert cli.ExtractionProvider("http://127.0.0.1:11434/v1", "m").base_url
+    assert cli.ExtractionProvider("http://localhost:11434/v1", "m").base_url
+
+
+def test_main_refuses_unsafe_endpoints_before_any_send(hook_env, monkeypatch, capsys):
+    runtime = load("lifecycle_runtime")
+    stage_pending(hook_env, monkeypatch, runtime)
+    cli = extractor_cli()
+    sent = []
+    monkeypatch.setattr(
+        cli.urllib.request, "urlopen", lambda *a, **k: sent.append(a) or (_ for _ in ()).throw(AssertionError("network send"))
+    )
+    with pytest.raises(SystemExit) as exit_info:
+        cli.main(["--base-url", "http://example.com/v1", "--model", "m"])
+    assert exit_info.value.code == 2
+    error = json.loads(capsys.readouterr().err.strip())
+    assert "https" in error["error"]
+    assert sent == []
+
+
+class _RecordingProvider:
+    """Stands in for ExtractionProvider without touching the network."""
+
+    calls: list = []
+
+    def __init__(self, base_url, model, timeout=60.0):
+        self.base_url = base_url
+
+    def extract(self, prompt):
+        _RecordingProvider.calls.append(prompt)
+        return {"memories": []}
+
+
+def test_dry_run_never_sends_to_remote_providers(hook_env, monkeypatch, capsys):
+    """Remote extraction requires the --confirm invocation as consent."""
+    runtime = load("lifecycle_runtime")
+    stage_pending(hook_env, monkeypatch, runtime)
+    cli = extractor_cli()
+    _RecordingProvider.calls = []
+    monkeypatch.setattr(cli, "ExtractionProvider", _RecordingProvider)
+    argv = ["--base-url", "https://remote.example/v1", "--model", "m", "--limit", "5"]
+    cli.main(argv)
+    report = json.loads(capsys.readouterr().out.strip())
+    assert _RecordingProvider.calls == []
+    assert "--confirm" in report["events"][0]["extraction_error"]
+    assert list(runtime.pending_dir().glob("*.json"))  # event untouched
+    cli.main([*argv, "--confirm"])
+    assert len(_RecordingProvider.calls) == 1  # consent given, provider contacted
+
+
+def test_build_prompt_rejects_malformed_nested_fields(hook_env):
+    cli = extractor_cli()
+    with pytest.raises(ValueError, match="user_text"):
+        cli.build_prompt({"user_text": "a string"})
+    with pytest.raises(ValueError, match="assistant_text"):
+        cli.build_prompt({"user_text": {"excerpt": "ok"}, "assistant_text": 7})
+    with pytest.raises(ValueError, match="user_text"):
+        cli.build_prompt({})
+
+
+def test_prompt_and_validation_surface_truncation(hook_env):
+    cli = extractor_cli()
+    event = {
+        "user_text": {"excerpt": "long user prompt", "truncated": True},
+        "assistant_text": {"text": "long reply", "truncated": False},
+    }
+    prompt = cli.build_prompt(event)
+    assert prompt.count("[TRUNCATED]") == 1
+    assert "TRUNCATED input" in prompt
+    # Only BOTH sides clipped triggers the hard admission guard.
+    document = {"memories": [{"text": "some fact", "importance": 0.5}]}
+    good, rejected = cli.validate_candidates(document, event)
+    assert len(good) == 1 and rejected == []
+    both = dict(event)
+    both["assistant_text"] = {"text": "long reply", "truncated": True}
+    good, rejected = cli.validate_candidates(document, both)
+    assert good == []
+    assert rejected == ["candidate not admitted: event inputs truncated"]
+
+
+def test_extreme_importance_is_rejected_not_fatal(hook_env):
+    cli = extractor_cli()
+    good, rejected = cli.validate_candidates(
+        {"memories": [{"text": "big", "importance": 10**400}]}, {}
+    )
+    assert good == []
+    assert rejected == ["candidate importance invalid"]
+
+
+def test_malformed_choice_entries_are_per_event_errors(hook_env):
+    cli = extractor_cli()
+    with pytest.raises(ValueError, match="malformed choice"):
+        cli._response_content({"choices": [None]})
+    with pytest.raises(ValueError, match="not an object"):
+        cli._response_content(["nope"])
+    with pytest.raises(ValueError, match="lacks message content"):
+        cli._response_content({"choices": [{"message": {}}]})
+    assert cli._response_content({"choices": [{"message": {"content": "ok"}}]}) == "ok"
+
+
+def test_oversized_provider_responses_are_refused(hook_env, monkeypatch, capsys):
+    runtime = load("lifecycle_runtime")
+    stage_pending(hook_env, monkeypatch, runtime)
+    cli = extractor_cli()
+    replies = [
+        {
+            "choices": [
+                {"message": {"content": "x" * (cli.MAX_RESPONSE_BYTES + 1024)}}
+            ]
+        }
+    ]
+    for server, _calls in extraction_provider_stub(monkeypatch, replies):
+        argv = extractor_args(monkeypatch, server.server_port)
+        cli.main(argv)
+    report = json.loads(capsys.readouterr().out.strip())
+    assert "exceeds" in report["events"][0]["extraction_error"]
+    stored = json.loads(next(runtime.pending_dir().glob("*.json")).read_text(encoding="utf-8"))
+    assert stored["status"] == "pending"
+
+
+def test_hook_errors_during_confirm_do_not_abort_the_batch(hook_env, monkeypatch, capsys):
+    runtime = load("lifecycle_runtime")
+    stage_pending(hook_env, monkeypatch, runtime, session="sess-1", turn="t-1")
+    stage_pending(hook_env, monkeypatch, runtime, session="sess-2", turn="t-2")
+    cli = extractor_cli()
+    replies = [
+        {"choices": [{"message": {"content": json.dumps({"memories": [{"text": "alpha fact", "importance": 0.5}]})}}]},
+        {"choices": [{"message": {"content": json.dumps({"memories": [{"text": "beta fact", "importance": 0.5}]})}}]},
+    ]
+
+    def fake_runtime(*argv, **kwargs):
+        if argv[0] == "search" and argv[-1] == "alpha fact":
+            raise runtime.HookError("runtime gone")
+        if argv[0] == "search":
+            return 0, json.dumps({"memories": []}), ""
+        if argv[0] == "add":
+            return 0, json.dumps({"id": "rec-1"}), ""
+        return 0, "{}", ""
+
+    monkeypatch.setattr(runtime, "call_runtime", fake_runtime)
+    for server, _calls in extraction_provider_stub(monkeypatch, replies):
+        argv = extractor_args(monkeypatch, server.server_port)
+        argv.append("--confirm")
+        assert cli.main(argv) is None
+    report = json.loads(capsys.readouterr().out.strip())
+    statuses = {event["status"] for event in report["events"]}
+    assert statuses == {"pending", "extracted"}
+    failed = next(event for event in report["events"] if event["status"] == "pending")
+    assert "runtime gone" in failed["last_error"]
+    done = next(event for event in report["events"] if event["status"] == "extracted")
+    assert done["admitted"] == ["beta fact"]
+
+
+def test_admission_retries_preserve_earlier_receipts(hook_env, monkeypatch, capsys):
+    runtime = load("lifecycle_runtime")
+    stage_pending(hook_env, monkeypatch, runtime)
+    cli = extractor_cli()
+    replies = [{
+        "choices": [{"message": {"content": json.dumps({
+            "memories": [
+                {"text": "Prefers round mugs.", "importance": 0.7},
+                {"text": "values quiet rooms", "importance": 0.4},
+            ]
+        })}}]
+    }]
+
+    def failing_second_add(*argv, **kwargs):
+        if argv[0] == "search":
+            return 0, json.dumps({"memories": []}), ""
+        if argv[0] == "add":
+            return 0, json.dumps({"id": "rec-1"}), ""  # first add succeeds
+
+    def fake_runtime_first(*argv, **kwargs):
+        if argv[0] == "search":
+            return 0, json.dumps({"memories": []}), ""
+        if argv[0] == "add" and argv[-1] == "values quiet rooms":
+            return 1, "", "runtime exploded"
+        if argv[0] == "add":
+            return 0, json.dumps({"id": "rec-1"}), ""
+        return 0, "{}", ""
+
+    monkeypatch.setattr(runtime, "call_runtime", fake_runtime_first)
+    for server, _calls in extraction_provider_stub(monkeypatch, [dict(replies[0])]):
+        argv = extractor_args(monkeypatch, server.server_port)
+        argv.append("--confirm")
+        assert cli.main(argv) is None
+    first_report = json.loads(capsys.readouterr().out.strip())
+    assert first_report["events"][0]["status"] == "pending"
+    pending_file = next(runtime.pending_dir().glob("*.json"))
+    stored = json.loads(pending_file.read_text(encoding="utf-8"))
+    assert [item["record_id"] for item in stored["candidates"]] == ["rec-1"]
+    assert stored["attempts"] == 1
+
+    def fake_runtime_retry(*argv, **kwargs):
+        if argv[0] == "search":
+            if argv[-1] == "Prefers round mugs.":
+                return 0, json.dumps({"memories": [{"text": "Prefers round mugs."}]}), ""
+            return 0, json.dumps({"memories": []}), ""
+        if argv[0] == "add":
+            return 0, json.dumps({"id": "rec-2"}), ""
+        return 0, "{}", ""
+
+    monkeypatch.setattr(runtime, "call_runtime", fake_runtime_retry)
+    for server, _calls in extraction_provider_stub(monkeypatch, [dict(replies[0])]):
+        argv = extractor_args(monkeypatch, server.server_port)
+        argv.append("--confirm")
+        assert cli.main(argv) is None
+    retry_report = json.loads(capsys.readouterr().out.strip())
+    assert retry_report["events"][0]["status"] == "extracted"
+    event_file = next(runtime.extracted_dir().glob("*.json"))
+    final = json.loads(event_file.read_text(encoding="utf-8"))
+    assert [item["record_id"] for item in final["candidates"]] == ["rec-1", "rec-2"]
+    assert final["skipped"] == [{"text": "Prefers round mugs.", "reason": "duplicate"}]
+    assert "last_error" not in final  # the retry resolved the failure
+    assert "attempts" not in final
+
+
+def test_replacement_intent_deletes_the_superseded_record(hook_env, monkeypatch, capsys):
+    runtime = load("lifecycle_runtime")
+    stage_pending(hook_env, monkeypatch, runtime)
+    cli = extractor_cli()
+    replies = [{
+        "choices": [{"message": {"content": json.dumps({
+            "memories": [{
+                "text": "Prefers dark mode.", "category": ["codex-auto"],
+                "importance": 0.6, "replacement_intent": True,
+            }],
+            "replacement_context": "prefers light mode",
+        })}}]
+    }]
+    calls = []
+
+    def fake_runtime(*argv, **kwargs):
+        calls.append(argv)
+        if argv[0] == "search":
+            if argv[-1] == "prefers light mode":
+                return 0, json.dumps({"memories": [{"id": "old-1", "text": "Prefers light mode."}]}), ""
+            return 0, json.dumps({"memories": []}), ""
+        if argv[0] == "add":
+            return 0, json.dumps({"id": "rec-9"}), ""
+        if argv[0] == "delete":
+            return 0, json.dumps({"id": argv[-1]}), ""
+        return 0, "{}", ""
+
+    monkeypatch.setattr(runtime, "call_runtime", fake_runtime)
+    for server, _calls in extraction_provider_stub(monkeypatch, replies):
+        argv = extractor_args(monkeypatch, server.server_port)
+        argv.append("--confirm")
+        assert cli.main(argv) is None
+    assert ("delete", "--id", "old-1") in calls
+    event_file = next(runtime.extracted_dir().glob("*.json"))
+    stored = json.loads(event_file.read_text(encoding="utf-8"))
+    receipt = stored["candidates"][0]
+    assert receipt["record_id"] == "rec-9"
+    assert receipt["importance"] == 0.6
+    assert receipt["provenance"]["capture_source"] == "codex-hook"
+    assert receipt["replacement"]["deleted"] is True
+    assert receipt["replacement"]["replaced_record_id"] == "old-1"
+    assert receipt["replacement"]["replaced_text"] == "Prefers light mode."
+
+
+def test_replacement_without_context_is_recorded(hook_env, monkeypatch, capsys):
+    runtime = load("lifecycle_runtime")
+    stage_pending(hook_env, monkeypatch, runtime)
+    cli = extractor_cli()
+    replies = [{
+        "choices": [{"message": {"content": json.dumps({
+            "memories": [{"text": "Prefers dark mode.", "replacement_intent": True}]
+        })}}]
+    }]
+    calls = []
+
+    def fake_runtime(*argv, **kwargs):
+        calls.append(argv)
+        if argv[0] == "search":
+            return 0, json.dumps({"memories": []}), ""
+        if argv[0] == "add":
+            return 0, json.dumps({"id": "rec-1"}), ""
+        return 0, "{}", ""
+
+    monkeypatch.setattr(runtime, "call_runtime", fake_runtime)
+    for server, _calls in extraction_provider_stub(monkeypatch, replies):
+        argv = extractor_args(monkeypatch, server.server_port)
+        argv.append("--confirm")
+        assert cli.main(argv) is None
+    assert not any(argv[0] == "delete" for argv in calls)
+    event_file = next(runtime.extracted_dir().glob("*.json"))
+    stored = json.loads(event_file.read_text(encoding="utf-8"))
+    receipt = stored["candidates"][0]
+    assert receipt["replacement_context_missing"] is True
+    assert receipt["replacement"]["target_found"] is False
+
+
+def test_unreadable_pending_files_are_quarantined(hook_env, monkeypatch, capsys):
+    runtime = load("lifecycle_runtime")
+    stage_pending(hook_env, monkeypatch, runtime)
+    (runtime.pending_dir() / "broken.json").write_text("{oops", encoding="utf-8")
+    cli = extractor_cli()
+    for server, _calls in extraction_provider_stub(monkeypatch, []):
+        argv = extractor_args(monkeypatch, server.server_port)
+        cli.main(argv)
+    captured = capsys.readouterr()
+    assert "broken.json" in captured.err
+    assert (runtime.pending_dir() / "broken.json.corrupt").exists()
+    assert not (runtime.pending_dir() / "broken.json").exists()
+    report = json.loads(captured.out.strip())
+    assert report["pending_events"] == 1  # the good event is still processed
+
+
+def test_repeated_failures_do_not_starve_later_events(hook_env, monkeypatch, capsys):
+    runtime = load("lifecycle_runtime")
+    stage_pending(hook_env, monkeypatch, runtime, session="sess-1", turn="t-1")
+    stage_pending(hook_env, monkeypatch, runtime, session="sess-2", turn="t-2")
+    cli = extractor_cli()
+    events, _quarantined = cli.load_pending()
+    failing = next(event for event in events if event["event_id"] == runtime.event_id_for("sess-1", "t-1"))
+    failing_path = failing["_path"]
+    failing.pop("_path")
+    failing.pop("_fingerprint", None)
+    failing["last_error"] = "old failure"
+    failing["attempts"] = 3
+    runtime.write_json_private(failing_path, failing)
+    for server, _calls in extraction_provider_stub(monkeypatch, []):
+        argv = extractor_args(monkeypatch, server.server_port)
+        argv.extend(["--limit", "1"])
+        cli.main(argv)
+    report = json.loads(capsys.readouterr().out.strip())
+    assert report["events"][0]["event_id"] == runtime.event_id_for("sess-2", "t-2")
+
+
+def test_capture_overwrites_its_own_event_at_capacity(hook_env, monkeypatch, capsys):
+    runtime = load("lifecycle_runtime")
+    stop = load("turn_capture")
+    stage_scratch(monkeypatch, runtime)
+    feed_stdin(monkeypatch, {
+        "session_id": "sess-1", "turn_id": "t-1", "last_assistant_message": "reply"
+    })
+    assert stop.main() is None
+    assert len(list(runtime.pending_dir().glob("*.json"))) == 1
+    monkeypatch.setattr(runtime, "pending_count", lambda: runtime.MAX_PENDING_EVENTS)
+    stage_scratch(monkeypatch, runtime)
+    feed_stdin(monkeypatch, {
+        "session_id": "sess-1", "turn_id": "t-1",
+        "last_assistant_message": "updated reply",
+    })
+    assert stop.main() is None
+    assert len(list(runtime.pending_dir().glob("*.json"))) == 1  # overwritten, not appended
+    assert runtime.count_overflow_marker() == 0  # retries never count as overflow
+    stored = json.loads(next(runtime.pending_dir().glob("*.json")).read_text(encoding="utf-8"))
+    assert "updated reply" in stored["assistant_text"]["text"]
+    capsys.readouterr()
+
+
+def test_pending_ring_capacity_never_exceeds_the_cap_under_concurrency(hook_env):
+    """305 concurrent claims leave exactly 300 events and 5 counted drops."""
+    runtime = load("lifecycle_runtime")
+    results = []
+    lock = threading.Lock()
+
+    def claim(index):
+        payload = {
+            "event_id": runtime.event_id_for(f"s-{index}", f"t-{index}"),
+            "status": "pending",
+        }
+        outcome = runtime.write_pending_event(payload)
+        with lock:
+            results.append(outcome)
+
+    with ThreadPoolExecutor(max_workers=16) as pool:
+        list(pool.map(claim, range(runtime.MAX_PENDING_EVENTS + 5)))
+    assert len(list(runtime.pending_dir().glob("*.json"))) == runtime.MAX_PENDING_EVENTS
+    assert runtime.count_overflow_marker() == 5
+    assert results.count("full") == 5
+    assert results.count("written") == runtime.MAX_PENDING_EVENTS
+
+
+def test_concurrent_writes_share_no_tmp_file(hook_env):
+    runtime = load("lifecycle_runtime")
+    target = runtime.pending_dir() / "shared.json"
+    barrier = threading.Barrier(4)
+
+    def write(index):
+        barrier.wait()
+        runtime.write_json_private(target, {"writer": index})
+
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        list(pool.map(write, range(4)))
+    assert json.loads(target.read_text(encoding="utf-8"))["writer"] in range(4)
+    assert not list(runtime.pending_dir().glob("*.tmp"))
+
+
+def test_exclusive_lock_serializes_and_times_out(hook_env):
+    runtime = load("lifecycle_runtime")
+    with runtime.exclusive_lock("admit"):
+        with pytest.raises(runtime.HookError, match="admit"):
+            with runtime.exclusive_lock("admit", timeout=0.05):
+                pass
+    with runtime.exclusive_lock("admit"):  # releasable afterwards
+        pass
+
+
+def test_prune_keeps_a_concurrently_restaged_scratch(hook_env, monkeypatch):
+    runtime = load("lifecycle_runtime")
+    stage_scratch(monkeypatch, runtime)
+    scratch = runtime.scratch_path_for("sess-1", "t-1")
+    stale_ns = int((time.time() - runtime.SCRATCH_TTL_SECONDS - 100) * 1e9)
+    stale = (scratch.stat().st_ino, stale_ns)
+    probes = iter([stale, (stale[0] + 1, stale_ns + 1)])
+    monkeypatch.setattr(runtime, "_file_identity", lambda path: next(probes, (0, 0)))
+    assert runtime.prune_stale_scratch() == 0
+    assert scratch.exists()  # the fresh restage won
+
+
+def test_capture_failures_emit_content_free_diagnostics(hook_env, monkeypatch, capsys):
+    runtime = load("lifecycle_runtime")
+    stop = load("turn_capture")
+    stage_scratch(monkeypatch, runtime)
+
+    def broken_write(payload):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(runtime, "write_pending_event", broken_write)
+    feed_stdin(monkeypatch, {
+        "session_id": "sess-1", "turn_id": "t-1",
+        "last_assistant_message": "secret reply content",
+    })
+    assert stop.main() is None
+    output = capsys.readouterr().out.strip()
+    assert "systemMessage" in json.loads(output)
+    assert "secret reply content" not in output
+
+
+def test_stage_write_failures_emit_content_free_diagnostics(hook_env, monkeypatch, capsys):
+    capture = load("user_prompt_capture")
+    runtime = load("lifecycle_runtime")
+    monkeypatch.setattr(
+        runtime, "write_json_private",
+        lambda *a, **k: (_ for _ in ()).throw(OSError("disk full")),
+    )
+    feed_stdin(monkeypatch, {
+        "session_id": "sess-1", "prompt": "secret prompt content, no remember:"
+    })
+    assert capture.main() is None
+    output = capsys.readouterr().out.strip()
+    assert "systemMessage" in json.loads(output)
+    assert "secret prompt content" not in output
+
+
+def test_prompt_without_turn_id_pairs_by_session(hook_env, monkeypatch, capsys):
+    runtime = load("lifecycle_runtime")
+    capture = load("user_prompt_capture")
+    feed_stdin(monkeypatch, {
+        "session_id": "sess-1", "cwd": "/work", "prompt": "plain question"
+    })
+    assert capture.main() is None
+    session_scratch = runtime.scratch_session_path("sess-1")
+    assert session_scratch.exists()
+    staged = json.loads(session_scratch.read_text(encoding="utf-8"))
+    assert staged["pairing"] == "session"
+    # The Stop hook still pairs it, with its own deterministic event id.
+    stop = load("turn_capture")
+    feed_stdin(monkeypatch, {
+        "session_id": "sess-1", "turn_id": "t-1",
+        "last_assistant_message": "paired reply",
+    })
+    assert stop.main() is None
+    pending = list(runtime.pending_dir().glob("*.json"))
+    assert len(pending) == 1
+    stored = json.loads(pending[0].read_text(encoding="utf-8"))
+    assert stored["user_text"]["excerpt"] == "plain question"
+    assert pending[0].name == runtime.event_id_for("sess-1", "t-1") + ".json"
+    assert not session_scratch.exists()  # consumed
+    capsys.readouterr()
+
+
+def test_stale_snapshots_are_never_admitted(hook_env, monkeypatch, capsys):
+    runtime = load("lifecycle_runtime")
+    stage_pending(hook_env, monkeypatch, runtime)
+    cli = extractor_cli()
+    calls = []
+
+    def fake_runtime(*argv, **kwargs):
+        calls.append(argv)
+        if argv[0] == "search":
+            return 0, json.dumps({"memories": []}), ""
+        return 0, json.dumps({"id": "rec-1"}), ""
+
+    monkeypatch.setattr(runtime, "call_runtime", fake_runtime)
+    fingerprints = iter(["loaded-digest", "changed-digest"])
+    monkeypatch.setattr(runtime, "file_fingerprint", lambda path: next(fingerprints, "zzz"))
+    replies = [{
+        "choices": [{"message": {"content": json.dumps({
+            "memories": [{"text": "stale fact", "importance": 0.5}]
+        })}}]
+    }]
+    for server, _calls in extraction_provider_stub(monkeypatch, replies):
+        argv = extractor_args(monkeypatch, server.server_port)
+        argv.append("--confirm")
+        assert cli.main(argv) is None
+    report = json.loads(capsys.readouterr().out.strip())
+    assert report["events"][0]["superseded"] is True
+    assert report["events"][0]["status"] == "pending"
+    assert not any(argv[0] == "add" for argv in calls)  # nothing admitted
+    pending_file = next(runtime.pending_dir().glob("*.json"))
+    stored = json.loads(pending_file.read_text(encoding="utf-8"))
+    assert stored["status"] == "pending"  # newer content left untouched
+    assert "candidates" not in stored
+
+
+def test_pending_copies_with_an_extracted_twin_are_reconciled(hook_env, monkeypatch):
+    runtime = load("lifecycle_runtime")
+    stage_pending(hook_env, monkeypatch, runtime)
+    cli = extractor_cli()
+    pending_file = next(runtime.pending_dir().glob("*.json"))
+    runtime.extracted_dir().mkdir(parents=True, exist_ok=True)
+    (runtime.extracted_dir() / pending_file.name).write_text(
+        pending_file.read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    events, quarantined = cli.load_pending()
+    assert events == []
+    assert quarantined == []
+    assert not pending_file.exists()  # stale duplicate removed
+    assert (runtime.extracted_dir() / pending_file.name).exists()
+

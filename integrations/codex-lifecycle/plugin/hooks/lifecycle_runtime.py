@@ -15,6 +15,7 @@ Paths follow the same contract as the Codex plugin launcher:
 
 from __future__ import annotations
 
+import contextlib
 import datetime as _datetime
 import hashlib
 import json
@@ -22,7 +23,17 @@ import os
 import subprocess
 import sys
 import time
+import uuid
 from pathlib import Path
+
+try:  # POSIX advisory locking
+    import fcntl
+except ImportError:  # pragma: no cover - Windows only
+    fcntl = None
+try:  # Windows region locking
+    import msvcrt
+except ImportError:  # pragma: no cover - POSIX only
+    msvcrt = None
 
 DEFAULT_CONTEXT_CHARS = 1800
 MAX_CAPTURE_CHARS = 512
@@ -34,9 +45,11 @@ USER_EXCERPT_BYTES = 2048
 ASSISTANT_TEXT_BYTES = 8192
 MAX_PENDING_EVENTS = 300
 SCRATCH_TTL_SECONDS = 48 * 3600
+LOCK_TIMEOUT_SECONDS = 10.0
 
 CAPTURE_FORMAT = "qdrant-codex-capture"
 CAPTURE_FORMAT_VERSION = 1
+PLUGIN_VERSION = "0.2.1"
 PROVENANCE = {
     "capture_source": "codex-hook",
     "plugin": "qdrant-memory-lifecycle",
@@ -45,6 +58,61 @@ PROVENANCE = {
 
 class HookError(Exception):
     """A hook-level failure that is surfaced as a systemMessage, not a crash."""
+
+
+@contextlib.contextmanager
+def exclusive_lock(name: str, timeout: float = LOCK_TIMEOUT_SECONDS):
+    """Acquire a profile-local advisory lock; raise HookError on timeout.
+
+    Serializes check-then-write sequences (pending capacity, admission
+    deduplication) across concurrent hook or extractor processes on one
+    machine. The lock file lives under the purged ``events/codex`` tree, so
+    removing that directory also drops every lock.
+    """
+    path = events_root() / "locks" / f"{name}.lock"
+    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    handle = open(path, "a+b")
+    if os.name == "nt" and msvcrt is not None and os.fstat(handle.fileno()).st_size == 0:
+        handle.write(b"\x00")  # msvcrt.locking needs at least one locked byte
+        handle.flush()
+    deadline = time.monotonic() + timeout
+
+    def _acquire() -> None:
+        if os.name == "nt" and msvcrt is not None:
+            handle.seek(0)
+            msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+        elif fcntl is not None:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+    def _release() -> None:
+        try:
+            if os.name == "nt" and msvcrt is not None:
+                handle.seek(0)
+                msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+            elif fcntl is not None:
+                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+        except OSError:
+            pass
+
+    try:
+        while True:
+            try:
+                _acquire()
+                break
+            except OSError:
+                if time.monotonic() >= deadline:
+                    handle.close()
+                    raise HookError(
+                        f"timed out acquiring the {name} lock "
+                        f"after {timeout:g}s"
+                    ) from None
+                time.sleep(0.02)
+        try:
+            yield
+        finally:
+            _release()
+    finally:
+        handle.close()
 
 
 def home(*sub: str) -> Path:
@@ -193,7 +261,14 @@ def events_root() -> Path:
 
 
 def scratch_root() -> Path:
-    """Per-turn user-text scratch, PLUGIN_DATA when Codex provides it."""
+    """Per-turn user-text scratch, PLUGIN_DATA when Codex provides it.
+
+    Note the purge implication (documented in the lifecycle README): when
+    ``PLUGIN_DATA`` is set, pairing scratch lands in
+    ``$PLUGIN_DATA/turn_inputs`` — outside ``profile/events/codex/`` — so the
+    documented purge must include that directory too (the 48 h TTL prune and
+    SessionEnd hook still expire it either way).
+    """
     plugin_data = os.environ.get("PLUGIN_DATA")
     if plugin_data:
         return Path(plugin_data).expanduser() / "turn_inputs"
@@ -225,19 +300,71 @@ def event_id_for(session_id: str, turn_id: str) -> str:
 def write_json_private(path: Path, payload) -> None:
     """Create private parent directories and write the file (0600 on POSIX).
 
-    Windows ignores the POSIX mode bits; the profile directory's own private
-    placement is the boundary there (documented in the lifecycle README).
+    Every write uses a unique temporary name, so concurrent writers of the
+    same destination cannot share or clobber one ``.tmp`` file; the last
+    ``os.replace`` wins atomically. Windows ignores the POSIX mode bits; the
+    profile directory's own private placement is the boundary there
+    (documented in the lifecycle README).
     """
     path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-    tmp = path.with_name(path.name + ".tmp")
-    with open(tmp, "w", encoding="utf-8", newline="\n") as handle:
+    tmp = path.with_name(f"{path.name}.{os.getpid()}.{uuid.uuid4().hex[:12]}.tmp")
+    try:
+        with open(tmp, "w", encoding="utf-8", newline="\n") as handle:
+            if os.name != "nt":
+                os.fchmod(handle.fileno(), 0o600)
+            json.dump(payload, handle, ensure_ascii=False, indent=2, sort_keys=True)
+            handle.write("\n")
         if os.name != "nt":
-            os.fchmod(handle.fileno(), 0o600)
-        json.dump(payload, handle, ensure_ascii=False, indent=2, sort_keys=True)
-        handle.write("\n")
-    if os.name != "nt":
-        os.chmod(tmp, 0o600)
-    os.replace(tmp, path)
+            os.chmod(tmp, 0o600)
+        os.replace(tmp, path)
+    finally:
+        try:
+            tmp.unlink()
+        except OSError:
+            pass
+
+
+def write_pending_event(payload: dict) -> str:
+    """Stage one pending snapshot under the pending lock; classify the outcome.
+
+    Returns ``"written"``, ``"overwritten"`` (the documented idempotent retry:
+    the same event_id was already pending, so the ring slot is reused), or
+    ``"full"``. The capacity check, the write and the overflow marker update
+    are one locked sequence, so concurrent Stop hooks can neither exceed the
+    ring cap nor lose overflow counts. Only newly added events count against
+    the limit; an existing event_id may always be overwritten at capacity.
+    """
+    destination = pending_dir() / (payload["event_id"] + ".json")
+    with exclusive_lock("pending"):
+        existing = destination.exists()
+        if not existing and pending_count() >= MAX_PENDING_EVENTS:
+            mark_overflow()
+            return "full"
+        write_json_private(destination, payload)
+    return "overwritten" if existing else "written"
+
+
+def file_fingerprint(path: Path) -> str:
+    """Digest of a staged file's bytes, to detect concurrent overwrites."""
+    try:
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+    except OSError:
+        return ""
+
+
+def quarantine_pending(path: Path) -> str | None:
+    """Move an unreadable pending file aside (``*.corrupt``) out of the ring.
+
+    Renamed files stop consuming ``*.json`` ring capacity and stay on disk
+    for operator inspection; ``None`` means the file could not be moved
+    (reported by the extractor instead).
+    """
+    target = path.with_name(path.name + ".corrupt")
+    try:
+        os.replace(path, target)
+        return target.name
+    except OSError:
+        return None
 
 
 def read_json(path: Path):
@@ -281,19 +408,39 @@ def mark_overflow(count: int = 1) -> None:
         pass
 
 
+def _file_identity(path: Path) -> tuple[int, int] | None:
+    """Cheap identity probe: (inode, mtime_ns) or None when unreadable."""
+    try:
+        info = path.stat()
+    except OSError:
+        return None
+    return (info.st_ino, info.st_mtime_ns)
+
+
 def prune_stale_scratch(
     ttl_seconds: int = SCRATCH_TTL_SECONDS, now: float | None = None
 ) -> int:
-    """Best-effort cleanup of unpaired per-turn scratch entries."""
+    """Best-effort cleanup of unpaired per-turn scratch entries.
+
+    Immediately before each unlink the file identity is rechecked: if a
+    concurrent prompt hook atomically restaged that very path between the
+    expiry probe and the removal, the fresh pairing is kept.
+    """
     now = time.time() if now is None else now
     removed = 0
     root = scratch_root()
     try:
         for entry in root.glob("*.json"):
+            identity = _file_identity(entry)
+            if identity is None:
+                continue
+            if now - identity[1] / 1e9 <= ttl_seconds:
+                continue
+            if _file_identity(entry) != identity:
+                continue  # restaged concurrently; keep the fresh pairing
             try:
-                if now - entry.stat().st_mtime > ttl_seconds:
-                    entry.unlink()
-                    removed += 1
+                entry.unlink()
+                removed += 1
             except OSError:
                 continue
     except OSError:
@@ -303,4 +450,14 @@ def prune_stale_scratch(
 
 def scratch_path_for(session_id: str, turn_id: str) -> Path:
     digest = hashlib.sha256(f"{session_id}\x1f{turn_id}".encode("utf-8")).hexdigest()
+    return scratch_root() / f"{digest}.json"
+
+
+def scratch_session_path(session_id: str) -> Path:
+    """Session-level pairing scratch for clients that omit ``turn_id``.
+
+    Distinct hash namespace from :func:`scratch_path_for`; consumed by the
+    next Stop hook in that session.
+    """
+    digest = hashlib.sha256(f"session:{session_id}".encode("utf-8")).hexdigest()
     return scratch_root() / f"{digest}.json"

@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- Harden the lifecycle auto-capture preview per review: HTTPS-only non-loopback
+  extraction endpoints, `--confirm` required before staged text reaches any
+  remote provider, broader secret-shaped candidate refusal (bearer tokens,
+  GitHub/Slack tokens, PEM blocks, `password=`), locked pending-capacity and
+  admission sequences (unique temp files, prune rechecks, overwrite-at-capacity
+  idempotence), session-level pairing when `turn_id` is absent, content-free
+  capture diagnostics, durable extraction receipts (rejections, replacement
+  outcomes, record IDs preserved across retries, errors cleared on success),
+  stale-snapshot admission guard, response size cap and quarantine of
+  unreadable pending events.
+
 - Add a credential-free real-Codex-CLI end-to-end lane
   (`scripts/codex_plugin_e2e.py`, CI job `lifecycle-e2e`): isolated `CODEX_HOME`
   installs from both the repository marketplace and the exact rebuilt ZIP,
