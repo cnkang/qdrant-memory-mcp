@@ -118,6 +118,6 @@ The example model must support chat completions (embedding-only models such as
 | Real-Runtime round trip: Stop capture → stub extractor → `--confirm` → real Runtime `add` in the shared profile → Runtime `search` finds the record → pending emptied | **PASS** (`tests/test_codex_capture_integration.py`) |
 | Repository marketplace accepts the hooks plugin manifest from the real Codex CLI 0.165.0 (`plugin add`/`mcp list`/`remove`) | **PASS** (per the readiness branch evidence; hooks cache resolution verified) |
 | A real trust-reviewed Codex session firing all four hooks | **NOT VERIFIED** — needs a subscribed, hook-enabled client; do not treat this preview as verified until then |
-| Extraction quality with real local models | **NOT VERIFIED** (uses a stub in tests; run `--limit 1 --dry-run` first on real data) |
+| Extraction quality with real local models | **NOT VERIFIED** (uses a stub in tests; run `--limit 1` without `--confirm` first on real data) |
 | `Stop`-based in-session extraction (Route A) | **NOT IMPLEMENTED** by design (see pipeline note) |
 | Public-directory eligibility of this directory | **NOT APPLICABLE** — hooks are ineligible for public submission per official docs |

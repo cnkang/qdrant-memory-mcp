@@ -1768,6 +1768,8 @@ def test_write_json_private_retries_windows_access_denied(hook_env, monkeypatch)
         raise PermissionError(13, "Access is denied")
 
     monkeypatch.setattr(runtime.os, "replace", always_denied)
+    ticks = iter([0.0, 0.0, 10.0])
+    monkeypatch.setattr(runtime.time, "monotonic", lambda: next(ticks, 10.0))
     quarantine_source = runtime.pending_dir() / "broken.json"
     quarantine_source.write_text("{oops", encoding="utf-8")
     assert runtime.quarantine_pending(quarantine_source) is None
@@ -1833,6 +1835,31 @@ def test_stage_write_failures_emit_content_free_diagnostics(hook_env, monkeypatc
     output = capsys.readouterr().out.strip()
     assert "systemMessage" in json.loads(output)
     assert "secret prompt content" not in output
+
+
+def test_stage_write_failure_with_remember_emits_one_response(hook_env, monkeypatch, capsys):
+    """Combine staging and remember outcomes into one hook response."""
+    capture = load("user_prompt_capture")
+    runtime = load("lifecycle_runtime")
+    monkeypatch.setattr(
+        runtime,
+        "write_json_private",
+        lambda *a, **k: (_ for _ in ()).throw(OSError("disk full")),
+    )
+    monkeypatch.setattr(
+        runtime,
+        "call_runtime",
+        lambda *a, **k: (0, json.dumps({"id": "rec-1"}), ""),
+    )
+    feed_stdin(monkeypatch, {
+        "session_id": "sess-1", "prompt": "remember: keep one fact"
+    })
+
+    assert capture.main() == 0
+    output = capsys.readouterr().out.strip()
+    response = json.loads(output)
+    assert "could not stage" in response["systemMessage"]
+    assert "saved one explicit fact" in response["systemMessage"]
 
 
 def test_prompt_without_turn_id_pairs_by_session(hook_env, monkeypatch, capsys):
