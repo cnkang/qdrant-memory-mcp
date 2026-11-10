@@ -406,6 +406,17 @@ def test_user_prompt_submit_stages_scratch_and_honors_remember(hook_env, monkeyp
     assert staged["user_excerpt"] == "Remember: team offsite is in May."
 
 
+def test_auto_capture_opt_out_skips_prompt_staging(hook_env, monkeypatch, capsys):
+    """Verify QDRANT_MEMORY_CODEX_AUTO_CAPTURE=0 disables prompt staging."""
+    runtime = load("lifecycle_runtime")
+    monkeypatch.setenv("QDRANT_MEMORY_CODEX_AUTO_CAPTURE", "0")
+    feed_stdin(monkeypatch, {"session_id": "sess-1", "turn_id": "t-1", "prompt": "plain question"})
+    capture = load("user_prompt_capture")
+    capture.main()
+    assert not runtime.scratch_path_for("sess-1", "t-1").exists()
+    assert capsys.readouterr().out == ""
+
+
 def test_user_prompt_submit_scratch_records_excerpt(hook_env, monkeypatch):
     """Verify pairing scratch stores the bounded user excerpt."""
     stage_scratch(monkeypatch, load("lifecycle_runtime"))
@@ -1110,6 +1121,15 @@ def test_main_refuses_unsafe_endpoints_before_any_send(hook_env, monkeypatch, ca
     assert sent == []
 
 
+def test_endpoint_loopback_check_uses_ip_parsing():
+    """Verify DNS names starting with 127 are not treated as loopback."""
+    cli = extractor_cli()
+    assert cli._endpoint_is_loopback("http://127.0.0.1:11434/v1")
+    assert cli._endpoint_is_loopback("http://[::1]:11434/v1")
+    assert cli._endpoint_is_loopback("http://localhost:11434/v1")
+    assert not cli._endpoint_is_loopback("http://127.attacker.example/v1")
+
+
 class _RecordingProvider:
     """Stands in for ExtractionProvider without touching the network."""
 
@@ -1308,7 +1328,9 @@ def test_admission_retries_preserve_earlier_receipts(hook_env, monkeypatch, caps
     event_file = next(runtime.extracted_dir().glob("*.json"))
     final = json.loads(event_file.read_text(encoding="utf-8"))
     assert [item["record_id"] for item in final["candidates"]] == ["rec-1", "rec-2"]
-    assert final["skipped"] == [{"text": "Prefers round mugs.", "reason": "duplicate"}]
+    assert final["skipped"] == [
+        {"text": "Prefers round mugs.", "reason": "already admitted"}
+    ]
     assert "last_error" not in final  # the retry resolved the failure
     assert "attempts" not in final
 
@@ -1480,6 +1502,42 @@ def test_finalize_keeps_newer_content_pending_with_receipts(hook_env, monkeypatc
     assert not pending_file.exists()
 
 
+def test_retry_skips_candidates_already_in_receipts(hook_env, monkeypatch):
+    """Verify a retry does not re-add a candidate its event already admitted."""
+    runtime = load("lifecycle_runtime")
+    stage_pending(hook_env, monkeypatch, runtime)
+    cli = extractor_cli()
+    pending_file = next(runtime.pending_dir().glob("*.json"))
+    event = json.loads(pending_file.read_text(encoding="utf-8"))
+    event["candidates"] = [{"text": "Prefers round mugs.", "record_id": "rec-1"}]
+    pending_file.write_text(json.dumps(event), encoding="utf-8")
+    outcome = {
+        "_path": pending_file,
+        "_fingerprint": runtime.file_fingerprint(pending_file),
+        "event_id": event["event_id"],
+        "candidates": [
+            {
+                "text": "Prefers round mugs.",
+                "category": ["codex-auto"],
+                "importance": 0.5,
+                "replacement_intent": False,
+            }
+        ],
+        "rejected": [],
+    }
+    calls = []
+
+    def admit(*args, **kwargs):
+        calls.append(args)
+        return 0, "{}", ""
+
+    result = cli._admit_event(outcome, admit)
+    assert calls == []
+    assert result["skipped"] == [
+        {"text": "Prefers round mugs.", "reason": "already admitted"}
+    ]
+
+
 def test_replacement_without_context_is_recorded(hook_env, monkeypatch, capsys):
     """Verify a replacement without context is recorded without deleting anything."""
     runtime = load("lifecycle_runtime")
@@ -1519,15 +1577,11 @@ def test_unreadable_pending_files_are_quarantined(hook_env, monkeypatch, capsys)
     stage_pending(hook_env, monkeypatch, runtime)
     (runtime.pending_dir() / "broken.json").write_text("{oops", encoding="utf-8")
     cli = extractor_cli()
-    for server, _calls in extraction_provider_stub(monkeypatch, []):
-        argv = extractor_args(monkeypatch, server.server_port)
-        cli.main(argv)
-    captured = capsys.readouterr()
-    assert "broken.json" in captured.err
+    events, quarantined = cli.load_pending()
+    assert any("broken.json" in name for name in quarantined)
     assert (runtime.pending_dir() / "broken.json.corrupt").exists()
     assert not (runtime.pending_dir() / "broken.json").exists()
-    report = json.loads(captured.out.strip())
-    assert report["pending_events"] == 1  # the good event is still processed
+    assert len(events) == 1  # the good event is still returned
 
 
 def test_repeated_failures_do_not_starve_later_events(hook_env, monkeypatch, capsys):
@@ -1769,8 +1823,8 @@ def test_stale_snapshots_are_never_admitted(hook_env, monkeypatch, capsys):
     assert "candidates" not in stored
 
 
-def test_pending_copies_with_an_extracted_twin_are_reconciled(hook_env, monkeypatch):
-    """Verify a stale pending copy is removed when its extracted twin exists."""
+def test_newer_pending_capture_is_not_removed_by_an_extracted_twin(hook_env, monkeypatch):
+    """Verify a redelivered capture is kept when the extracted twin is not marked stale."""
     runtime = load("lifecycle_runtime")
     stage_pending(hook_env, monkeypatch, runtime)
     cli = extractor_cli()
@@ -1778,6 +1832,42 @@ def test_pending_copies_with_an_extracted_twin_are_reconciled(hook_env, monkeypa
     runtime.extracted_dir().mkdir(parents=True, exist_ok=True)
     (runtime.extracted_dir() / pending_file.name).write_text(
         pending_file.read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    events, quarantined = cli.load_pending()
+    assert len(events) == 1
+    assert quarantined == []
+    assert pending_file.exists()
+
+
+def test_dry_run_does_not_remove_a_failed_move_leftover(hook_env, monkeypatch):
+    """Verify load_pending(mutate=False) leaves the journal untouched."""
+    runtime = load("lifecycle_runtime")
+    stage_pending(hook_env, monkeypatch, runtime)
+    cli = extractor_cli()
+    pending_file = next(runtime.pending_dir().glob("*.json"))
+    runtime.extracted_dir().mkdir(parents=True, exist_ok=True)
+    archived = json.loads(pending_file.read_text(encoding="utf-8"))
+    archived["pending_cleanup_failed"] = True
+    (runtime.extracted_dir() / pending_file.name).write_text(
+        json.dumps(archived), encoding="utf-8"
+    )
+    events, quarantined = cli.load_pending(mutate=False)
+    assert events == []
+    assert quarantined == []
+    assert pending_file.exists()
+
+
+def test_pending_copies_with_an_extracted_twin_are_reconciled(hook_env, monkeypatch):
+    """Verify a stale pending copy is removed when its extracted twin exists."""
+    runtime = load("lifecycle_runtime")
+    stage_pending(hook_env, monkeypatch, runtime)
+    cli = extractor_cli()
+    pending_file = next(runtime.pending_dir().glob("*.json"))
+    runtime.extracted_dir().mkdir(parents=True, exist_ok=True)
+    archived = json.loads(pending_file.read_text(encoding="utf-8"))
+    archived["pending_cleanup_failed"] = True
+    (runtime.extracted_dir() / pending_file.name).write_text(
+        json.dumps(archived), encoding="utf-8"
     )
     events, quarantined = cli.load_pending()
     assert events == []

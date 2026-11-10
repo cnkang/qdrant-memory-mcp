@@ -110,7 +110,7 @@ The example model must support chat completions (embedding-only models such as
 
 | Check | Result |
 |---|---|
-| Handler units: scratch staging, pairing, byte caps, deterministic event IDs, idempotent overwrite, overflow marker, PLUGIN_DATA precedence, no-Runtime-invocation by capture, TTL prune, extraction validation (extra keys, secret-shaped, oversized, importance range), dry-run immutability, dedupe skip, failure keeps `pending` with recorded error | **PASS** (`tests/test_codex_lifecycle_hooks.py`, 29 cases, macOS arm64) |
+| Handler units: scratch staging, pairing, byte caps, deterministic event IDs, idempotent overwrite, overflow marker, PLUGIN_DATA precedence, no-Runtime-invocation by capture, TTL prune, extraction validation (extra keys, secret-shaped, oversized, importance range), dry-run immutability, dedupe skip, failure keeps `pending` with recorded error | **PASS** (`tests/test_codex_lifecycle_hooks.py`, macOS arm64) |
 | Real-Runtime round trip: Stop capture → stub extractor → `--confirm` → real Runtime `add` in the shared profile → Runtime `search` finds the record → pending emptied | **PASS** (`tests/test_codex_capture_integration.py`) |
 | Repository marketplace accepts the hooks plugin manifest from the real Codex CLI 0.165.0 (`plugin add`/`mcp list`/`remove`) | **PASS** (per the readiness branch evidence; hooks cache resolution verified) |
 | A real trust-reviewed Codex session firing all four hooks | **NOT VERIFIED** — needs a subscribed, hook-enabled client; do not treat this preview as verified until then |

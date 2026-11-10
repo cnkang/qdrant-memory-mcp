@@ -22,6 +22,7 @@ Two independent behaviors, one hook:
 
 from __future__ import annotations
 
+import os
 import re
 import sys
 
@@ -85,7 +86,8 @@ def main() -> int:
         if not isinstance(prompt, str) or not prompt.strip():
             return 0
         # 1. Pairing record: local scratch, best effort, never fatal.
-        stage_turn_input(event, prompt)
+        if os.environ.get("QDRANT_MEMORY_CODEX_AUTO_CAPTURE", "1") != "0":
+            stage_turn_input(event, prompt)
         # 2. Explicit directive (existing contract).
         line = prompt.splitlines()[0]
         match = DIRECTIVE.match(line)
