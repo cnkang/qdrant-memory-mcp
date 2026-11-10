@@ -40,7 +40,8 @@ Released-spec verification changed three recorded claims:
    dependency payload now has a real prototype:
    `runtime-locks/*.txt` (hash-locked per-platform transitive resolutions)
    plus the pinned-commit Runtime wheel SHA-256, with `--require-hashes`
-   offline installs verified on macOS arm64 and x64. NO-GO is unchanged: no
+   offline installs verified on macOS arm64; macOS x64 remains **NOT VERIFIED**.
+   NO-GO is unchanged: no
    bundle layout, SBOM, license aggregation or desktop launch route exists.
 
 ## Decision

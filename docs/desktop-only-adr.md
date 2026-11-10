@@ -15,7 +15,7 @@ SHA-256. `python scripts/build_runtime_locks.py --wheelhouse <dir>` downloads
 this host's platform wheels with hash checking, and `--verify <platform>`
 installs the full resolution offline (`--require-hashes --only-binary --no-index`)
 into a fresh venv and probes the Runtime console. Verified on this host:
-**macOS arm64 and macOS x64 PASS**; Linux and Windows remain NOT VERIFIED.
+**macOS arm64 PASS**; macOS x64, Linux and Windows remain NOT VERIFIED.
 The release layout question (this file's blocker), the per-platform archive
 selector, the SBOM/licensing aggregation and the archive itself are unchanged
 and NO-GO stands.

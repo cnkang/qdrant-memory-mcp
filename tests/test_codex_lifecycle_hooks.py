@@ -93,13 +93,13 @@ def test_explicit_capture_saves_directive_text(hook_env, monkeypatch, capsys):
     monkeypatch.setattr(module.runtime, "call_runtime", fake_call)
     monkeypatch.setattr(module.runtime, "load_scope", lambda: ("hook-user", "hook-agent"))
     monkeypatch.setattr(
-        "sys.stdin", type("S", (), {"read": staticmethod(lambda: json.dumps({"prompt": "Remember: dish soap runs low."}))})()
+        "sys.stdin", type("S", (), {"read": staticmethod(lambda: json.dumps({"prompt": "Remember:  dish soap runs low."}))})()
     )
     module.main()
     output = capsys.readouterr().out.strip()
     assert "hookSpecificOutput" not in output  # no model-visible injection
     assert "systemMessage" in json.loads(output)
-    assert saved == [["add", "--text", "dish soap runs low."]]
+    assert saved == [["add", "--text", "  dish soap runs low."]]
 
 
 def test_explicit_capture_preserves_trailing_whitespace(hook_env, monkeypatch, capsys):
@@ -117,7 +117,7 @@ def test_explicit_capture_preserves_trailing_whitespace(hook_env, monkeypatch, c
         type("S", (), {"read": staticmethod(lambda: json.dumps({"prompt": "remember: keep two spaces  "}))})(),
     )
     module.main()
-    assert saved == [["add", "--text", "keep two spaces  "]]
+    assert saved == [["add", "--text", " keep two spaces  "]]
 
 
 def test_explicit_capture_accepts_a_full_width_colon(hook_env, monkeypatch, capsys):

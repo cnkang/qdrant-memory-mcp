@@ -459,8 +459,11 @@ def test_verify_offline_uses_a_private_requirements_file_per_run(work, monkeypat
     (wheelhouse / "hermes_plugin_qdrant_memory-0.6.0-py3-none-any.whl").write_bytes(b"w")
     meta = pinned_meta("hermes_plugin_qdrant_memory-0.6.0-py3-none-any.whl")
     requirements_paths = []
+    venv_arguments = []
 
     def fake_run(executable, arguments, cwd, **kwargs):
+        if arguments[:1] == ["venv"]:
+            venv_arguments.append(list(arguments))
         if arguments[:3] == ["-P", "-m", "pip"]:
             requirements_paths.append(arguments[arguments.index("-r") + 1])
         return types.SimpleNamespace(returncode=0, stdout="", stderr="")
@@ -471,6 +474,10 @@ def test_verify_offline_uses_a_private_requirements_file_per_run(work, monkeypat
     module.verify_offline("macos-arm64", wheelhouse, meta)
 
     assert len(requirements_paths) == 2
+    assert len(venv_arguments) == 2
+    for arguments in venv_arguments:
+        assert "--offline" in arguments
+        assert "--no-python-downloads" in arguments
     assert requirements_paths[0] != requirements_paths[1]
     for candidate in requirements_paths:
         path = Path(candidate)
