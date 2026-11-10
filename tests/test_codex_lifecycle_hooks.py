@@ -380,7 +380,7 @@ def stage_scratch(monkeypatch, runtime, *, prompt="plain question", session="ses
     feed_stdin(monkeypatch, {
         "session_id": session, "turn_id": turn, "cwd": cwd, "prompt": prompt
     })
-    assert capture.main() is None
+    assert capture.main() == 0
 
 
 def test_user_prompt_submit_stages_scratch_and_honors_remember(hook_env, monkeypatch, capsys):
@@ -888,7 +888,7 @@ def test_call_runtime_passes_direct_argv(hook_env, monkeypatch):
 def test_emit_with_only_system_message(hook_env, capsys):
     """Verify emit with only a system message stays silent to the model."""
     runtime = load("lifecycle_runtime")
-    assert runtime.emit(system_message="note only") is None
+    assert runtime.emit(system_message="note only") == 0
     payload = json.loads(capsys.readouterr().out)
     assert payload == {"systemMessage": "note only"}
 
@@ -896,7 +896,7 @@ def test_emit_with_only_system_message(hook_env, capsys):
 def test_emit_both_context_and_message(hook_env, capsys):
     """Verify emit can return context and a system message together."""
     runtime = load("lifecycle_runtime")
-    assert runtime.emit(additional_context="ctx", system_message="warn") is None
+    assert runtime.emit(additional_context="ctx", system_message="warn") == 0
     payload = json.loads(capsys.readouterr().out)
     assert payload["systemMessage"] == "warn"
     assert payload["hookSpecificOutput"]["additionalContext"] == "ctx"
@@ -928,7 +928,7 @@ def test_recall_misread_runtime_output(hook_env, monkeypatch, capsys):
     monkeypatch.setattr(module.runtime, "load_scope", lambda: ("u", "a"))
     monkeypatch.setattr(module.runtime, "call_runtime", lambda *a, **k: (0, "not-json", ""))
     feed_stdin(monkeypatch, {"cwd": "/tmp/demo"})
-    assert module.main() is None
+    assert module.main() == 0
     payload = json.loads(capsys.readouterr().out)
     assert "misread Runtime output" in payload["systemMessage"]
 
@@ -939,7 +939,7 @@ def test_recall_tolerates_wrong_shape(hook_env, monkeypatch, capsys):
     monkeypatch.setattr(module.runtime, "load_scope", lambda: ("u", "a"))
     monkeypatch.setattr(module.runtime, "call_runtime", lambda *a, **k: (0, '{"nope": 1}', ""))
     feed_stdin(monkeypatch, {"cwd": "/tmp/shape"})
-    assert module.main() is None
+    assert module.main() == 0
     assert capsys.readouterr().out == ""
 
 
@@ -954,7 +954,7 @@ def test_recall_truncates_long_context(hook_env, monkeypatch, capsys):
         return 0, json.dumps(rows), ""
 
     monkeypatch.setattr(module.runtime, "call_runtime", fake)
-    assert module.main() is None
+    assert module.main() == 0
     payload = json.loads(capsys.readouterr().out)
     assert len(payload["hookSpecificOutput"]["additionalContext"]) <= module.runtime.DEFAULT_CONTEXT_CHARS
 
@@ -970,7 +970,7 @@ def test_remember_fullwidth_colon_is_matched(hook_env, monkeypatch, capsys):
     )
     monkeypatch.setattr(capture.runtime, "load_scope", lambda: ("u", "a"))
     feed_stdin(monkeypatch, {"prompt": "Remember：use warm mugs."})
-    assert capture.main() is None
+    assert capture.main() == 0
     _ = json.loads(capsys.readouterr().out)
     assert calls
     assert calls[0][-1] == "use warm mugs."
@@ -980,7 +980,7 @@ def test_capture_non_string_prompt_is_ignored(hook_env, monkeypatch, capsys):
     """Verify a non-string prompt is ignored by the capture hook."""
     capture = load("user_prompt_capture")
     feed_stdin(monkeypatch, {"prompt": 42})
-    assert capture.main() is None
+    assert capture.main() == 0
     assert capsys.readouterr().out == ""
 
 
@@ -988,7 +988,7 @@ def test_capture_blank_prompt_is_ignored(hook_env, monkeypatch, capsys):
     """Verify a blank prompt is ignored by the capture hook."""
     capture = load("user_prompt_capture")
     feed_stdin(monkeypatch, {"prompt": "   "})
-    assert capture.main() is None
+    assert capture.main() == 0
     assert capsys.readouterr().out == ""
 
 
@@ -998,7 +998,7 @@ def test_capture_add_failure_surfaces(hook_env, monkeypatch, capsys):
     monkeypatch.setattr(capture.runtime, "call_runtime", lambda *a, **k: (2, "{}", "runtime down"))
     monkeypatch.setattr(capture.runtime, "load_scope", lambda: ("u", "a"))
     feed_stdin(monkeypatch, {"prompt": "Remember: keep it."})
-    assert capture.main() is None
+    assert capture.main() == 0
     assert "runtime down" in json.loads(capsys.readouterr().out)["systemMessage"]
 
 
@@ -1008,7 +1008,7 @@ def test_capture_stage_write_failure_is_not_fatal(hook_env, monkeypatch):
     runtime = load("lifecycle_runtime")
     monkeypatch.setattr(runtime, "write_json_private", lambda *a, **k: (_ for _ in ()).throw(OSError("disk full")))
     feed_stdin(monkeypatch, {"prompt": "whatever, no remember:"})
-    assert capture.main() is None
+    assert capture.main() == 0
 
 
 def test_extract_provider_missing_key_header_is_empty_for_local(monkeypatch):
@@ -1095,12 +1095,15 @@ def test_candidate_validation_rejects_new_credential_formats(monkeypatch):
 def test_extraction_provider_uses_private_opener(hook_env, monkeypatch):
     """Ignore environment proxies and refuse redirects before sending data."""
     cli = load("extract_pending")
-    proxy_handler = next(
+    proxy_handlers = [
         handler
         for handler in cli._OPENER.handlers
         if isinstance(handler, cli.urllib.request.ProxyHandler)
-    )
-    assert proxy_handler.proxies == {}
+    ]
+    # urllib omits an empty ProxyHandler from OpenerDirector.handlers, but
+    # passing ProxyHandler({}) to build_opener suppresses the default
+    # environment-backed proxy handler.
+    assert all(not handler.proxies for handler in proxy_handlers)
     redirect_handler = next(
         handler
         for handler in cli._OPENER.handlers
@@ -1826,7 +1829,7 @@ def test_stage_write_failures_emit_content_free_diagnostics(hook_env, monkeypatc
     feed_stdin(monkeypatch, {
         "session_id": "sess-1", "prompt": "secret prompt content, no remember:"
     })
-    assert capture.main() is None
+    assert capture.main() == 0
     output = capsys.readouterr().out.strip()
     assert "systemMessage" in json.loads(output)
     assert "secret prompt content" not in output
@@ -1839,7 +1842,7 @@ def test_prompt_without_turn_id_pairs_by_session(hook_env, monkeypatch, capsys):
     feed_stdin(monkeypatch, {
         "session_id": "sess-1", "cwd": "/work", "prompt": "plain question"
     })
-    assert capture.main() is None
+    assert capture.main() == 0
     session_scratch = runtime.scratch_session_path("sess-1")
     assert session_scratch.exists()
     staged = json.loads(session_scratch.read_text(encoding="utf-8"))

@@ -88,7 +88,7 @@ def test_capture_extract_admit_search_round_trip(sandbox, tmp_path, monkeypatch)
             },
         )(),
     )
-    assert capture.main() is None
+    assert capture.main() == 0
 
     stop = load("turn_capture")
     monkeypatch.setattr(
