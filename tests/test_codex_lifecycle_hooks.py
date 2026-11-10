@@ -1148,7 +1148,7 @@ def test_dry_run_never_sends_to_remote_providers(hook_env, monkeypatch, capsys):
     runtime = load("lifecycle_runtime")
     stage_pending(hook_env, monkeypatch, runtime)
     cli = extractor_cli()
-    _RecordingProvider.calls = []
+    monkeypatch.setattr(_RecordingProvider, "calls", [])
     monkeypatch.setattr(cli, "ExtractionProvider", _RecordingProvider)
     argv = ["--base-url", "https://remote.example/v1", "--model", "m", "--limit", "5"]
     cli.main(argv)
@@ -1161,6 +1161,7 @@ def test_dry_run_never_sends_to_remote_providers(hook_env, monkeypatch, capsys):
 
 
 def test_build_prompt_rejects_malformed_nested_fields(hook_env):
+    """Verify malformed nested event fields are rejected before prompting."""
     cli = extractor_cli()
     with pytest.raises(ValueError, match="user_text"):
         cli.build_prompt({"user_text": "a string"})
@@ -1183,7 +1184,8 @@ def test_prompt_and_validation_surface_truncation(hook_env):
     # Only BOTH sides clipped triggers the hard admission guard.
     document = {"memories": [{"text": "some fact", "importance": 0.5}]}
     good, rejected = cli.validate_candidates(document, event)
-    assert len(good) == 1 and rejected == []
+    assert len(good) == 1
+    assert rejected == []
     both = dict(event)
     both["assistant_text"] = {"text": "long reply", "truncated": True}
     good, rejected = cli.validate_candidates(document, both)
@@ -1874,4 +1876,3 @@ def test_pending_copies_with_an_extracted_twin_are_reconciled(hook_env, monkeypa
     assert quarantined == []
     assert not pending_file.exists()  # stale duplicate removed
     assert (runtime.extracted_dir() / pending_file.name).exists()
-
