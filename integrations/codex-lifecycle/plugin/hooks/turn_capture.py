@@ -40,39 +40,33 @@ sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parent))
 import lifecycle_runtime as runtime  # noqa: E402
 
 
-def capture(event: dict) -> None:
-    """Store one pending event for this completed turn; never fail the turn."""
-    session_id = event.get("session_id")
-    if not isinstance(session_id, str) or not session_id:
-        return
-    if event.get("stop_hook_active") is True:
-        return  # continuation turn of a decided Stop; do not chain captures
-    turn_id = event.get("turn_id")
-    has_turn = isinstance(turn_id, str) and bool(turn_id)
-    assistant_raw = event.get("last_assistant_message")
-    if not isinstance(assistant_raw, str) or not assistant_raw.strip():
-        return
-    # Pair with this turn's staged user text; fall back to the session-level
-    # entry staged when UserPromptSubmit omitted turn_id. If neither exists,
-    # the turn was interrupted or tool-only: nothing paired, nothing captured.
+def _paired_scratch(session_id: str, turn_id, has_turn: bool):
+    """Return the pairing scratch for this turn, falling back to the session."""
     scratch = None
     if has_turn:
         scratch = runtime.read_json(runtime.scratch_path_for(session_id, turn_id))
     if not isinstance(scratch, dict):
         scratch = runtime.read_json(runtime.scratch_session_path(session_id))
-    if not isinstance(scratch, dict):
-        return
-    user_excerpt = scratch.get("user_excerpt")
-    if not isinstance(user_excerpt, str) or not user_excerpt.strip():
-        return
-    assistant_text, assistant_truncated = runtime.truncate_utf8(
-        assistant_raw.strip(), runtime.ASSISTANT_TEXT_BYTES
-    )
-    # Deterministic, opaque event ID: session+turn when available, otherwise
-    # derived from the reply content so repeated redeliveries still overwrite
-    # instead of duplicating.
-    turn_key = turn_id if has_turn else f"reply:{hashlib.sha256(assistant_raw.encode('utf-8')).hexdigest()[:16]}"
-    payload = {
+    return scratch if isinstance(scratch, dict) else None
+
+
+def _turn_key(turn_id, has_turn: bool, assistant_raw: str) -> str:
+    """Deterministic turn key: session turn id, else a reply-content digest."""
+    if has_turn:
+        return turn_id
+    digest = hashlib.sha256(assistant_raw.encode("utf-8")).hexdigest()[:16]
+    return f"reply:{digest}"
+
+
+def _capture_payload(
+    session_id: str,
+    turn_key: str,
+    scratch: dict,
+    assistant_text: str,
+    assistant_truncated: bool,
+) -> dict:
+    """Build the bounded pending-event payload for one completed turn."""
+    return {
         "format": runtime.CAPTURE_FORMAT,
         "version": runtime.CAPTURE_FORMAT_VERSION,
         "event_id": runtime.event_id_for(session_id, turn_key),
@@ -81,7 +75,7 @@ def capture(event: dict) -> None:
         "stored_utc": runtime.now_utc(),
         "cwd": scratch.get("cwd") if isinstance(scratch.get("cwd"), str) else "",
         "user_text": {
-            "excerpt": user_excerpt,
+            "excerpt": scratch.get("user_excerpt"),
             "truncated": bool(scratch.get("user_truncated")),
         },
         "assistant_text": {
@@ -94,16 +88,10 @@ def capture(event: dict) -> None:
             "plugin_version": runtime.PLUGIN_VERSION,
         },
     }
-    outcome = runtime.write_pending_event(payload)
-    if outcome == "full":
-        runtime.emit(
-            system_message=(
-                "Qdrant Memory capture paused: pending buffer is full; "
-                "run the extractor (extract_pending.py) to free space."
-            )
-        )
-        return
-    # The pairing scratch is consumed once paired (both possible entries).
+
+
+def _consume_scratch(session_id: str, turn_id, has_turn: bool) -> None:
+    """Remove the pairing scratch once its turn is captured."""
     paths = {runtime.scratch_session_path(session_id)}
     if has_turn:
         paths.add(runtime.scratch_path_for(session_id, turn_id))
@@ -112,6 +100,43 @@ def capture(event: dict) -> None:
             path.unlink()
         except OSError:
             pass
+
+
+def capture(event: dict) -> None:
+    """Store one pending event for this completed turn; never fail the turn."""
+    session_id = event.get("session_id")
+    if not isinstance(session_id, str) or not session_id:
+        return
+    if event.get("stop_hook_active") is True:
+        return  # continuation turn of a decided Stop; do not chain captures
+    turn_id = event.get("turn_id")
+    has_turn = isinstance(turn_id, str) and bool(turn_id)
+    assistant_raw = event.get("last_assistant_message")
+    if not isinstance(assistant_raw, str) or not assistant_raw.strip():
+        return
+    scratch = _paired_scratch(session_id, turn_id, has_turn)
+    if scratch is None:
+        return
+    user_excerpt = scratch.get("user_excerpt")
+    if not isinstance(user_excerpt, str) or not user_excerpt.strip():
+        return
+    assistant_text, assistant_truncated = runtime.truncate_utf8(
+        assistant_raw.strip(), runtime.ASSISTANT_TEXT_BYTES
+    )
+    turn_key = _turn_key(turn_id, has_turn, assistant_raw)
+    payload = _capture_payload(
+        session_id, turn_key, scratch, assistant_text, assistant_truncated
+    )
+    if runtime.write_pending_event(payload) == "full":
+        runtime.emit(
+            system_message=(
+                "Qdrant Memory capture paused: pending buffer is full; "
+                "run the extractor (extract_pending.py) to free space."
+            )
+        )
+        return
+    _consume_scratch(session_id, turn_id, has_turn)
+
 
 
 def main() -> None:

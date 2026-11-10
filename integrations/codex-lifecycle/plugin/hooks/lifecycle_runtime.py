@@ -60,6 +60,41 @@ class HookError(Exception):
     """A hook-level failure that is surfaced as a systemMessage, not a crash."""
 
 
+def _acquire_lock(handle, name: str, timeout: float, deadline: float) -> None:
+    """Acquire the advisory lock, waiting until the deadline or raising."""
+    while True:
+        try:
+            _try_lock(handle)
+            return
+        except OSError:
+            if time.monotonic() >= deadline:
+                raise HookError(
+                    f"timed out acquiring the {name} lock after {timeout:g}s"
+                ) from None
+            time.sleep(0.02)
+
+
+def _try_lock(handle) -> None:
+    """Try one non-blocking acquisition of the platform lock."""
+    if os.name == "nt" and msvcrt is not None:
+        handle.seek(0)
+        msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+    elif fcntl is not None:
+        fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+
+def _release_lock(handle) -> None:
+    """Release the platform lock; ignore errors during teardown."""
+    try:
+        if os.name == "nt" and msvcrt is not None:
+            handle.seek(0)
+            msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+        elif fcntl is not None:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+    except OSError:
+        pass
+
+
 @contextlib.contextmanager
 def exclusive_lock(name: str, timeout: float = LOCK_TIMEOUT_SECONDS):
     """Acquire a profile-local advisory lock; raise HookError on timeout.
@@ -76,44 +111,15 @@ def exclusive_lock(name: str, timeout: float = LOCK_TIMEOUT_SECONDS):
         handle.write(b"\x00")  # msvcrt.locking needs at least one locked byte
         handle.flush()
     deadline = time.monotonic() + timeout
-
-    def _acquire() -> None:
-        """Try one non-blocking acquisition of the lock."""
-        if os.name == "nt" and msvcrt is not None:
-            handle.seek(0)
-            msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
-        elif fcntl is not None:
-            fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-
-    def _release() -> None:
-        """Release the lock; ignore errors during teardown."""
-        try:
-            if os.name == "nt" and msvcrt is not None:
-                handle.seek(0)
-                msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
-            elif fcntl is not None:
-                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
-        except OSError:
-            pass
-
     try:
-        while True:
-            try:
-                _acquire()
-                break
-            except OSError:
-                if time.monotonic() >= deadline:
-                    handle.close()
-                    raise HookError(
-                        f"timed out acquiring the {name} lock "
-                        f"after {timeout:g}s"
-                    ) from None
-                time.sleep(0.02)
-        try:
-            yield
-        finally:
-            _release()
+        _acquire_lock(handle, name, timeout, deadline)
+    except HookError:
+        handle.close()
+        raise
+    try:
+        yield
     finally:
+        _release_lock(handle)
         handle.close()
 
 

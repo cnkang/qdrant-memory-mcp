@@ -59,6 +59,8 @@ MAX_CANDIDATES_PER_EVENT = 3
 MAX_RESPONSE_BYTES = 1_048_576  # 1 MiB cap on provider replies
 CATEGORIES = {"project", "preference", "fact", "codex-auto"}
 DEFAULT_CATEGORY = "codex-auto"
+RESPONSE_CONTENT_ERROR = "extraction response lacks message content"
+
 SECRETISH = re.compile(
     r"\bsk-[A-Za-z0-9_-]{20,}"  # OpenAI-style keys
     r"|\bgh[pousr]_[A-Za-z0-9]{16,}"  # classic GitHub tokens
@@ -97,6 +99,37 @@ def redact(text: str) -> str:
     return text
 
 
+def _failed_move_leftover(path, event) -> bool:
+    """True when the extracted twin is the archived copy of this snapshot."""
+    twin = runtime.read_json(runtime.extracted_dir() / path.name)
+    return (
+        isinstance(twin, dict)
+        and twin.get("pending_cleanup_failed") is True
+        and twin.get("stored_utc") == event.get("stored_utc")
+    )
+
+
+def _load_one_pending(path, mutate: bool, quarantined: list[str]):
+    """Load one pending file, quarantining or reconciling it when needed."""
+    event = runtime.read_json(path)
+    if event is None or not isinstance(event, dict):
+        renamed = runtime.quarantine_pending(path) if mutate else None
+        quarantined.append(renamed or path.name)
+        return None
+    if event.get("status") != "pending":
+        return None
+    if _failed_move_leftover(path, event):
+        if mutate:
+            try:  # leftover of a failed move for this exact snapshot
+                path.unlink()
+            except OSError:
+                pass
+        return None
+    event["_path"] = path
+    event["_fingerprint"] = runtime.file_fingerprint(path)
+    return event
+
+
 def load_pending(mutate: bool = True) -> tuple[list[dict], list[str]]:
     """Load pending events; quarantine unreadable files and reconcile leftovers.
 
@@ -115,28 +148,9 @@ def load_pending(mutate: bool = True) -> tuple[list[dict], list[str]]:
     except OSError:
         return events, quarantined
     for path in paths:
-        event = runtime.read_json(path)
-        if event is None or not isinstance(event, dict):
-            renamed = runtime.quarantine_pending(path) if mutate else None
-            quarantined.append(renamed or path.name)
-            continue
-        if event.get("status") != "pending":
-            continue
-        twin = runtime.read_json(runtime.extracted_dir() / path.name)
-        if (
-            isinstance(twin, dict)
-            and twin.get("pending_cleanup_failed")
-            and twin.get("stored_utc") == event.get("stored_utc")
-        ):
-            if mutate:
-                try:  # leftover of a failed move for this exact snapshot
-                    path.unlink()
-                except OSError:
-                    pass
-            continue
-        event["_path"] = path
-        event["_fingerprint"] = runtime.file_fingerprint(path)
-        events.append(event)
+        event = _load_one_pending(path, mutate, quarantined)
+        if event is not None:
+            events.append(event)
     events.sort(
         key=lambda item: (
             bool(item.get("last_error")),
@@ -145,6 +159,7 @@ def load_pending(mutate: bool = True) -> tuple[list[dict], list[str]]:
         )
     )
     return events, quarantined
+
 
 
 def _turn_inputs(event: dict) -> dict:
@@ -278,16 +293,16 @@ def _response_content(body) -> str:
         raise ValueError("extraction response is not an object")
     choices = body.get("choices")
     if not isinstance(choices, list) or not choices:
-        raise ValueError("extraction response lacks message content")
+        raise ValueError(RESPONSE_CONTENT_ERROR)
     first = choices[0]
     if not isinstance(first, dict):
         raise ValueError("extraction response has a malformed choice entry")
     message = first.get("message")
     if not isinstance(message, dict):
-        raise ValueError("extraction response lacks message content")
+        raise ValueError(RESPONSE_CONTENT_ERROR)
     content = message.get("content")
     if not isinstance(content, str):
-        raise ValueError("extraction response lacks message content")
+        raise ValueError(RESPONSE_CONTENT_ERROR)
     return content
 
 
@@ -473,6 +488,101 @@ def _delete_replacement_target(target: dict, admit, approved: bool) -> dict:
     return target
 
 
+def _superseded_outcome(outcome) -> dict:
+    """Report an event whose staged snapshot was overwritten before admission."""
+    return {
+        "event_id": outcome["event_id"],
+        "status": "pending",
+        "superseded": True,
+        "admitted": [],
+        "skipped": [],
+        "rejected": outcome["rejected"],
+        "extraction_error": outcome.get("extraction_error"),
+        "last_error": None,
+    }
+
+
+def _add_candidate(candidate, admit) -> tuple[object, str | None]:
+    """Add one candidate; return its record id and an optional error."""
+    status, body, err = admit("add", "--text", candidate["text"])
+    if status != 0:
+        return None, runtime.safe_error(body, err)
+    try:
+        return json.loads(body).get("id"), None
+    except ValueError:
+        return None, None
+
+
+def _delete_after_add(candidate, replacement, admit, approved, errors):
+    """Apply a replacement delete without losing the successful add receipt."""
+    if not candidate.get("replacement_intent"):
+        return replacement
+    try:
+        return _delete_replacement_target(replacement or {}, admit, approved)
+    except runtime.HookError as error:
+        # The add already succeeded: record the delete failure on the receipt
+        # and keep the event pending so the retry can revisit it.
+        replacement = replacement if isinstance(replacement, dict) else {}
+        replacement["delete_error"] = str(error)
+        errors.append(str(error))
+        return replacement
+
+
+def _receipt(candidate, record_id, replacement) -> dict:
+    """Build the durable admitted-candidate receipt."""
+    admitted = {
+        "text": candidate["text"],
+        "record_id": record_id,
+        "category": candidate["category"],
+        "importance": candidate["importance"],
+        "replacement_intent": candidate["replacement_intent"],
+        "provenance": _receipt_provenance(),
+    }
+    if replacement is not None:
+        admitted["replacement"] = replacement
+    if candidate.get("replacement_context_missing"):
+        admitted["replacement_context_missing"] = True
+    return admitted
+
+
+def _admit_candidate(candidate, admit, approved, event_state, errors) -> None:
+    """Admit one candidate under the admission lock, or record why not."""
+    try:
+        # One lock around search + (replacement) + add: concurrent admissions
+        # for the same candidate cannot both miss the dedupe.
+        with runtime.exclusive_lock("admit"):
+            if is_duplicate(candidate["text"], admit):
+                event_state["skipped"].append(
+                    {"text": candidate["text"], "reason": "duplicate"}
+                )
+                return
+            replacement = None
+            if candidate.get("replacement_intent"):
+                replacement = _replacement_target(candidate, admit)
+            record_id, error = _add_candidate(candidate, admit)
+            if error is not None:
+                errors.append(error)
+                return
+            replacement = _delete_after_add(
+                candidate, replacement, admit, approved, errors
+            )
+    except runtime.HookError as error:
+        errors.append(str(error))
+        return
+    event_state["admitted"].append(_receipt(candidate, record_id, replacement))
+
+
+def _already_admitted_texts(path) -> set[str]:
+    """Texts of receipts a previous attempt already admitted for this event."""
+    previous = runtime.read_json(path)
+    rows = previous.get("candidates") if isinstance(previous, dict) else []
+    return {
+        str(item.get("text", "")).strip()
+        for item in rows or []
+        if isinstance(item, dict)
+    }
+
+
 def _admit_event(outcome, admit, allow_replacement_deletes: bool = False) -> dict:
     """Admit one staged event's candidates and persist its post-run state.
 
@@ -487,28 +597,14 @@ def _admit_event(outcome, admit, allow_replacement_deletes: bool = False) -> dic
     # this file after it was loaded. Admit nothing from the old content and
     # leave the newer snapshot pending untouched.
     if runtime.file_fingerprint(path) != outcome.get("_fingerprint"):
-        return {
-            "event_id": outcome["event_id"],
-            "status": "pending",
-            "superseded": True,
-            "admitted": [],
-            "skipped": [],
-            "rejected": outcome["rejected"],
-            "extraction_error": outcome.get("extraction_error"),
-            "last_error": None,
-        }
+        return _superseded_outcome(outcome)
     event_state = {
         "event_id": outcome["event_id"],
         "admitted": [],
         "skipped": [],
         "rejected": outcome["rejected"],
     }
-    previous = runtime.read_json(path)
-    already_admitted = {
-        str(item.get("text", "")).strip()
-        for item in (previous.get("candidates") if isinstance(previous, dict) else []) or []
-        if isinstance(item, dict)
-    }
+    already_admitted = _already_admitted_texts(path)
     if outcome.get("extraction_error"):
         errors.append(outcome["extraction_error"])
     for candidate in outcome["candidates"]:
@@ -517,61 +613,14 @@ def _admit_event(outcome, admit, allow_replacement_deletes: bool = False) -> dic
                 {"text": candidate["text"], "reason": "already admitted"}
             )
             continue
-        try:
-            # One lock around search + (replacement) + add: concurrent
-            # admissions for the same candidate cannot both miss the dedupe.
-            with runtime.exclusive_lock("admit"):
-                if is_duplicate(candidate["text"], admit):
-                    event_state["skipped"].append(
-                        {"text": candidate["text"], "reason": "duplicate"}
-                    )
-                    continue
-                replacement = None
-                if candidate.get("replacement_intent"):
-                    replacement = _replacement_target(candidate, admit)
-                status, body, err = admit("add", "--text", candidate["text"])
-                if status != 0:
-                    errors.append(runtime.safe_error(body, err))
-                    continue
-                try:
-                    record_id = json.loads(body).get("id")
-                except ValueError:
-                    record_id = None
-                if candidate.get("replacement_intent"):
-                    try:
-                        replacement = _delete_replacement_target(
-                            replacement or {}, admit, allow_replacement_deletes
-                        )
-                    except runtime.HookError as error:
-                        # The add already succeeded: never lose its receipt to
-                        # a failed delete. Record the failure on the receipt
-                        # and keep the event pending so the retry can revisit.
-                        replacement = (
-                            replacement if isinstance(replacement, dict) else {}
-                        )
-                        replacement["delete_error"] = str(error)
-                        errors.append(str(error))
-        except runtime.HookError as error:
-            errors.append(str(error))
-            continue
-        admitted = {
-            "text": candidate["text"],
-            "record_id": record_id,
-            "category": candidate["category"],
-            "importance": candidate["importance"],
-            "replacement_intent": candidate["replacement_intent"],
-            "provenance": _receipt_provenance(),
-        }
-        if replacement is not None:
-            admitted["replacement"] = replacement
-        if candidate.get("replacement_context_missing"):
-            admitted["replacement_context_missing"] = True
-        event_state["admitted"].append(admitted)
+        _admit_candidate(
+            candidate, admit, allow_replacement_deletes, event_state, errors
+        )
     if errors:
         event_state["last_error"] = " | ".join(errors)[:600]
     new_status = "extracted" if not errors else "pending"
     finalize_event(
-        outcome["_path"],
+        path,
         event_state,
         new_status,
         loaded_fingerprint=outcome.get("_fingerprint", ""),
@@ -585,6 +634,7 @@ def _admit_event(outcome, admit, allow_replacement_deletes: bool = False) -> dic
         "extraction_error": outcome.get("extraction_error"),
         "last_error": event_state.get("last_error"),
     }
+
 
 
 def admit_all(
