@@ -259,6 +259,32 @@ def test_mutation_checks_arguments_server_action_and_id(tool, action, args):
             acceptance.validate_calls(calls, "qdrant_memory_" + tool, args)
 
 
+def test_argument_mismatch_diagnostic_names_fields_without_values():
+    acceptance = load_script("codex_account_acceptance")
+    expected = {"text": "approved private synthetic fact"}
+    observed = {
+        "text": "observed private synthetic fact",
+        "extra": "unapproved private value",
+    }
+    call = event("add", observed, {"id": "target", "action": "ADD"})
+
+    with pytest.raises(RuntimeError) as error:
+        acceptance.validate_calls([call], "qdrant_memory_add", expected)
+
+    message = str(error.value)
+    assert "MCP operation arguments differ" in message
+    details = json.loads(message.split(": ", 1)[1])
+    assert details == {
+        "missing_fields": [],
+        "unexpected_fields": ["extra"],
+        "value_mismatch_fields": ["text"],
+        "type_mismatch_fields": [],
+    }
+    assert "approved private synthetic fact" not in message
+    assert "observed private synthetic fact" not in message
+    assert "unapproved private value" not in message
+
+
 def test_unexpected_call_diagnostic_names_operation_without_arguments():
     acceptance = load_script("codex_account_acceptance")
     call = event("add", {"text": "approved"}, {"id": "target", "action": "ADD"})
