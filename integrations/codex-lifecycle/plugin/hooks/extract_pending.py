@@ -84,6 +84,12 @@ Rules:
 - At most {max_candidates} candidates; each text at most {max_text} characters.
 - Only durable user facts or preferences; skip plans, code, secrets, links.
 - Preserve the user's meaning; do not invent.
+- replacement_intent is false by default. Set it true only when this user turn
+  explicitly corrects a durable fact by naming both the old value and its
+  replacement. Never set it for first mentions, restatements, or unchanged facts.
+- If replacement_intent is true, set replacement_context to the shortest exact
+  old fact stated in this turn, not the whole turn. Do not infer conflicts with
+  memories that are not present in this turn.
 - INPUT FIDELITY: {fidelity_note}
 - If nothing durable exists, reply {{"memories": []}}.
 USER: {user_text}

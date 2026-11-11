@@ -1244,6 +1244,20 @@ def test_build_prompt_rejects_malformed_nested_fields(hook_env):
         cli.build_prompt({})
 
 
+def test_build_prompt_limits_replacement_intent_to_explicit_corrections(hook_env):
+    """Replacement metadata must not be inferred from first mentions."""
+    prompt = extractor_cli().build_prompt(
+        {
+            "user_text": {"excerpt": "The database is PostgreSQL 16."},
+            "assistant_text": {"text": "Understood."},
+        }
+    )
+    assert "replacement_intent is false by default" in prompt
+    assert "Never set it for first mentions, restatements, or unchanged facts" in prompt
+    assert "Do not infer conflicts with" in prompt
+    assert "memories that are not present in this turn" in prompt
+
+
 def test_prompt_and_validation_surface_truncation(hook_env):
     """Verify truncated inputs are surfaced to extraction and validation."""
     cli = extractor_cli()
