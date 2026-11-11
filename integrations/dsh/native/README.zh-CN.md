@@ -86,7 +86,7 @@ auto_capture:
   enabled: true
 ```
 
-嵌入模型和存储只能配置在 Python Owner profile 中，不属于 DSH profile。请先创建新的 Owner destination，并阅读 [Runtime 嵌入设置](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/local-embedding.md)与[共享 Owner 部署](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/shared-memory/README.zh-CN.md)。Runtime 0.6.1 已在 PyPI 正式发布，提供原生适配器使用的候选事件与重试契约；下方安装命令使用公开发布的 `0.6.1` wheel。会话恢复时，适配器按事件 ID 重试 Owner 的 `ACCEPTED`、`PENDING` 和 `FAILED` 回执，并复用 Owner 已保存的计划；`QUARANTINED` 事件保留供人工检查。
+嵌入模型和存储只能配置在 Python Owner profile 中，不属于 DSH profile。请先创建新的 Owner destination，并阅读 [Runtime 嵌入设置](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/local-embedding.md)与[共享 Owner 部署](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/shared-memory/README.zh-CN.md)。Runtime 0.6.1 已在 PyPI 正式发布，提供原生适配器使用的候选事件与重试契约；下方安装命令使用公开发布的 `0.6.1` wheel。会话恢复时，适配器仅按事件 ID 自动重试 `ACCEPTED` 和 `PENDING` 回执，并复用 Owner 已保存的计划；`FAILED` 和 `QUARANTINED` 事件需要由 Owner 操作员显式执行恢复。
 
 为新的本地 CPU Owner 显式安装 Runtime 的 `local` extra，并创建独立 profile：
 
@@ -117,7 +117,7 @@ QDRANT_MEMORY_RUNTIME_PYTHON=/absolute/path/to/compatible-runtime/bin/python
 - 召回在 `agent/pre-step` 看到新的直接用户消息时执行一次。它通过 Owner 调用现有 `qdrant_memory_search`，再向当前 step 添加标记为 `qdrant-memory` 的日志用户消息。文本会 JSON 转义并标明为不可信历史数据。
 - 捕获只处理已完成轮次。适配器使用记录的 provider/model route 将用户和助手轮次文本提交给 DSH LLM facade，以生成严格候选 JSON，再把版本化候选交给 Python Owner。Owner event 没有独立的 assistant 字段，但候选可能包含从助手文本提取的事实，并会发送给 Runtime。涉及替换时还会提供一段精确的用户文本摘录（最多 2 KiB）。Runtime 执行授权、scope、关系审查、去重、ledger 恢复和 Qdrant 写入。
 - 工具输出、非用户注入消息、被中断的助手输出及未完成的 turn 不会进入捕获。凭证样式的 transcript 或候选会被跳过。
-- 捕获前会等待 DSH session flush，再读取经过校验的 session log。重启恢复会按每批八个 turn 检查保存激活边界之后的所有完成 turn 的 Owner receipt，并跳过由持久 recovery-progress 记录标记为已解决的轮次；失败的捕获会持续重试。对于 `ACCEPTED` receipt，适配器只按事件 ID 请求重试，由 Runtime 复用原先保存的不可变候选计划。候选内容不会进入 DSH session log，也不会在同一 ID 下重新提取；其他待处理或失败的 receipt 由 Owner 恢复。
+- 捕获前会等待 DSH session flush，再读取经过校验的 session log。重启恢复会按每批八个 turn 检查保存激活边界之后的所有完成 turn 的 Owner receipt，并跳过由持久 recovery-progress 记录标记为已解决的轮次。对于 `ACCEPTED` 和 `PENDING` receipt，适配器仅按事件 ID 请求重试，由 Runtime 复用原先保存的不可变候选计划。`FAILED` 和 `QUARANTINED` receipt 需要由 Owner 操作员显式执行恢复。候选内容不会进入 DSH session log，也不会在同一 ID 下重新提取。
 - 队列有界。成功的 DSH flush 和 Owner receipt 才构成可恢复边界；在此之前崩溃可能留下未捕获轮次，不能承诺零丢失。
 
 ## 迁移、回退和故障排查

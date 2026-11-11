@@ -1006,7 +1006,7 @@ test('recovery takeover preserves the slice for a different executing turn', { t
   assert.equal(handlers.size, 0)
 })
 
-test('retryable Owner receipts retry the stored plan without re-extraction', async () => {
+test('pending Owner receipts retry the stored plan while failed and quarantined wait for Owner recovery', async () => {
   const events = [
     { type: 'turn/start', seq: 1, data: { turn: 1 } },
     { type: 'user/message', seq: 2, data: {
@@ -1068,7 +1068,7 @@ test('retryable Owner receipts retry the stored plan without re-extraction', asy
         data: { turn: 1, reason: { kind: 'completed' } },
       })
       assert.equal(extractionCalls, 0, status)
-      assert.equal(retryCalls, status === 'QUARANTINED' ? 0 : 1, status)
+      assert.equal(retryCalls, status === 'PENDING' ? 1 : 0, status)
       assert.equal(dispose.metrics().capture_failed, 1, status)
     } finally {
       dispose()
