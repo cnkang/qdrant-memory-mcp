@@ -8,6 +8,7 @@ export const name = 'qdrant-memory-dsh-native'
 export const inject = ['agents', 'llm', 'sessionQuery', 'sessions']
 
 export const CANDIDATE_SCHEMA = 'qdrant-memory/extraction-v1'
+const RETRYABLE_OWNER_EVENT_STATUSES = new Set(['ACCEPTED', 'PENDING', 'FAILED'])
 export const SUPPORTED_DSH_RELEASE = '0.2.2-rc.1'
 /** Session plugin record carrying the last durably captured turn number. */
 export const RECOVERY_PROGRESS_RECORD = 'plugin:qdrant-memory/recovery-progress'
@@ -1030,7 +1031,7 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
     )
     if (!isActiveAgent(agent, signal)) return false
     if (status.status === 'COMMITTED' || status.status === 'CANCELLED') return true
-    if (status.status === 'ACCEPTED') {
+    if (RETRYABLE_OWNER_EVENT_STATUSES.has(status.status)) {
       const result = await retryRequest(
         () => runtimeRequest('remote-event', { event_id: turn.event_id }, {
           signal,

@@ -1006,7 +1006,7 @@ test('recovery takeover preserves the slice for a different executing turn', { t
   assert.equal(handlers.size, 0)
 })
 
-test('retained Owner receipts do not trigger re-extraction', async () => {
+test('retryable Owner receipts retry the stored plan without re-extraction', async () => {
   const events = [
     { type: 'turn/start', seq: 1, data: { turn: 1 } },
     { type: 'user/message', seq: 2, data: {
@@ -1026,6 +1026,7 @@ test('retained Owner receipts do not trigger re-extraction', async () => {
     const handlers = new Map()
     let cleanup
     let extractionCalls = 0
+    let retryCalls = 0
     const session = { id: `retained-${status.toLowerCase()}` }
     const ctx = {
       on(event, handler) {
@@ -1054,7 +1055,11 @@ test('retained Owner receipts do not trigger re-extraction', async () => {
     }
     const dispose = apply(ctx, config, async (_mode, _payload, options) => {
       if (options.action === 'status') return { status }
-      throw new Error('retained receipts must not be submitted')
+      if (options.action === 'retry') {
+        retryCalls += 1
+        return { status }
+      }
+      throw new Error('unexpected Owner action')
     })
     try {
       handlers.get('agent/created')({ agent })
@@ -1063,6 +1068,7 @@ test('retained Owner receipts do not trigger re-extraction', async () => {
         data: { turn: 1, reason: { kind: 'completed' } },
       })
       assert.equal(extractionCalls, 0, status)
+      assert.equal(retryCalls, status === 'QUARANTINED' ? 0 : 1, status)
       assert.equal(dispose.metrics().capture_failed, 1, status)
     } finally {
       dispose()

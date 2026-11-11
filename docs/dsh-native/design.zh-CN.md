@@ -4,7 +4,7 @@
 
 ## 状态与兼容性
 
-这是可选的源码预览，原生包源码已并入 `main`，但 npm 包仍为 private 且未发布。目标版本为 DSH `0.2.2-rc.1`、Node.js `>=24.9.0`，并要求 Python Runtime 0.6.1 或更高版本提供版本化候选事件和持久 receipt 重试。Runtime 0.6.1 已并入但尚未上 PyPI；公开最新版本为 0.6.0。接口审查依据官方 DSH 发布 tag commit `66491b05e3f05ad35bcdd4f6cd7ed26041d9e3db`，并核对合并后的源码 commit `fcc0ad462172522aaf5c93a7b2e01f6b9f0b0159`。
+这是可选的源码预览，原生包源码已并入 `main`，但 npm 包仍为 private 且未发布。目标版本为 DSH `0.2.2-rc.1`、Node.js `>=24.9.0`，并要求 Python Runtime 0.6.1 或更高版本提供版本化候选事件和持久 receipt 重试。Runtime 0.6.1 已发布到 PyPI。接口审查依据官方 DSH 发布 tag commit `66491b05e3f05ad35bcdd4f6cd7ed26041d9e3db`，并核对合并后的源码 commit `fcc0ad462172522aaf5c93a7b2e01f6b9f0b0159`。
 
 已发布的 MCP Bundle 和 Python/uvx overlay 仍使用各自支持路径。Python Runtime 0.6.1 提供本原生包所需的 `qdrant-memory/extraction-v1` 版本化 Owner 候选事件和按 receipt 重试能力。本任务没有修改 DSH Core。
 

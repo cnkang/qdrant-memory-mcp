@@ -9,7 +9,7 @@ This report separates local fixtures, GitHub CI, and real-model/desktop evidence
 | Path | Host packages | Node / package manager | Runtime contract | Status |
 | --- | --- | --- | --- | --- |
 | Existing MCP Bundle / Python overlay | The published and integration-test lane remains on DSH `0.2.1-rc.2`; legacy package locks and workflows are retained | Existing legacy lane | Published explicit MCP tools | Supported route; no automatic turn capture or recall |
-| Native lifecycle preview | `@deepseek-ai/dsh@0.2.2-rc.1`, `@deepseek-ai/dsh-llm@0.2.2-rc.1`, `@deepseek-ai/cordis@4.1.0`, `@deepseek-ai/schemastery@3.19.0` | Node.js `24.9.0`; Plugin Manager pnpm `11.28.5`; exact npm lockfile | `qdrant-memory/extraction-v1` Owner candidate event | Source merged to `main`; npm package remains private; Runtime 0.6.1 is merged but not yet on PyPI (latest published is 0.6.0) |
+| Native lifecycle preview | `@deepseek-ai/dsh@0.2.2-rc.1`, `@deepseek-ai/dsh-llm@0.2.2-rc.1`, `@deepseek-ai/cordis@4.1.0`, `@deepseek-ai/schemastery@3.19.0` | Node.js `24.9.0`; Plugin Manager pnpm `11.28.5`; exact npm lockfile | `qdrant-memory/extraction-v1` Owner candidate event | Source merged to `main`; Runtime 0.6.1 is published on PyPI; npm package remains private and unpublished |
 | DSH floating `next` | Separate existing canary | Non-blocking workflow | MCP compatibility | Not evidence for native release readiness |
 | DSH Core | Upstream release commit `66491b05e3f05ad35bcdd4f6cd7ed26041d9e3db` | No source change | Public Host APIs only | Not modified |
 
@@ -49,4 +49,4 @@ The GitHub workflow installs the package into a disposable DSH profile, composes
 
 The adapter sends extracted candidates, not raw assistant transcript, to Runtime. DSH's configured model still receives the turn content for extraction. Use a dedicated Owner token for each unrelated DSH profile. Keep the published Bundle/overlay path available; rollback disables the three native switches and removes only the native plugin. Do not delete the profile, Owner ledger/receipts, Qdrant collection, or embedding cache during rollback.
 
-Release readiness: **not ready**. The native source is merged, but the npm package is private and unpublished, Runtime 0.6.1 is not yet on PyPI, and real AgentLoop/model/GUI/CPU embedding evidence is absent. Do not convert a synthetic or CI result into a real-host acceptance claim.
+Release readiness: **not ready**. The Runtime 0.6.1 PyPI prerequisite is satisfied, but the npm package remains private and unpublished, and real AgentLoop/model/GUI/CPU embedding evidence is absent. Do not convert a synthetic or CI result into a real-host acceptance claim.

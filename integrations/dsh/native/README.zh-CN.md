@@ -86,11 +86,7 @@ auto_capture:
   enabled: true
 ```
 
-嵌入模型和存储只能配置在 Python Owner profile 中，不属于 DSH profile。请先创建新的 Owner destination，并阅读 [Runtime 嵌入设置](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/local-embedding.md)与[共享 Owner 部署](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/shared-memory/README.zh-CN.md)。Runtime 0.6.1 提供原生适配器使用的候选事件与重试契约，但已并入、尚未上 PyPI（公开最新为 0.6.0）。发布前请使用下方源码 pin；后文两条 `==0.6.1` 命令在 PyPI 发布 Runtime 0.6.1 前都会失败，请勿提前使用。
-
-```sh
-python -m pip install 'hermes-plugin-qdrant-memory[remote,local] @ git+https://github.com/cnkang/hermes-plugin-qdrant-memory.git@6df73703419f061e77b9b640c15ddf6609d26e58'
-```
+嵌入模型和存储只能配置在 Python Owner profile 中，不属于 DSH profile。请先创建新的 Owner destination，并阅读 [Runtime 嵌入设置](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/local-embedding.md)与[共享 Owner 部署](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/shared-memory/README.zh-CN.md)。Runtime 0.6.1 已在 PyPI 正式发布，提供原生适配器使用的候选事件与重试契约；下方安装命令使用公开发布的 `0.6.1` wheel。会话恢复时，适配器按事件 ID 重试 Owner 的 `ACCEPTED`、`PENDING` 和 `FAILED` 回执，并复用 Owner 已保存的计划；`QUARANTINED` 事件保留供人工检查。
 
 为新的本地 CPU Owner 显式安装 Runtime 的 `local` extra，并创建独立 profile：
 

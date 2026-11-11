@@ -9,7 +9,7 @@
 | 路径 | 宿主包 | Node / 包管理器 | Runtime 契约 | 状态 |
 | --- | --- | --- | --- | --- |
 | 现有 MCP Bundle / Python overlay | 已发布路径和既有集成测试仍固定 DSH `0.2.1-rc.2`；旧 lockfile 与工作流保留 | 原有旧版本测试线 | 已发布的显式 MCP 工具 | 受支持路径；不自动捕获或召回轮次 |
-| 原生生命周期预览 | `@deepseek-ai/dsh@0.2.2-rc.1`、`@deepseek-ai/dsh-llm@0.2.2-rc.1`、`@deepseek-ai/cordis@4.1.0`、`@deepseek-ai/schemastery@3.19.0` | Node.js `24.9.0`；Plugin Manager pnpm `11.28.5`；npm lockfile 精确锁定 | `qdrant-memory/extraction-v1` Owner 候选事件 | 源码已并入 `main`；npm 包仍为 private；Runtime 0.6.1 已并入但尚未上 PyPI（公开最新为 0.6.0） |
+| 原生生命周期预览 | `@deepseek-ai/dsh@0.2.2-rc.1`、`@deepseek-ai/dsh-llm@0.2.2-rc.1`、`@deepseek-ai/cordis@4.1.0`、`@deepseek-ai/schemastery@3.19.0` | Node.js `24.9.0`；Plugin Manager pnpm `11.28.5`；npm lockfile 精确锁定 | `qdrant-memory/extraction-v1` Owner 候选事件 | 源码已并入 `main`；Runtime 0.6.1 已发布到 PyPI；npm 包仍为 private 且未发布 |
 | DSH 浮动 `next` | 独立的既有 canary | 非阻塞工作流 | MCP 兼容性 | 不是原生功能发布就绪证据 |
 | DSH Core | 上游 release commit `66491b05e3f05ad35bcdd4f6cd7ed26041d9e3db` | 未修改源码 | 仅使用公开 Host API | 未修改 |
 
@@ -48,4 +48,4 @@ GitHub workflow 会在三个真实架构 runner 上将包安装到临时 DSH pro
 
 适配器向 Runtime 发送抽取候选，不发送完整助手 transcript。DSH 当前配置的模型仍会收到用于抽取的 turn 内容。不同 DSH profile 使用独立 Owner token。保留已发布 Bundle/overlay；回退时关闭三个原生开关，只移除原生插件。不要在回退期间删除 profile、Owner ledger/receipt、Qdrant collection 或 embedding cache。
 
-发布就绪状态：**尚未就绪**。原生源码已并入，但 npm 包仍为 private 且未发布，Runtime 0.6.1 尚未上 PyPI，真实 AgentLoop/模型/GUI/CPU embedding 证据缺失。不得把 CI 或合成结果表述为真实 Host 验收。
+发布就绪状态：**尚未就绪**。Runtime 0.6.1 的 PyPI 前置条件已满足，但 npm 包仍为 private 且未发布，真实 AgentLoop/模型/GUI/CPU embedding 证据缺失。不得把 CI 或合成结果表述为真实 Host 验收。

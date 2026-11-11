@@ -150,14 +150,10 @@ Embedding selection belongs to the Python Owner profile, not DSH. Create a new
 Owner destination using the [Runtime embedding guide](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/local-embedding.md)
 and [shared Owner setup](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/shared-memory/README.md).
 Runtime 0.6.1 provides the versioned candidate-event and retry contract used by
-the adapter. It is merged but not yet on PyPI (latest published is 0.6.0).
-Until publication, use the reviewed source pin below. The two `==0.6.1`
-commands later in this section fail until PyPI publishes Runtime 0.6.1; do not
-use them before that release.
-
-```sh
-python -m pip install 'hermes-plugin-qdrant-memory[remote,local] @ git+https://github.com/cnkang/hermes-plugin-qdrant-memory.git@6df73703419f061e77b9b640c15ddf6609d26e58'
-```
+the adapter and is publicly available on PyPI. The commands below install the
+released `0.6.1` wheel. On a replay, the adapter retries Owner receipts in
+`ACCEPTED`, `PENDING`, or `FAILED` state by event ID, reusing the Owner's stored
+plan; `QUARANTINED` events remain for explicit review.
 
 For a new local CPU Owner, explicitly install the Runtime's `local` extra and
 create a separate profile:
