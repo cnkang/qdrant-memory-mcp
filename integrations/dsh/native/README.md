@@ -81,11 +81,11 @@ by the [shared security guide](https://github.com/cnkang/qdrant-memory-mcp/blob/
 - Before capture it awaits DSH's public session flush and reads the validated
   session log. On resume it checks the completed turns that follow the saved
   activation boundary against Owner receipts, batched in eight turns, and skips
-  turns already resolved through the durable recovery-progress marker; failed
-  captures keep retrying. For an `ACCEPTED` receipt, it retries by event ID only; the
-  Runtime reuses the original immutable candidate plan. Candidate data stays out
-  of the DSH session log, and the adapter does not re-extract under that ID.
-  Other pending or failed receipts remain under Owner recovery.
+  turns already resolved through the durable recovery-progress marker. For
+  `ACCEPTED` and `PENDING` receipts, it retries by event ID only; the Runtime
+  reuses the original immutable candidate plan. `FAILED` and `QUARANTINED`
+  receipts remain for explicit Owner-operator recovery. Candidate data stays
+  out of the DSH session log, and the adapter does not re-extract under that ID.
 - The queue is bounded. A full queue or a failure before an Owner receipt can
   leave an uncaptured turn in the DSH log. Successful DSH flush plus an Owner
   receipt is the recovery boundary; this adapter makes no zero-loss claim
@@ -151,9 +151,10 @@ Owner destination using the [Runtime embedding guide](https://github.com/cnkang/
 and [shared Owner setup](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/shared-memory/README.md).
 Runtime 0.6.1 provides the versioned candidate-event and retry contract used by
 the adapter and is publicly available on PyPI. The commands below install the
-released `0.6.1` wheel. On a replay, the adapter retries Owner receipts in
-`ACCEPTED`, `PENDING`, or `FAILED` state by event ID, reusing the Owner's stored
-plan; `QUARANTINED` events remain for explicit review.
+released `0.6.1` wheel. On replay, the adapter automatically retries Owner
+receipts in `ACCEPTED` or `PENDING` state by event ID, reusing the Owner's
+stored plan. `FAILED` and `QUARANTINED` events require explicit Owner-operator
+recovery.
 
 For a new local CPU Owner, explicitly install the Runtime's `local` extra and
 create a separate profile:
