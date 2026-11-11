@@ -95,6 +95,32 @@ def _release_lock(handle) -> None:
         pass
 
 
+def _ensure_windows_lock_byte(
+    handle, name: str, timeout: float, deadline: float
+) -> None:
+    """Ensure a Windows lock file has its required byte under concurrent starts."""
+    while os.fstat(handle.fileno()).st_size == 0:
+        try:
+            if os.write(handle.fileno(), b"\x00") == 1:
+                return
+        except PermissionError:
+            # Another hook may be initializing the same profile lock. If it
+            # completed the write, the shared file is ready for msvcrt.locking.
+            if os.fstat(handle.fileno()).st_size > 0:
+                return
+            if time.monotonic() >= deadline:
+                raise HookError(
+                    f"timed out initializing the {name} lock after {timeout:g}s"
+                ) from None
+            time.sleep(0.02)
+        else:
+            if time.monotonic() >= deadline:
+                raise HookError(
+                    f"timed out initializing the {name} lock after {timeout:g}s"
+                ) from None
+            time.sleep(0.02)
+
+
 @contextlib.contextmanager
 def exclusive_lock(name: str, timeout: float = LOCK_TIMEOUT_SECONDS):
     """Acquire a profile-local advisory lock; raise HookError on timeout.
@@ -107,13 +133,12 @@ def exclusive_lock(name: str, timeout: float = LOCK_TIMEOUT_SECONDS):
     path = events_root() / "locks" / f"{name}.lock"
     path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     handle = open(path, "a+b")
-    if os.name == "nt" and msvcrt is not None and os.fstat(handle.fileno()).st_size == 0:
-        handle.write(b"\x00")  # msvcrt.locking needs at least one locked byte
-        handle.flush()
     deadline = time.monotonic() + timeout
     try:
+        if os.name == "nt" and msvcrt is not None:
+            _ensure_windows_lock_byte(handle, name, timeout, deadline)
         _acquire_lock(handle, name, timeout, deadline)
-    except HookError:
+    except BaseException:
         handle.close()
         raise
     try:

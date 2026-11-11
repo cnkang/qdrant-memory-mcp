@@ -1928,6 +1928,35 @@ def test_exclusive_lock_serializes_and_times_out(hook_env):
         pass
 
 
+def test_windows_lock_byte_initialization_retries_permission_denied(
+    hook_env, monkeypatch
+):
+    """Competing Windows hooks can initialize a shared lock without failing."""
+    runtime = load("lifecycle_runtime")
+    path = runtime.events_root() / "locks" / "pending.lock"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    handle = open(path, "a+b")
+    real_write = runtime.os.write
+    attempts = {"count": 0}
+
+    def transiently_denied(fd, value):
+        attempts["count"] += 1
+        if attempts["count"] == 1:
+            raise PermissionError(13, "Access is denied")
+        return real_write(fd, value)
+
+    monkeypatch.setattr(runtime.os, "write", transiently_denied)
+    monkeypatch.setattr(runtime.time, "sleep", lambda _seconds: None)
+    try:
+        runtime._ensure_windows_lock_byte(
+            handle, "pending", timeout=1.0, deadline=runtime.time.monotonic() + 1.0
+        )
+        assert attempts["count"] == 2
+        assert runtime.os.fstat(handle.fileno()).st_size == 1
+    finally:
+        handle.close()
+
+
 def test_prune_keeps_a_concurrently_restaged_scratch(hook_env, monkeypatch):
     """Verify pruning does not remove scratch restaged during the sweep."""
     runtime = load("lifecycle_runtime")
