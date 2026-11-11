@@ -105,19 +105,26 @@ strict JSON contract, and refuses empty/oversized/secret-shaped candidates.
 The example model must support chat completions (embedding-only models such as
 `qwen3-embedding:*` cannot answer the extraction prompt).
 
-> **0.165.0 caveat:** the preview manifest installs, but we have not observed
-> 0.165.0 register these file-backed hook definitions for trust review or fire
-> them in a session. Treat the install as a manifest-level preview; verify
-> registration in your client before relying on recall or `remember:` capture.
+> **Codex CLI 0.165.0 observation (2026-11-11):** marketplace installation
+> succeeds and the installed cache contains `plugin.json`, `hooks/hooks.json`,
+> and all four hook scripts. In two isolated CLI sessions, `/hooks` reported
+> zero installed and zero active handlers for `SessionStart`,
+> `UserPromptSubmit`, `Stop`, and `SessionEnd`: once in embedded Ollama mode
+> (`--oss`) and once in the normal shared-server mode with the built-in
+> `ollama` provider. No lifecycle hook fired. This confirms a registration
+> failure for the tested CLI version; it does not establish Codex Desktop
+> behavior. Keep this preview experimental until the Desktop GUI shows the
+> hooks, the user reviews and trusts them, and synthetic-session events fire.
 
-## Verification status (2026-11-09)
+## Verification status (2026-11-11)
 
 | Check | Result |
 |---|---|
 | Handler units: scratch staging, pairing, byte caps, deterministic event IDs, idempotent overwrite, overflow marker, PLUGIN_DATA precedence, no-Runtime-invocation by capture, TTL prune, extraction validation (extra keys, secret-shaped, oversized, importance range), dry-run immutability, dedupe skip, failure keeps `pending` with recorded error | **PASS** (`tests/test_codex_lifecycle_hooks.py`, macOS arm64) |
 | Real-Runtime round trip: Stop capture → stub extractor → `--confirm` → real Runtime `add` in the shared profile → Runtime `search` finds the record → pending emptied | **PASS** (`tests/test_codex_capture_integration.py`) |
 | Repository marketplace accepts the hooks plugin manifest from the real Codex CLI 0.165.0 (`plugin add`/`mcp list`/`remove`) | **PASS** (per the readiness branch evidence; hooks cache resolution verified) |
-| A real trust-reviewed Codex session firing all four hooks | **NOT VERIFIED** — needs a subscribed, hook-enabled client; do not treat this preview as verified until then |
-| Extraction quality with real local models | **NOT VERIFIED** (uses a stub in tests; run `--limit 1` without `--confirm` first on real data) |
+| Codex CLI 0.165.0 hook registration in isolated embedded and normal-server sessions | **FAIL** — `/hooks` showed 0 installed / 0 active for all four events; see caveat |
+| A real trust-reviewed Codex Desktop session firing all four hooks | **NOT VERIFIED** — Desktop GUI review is pending; do not treat this preview as verified until then |
+| Synthetic extraction quality with a real local model | **PASS** — Ollama `qwen3:8b`, 5/5 synthetic cases after a prompt refinement; the first pass exposed one-time calculation leakage, which the refined prompt filtered |
 | `Stop`-based in-session extraction (Route A) | **NOT IMPLEMENTED** by design (see pipeline note) |
 | Public-directory eligibility of this directory | **NOT APPLICABLE** — hooks are ineligible for public submission per official docs |

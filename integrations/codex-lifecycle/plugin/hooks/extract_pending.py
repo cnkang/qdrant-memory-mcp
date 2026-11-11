@@ -78,12 +78,22 @@ EXTRACTION_PROMPT = """\
 You extract durable, portable memory candidates from ONE completed agent turn.
 Return ONLY a JSON object:
 {{"memories": [{{"text": str, "category": [str], "importance": float, \
-"replacement_intent": bool}}], "replacement_context": "<only if any candidate \
-has replacement_intent true>"}}.
+"replacement_intent": bool, "replacement_context": str only for this candidate}}]}}.
 Rules:
 - At most {max_candidates} candidates; each text at most {max_text} characters.
 - Only durable user facts or preferences; skip plans, code, secrets, links.
+- Skip one-time calculations, temporary events, and content the user explicitly
+  says not to remember or store. Do not repeat that content in a memory; return
+  an empty list when nothing else is durable.
 - Preserve the user's meaning; do not invent.
+- replacement_intent is false by default. Set it true only when this user turn
+  explicitly corrects a durable fact by naming both the old value and its
+  replacement. Never set it for first mentions, restatements, or unchanged facts.
+- If replacement_intent is true, set this candidate's replacement_context to
+  the shortest exact old fact stated in this turn, not the whole turn. Each
+  replacement candidate must have its own context; never reuse context across
+  candidates. Do not infer conflicts with memories that are not present in this
+  turn.
 - INPUT FIDELITY: {fidelity_note}
 - If nothing durable exists, reply {{"memories": []}}.
 USER: {user_text}
@@ -361,14 +371,11 @@ def validate_candidates(document, source_event: dict) -> tuple[list[dict], list[
     """Enforce the shared Runtime candidate contract; return (good, rejected)."""
     good, rejected = [], []
     raw = document.get("memories")
-    replacement_context = document.get("replacement_context")
     if not isinstance(raw, list):
         return good, ["reply memories is not a list"]
-    if not isinstance(replacement_context, (str, type(None))):
-        replacement_context = None
     inputs_truncated = _inputs_truncated(source_event)
-    for candidate in raw[:MAX_CANDIDATES_PER_EVENT]:
-        error = _candidate_error(candidate)
+    for raw_candidate in raw[:MAX_CANDIDATES_PER_EVENT]:
+        error = _candidate_error(raw_candidate)
         if error:
             rejected.append(error)
             continue
@@ -376,14 +383,25 @@ def validate_candidates(document, source_event: dict) -> tuple[list[dict], list[
             rejected.append("candidate not admitted: event inputs truncated")
             continue
         candidate = {
-            "text": candidate["text"].strip(),
-            "category": candidate.get("category") or [DEFAULT_CATEGORY],
-            "importance": float(candidate.get("importance", 0.5)),
-            "replacement_intent": bool(candidate.get("replacement_intent", False)),
+            "text": raw_candidate["text"].strip(),
+            "category": raw_candidate.get("category") or [DEFAULT_CATEGORY],
+            "importance": float(raw_candidate.get("importance", 0.5)),
+            "replacement_intent": raw_candidate.get("replacement_intent", False),
         }
-        if candidate["replacement_intent"] and isinstance(replacement_context, str):
+        replacement_context = raw_candidate.get("replacement_context")
+        if (
+            candidate["replacement_intent"]
+            and isinstance(replacement_context, str)
+            and replacement_context.strip()
+        ):
+            replacement_context = replacement_context.strip()
+            user_text = source_event.get("user_text") if isinstance(source_event, dict) else None
+            user_excerpt = user_text.get("excerpt") if isinstance(user_text, dict) else None
+            if not isinstance(user_excerpt, str) or replacement_context not in user_excerpt:
+                rejected.append("replacement context not present in user input")
+                continue
             candidate["replacement_context"] = replacement_context
-        if candidate["replacement_intent"] and not isinstance(replacement_context, str):
+        if candidate["replacement_intent"] and not candidate.get("replacement_context"):
             candidate["replacement_context_missing"] = True
         good.append(candidate)
     if len(raw) > MAX_CANDIDATES_PER_EVENT:
@@ -397,7 +415,9 @@ def _candidate_error(candidate) -> str | None:
     """Return the rejection reason for one candidate, or None when it is valid."""
     if not isinstance(candidate, dict):
         return "candidate is not an object"
-    allowed = {"text", "category", "importance", "replacement_intent"}
+    allowed = {
+        "text", "category", "importance", "replacement_intent", "replacement_context"
+    }
     if set(candidate) - allowed:
         return "candidate has extra keys"
     text = candidate.get("text")
@@ -407,6 +427,19 @@ def _candidate_error(candidate) -> str | None:
         return "candidate text too long"
     if SECRETISH.search(text):
         return "candidate looks secret-shaped"
+    replacement_intent = candidate.get("replacement_intent", False)
+    if not isinstance(replacement_intent, bool):
+        return "replacement intent invalid"
+    replacement_context = candidate.get("replacement_context")
+    if replacement_context is not None:
+        if not isinstance(replacement_context, str):
+            return "replacement context invalid"
+        if len(replacement_context.strip()) > 300:
+            return "replacement context too long"
+        if SECRETISH.search(replacement_context):
+            return "replacement context looks secret-shaped"
+        if replacement_context.strip() and not replacement_intent:
+            return "replacement context without replacement intent"
     category = candidate.get("category")
     if category is None:
         category = [DEFAULT_CATEGORY]
