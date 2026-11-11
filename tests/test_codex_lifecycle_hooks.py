@@ -1254,8 +1254,25 @@ def test_build_prompt_limits_replacement_intent_to_explicit_corrections(hook_env
     )
     assert "replacement_intent is false by default" in prompt
     assert "Never set it for first mentions, restatements, or unchanged facts" in prompt
-    assert "Do not infer conflicts with" in prompt
-    assert "memories that are not present in this turn" in prompt
+    normalized_prompt = " ".join(prompt.split())
+    assert "content the user explicitly says not to remember or store" in normalized_prompt
+    assert "Each replacement candidate must have its own context" in normalized_prompt
+    assert "never reuse context across candidates" in normalized_prompt
+    assert "Do not infer conflicts with memories that are not present in this turn" in normalized_prompt
+
+
+def test_replacement_metadata_must_be_typed_bounded_and_secret_free(hook_env):
+    """Replacement evidence is untrusted model output and stays bounded."""
+    cli = extractor_cli()
+    cases = [
+        ({"text": "A durable fact.", "replacement_intent": "false"}, "replacement intent invalid"),
+        ({"text": "A durable fact.", "replacement_intent": True, "replacement_context": 42}, "replacement context invalid"),
+        ({"text": "A durable fact.", "replacement_intent": True, "replacement_context": "x" * 301}, "replacement context too long"),
+        ({"text": "A durable fact.", "replacement_intent": True, "replacement_context": "sk-abcdefghijklmnopqrs123"}, "replacement context looks secret-shaped"),
+        ({"text": "A durable fact.", "replacement_intent": False, "replacement_context": "old value"}, "replacement context without replacement intent"),
+    ]
+    for candidate, expected in cases:
+        assert cli._candidate_error(candidate) == expected
 
 
 def test_prompt_and_validation_surface_truncation(hook_env):
@@ -1434,8 +1451,8 @@ def test_replacement_intent_deletes_the_superseded_record(hook_env, monkeypatch,
             "memories": [{
                 "text": "Prefers dark mode.", "category": ["codex-auto"],
                 "importance": 0.6, "replacement_intent": True,
+                "replacement_context": "prefers light mode",
             }],
-            "replacement_context": "prefers light mode",
         })}}]
     }]
     calls = []
@@ -1478,8 +1495,8 @@ def test_replacement_deletion_requires_explicit_approval(hook_env, monkeypatch, 
         "choices": [{"message": {"content": json.dumps({
             "memories": [{
                 "text": "Prefers dark mode.", "replacement_intent": True,
+                "replacement_context": "prefers light mode",
             }],
-            "replacement_context": "prefers light mode",
         })}}]
     }]
     calls = []
@@ -1520,8 +1537,8 @@ def test_replacement_delete_hookerror_preserves_the_admitted_receipt(
         "choices": [{"message": {"content": json.dumps({
             "memories": [{
                 "text": "Prefers dark mode.", "replacement_intent": True,
+                "replacement_context": "prefers light mode",
             }],
-            "replacement_context": "prefers light mode",
         })}}]
     }]
 
@@ -1548,6 +1565,50 @@ def test_replacement_delete_hookerror_preserves_the_admitted_receipt(
     receipt = stored["candidates"][0]  # the admitted receipt survived
     assert receipt["record_id"] == "rec-7"
     assert receipt["replacement"]["delete_error"] == "runtime gone during delete"
+
+
+def test_multiple_replacements_keep_their_own_search_context(hook_env, monkeypatch):
+    """Each correction must search for its own superseded fact."""
+    runtime = load("lifecycle_runtime")
+    stage_pending(hook_env, monkeypatch, runtime)
+    cli = extractor_cli()
+    old_facts = ["database was SQLite", "service timezone was PST"]
+    replies = [{
+        "choices": [{"message": {"content": json.dumps({"memories": [
+            {
+                "text": "The database is PostgreSQL 16.",
+                "replacement_intent": True,
+                "replacement_context": old_facts[0],
+            },
+            {
+                "text": "The service timezone is UTC.",
+                "replacement_intent": True,
+                "replacement_context": old_facts[1],
+            },
+        ]})}}]
+    }]
+    search_queries = []
+
+    def fake_runtime(*argv, **kwargs):
+        if argv[0] == "search":
+            query = argv[-1]
+            if query in old_facts:
+                search_queries.append(query)
+                index = old_facts.index(query)
+                return 0, json.dumps({"memories": [{
+                    "id": f"old-{index + 1}", "text": query,
+                }]}), ""
+            return 0, json.dumps({"memories": []}), ""
+        if argv[0] == "add":
+            return 0, json.dumps({"id": "new-record"}), ""
+        return 0, "{}", ""
+
+    monkeypatch.setattr(runtime, "call_runtime", fake_runtime)
+    for server, _calls in extraction_provider_stub(monkeypatch, replies):
+        argv = extractor_args(monkeypatch, server.server_port)
+        argv.append("--confirm")
+        assert cli.main(argv) is None
+    assert search_queries == old_facts
 
 
 def test_finalize_keeps_newer_content_pending_with_receipts(hook_env, monkeypatch):
