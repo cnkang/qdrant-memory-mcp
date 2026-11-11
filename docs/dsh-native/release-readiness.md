@@ -16,16 +16,16 @@ Live baseline: PR #81 `f2e6133ae5168c3b53e3587f872c73929e256eff`, Runtime main `
 | Identity | One Owner credential represents one principal | Single trusted identity per DSH profile; no model-derived grants |
 | Desktop | No GUI evidence | Manual checklist, separate from CI |
 
-No PyPI/npm publication, tags, releases, PR merges, production profiles or real memory data are authorized by this acceptance work. Source-snapshot tests must remain distinguishable from public-wheel acceptance.
+The statements in this 2026-11-09 baseline record what had not yet been done at that point. Runtime 0.6.1 has since been released independently; that release does not establish DSH Cloud, platform or Desktop acceptance. Source-snapshot tests must remain distinguishable from public-wheel acceptance.
 
 ## Release decisions
 
-All decisions start at NOT VERIFIED and require executed evidence before promotion. A missing Runtime public wheel blocks final npm Native acceptance; it does not block source tests. Protected Cloud acceptance cannot execute unmerged PR code with secrets.
+Runtime 0.6.1 is now published and verified from PyPI, and MCP PR #81 is merged. These facts clear the Runtime publication and source-merge prerequisites only; they do not establish final DSH Native acceptance. Protected Cloud acceptance must run from reviewed main and use the public Runtime wheel.
 
 | Decision | Status |
 | --- | --- |
-| RUNTIME_0_6_1_RELEASE_READY | NOT VERIFIED |
-| PR_81_MERGE_READY | NOT VERIFIED |
+| RUNTIME_0_6_1_RELEASE_READY | YES |
+| PR_81_MERGE_READY | MERGED |
 | DSH_NATIVE_E2E_VERIFIED | NOT VERIFIED |
 | BUNDLE_IN_PLACE_UPGRADE_SAFE | NOT VERIFIED |
 | OLLAMA_CLOUD_ACCEPTANCE_VERIFIED | NOT VERIFIED |
@@ -64,7 +64,7 @@ Session reads remain performance work; no unbounded in-memory queue was added.
 | Docker | Real Qdrant 1.20.0, Client 1.20.0, one WriterLease/ledger, verified self-signed TLS Owner, separate device tokens, exact Qdrant ID/content and Owner receipt assertions |
 | Real clients | DSH -> independent MCP, MCP -> DSH model request, DSH -> real Pi Host twice in fresh processes |
 | Authorization | Private/project separation, read-only delete rejection, forged identity/scope rejection, foreign-ID delete rejection; invalid tokens denied for search, submit, status and retry |
-| Runtime | Clean built 0.6.1 wheel; 76 isolated Owner/retry/gateway tests; public 0.6.0 -> source-built 0.6.1 data-preserving upgrade; see Runtime PR #130 |
+| Runtime | 76 isolated Owner/retry/gateway tests; public 0.6.0 -> source-built 0.6.1 data-preserving upgrade; Runtime 0.6.1 wheel and sdist are now published and fresh-installed from PyPI; full six-lane Soak and exact-SHA release gates passed (details below) |
 | Python/package gates | 81 focused tests after version/path rejection additions; Ruff and actionlint |
 | Official DSH client | Five existing official CLI/client/CRUD tests pass with the upgraded 0.2.2-rc.1 test lock |
 | npm tarball | Exact six-file whitelist, symlink/path rejection, manifest validation, canonical Native byte comparison, SHA256; two fresh npm packs produce identical bytes |
@@ -77,7 +77,7 @@ Files are `package.json`, `index.js`, `native/index.js`, `cordis.patch.yml`,
 `README.md`, and `LICENSE`. Repository locks pin the source dependencies.
 The release script accepts an rc version, requires the exact current main SHA,
 and the draft-asset workflow now checks exact-SHA blocking CI before packing.
-No npm or PyPI upload, tag, Release or merge has been performed.
+No DSH bundle npm candidate has been published; the public DSH bundle remains at 0.1.6. Runtime 0.6.1 was released separately as documented below.
 
 Full ordinary Python source suite after rebuilding current distributions:
 409 passed, one existing platform-specific skip. The external Docker acceptance
@@ -94,11 +94,31 @@ Its review follow-up validates each lane independently and rejects ten
 single-lane drift mutations. The local corrected steady Soak passed over
 68.621 seconds: 262 requests, zero unexplained failures, losses or duplicates.
 
-The original failed-job rerun lacked aggregate artifacts. Corrected branch
-Soak execution was refused by the `soak-local` main-only environment policy.
-Keep that policy. After approved merge, rerun the corrected matrix and the
-five required main-push workflows on the exact final SHA. The source-built
-wheel is evidence for development, not public-wheel Native acceptance.
+The corrected release was validated on exact Runtime main SHA
+`2696122405e3324a1e227c131e0f9b2a320dd23c`. The short Soak was inspected
+before the full run. Full Soak [run 42989965437](https://github.com/cnkang/hermes-plugin-qdrant-memory/actions/runs/42989965437)
+passed all six 18,000-second lanes and the final report; all six smoke lanes
+also passed. The five required exact-SHA main-push workflows passed. The
+intentional network-fault lane logged its injected client disconnect; its
+invariants showed no loss, duplicate, cross-scope leak or unexplained failure.
+
+The protected release workflow
+[run 43038295736](https://github.com/cnkang/hermes-plugin-qdrant-memory/actions/runs/43038295736)
+used the existing PyPI environment approval and Trusted Publishing. Tag
+[`v0.6.1`](https://github.com/cnkang/hermes-plugin-qdrant-memory/releases/tag/v0.6.1)
+and the GitHub Release point to that validated source SHA. PyPI now serves
+[`hermes-plugin-qdrant-memory 0.6.1`](https://pypi.org/project/hermes-plugin-qdrant-memory/0.6.1/):
+wheel SHA256 `5ad7835f454789c1bcb48d877a303ebb6f95e6084ab62d0ecaf50e4f44d26cc9`,
+sdist SHA256 `4025497177f294dfe586f36756d29af2397844027a0f18def05eb6befd16fc1a`.
+A clean public-PyPI installation, `pip check`, CLI help, and isolated status
+command passed. Runtime main later advanced to
+`5f72ee962b06f2acb7986556bbb54b6da02d1a0e` for a release-evidence documentation
+change; the release tag remains pinned to the Soak-validated SHA above.
+
+MCP PR [#81](https://github.com/cnkang/qdrant-memory-mcp/pull/81) was merged
+at `6f8e57383b760668abe7aa52f4d3c865f8d762e5`. The current DSH Native CI
+[run 42985549290](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/42985549290)
+passed on MCP main `28f14f727eb224b8777b1c90cffb4be5ee0156b9`.
 
 ## Cloud acceptance
 
@@ -110,9 +130,10 @@ with an environment credential reference, zero Provider retries, at most eight
 model calls, 1200 output tokens per call and a short job timeout. Credentials
 are not written to profiles, container images or evidence.
 
-No protected Cloud execution was possible from this unmerged branch, and the
-required Runtime wheel is still unpublished. Cloud API compatibility, model
-availability and real extraction remain NOT VERIFIED. The prepared smoke
+No protected Cloud execution is recorded for the reviewed DSH Native main.
+The public Runtime 0.6.1 wheel is available, but Cloud API compatibility,
+model availability and real extraction remain NOT VERIFIED until the protected
+matrix is executed. The prepared smoke
 path covers capture and fresh-Session recall, independent MCP/Pi context and
 turns after disabling automation. It is not the full Cloud UPDATE/CONFLICT
 and Hermes/Codex matrix; those scenarios remain NOT RUN and are release
@@ -147,7 +168,7 @@ No performance optimization is justified by these samples.
 - Run Hermes -> DSH, DSH -> Hermes, and Codex -> DSH using actual Host paths;
   these directions remain NOT RUN, not Owner-API substitutes.
 - Complete real Cloud UPDATE/CONFLICT, model-output and shared-context checks
-  after the public Runtime wheel and reviewed main are available.
+  on reviewed MCP main with the public Runtime 0.6.1 wheel.
 - Desktop manual: install 0.1.6, upgrade to candidate, inspect all default-off
   settings, use ordinary Legacy tools with no Owner token, explicitly select
   Unified Owner, enable capture/recall, open a fresh Session, verify exact IDs,
@@ -158,9 +179,9 @@ No performance optimization is justified by these samples.
 
 | Required decision | Status | Reason |
 | --- | --- | --- |
-| RUNTIME_0_6_1_RELEASE_READY | NO | Corrected exact-main gates and accepted main Soak remain outstanding |
-| PR_81_MERGE_READY | NO | Final-head blocking CI remains pending |
+| RUNTIME_0_6_1_RELEASE_READY | YES | Published to PyPI from Soak-validated exact SHA `2696122405e3324a1e227c131e0f9b2a320dd23c`; clean public install passed |
+| PR_81_MERGE_READY | MERGED | MCP PR #81 merged at `6f8e57383b760668abe7aa52f4d3c865f8d762e5` |
 | DSH_NATIVE_E2E_VERIFIED | NOT VERIFIED | Core actual-loop/Docker evidence passed; full Host matrix above is incomplete |
 | BUNDLE_IN_PLACE_UPGRADE_SAFE | NOT VERIFIED | Actual local install/upgrade/rollback passed; full platform and Desktop acceptance outstanding |
-| OLLAMA_CLOUD_ACCEPTANCE_VERIFIED | NOT VERIFIED | Protected main/public-wheel dependency; full real-model matrix not executed |
-| DSH_BUNDLE_NEW_VERSION_RELEASE_READY | NO | Runtime public wheel, complete Cloud, platform and Desktop gates outstanding |
+| OLLAMA_CLOUD_ACCEPTANCE_VERIFIED | NOT VERIFIED | Protected real-model matrix not executed on reviewed main with the public Runtime wheel |
+| DSH_BUNDLE_NEW_VERSION_RELEASE_READY | NO | Complete Cloud, platform, cross-client and Desktop gates remain outstanding; public npm bundle stays at 0.1.6 |
