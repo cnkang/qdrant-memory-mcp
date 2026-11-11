@@ -152,8 +152,41 @@ def validate_calls(calls, required_tool, expected_arguments, expected_memory=Non
         if item.get("tool") == "qdrant_memory_search" and expected_memory is not None:
             verify_search_result(value, expected_memory)
     item = matched[0]
-    if item.get("arguments") != expected_arguments:
-        raise RuntimeError("MCP operation arguments differ from the approved operation")
+    actual_arguments = item.get("arguments")
+    if actual_arguments != expected_arguments:
+        if isinstance(expected_arguments, dict) and isinstance(actual_arguments, dict):
+            expected_fields = set(expected_arguments)
+            actual_fields = set(actual_arguments)
+            shared_fields = expected_fields & actual_fields
+            details = {
+                "missing_fields": sorted(expected_fields - actual_fields, key=str),
+                "unexpected_fields": sorted(actual_fields - expected_fields, key=str),
+                "value_mismatch_fields": sorted(
+                    (
+                        field
+                        for field in shared_fields
+                        if actual_arguments[field] != expected_arguments[field]
+                    ),
+                    key=str,
+                ),
+                "type_mismatch_fields": sorted(
+                    (
+                        field
+                        for field in shared_fields
+                        if type(actual_arguments[field]) is not type(expected_arguments[field])
+                    ),
+                    key=str,
+                ),
+            }
+        else:
+            details = {
+                "expected_type": type(expected_arguments).__name__,
+                "observed_type": type(actual_arguments).__name__,
+            }
+        raise RuntimeError(
+            "MCP operation arguments differ from the approved operation: "
+            + json.dumps(details, sort_keys=True)
+        )
     value = tool_payload(item)
     identifier = (
         expected_memory["id"]
