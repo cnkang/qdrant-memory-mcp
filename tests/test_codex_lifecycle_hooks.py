@@ -1275,6 +1275,49 @@ def test_replacement_metadata_must_be_typed_bounded_and_secret_free(hook_env):
         assert cli._candidate_error(candidate) == expected
 
 
+def test_replacement_context_must_be_an_exact_user_input_substring(hook_env):
+    """Assistant-only and invented text cannot authorize a replacement target."""
+    cli = extractor_cli()
+    event = {
+        "user_text": {
+            "excerpt": "The database was SQLite, but it is now PostgreSQL 16."
+        },
+        "assistant_text": {"text": "The timezone was PST."},
+    }
+    exact, exact_rejected = cli.validate_candidates(
+        {
+            "memories": [
+                {
+                    "text": "The database is PostgreSQL 16.",
+                    "replacement_intent": True,
+                    "replacement_context": "database was SQLite",
+                }
+            ]
+        },
+        event,
+    )
+    assert [candidate["replacement_context"] for candidate in exact] == [
+        "database was SQLite"
+    ]
+    assert exact_rejected == []
+
+    for context in ("timezone was PST", "favorite color was green"):
+        good, rejected = cli.validate_candidates(
+            {
+                "memories": [
+                    {
+                        "text": "The timezone is UTC.",
+                        "replacement_intent": True,
+                        "replacement_context": context,
+                    }
+                ]
+            },
+            event,
+        )
+        assert good == []
+        assert rejected == ["replacement context not present in user input"]
+
+
 def test_prompt_and_validation_surface_truncation(hook_env):
     """Verify truncated inputs are surfaced to extraction and validation."""
     cli = extractor_cli()
@@ -1444,7 +1487,12 @@ def test_admission_retries_preserve_earlier_receipts(hook_env, monkeypatch, caps
 def test_replacement_intent_deletes_the_superseded_record(hook_env, monkeypatch, capsys):
     """Verify a replacement deletes the superseded record only with explicit approval."""
     runtime = load("lifecycle_runtime")
-    stage_pending(hook_env, monkeypatch, runtime)
+    stage_pending(
+        hook_env,
+        monkeypatch,
+        runtime,
+        user="The old fact was 'prefers light mode'; now I prefer dark mode.",
+    )
     cli = extractor_cli()
     replies = [{
         "choices": [{"message": {"content": json.dumps({
@@ -1489,7 +1537,12 @@ def test_replacement_intent_deletes_the_superseded_record(hook_env, monkeypatch,
 def test_replacement_deletion_requires_explicit_approval(hook_env, monkeypatch, capsys):
     """Without the flag the located target is recorded as a proposal only."""
     runtime = load("lifecycle_runtime")
-    stage_pending(hook_env, monkeypatch, runtime)
+    stage_pending(
+        hook_env,
+        monkeypatch,
+        runtime,
+        user="The old fact was 'prefers light mode'; now I prefer dark mode.",
+    )
     cli = extractor_cli()
     replies = [{
         "choices": [{"message": {"content": json.dumps({
@@ -1531,7 +1584,12 @@ def test_replacement_delete_hookerror_preserves_the_admitted_receipt(
 ):
     """A failed delete after a successful add never loses the record receipt."""
     runtime = load("lifecycle_runtime")
-    stage_pending(hook_env, monkeypatch, runtime)
+    stage_pending(
+        hook_env,
+        monkeypatch,
+        runtime,
+        user="The old fact was 'prefers light mode'; now I prefer dark mode.",
+    )
     cli = extractor_cli()
     replies = [{
         "choices": [{"message": {"content": json.dumps({
@@ -1570,7 +1628,15 @@ def test_replacement_delete_hookerror_preserves_the_admitted_receipt(
 def test_multiple_replacements_keep_their_own_search_context(hook_env, monkeypatch):
     """Each correction must search for its own superseded fact."""
     runtime = load("lifecycle_runtime")
-    stage_pending(hook_env, monkeypatch, runtime)
+    stage_pending(
+        hook_env,
+        monkeypatch,
+        runtime,
+        user=(
+            "The database was SQLite and the service timezone was PST. "
+            "Now the database is PostgreSQL 16 and the timezone is UTC."
+        ),
+    )
     cli = extractor_cli()
     old_facts = ["database was SQLite", "service timezone was PST"]
     replies = [{

@@ -394,7 +394,13 @@ def validate_candidates(document, source_event: dict) -> tuple[list[dict], list[
             and isinstance(replacement_context, str)
             and replacement_context.strip()
         ):
-            candidate["replacement_context"] = replacement_context.strip()
+            replacement_context = replacement_context.strip()
+            user_text = source_event.get("user_text") if isinstance(source_event, dict) else None
+            user_excerpt = user_text.get("excerpt") if isinstance(user_text, dict) else None
+            if not isinstance(user_excerpt, str) or replacement_context not in user_excerpt:
+                rejected.append("replacement context not present in user input")
+                continue
+            candidate["replacement_context"] = replacement_context
         if candidate["replacement_intent"] and not candidate.get("replacement_context"):
             candidate["replacement_context_missing"] = True
         good.append(candidate)
