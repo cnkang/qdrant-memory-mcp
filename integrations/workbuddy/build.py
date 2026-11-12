@@ -48,12 +48,14 @@ def validate_metadata(meta):
 
 
 def validate_launcher(launcher):
-    if not isinstance(launcher, dict) or set(launcher) != {"name", "version", "integrity"}:
+    if not isinstance(launcher, dict) or set(launcher) != {"name", "version", "runtime_version", "integrity"}:
         raise ValueError("Launcher source fields differ from reviewed schema")
     if launcher["name"] != "@cnkang/qdrant-memory-launcher":
         raise ValueError("Launcher package name mismatch")
     if not re.fullmatch(SEMVER + r"(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?", launcher["version"], re.ASCII):
         raise ValueError("Launcher version must be a pinned semver")
+    if not re.fullmatch(SEMVER, launcher["runtime_version"], re.ASCII):
+        raise ValueError("Launcher runtime version must be pinned")
     if not re.fullmatch(r"sha512-[A-Za-z0-9+/]+={0,2}", launcher["integrity"]):
         raise ValueError("Launcher integrity must be a sha512 digest")
 
@@ -223,7 +225,23 @@ def build(root, skill_root, output, release_tag=None):
     meta, mcp, source, project, runtime, launcher = inputs(root)
     name = package_name(meta["version"], project["version"], release_tag)
     files = skill_files(skill_root, source)
-    provenance = {"connector_version": meta["version"], "mcp_version": project["version"], "runtime_version": runtime["version"], "launcher": {"name": launcher["name"], "version": launcher["version"], "integrity": launcher["integrity"]}, "skill_version": source["version"], "skill_repository": source["repository"], "skill_commit": source["commit"], "release_tag": release_tag}
+    provenance = {
+        "connector_version": meta["version"],
+        "mcp_version": project["version"],
+        # This archive contains the managed npm launcher, whose Runtime pin
+        # can differ from the separate, source-only uvx candidate.
+        "runtime_version": launcher["runtime_version"],
+        "launcher": {
+            "name": launcher["name"],
+            "version": launcher["version"],
+            "runtime_version": launcher["runtime_version"],
+            "integrity": launcher["integrity"],
+        },
+        "skill_version": source["version"],
+        "skill_repository": source["repository"],
+        "skill_commit": source["commit"],
+        "release_tag": release_tag,
+    }
     for filename, value in (("connector-meta.json", meta), ("mcp.json", mcp), ("provenance.json", provenance)):
         files[filename] = ((json.dumps(value, ensure_ascii=False, indent=2) + "\n").encode(), 0o644)
     icon = root / "integrations/workbuddy/icon.svg"

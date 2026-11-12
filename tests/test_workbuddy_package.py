@@ -52,7 +52,7 @@ def test_uvx_alternative_config_pinned_to_project_version():
         module.validate_uvx_alternative(alternative, "9.9.9")
 
 
-@pytest.mark.parametrize("field,value", [("name", "other-package"), ("version", "latest"), ("version", "0.1"), ("integrity", "sha256-abc"), ("integrity", "sha512-")])
+@pytest.mark.parametrize("field,value", [("name", "other-package"), ("version", "latest"), ("version", "0.1"), ("runtime_version", "latest"), ("integrity", "sha256-abc"), ("integrity", "sha512-")])
 def test_launcher_pin_fails_closed(field, value):
     """Reject launcher pins with invalid identity, version, or integrity."""
     module = builder()
@@ -182,7 +182,10 @@ def test_package_manifest_provenance_and_output_guard(tmp_path, monkeypatch):
         assert provenance["skill_commit"] == module.inputs(ROOT)[2]["commit"]
         assert provenance["release_tag"] is None
         assert provenance["launcher"]["name"] == "@cnkang/qdrant-memory-launcher"
-        assert provenance["launcher"]["version"] == json.loads((ROOT / "launcher-source.json").read_text(encoding="utf-8"))["version"]
+        launcher = json.loads((ROOT / "launcher-source.json").read_text(encoding="utf-8"))
+        assert provenance["launcher"]["version"] == launcher["version"]
+        assert provenance["runtime_version"] == launcher["runtime_version"] == "0.6.0"
+        assert provenance["launcher"]["runtime_version"] == launcher["runtime_version"]
         assert len(json.loads(archive.read("qdrant-memory-workbuddy/mcp.json"))["mcpServers"]) == 1
     with pytest.raises(ValueError, match="dist/workbuddy"):
         module.build(ROOT, tmp_path, ROOT / "unapproved-generated-skill")
