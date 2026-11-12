@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import tomllib
@@ -181,7 +182,7 @@ def test_official_dsh_cli_overlay_preserves_user_patches(tmp_path):
 
 
 def test_official_dsh_cli_installs_the_packed_bundle(tmp_path):
-    """Real pnpm install of the packed Bundle; the layer composes and removes cleanly."""
+    """Install on a supported DSH version or verify an incompatible update is safe."""
     root = Path(__file__).resolve().parents[1]
     node, env = dsh_cli(tmp_path / 'dsh-home', tmp_path)
     output = tmp_path / 'packed'
@@ -210,8 +211,43 @@ def test_official_dsh_cli_installs_the_packed_bundle(tmp_path):
     install(legacy_tgz)
     sentinel = tmp_path / 'dsh-home/profiles/memory-test/prepared-memory-sentinel'
     sentinel.write_text('synthetic existing profile data')
+    profile = tmp_path / 'dsh-home/profiles/memory-test'
+    profile_manifest = profile / 'package.json'
+    profile_manifest_before = profile_manifest.read_bytes()
+    config_before = subprocess.run(
+        [*node, '--profile', 'memory-test', '--dump-config'],
+        env=env, capture_output=True, text=True, timeout=60,
+    )
+    assert config_before.returncode == 0, config_before.stderr
     add = subprocess.run([*node, 'plugin', '--profile', 'memory-test', 'add', str(tgz)],
                          env=env, capture_output=True, text=True, timeout=300)
+    bundle_engine = json.loads(
+        (root / 'integrations/dsh/bundle/package.json').read_text(encoding='utf-8'),
+    )['engines']['dsh']
+    dsh_package = json.loads(
+        (Path(env['DSH_TEST_MODULES']) / '@deepseek-ai/dsh/package.json').read_text(encoding='utf-8'),
+    )
+    dsh_version = dsh_package['version']
+    exact_engine = re.fullmatch(r'\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?', bundle_engine)
+    expected_rejection = (
+        env.get('DSH_EXPECT_INCOMPATIBLE_BUNDLE') == '1'
+        and exact_engine is not None
+        and bundle_engine != dsh_version
+    )
+    if expected_rejection:
+        assert add.returncode != 0, 'the official CLI installed a Bundle outside its exact DSH engine pin'
+        assert 'is incompatible with dsh' in add.stderr
+        assert bundle_engine in add.stderr
+        assert dsh_version in add.stderr
+        assert profile_manifest.read_bytes() == profile_manifest_before
+        config_after = subprocess.run(
+            [*node, '--profile', 'memory-test', '--dump-config'],
+            env=env, capture_output=True, text=True, timeout=60,
+        )
+        assert config_after.returncode == 0, config_after.stderr
+        assert config_after.stdout == config_before.stdout
+        assert sentinel.read_text() == 'synthetic existing profile data'
+        return
     assert add.returncode == 0, add.stderr
     manifest = json.loads((tmp_path / 'dsh-home/profiles/memory-test/package.json').read_text(encoding='utf-8'))
     assert '@cnkang/qdrant-memory-dsh-bundle' in manifest['dsh']['profile']['bundles']
