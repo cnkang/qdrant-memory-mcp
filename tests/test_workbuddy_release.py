@@ -181,22 +181,22 @@ def test_request_exception_does_not_expose_body_or_token():
 def asset_source(source):
     import json
     import zipfile
-    (source / 'runtime-source.json').write_text('{"version": "0.2.2"}')
+    (source / 'runtime-source.json').write_text('{"version": "0.6.1"}')
     config = source / 'integrations/workbuddy'
     config.mkdir(parents=True)
     (config / 'connector-meta.json').write_text(json.dumps({'version': '0.1.0'}))
-    launcher = {'name': '@cnkang/qdrant-memory-launcher', 'version': '0.1.0-rc.2', 'integrity': 'sha512-' + 'A' * 86 + '=='}
+    launcher = {'name': '@cnkang/qdrant-memory-launcher', 'version': '0.1.0-rc.2', 'runtime_version': '0.6.0', 'integrity': 'sha512-' + 'A' * 86 + '=='}
     (source / 'launcher-source.json').write_text(json.dumps(launcher))
     mcp = {'mcpServers': {'qdrant-memory': {'type': 'stdio', 'command': 'npx', 'args': ['-y', '@cnkang/qdrant-memory-launcher@0.1.0-rc.2', 'mcp', 'workbuddy', '--auto-setup'], 'runtime': {'type': 'node', 'version': '20'}, 'npmRegistries': ['https://registry.npmjs.org'], 'timeout': 60000}}}
     (config / 'mcp.json').write_text(json.dumps(mcp))
     skill = {'version': '0.2.5', 'repository': 'https://github.com/cnkang/skills.git', 'commit': 'a' * 40}
     (config / 'skill-source.json').write_text(json.dumps(skill))
     # Dependency entry is the authoritative runtime pin.
-    (source / 'pyproject.toml').write_text('[project]\nversion = "1.2.3"\ndependencies = ["hermes-plugin-qdrant-memory[mcp]==0.2.2"]\n')
+    (source / 'pyproject.toml').write_text('[project]\nversion = "1.2.3"\ndependencies = ["hermes-plugin-qdrant-memory[mcp]==0.6.1"]\n')
     directory = source / 'assets'
     directory.mkdir()
     archive = directory / 'qdrant-memory-workbuddy-connector-v0.1.0-mcp-v1.2.3.zip'
-    provenance = {'connector_version': '0.1.0', 'mcp_version': '1.2.3', 'runtime_version': '0.2.2', 'launcher': launcher, 'skill_version': skill['version'], 'skill_repository': skill['repository'], 'skill_commit': skill['commit'], 'release_tag': 'v1.2.3'}
+    provenance = {'connector_version': '0.1.0', 'mcp_version': '1.2.3', 'runtime_version': '0.6.0', 'launcher': launcher, 'skill_version': skill['version'], 'skill_repository': skill['repository'], 'skill_commit': skill['commit'], 'release_tag': 'v1.2.3'}
     with zipfile.ZipFile(archive, 'w') as output:
         output.writestr('qdrant-memory-workbuddy/icon.svg', '<svg/>')
         output.writestr('qdrant-memory-workbuddy/skills/qdrant-memory/LICENSE', 'MIT')
@@ -337,11 +337,23 @@ def test_check_source_does_not_require_token_or_api(source, monkeypatch):
     assert release.main() == 0
 
 
-def test_runtime_provenance_must_match_runtime_source(asset_source):
+def test_candidate_runtime_source_must_match_mcp_dependency(asset_source):
     root, directory, archive, checksum = asset_source
     (root / 'runtime-source.json').write_text('{"version": "9.9.9"}')
     release = module()
     with pytest.raises(ValueError, match='runtime'):
+        release.validate_assets(root, directory, 'v1.2.3')
+
+
+def test_asset_runtime_provenance_must_match_included_launcher(asset_source):
+    import json
+
+    root, directory, archive, checksum = asset_source
+    launcher = json.loads((root / 'launcher-source.json').read_text(encoding='utf-8'))
+    launcher['runtime_version'] = '0.6.1'
+    (root / 'launcher-source.json').write_text(json.dumps(launcher))
+    release = module()
+    with pytest.raises(ValueError, match='provenance'):
         release.validate_assets(root, directory, 'v1.2.3')
 
 

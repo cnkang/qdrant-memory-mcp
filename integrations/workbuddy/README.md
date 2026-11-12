@@ -309,10 +309,14 @@ The MCP 0.3.2 release candidate targets Runtime 0.6.1 and pins
 after PyPI publishes MCP 0.3.2; the released
 connector instructions below continue to use public MCP 0.3.1.
 `provenance.json` inside each ZIP records its versions, launcher
-integrity and Skill source commit. The builder rejects drift from checked-in pins:
+integrity and Skill source commit. Its `runtime_version` identifies the Runtime
+installed by the included managed npm launcher (0.6.0 for launcher 0.1.0-rc.8).
+It is intentionally independent of the source-only uvx candidate, which targets
+Runtime 0.6.1 and is not included in the connector ZIP. The builder rejects
+drift from checked-in pins:
 
 - The launcher pin lives in `launcher-source.json` at the repository root and
-  must be public on the npm registry with matching integrity before release
+  records its Runtime version; it must be public on the npm registry with matching integrity before release
   assets are prepared. `mcp.json` lists only the canonical registry
   (`https://registry.npmjs.org`). Package validation rejects additional
   registry entries.

@@ -58,8 +58,9 @@ def validate_source(root: Path, tag: str, main_ref: str = 'refs/remotes/origin/m
 
 def launcher_pin(launcher: dict) -> dict:
     """Reject a launcher pin that is not the reviewed package and digest."""
-    if set(launcher) != {'name', 'version', 'integrity'} or launcher['name'] != '@cnkang/qdrant-memory-launcher' \
-            or not is_semver(launcher['version']) or not re.fullmatch(r'sha512-[A-Za-z0-9+/]+={0,2}', launcher['integrity']):
+    if set(launcher) != {'name', 'version', 'runtime_version', 'integrity'} or launcher['name'] != '@cnkang/qdrant-memory-launcher' \
+            or not is_semver(launcher['version']) or not is_semver(launcher['runtime_version']) \
+            or not re.fullmatch(r'sha512-[A-Za-z0-9+/]+={0,2}', launcher['integrity']):
         raise ValueError('Launcher source pin is malformed')
     return launcher
 
@@ -149,8 +150,9 @@ def validate_assets(root: Path, directory: Path, tag: str) -> list[Path]:
     name = f'qdrant-memory-workbuddy-connector-v{connector}-mcp-v{version}.zip'
     paths = checked_assets(directory, name)
     expected = {'connector_version': connector, 'mcp_version': version,
-                'runtime_version': runtime,
+                'runtime_version': launcher['runtime_version'],
                 'launcher': {'name': launcher['name'], 'version': launcher['version'],
+                             'runtime_version': launcher['runtime_version'],
                              'integrity': launcher['integrity']},
                 'skill_version': skill['version'], 'skill_repository': skill['repository'],
                 'skill_commit': skill['commit'], 'release_tag': tag}
