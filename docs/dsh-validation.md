@@ -38,7 +38,7 @@ is `24.9.0`. The native adapter pins `@deepseek-ai/dsh-llm@0.2.2-rc.1`,
 | Path | DSH line | Runtime requirement | Status |
 | --- | --- | --- | --- |
 | Published MCP Bundle and Python overlay | Existing exact tests remain on `0.2.1-rc.2` | Published MCP/Runtime interfaces | Supported path; unchanged |
-| Native lifecycle adapter source | `0.2.2-rc.1`, Node `>=24.9.0` | Versioned `qdrant-memory/extraction-v1` Owner candidate events | Source merged; npm private; Runtime 0.6.1 merged but not yet on PyPI |
+| Native lifecycle adapter source | `0.2.2-rc.1`, Node `>=24.9.0` | Versioned `qdrant-memory/extraction-v1` Owner candidate events | Runtime 0.6.1 published; adapter npm package is private; real-host and GUI evidence remains unverified |
 | DSH Core | Upstream release commit above | No changes | Not modified |
 
 `integrations/dsh/package.json` and `cross-harness.yml` retain the legacy RC

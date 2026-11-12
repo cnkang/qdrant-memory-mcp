@@ -49,22 +49,33 @@ def test_public_protocol_install_tracks_project_version(tmp_path):
 
 
 def test_current_workbuddy_and_dsh_instructions_track_project_version():
-    """Ensure published integration instructions use the current release."""
+    """Keep candidate docs distinct from currently published integration pins."""
     project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     requirement = f"qdrant-memory-mcp=={project['project']['version']}"
+    published_requirement = "qdrant-memory-mcp==0.3.1"
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    paths = [
+    candidate_docs = [
         "docs/quickstart.zh-CN.md",
         "docs/quickstart.md",
         "docs/dsh-integration.md",
         "docs/dsh-integration.zh-CN.md",
-        "integrations/dsh/qdrant-memory.cordis.yml",
         "integrations/workbuddy/README.md",
-        "integrations/workbuddy/mcp.uvx.json",
     ]
     assert requirement in readme
-    for relative in paths:
-        assert requirement in (ROOT / relative).read_text(encoding="utf-8"), relative
+    for relative in candidate_docs:
+        contents = (ROOT / relative).read_text(encoding="utf-8")
+        assert requirement in contents, relative
+        if relative.startswith(("docs/dsh-integration", "integrations/workbuddy/README")):
+            assert published_requirement in contents, relative
+
+    # Released overlays remain installable while the next PyPI candidate is
+    # unpublished; the advanced WorkBuddy config tracks the candidate pin.
+    assert published_requirement in (ROOT / "integrations/dsh/qdrant-memory.cordis.yml").read_text(
+        encoding="utf-8"
+    )
+    assert requirement in (ROOT / "integrations/workbuddy/mcp.uvx.json").read_text(
+        encoding="utf-8"
+    )
 
     runtime_version = project["project"]["dependencies"][0].rsplit("==", 1)[1]
     architecture = (ROOT / "docs/cross-harness-architecture.md").read_text(

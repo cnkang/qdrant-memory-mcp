@@ -39,7 +39,11 @@ jobs:
           python -m pip install --require-hashes --only-binary=:all: -r .github/requirements-sonar-ci.txt
           python -m pip install --only-binary=:all: --no-deps --no-build-isolation .
       - run: python scripts/build_codex_plugin.py --validate
-      - run: python -m pytest -q tests/test_codex_plugin.py
+      - name: Install the published MCP pin used by the current portable plugin
+        run: "python -m pip install --only-binary=:all: --no-deps qdrant-memory-mcp==0.3.1"
+      - name: Test the portable plugin against its current published pins
+        run: python -m pytest -q "${{ github.workspace }}/tests/test_codex_plugin.py"
+        working-directory: ${{ runner.temp }}
       - name: Install, check setup file, disable and uninstall without credentials
         run: python scripts/codex_install_smoke.py --home "${{ runner.temp }}/codex-plugin-smoke"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -88,7 +92,11 @@ jobs:
       - run: python scripts/build_codex_plugin.py --validate
       - name: Build the pinned-skill-snapshot package from the merged revision
         run: python scripts/build_codex_plugin.py --skill-repo .skill-source
-      - run: python -m pytest -q tests/test_codex_plugin.py
+      - name: Install the published MCP pin used by the current portable plugin
+        run: "python -m pip install --only-binary=:all: --no-deps qdrant-memory-mcp==0.3.1"
+      - name: Test the merged plugin against its current published pins
+        run: python -m pytest -q "${{ github.workspace }}/tests/test_codex_plugin.py"
+        working-directory: ${{ runner.temp }}
 
   archive-parity:
     name: Compare cross-platform archive hashes

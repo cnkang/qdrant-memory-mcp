@@ -53,6 +53,13 @@
   tag release gate; the host profile check now asserts the plugin id and all
   three default-off switches instead of only printing the config.
 
+## 0.3.2
+
+- Pin the MCP distribution to published Runtime 0.6.1 so the separately
+  installed, opt-in Codex lifecycle preview can use the Owner `remote-event`
+  candidate API. The four MCP tool schemas and stored memory format are
+  unchanged; failed and quarantined Owner events remain operator-recovery-only.
+
 ## 0.3.1
 
 - Pin managed launcher 0.1.0-rc.8 to its verified public npm integrity and

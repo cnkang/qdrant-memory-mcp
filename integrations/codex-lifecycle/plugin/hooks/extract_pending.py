@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as _dt
+import hashlib
 import http.client
 import ipaddress
 import json
@@ -47,6 +48,7 @@ import sys
 import urllib.error
 import urllib.parse
 import urllib.request
+from pathlib import Path
 
 sys.dont_write_bytecode = True
 
@@ -59,6 +61,17 @@ MAX_CANDIDATES_PER_EVENT = 3
 MAX_RESPONSE_BYTES = 1_048_576  # 1 MiB cap on provider replies
 CATEGORIES = {"project", "preference", "fact", "codex-auto"}
 DEFAULT_CATEGORY = "codex-auto"
+OWNER_EVENT_STATUSES = {
+    "NOT_FOUND",
+    "ACCEPTED",
+    "PENDING",
+    "COMMITTED",
+    "CANCELLED",
+    "FAILED",
+    "QUARANTINED",
+}
+OWNER_LOCAL_STATUSES = OWNER_EVENT_STATUSES | {"SUBMITTING", "NO_CANDIDATES", "UNKNOWN"}
+OWNER_RETRYABLE_STATUSES = {"ACCEPTED", "PENDING"}
 RESPONSE_CONTENT_ERROR = "extraction response lacks message content"
 
 SECRETISH = re.compile(
@@ -737,6 +750,467 @@ def is_duplicate(text: str, runtime_home_cli) -> bool:
     return any(row.get("text", "").strip() == text.strip() for row in rows)
 
 
+def validate_owner_url(value: str) -> str:
+    """Require a credential-free HTTPS base URL for the opt-in Owner route."""
+    parsed = urllib.parse.urlsplit(value.strip())
+    try:
+        valid_port = parsed.port is None or 1 <= parsed.port <= 65535
+    except ValueError:
+        valid_port = False
+    if (
+        parsed.scheme.lower() != "https"
+        or not parsed.hostname
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.query
+        or parsed.fragment
+        or not valid_port
+    ):
+        raise ValueError(
+            "Owner lifecycle URL must be HTTPS without credentials, query, or fragment"
+        )
+    return value.strip().rstrip("/")
+
+
+def _owner_source_digest(event: dict) -> str:
+    """Hash the staged source snapshot without sending it to the Owner."""
+    source = {
+        key: event.get(key)
+        for key in (
+            "event_id",
+            "session_id",
+            "turn_id",
+            "user_text",
+            "assistant_text",
+            "user_truncated",
+            "assistant_truncated",
+        )
+    }
+    raw = json.dumps(source, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def _owner_request(url: str, token_env: str, ca_file, action: str, payload: dict) -> dict:
+    """Use Runtime's HTTPS client; the token value stays in its environment."""
+    args = [
+        "remote-event",
+        "--url",
+        url,
+        "--token-env",
+        token_env,
+        "--action",
+        action,
+    ]
+    if ca_file is not None:
+        args.extend(("--ca-file", str(ca_file)))
+    code, stdout, _stderr = runtime.call_runtime(
+        *args,
+        timeout=180.0,
+        input_text=json.dumps(payload, ensure_ascii=False, separators=(",", ":")),
+    )
+    if code != 0:
+        raise runtime.HookError(f"Owner lifecycle {action} request failed")
+    try:
+        result = json.loads(stdout)
+    except (TypeError, ValueError):
+        raise runtime.HookError("Owner lifecycle returned an invalid receipt") from None
+    if (
+        not isinstance(result, dict)
+        or result.get("event_id") != payload.get("event_id")
+        or not isinstance(result.get("status"), str)
+        or result.get("status") not in OWNER_EVENT_STATUSES
+    ):
+        raise runtime.HookError("Owner lifecycle returned an invalid receipt")
+    return result
+
+
+def _owner_candidate_count(receipt: dict) -> int:
+    """Return a bounded local candidate count or reject a malformed receipt."""
+    value = receipt.get("candidate_count", 0)
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, int)
+        or not 0 <= value <= MAX_CANDIDATES_PER_EVENT
+    ):
+        raise ValueError("Local Owner lifecycle receipt has an invalid candidate count")
+    return value
+
+
+def _is_owner_local_status(value) -> bool:
+    """Reject non-string or unknown statuses before using local receipt data."""
+    return isinstance(value, str) and value in OWNER_LOCAL_STATUSES
+
+
+def _owner_candidate_payload(event: dict, candidates: list[dict]) -> tuple[dict, list[str]]:
+    """Map validated candidates to extraction-v1 without forwarding turn text."""
+    accepted = []
+    rejected = []
+    replacements = []
+    for candidate in candidates:
+        item = {
+            "text": candidate["text"],
+            "category": candidate["category"],
+            "importance": candidate["importance"],
+            "replacement_intent": candidate["replacement_intent"],
+        }
+        if candidate["replacement_intent"]:
+            context = candidate.get("replacement_context")
+            if not isinstance(context, str) or not context.strip():
+                rejected.append("replacement candidate omitted: exact context is required")
+                continue
+            replacements.append((item, context.strip()))
+        else:
+            accepted.append(item)
+    if len(replacements) > 1:
+        rejected.append(
+            f"{len(replacements)} replacement candidates omitted: Owner schema supports one context per event"
+        )
+    elif replacements:
+        item, context = replacements[0]
+        accepted.append(item)
+    payload = {
+        "event_id": event["event_id"],
+        "session_id": event["session_id"],
+        "kind": "turn_completed",
+        "candidate_schema": "qdrant-memory/extraction-v1",
+        "candidates": accepted,
+    }
+    if len(replacements) == 1:
+        payload["replacement_context"] = context
+    return payload, rejected
+
+
+def _persist_owner_intent(event: dict, receipt: dict) -> bool:
+    """Record a content-free retry marker before contacting the Owner."""
+    path = event["_path"]
+    with runtime.exclusive_lock("pending"):
+        if runtime.file_fingerprint(path) != event.get("_fingerprint"):
+            return False
+        current = runtime.read_json(path)
+        if not isinstance(current, dict) or current.get("event_id") != event.get("event_id"):
+            return False
+        current["owner_lifecycle"] = receipt
+        runtime.write_json_private(path, current)
+        event["owner_lifecycle"] = receipt
+        event["_fingerprint"] = runtime.file_fingerprint(path)
+    return True
+
+
+def _finish_owner_event(
+    event: dict,
+    new_status: str,
+    *,
+    source_digest: str,
+    owner_status: str,
+    candidate_count: int = 0,
+    rejected=(),
+    error: str | None = None,
+    action: str,
+) -> dict:
+    """Persist Owner status through the existing staged-event receipt path."""
+    event_state = {
+        "event_id": event.get("event_id", ""),
+        "admitted": [],
+        "skipped": [],
+        "rejected": list(rejected),
+    }
+    if error:
+        event_state["last_error"] = error[:600]
+    receipt = {
+        "event_id": event.get("event_id", ""),
+        "source_sha256": source_digest,
+        "status": owner_status,
+        "candidate_count": candidate_count,
+        "action": action,
+        "updated_utc": _dt.datetime.now(_dt.timezone.utc).isoformat(timespec="seconds"),
+    }
+    prior_receipt = event.get("owner_lifecycle")
+    if isinstance(prior_receipt, dict) and isinstance(
+        prior_receipt.get("candidate_sha256"), str
+    ):
+        receipt["candidate_sha256"] = prior_receipt["candidate_sha256"]
+    finalize_event(
+        event["_path"],
+        event_state,
+        new_status,
+        loaded_fingerprint=event.get("_fingerprint", ""),
+        owner_receipt=receipt,
+    )
+    return {
+        "event_id": event.get("event_id", ""),
+        "status": new_status,
+        "owner_status": owner_status,
+        "candidate_count": candidate_count,
+        "rejected": list(rejected),
+        "last_error": error,
+    }
+
+
+def _finish_owner_conflict(event: dict, message: str) -> dict:
+    """Keep the earlier Owner receipt intact when snapshots cannot be matched."""
+    event_state = {
+        "event_id": event.get("event_id", ""),
+        "admitted": [],
+        "skipped": [],
+        "rejected": [],
+        "last_error": message[:600],
+    }
+    finalize_event(
+        event["_path"],
+        event_state,
+        "pending",
+        loaded_fingerprint=event.get("_fingerprint", ""),
+    )
+    prior = event.get("owner_lifecycle")
+    try:
+        candidate_count = _owner_candidate_count(prior) if isinstance(prior, dict) else 0
+    except ValueError:
+        candidate_count = 0
+    owner_status = (
+        prior.get("status", "UNKNOWN")
+        if isinstance(prior, dict) and _is_owner_local_status(prior.get("status"))
+        else "UNKNOWN"
+    )
+    return {
+        "event_id": event.get("event_id", ""),
+        "status": "pending",
+        "owner_status": owner_status,
+        "candidate_count": candidate_count,
+        "rejected": [],
+        "last_error": message,
+    }
+
+
+def _process_owner_event(event: dict, provider, *, url: str, token_env: str, ca_file) -> dict:
+    """Extract once, then submit or retry one idempotent Owner event."""
+    source_digest = _owner_source_digest(event)
+    event_id = event.get("event_id", "")
+    prior = event.get("owner_lifecycle")
+    if prior is not None and not isinstance(prior, dict):
+        return _finish_owner_conflict(
+            event, "Local Owner lifecycle receipt is malformed; review before retrying"
+        )
+    prior_count = 0
+    if isinstance(prior, dict):
+        try:
+            prior_count = _owner_candidate_count(prior)
+        except ValueError:
+            return _finish_owner_conflict(
+                event, "Local Owner lifecycle receipt is malformed; review before retrying"
+            )
+        if prior.get("event_id") != event_id:
+            return _finish_owner_conflict(
+                event, "Local Owner lifecycle receipt does not match this pending event"
+            )
+        if not _is_owner_local_status(prior.get("status")):
+            return _finish_owner_conflict(
+                event, "Local Owner lifecycle receipt has an unknown status; review before retrying"
+            )
+    if isinstance(prior, dict) and prior.get("action") in {"conflict", "reconcile"}:
+        return _finish_owner_conflict(
+            event, "Owner lifecycle receipt requires manual reconciliation"
+        )
+    if isinstance(prior, dict) and prior.get("source_sha256") != source_digest:
+        return _finish_owner_conflict(
+            event,
+            "Owner already has a receipt for an earlier snapshot of this event; review the pending turn",
+        )
+
+    status_result = _owner_request(url, token_env, ca_file, "status", {"event_id": event_id})
+    remote_status = status_result["status"]
+    if remote_status != "NOT_FOUND":
+        if not isinstance(prior, dict) or prior.get("event_id") != event_id:
+            return _finish_owner_conflict(
+                event,
+                "Owner has an event receipt without a matching local intent; review before retrying",
+            )
+        if remote_status == "COMMITTED":
+            return _finish_owner_event(
+                event,
+                "extracted",
+                source_digest=source_digest,
+                owner_status=remote_status,
+                candidate_count=prior_count,
+                action="status",
+            )
+        if remote_status == "CANCELLED":
+            return _finish_owner_event(
+                event,
+                "pending",
+                source_digest=source_digest,
+                owner_status=remote_status,
+                candidate_count=prior_count,
+                error="Owner event was cancelled; create a new capture after review",
+                action="status",
+            )
+        if remote_status == "QUARANTINED":
+            return _finish_owner_event(
+                event,
+                "pending",
+                source_digest=source_digest,
+                owner_status=remote_status,
+                candidate_count=prior_count,
+                error="Owner quarantined this event; an Owner operator must recover it before retrying",
+                action="status",
+            )
+        if remote_status == "FAILED":
+            return _finish_owner_event(
+                event,
+                "pending",
+                source_digest=source_digest,
+                owner_status=remote_status,
+                candidate_count=prior_count,
+                error="Owner event failed; a Runtime operator must recover it before retrying",
+                action="status",
+            )
+        if remote_status not in OWNER_RETRYABLE_STATUSES:
+            return _finish_owner_event(
+                event,
+                "pending",
+                source_digest=source_digest,
+                owner_status=remote_status,
+                candidate_count=prior_count,
+                error=f"Owner returned unsupported event status: {remote_status[:80]}",
+                action="status",
+            )
+        result = _owner_request(url, token_env, ca_file, "retry", {"event_id": event_id})
+        final_status = result["status"]
+        if final_status == "COMMITTED":
+            error = None
+        elif final_status == "QUARANTINED":
+            error = "Owner quarantined this event; an Owner operator must recover it before retrying"
+        else:
+            error = f"Owner retry returned {final_status}"
+        return _finish_owner_event(
+            event,
+            "extracted" if final_status == "COMMITTED" else "pending",
+            source_digest=source_digest,
+            owner_status=final_status,
+            candidate_count=prior_count,
+            error=error,
+            action="retry",
+        )
+
+    if isinstance(prior, dict) and prior.get("status") in {"COMMITTED", "CANCELLED"}:
+        return _finish_owner_conflict(
+            event,
+            "Local Owner receipt conflicts with the Owner status; review before retrying",
+        )
+    try:
+        document = provider.extract(build_prompt(event))
+        candidates, rejected = validate_candidates(document, event)
+    except (
+        ValueError,
+        KeyError,
+        AttributeError,
+        OverflowError,
+        OSError,
+        http.client.HTTPException,
+    ) as error:
+        return _finish_owner_event(
+            event,
+            "pending",
+            source_digest=source_digest,
+            owner_status="NOT_FOUND",
+            error=redact(str(error))[:300],
+            action="extract",
+        )
+    payload, payload_rejections = _owner_candidate_payload(event, candidates)
+    rejected = [*rejected, *payload_rejections]
+    if not payload["candidates"]:
+        return _finish_owner_event(
+            event,
+            "extracted",
+            source_digest=source_digest,
+            owner_status="NO_CANDIDATES",
+            rejected=rejected,
+            action="empty",
+        )
+    intent = {
+        "event_id": event_id,
+        "source_sha256": source_digest,
+        "candidate_sha256": hashlib.sha256(
+            json.dumps(
+                payload,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+        ).hexdigest(),
+        "status": "SUBMITTING",
+        "candidate_count": len(payload["candidates"]),
+        "action": "submit",
+        "updated_utc": _dt.datetime.now(_dt.timezone.utc).isoformat(timespec="seconds"),
+    }
+    if not _persist_owner_intent(event, intent):
+        return _superseded_outcome({"event_id": event_id})
+    result = _owner_request(url, token_env, ca_file, "submit", payload)
+    final_status = result["status"]
+    if final_status == "COMMITTED":
+        error = None
+    elif final_status == "QUARANTINED":
+        error = "Owner quarantined this event; an Owner operator must recover it before retrying"
+    else:
+        error = f"Owner submit returned {final_status}"
+    return _finish_owner_event(
+        event,
+        "extracted" if final_status == "COMMITTED" else "pending",
+        source_digest=source_digest,
+        owner_status=final_status,
+        candidate_count=len(payload["candidates"]),
+        rejected=rejected,
+        error=error,
+        action="submit",
+    )
+
+
+def admit_owner_all(events, provider, *, url: str, token_env: str, ca_file) -> dict:
+    """Run the explicitly opted-in Owner candidate flow for bounded pending events."""
+    results = []
+    for event in events:
+        try:
+            results.append(
+                _process_owner_event(
+                    event, provider, url=url, token_env=token_env, ca_file=ca_file
+                )
+            )
+        except (
+            runtime.HookError,
+            OSError,
+            ValueError,
+            TypeError,
+            KeyError,
+            AttributeError,
+            OverflowError,
+            http.client.HTTPException,
+        ) as error:
+            prior = event.get("owner_lifecycle")
+            try:
+                candidate_count = (
+                    _owner_candidate_count(prior) if isinstance(prior, dict) else 0
+                )
+            except ValueError:
+                candidate_count = 0
+            owner_status = (
+                prior.get("status", "UNKNOWN")
+                if isinstance(prior, dict)
+                and _is_owner_local_status(prior.get("status"))
+                else "UNKNOWN"
+            )
+            results.append(
+                _finish_owner_event(
+                    event,
+                    "pending",
+                    source_digest=_owner_source_digest(event),
+                    owner_status=owner_status,
+                    candidate_count=candidate_count,
+                    error=redact(str(error))[:300],
+                    action="error",
+                )
+            )
+    return {"mode": "confirm-owner", "events": results}
+
+
 def _merge_admitted(previous, admitted) -> list[dict]:
     """Merge this run's admitted receipts into any earlier ones (retry-safe)."""
     merged: dict = {}
@@ -749,7 +1223,11 @@ def _merge_admitted(previous, admitted) -> list[dict]:
 
 
 def finalize_event(
-    path, event_state, new_status, loaded_fingerprint: str = ""
+    path,
+    event_state,
+    new_status,
+    loaded_fingerprint: str = "",
+    owner_receipt: dict | None = None,
 ) -> None:
     """Persist the post-admission event state into its staged file.
 
@@ -773,10 +1251,12 @@ def finalize_event(
         )
         if content_changed:
             merged = _merge_admitted(event.get("candidates"), event_state["admitted"])
-            if merged or skipped or rejected:
+            if merged or skipped or rejected or owner_receipt:
                 event["candidates"] = merged
                 event["skipped"] = skipped
                 event["rejected"] = rejected
+                if owner_receipt:
+                    event["owner_lifecycle"] = owner_receipt
                 runtime.write_json_private(path, event)
             return
         event["status"] = new_status
@@ -790,6 +1270,8 @@ def finalize_event(
         )
         event["skipped"] = skipped
         event["rejected"] = rejected
+        if owner_receipt:
+            event["owner_lifecycle"] = owner_receipt
         if event_state.get("last_error"):
             event["last_error"] = event_state["last_error"]
             event["attempts"] = int(event.get("attempts") or 0) + 1
@@ -822,7 +1304,21 @@ def main(argv=None) -> None:
     parser.add_argument(
         "--confirm",
         action="store_true",
-        help="admit candidates via Runtime add (default: dry-run only)",
+        help="admit candidates (default: dry-run only)",
+    )
+    parser.add_argument(
+        "--owner-lifecycle-url",
+        help="opt in to submit validated candidates to a protected HTTPS Runtime Owner",
+    )
+    parser.add_argument(
+        "--owner-token-env",
+        default="QDRANT_MEMORY_REMOTE_TOKEN",
+        help="environment variable name holding the Owner token",
+    )
+    parser.add_argument(
+        "--owner-ca-file",
+        type=Path,
+        help="optional CA bundle for the protected HTTPS Owner",
     )
     parser.add_argument(
         "--allow-replacement-deletes",
@@ -838,6 +1334,27 @@ def main(argv=None) -> None:
         help="process at most N pending events this run",
     )
     args = parser.parse_args(argv)
+
+    owner_url = None
+    if args.owner_lifecycle_url:
+        try:
+            if not args.confirm:
+                raise ValueError("Owner lifecycle requires --confirm")
+            if args.allow_replacement_deletes:
+                raise ValueError(
+                    "--allow-replacement-deletes applies only to the local Runtime path"
+                )
+            if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,127}", args.owner_token_env):
+                raise ValueError("Owner token option must be an environment variable name")
+            if args.owner_ca_file is not None and not args.owner_ca_file.is_file():
+                raise ValueError("Owner CA file must name an existing file")
+            owner_url = validate_owner_url(args.owner_lifecycle_url)
+        except ValueError as error:
+            print(json.dumps({"error": redact(str(error))}), file=sys.stderr)
+            raise SystemExit(2) from None
+    elif args.owner_ca_file is not None or args.owner_token_env != "QDRANT_MEMORY_REMOTE_TOKEN":
+        print(json.dumps({"error": "Owner TLS and token options require --owner-lifecycle-url"}), file=sys.stderr)
+        raise SystemExit(2)
 
     try:  # unsafe endpoint configuration fails before anything is read or sent
         provider = ExtractionProvider(args.base_url, args.model)
@@ -863,6 +1380,16 @@ def main(argv=None) -> None:
                 }
             )
         )
+        return
+    if owner_url:
+        result = admit_owner_all(
+            events,
+            provider,
+            url=owner_url,
+            token_env=args.owner_token_env,
+            ca_file=args.owner_ca_file,
+        )
+        print(json.dumps(result, ensure_ascii=False, indent=2))
         return
     remote = not _endpoint_is_loopback(args.base_url)
     outcomes = []

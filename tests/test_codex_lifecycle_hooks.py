@@ -631,6 +631,301 @@ def extractor_cli():
     return load("extract_pending")
 
 
+def test_owner_candidate_payload_contains_candidates_only():
+    """Map extraction-v1 candidates without forwarding either turn transcript."""
+    cli = extractor_cli()
+    event = {
+        "event_id": "codex-auto-synthetic",
+        "session_id": "synthetic-session",
+        "user_text": {"excerpt": "Synthetic raw user transcript"},
+        "assistant_text": {"excerpt": "Synthetic raw assistant transcript"},
+    }
+    candidate = {
+        "text": "Prefers round mugs.",
+        "category": ["codex-auto"],
+        "importance": 0.7,
+        "replacement_intent": False,
+    }
+    payload, rejected = cli._owner_candidate_payload(event, [candidate])
+    assert rejected == []
+    assert payload == {
+        "event_id": "codex-auto-synthetic",
+        "session_id": "synthetic-session",
+        "kind": "turn_completed",
+        "candidate_schema": "qdrant-memory/extraction-v1",
+        "candidates": [candidate],
+    }
+    assert "user_text" not in payload and "assistant_text" not in payload
+    assert "scope" not in payload and "user_id" not in payload and "agent_id" not in payload
+
+
+def test_owner_candidate_payload_rejects_ambiguous_replacements():
+    """Owner's one replacement context cannot ambiguously cover several candidates."""
+    cli = extractor_cli()
+    event = {"event_id": "evt", "session_id": "sess"}
+    replacement = {
+        "text": "User now uses Neovim.",
+        "category": ["preference"],
+        "importance": 0.7,
+        "replacement_intent": True,
+        "replacement_context": "User uses Vim.",
+    }
+    payload, rejected = cli._owner_candidate_payload(event, [replacement, replacement])
+    assert payload["candidates"] == []
+    assert "replacement_context" not in payload
+    assert len(rejected) == 1 and "one context per event" in rejected[0]
+
+
+def test_owner_lifecycle_requires_https(hook_env, monkeypatch, capsys):
+    """Reject an insecure Owner target before reading or submitting pending data."""
+    cli = extractor_cli()
+    with pytest.raises(SystemExit) as caught:
+        cli.main([
+            "--model", "fixture-extractor", "--confirm",
+            "--owner-lifecycle-url", "http://owner.example",
+        ])
+    assert caught.value.code == 2
+    assert "HTTPS" in capsys.readouterr().err
+
+
+def test_owner_lifecycle_submits_candidates_over_stdin_only(
+    hook_env, monkeypatch, capsys
+):
+    """The opt-in Owner route sends only validated candidates through Runtime stdin."""
+    runtime = load("lifecycle_runtime")
+    stage_pending(
+        hook_env,
+        monkeypatch,
+        runtime,
+        user="Synthetic raw user transcript: I prefer round mugs.",
+        assistant="Synthetic raw assistant transcript: preference noted.",
+    )
+    cli = extractor_cli()
+    replies = [{
+        "choices": [{"message": {"content": json.dumps({
+            "memories": [{
+                "text": "Prefers round mugs.",
+                "category": ["codex-auto"],
+                "importance": 0.7,
+            }]
+        })}}]
+    }]
+    seen = []
+    monkeypatch.setenv("OWNER_TEST_TOKEN", "synthetic-owner-secret")
+
+    def fake_runtime(*argv, **kwargs):
+        assert argv[0] == "remote-event"
+        assert "synthetic-owner-secret" not in argv
+        action = argv[argv.index("--action") + 1]
+        payload = json.loads(kwargs["input_text"])
+        seen.append((action, argv, payload))
+        return 0, json.dumps({"event_id": payload["event_id"], "status": (
+            "NOT_FOUND" if action == "status" else "COMMITTED"
+        )}), ""
+
+    monkeypatch.setattr(runtime, "call_runtime", fake_runtime)
+    for server, provider_calls in extraction_provider_stub(monkeypatch, replies):
+        argv = extractor_args(monkeypatch, server.server_port)
+        argv.extend([
+            "--confirm", "--owner-lifecycle-url", "https://owner.example",
+            "--owner-token-env", "OWNER_TEST_TOKEN",
+        ])
+        cli.main(argv)
+        assert len(provider_calls) == 1
+    report_text = capsys.readouterr().out
+    report = json.loads(report_text)
+    assert [item[0] for item in seen] == ["status", "submit"]
+    submitted = seen[1][2]
+    assert submitted["candidate_schema"] == "qdrant-memory/extraction-v1"
+    assert submitted["candidates"][0]["text"] == "Prefers round mugs."
+    assert "user" not in submitted and "assistant" not in submitted
+    assert "user_text" not in submitted and "assistant_text" not in submitted
+    assert "scope" not in submitted and "user_id" not in submitted
+    assert "Synthetic raw" not in json.dumps(submitted)
+    assert "synthetic-owner-secret" not in report_text
+    assert report["events"][0]["status"] == "extracted"
+    assert report["events"][0]["candidate_count"] == 1
+    stored = json.loads(next(runtime.extracted_dir().glob("*.json")).read_text())
+    assert stored["owner_lifecycle"]["status"] == "COMMITTED"
+    assert stored["owner_lifecycle"]["candidate_sha256"]
+
+
+def test_owner_lifecycle_retries_by_id_without_reextracting(
+    hook_env, monkeypatch, capsys
+):
+    """A durable Owner retry sends only event_id and never reruns Ollama."""
+    runtime = load("lifecycle_runtime")
+    stage_pending(hook_env, monkeypatch, runtime, user="Synthetic retry turn", assistant="Noted.")
+    cli = extractor_cli()
+    actions = []
+    status_calls = 0
+
+    def fake_runtime(*argv, **kwargs):
+        nonlocal status_calls
+        action = argv[argv.index("--action") + 1]
+        payload = json.loads(kwargs["input_text"])
+        actions.append((action, payload))
+        if action == "status":
+            status_calls += 1
+            status = "NOT_FOUND" if status_calls == 1 else "PENDING"
+        else:
+            status = {"submit": "PENDING", "retry": "COMMITTED"}[action]
+        return 0, json.dumps({"event_id": payload["event_id"], "status": status}), ""
+
+    monkeypatch.setattr(runtime, "call_runtime", fake_runtime)
+    replies = [{"choices": [{"message": {"content": json.dumps({
+        "memories": [{"text": "Synthetic durable preference.", "importance": 0.6}]
+    })}}]}]
+    for server, provider_calls in extraction_provider_stub(monkeypatch, replies):
+        base = extractor_args(monkeypatch, server.server_port)
+        base.extend(["--confirm", "--owner-lifecycle-url", "https://owner.example"])
+        cli.main(base)
+        assert len(provider_calls) == 1
+        base[base.index("--base-url") + 1] = "http://127.0.0.1:1/v1"
+        capsys.readouterr()
+        cli.main(base)
+        assert len(provider_calls) == 1
+    report = json.loads(capsys.readouterr().out)
+    assert [item[0] for item in actions] == ["status", "submit", "status", "retry"], report
+    assert actions[3][1] == {"event_id": actions[0][1]["event_id"]}
+    assert report["events"][0]["status"] == "extracted"
+
+
+@pytest.mark.parametrize(
+    ("owner_status", "operator"),
+    [("FAILED", "Runtime operator"), ("QUARANTINED", "Owner operator")],
+)
+def test_owner_manual_recovery_states_are_not_retried(
+    hook_env, monkeypatch, owner_status, operator
+):
+    """Failed and quarantined Owner events stay pending for operator recovery."""
+    runtime = load("lifecycle_runtime")
+    stage_pending(hook_env, monkeypatch, runtime, user="Synthetic quarantine turn", assistant="Noted.")
+    cli = extractor_cli()
+    event = cli.load_pending(mutate=False)[0][0]
+    marker = {
+        "event_id": event["event_id"],
+        "source_sha256": cli._owner_source_digest(event),
+        "candidate_sha256": "synthetic-candidate-hash",
+        "status": "PENDING",
+        "candidate_count": 1,
+        "action": "submit",
+        "updated_utc": "2026-11-12T00:00:00Z",
+    }
+    assert cli._persist_owner_intent(event, marker)
+    actions = []
+
+    def fake_runtime(*argv, **kwargs):
+        action = argv[argv.index("--action") + 1]
+        actions.append(action)
+        payload = json.loads(kwargs["input_text"])
+        return 0, json.dumps({"event_id": payload["event_id"], "status": owner_status}), ""
+
+    monkeypatch.setattr(runtime, "call_runtime", fake_runtime)
+    result = cli.admit_owner_all(
+        cli.load_pending(mutate=False)[0], None, url="https://owner.example",
+        token_env="OWNER_TEST_TOKEN", ca_file=None,
+    )
+    assert actions == ["status"]
+    assert result["events"][0]["status"] == "pending"
+    assert result["events"][0]["owner_status"] == owner_status
+    assert operator in result["events"][0]["last_error"]
+
+
+def test_owner_malformed_status_receipt_stays_pending(hook_env, monkeypatch):
+    """An invalid remote status is rejected without echoing the response."""
+    runtime = load("lifecycle_runtime")
+    stage_pending(hook_env, monkeypatch, runtime, user="Synthetic malformed status", assistant="Noted.")
+    cli = extractor_cli()
+
+    def fake_runtime(*argv, **kwargs):
+        payload = json.loads(kwargs["input_text"])
+        return 0, json.dumps({"event_id": payload["event_id"], "status": ["synthetic-secret"]}), ""
+
+    monkeypatch.setattr(runtime, "call_runtime", fake_runtime)
+    result = cli.admit_owner_all(
+        cli.load_pending(mutate=False)[0], None, url="https://owner.example",
+        token_env="OWNER_TEST_TOKEN", ca_file=None,
+    )
+    assert result["events"][0]["status"] == "pending"
+    assert result["events"][0]["last_error"] == "Owner lifecycle returned an invalid receipt"
+    assert "synthetic-secret" not in json.dumps(result)
+
+
+def test_owner_malformed_local_receipt_stays_pending_without_request(
+    hook_env, monkeypatch
+):
+    """Corrupted local Owner metadata is kept for review instead of crashing."""
+    runtime = load("lifecycle_runtime")
+    stage_pending(hook_env, monkeypatch, runtime, user="Synthetic malformed receipt", assistant="Noted.")
+    cli = extractor_cli()
+    event = cli.load_pending(mutate=False)[0][0]
+    marker = {
+        "event_id": event["event_id"],
+        "source_sha256": cli._owner_source_digest(event),
+        "status": "PENDING",
+        "candidate_count": "not-an-integer",
+        "action": "submit",
+    }
+    assert cli._persist_owner_intent(event, marker)
+    calls = []
+    monkeypatch.setattr(runtime, "call_runtime", lambda *args, **kwargs: calls.append(args))
+    result = cli.admit_owner_all(
+        cli.load_pending(mutate=False)[0], None, url="https://owner.example",
+        token_env="OWNER_TEST_TOKEN", ca_file=None,
+    )
+    assert calls == []
+    assert result["events"][0]["status"] == "pending"
+    assert result["events"][0]["candidate_count"] == 0
+    assert "malformed" in result["events"][0]["last_error"]
+
+
+def test_owner_receipt_survives_redelivery_and_changed_snapshot_stays_pending(
+    hook_env, monkeypatch
+):
+    """A newer Stop snapshot cannot inherit a commit for the older turn content."""
+    runtime = load("lifecycle_runtime")
+    stage_pending(
+        hook_env, monkeypatch, runtime, user="Synthetic old user turn",
+        assistant="Synthetic old assistant turn", session="sess-owner", turn="turn-owner",
+    )
+    cli = extractor_cli()
+    event = cli.load_pending(mutate=False)[0][0]
+    original_digest = cli._owner_source_digest(event)
+    marker = {
+        "event_id": event["event_id"],
+        "source_sha256": original_digest,
+        "candidate_sha256": "synthetic-candidate-hash",
+        "status": "COMMITTED",
+        "candidate_count": 1,
+        "action": "submit",
+        "updated_utc": "2026-11-12T00:00:00Z",
+    }
+    assert cli._persist_owner_intent(event, marker)
+    stage_pending(
+        hook_env, monkeypatch, runtime, user="Synthetic edited user turn",
+        assistant="Synthetic edited assistant turn", session="sess-owner", turn="turn-owner",
+    )
+    updated = cli.load_pending(mutate=False)[0][0]
+    assert updated["owner_lifecycle"] == marker
+    calls = []
+    monkeypatch.setattr(runtime, "call_runtime", lambda *args, **kwargs: calls.append(args))
+    first = cli.admit_owner_all(
+        [updated], None, url="https://owner.example",
+        token_env="OWNER_TEST_TOKEN", ca_file=None,
+    )
+    second = cli.admit_owner_all(
+        cli.load_pending(mutate=False)[0], None, url="https://owner.example",
+        token_env="OWNER_TEST_TOKEN", ca_file=None,
+    )
+    assert first["events"][0]["status"] == "pending"
+    assert second["events"][0]["status"] == "pending"
+    assert "earlier snapshot" in first["events"][0]["last_error"]
+    assert calls == []
+    stored = json.loads(next(runtime.pending_dir().glob("*.json")).read_text())
+    assert stored["owner_lifecycle"] == marker
+
+
 def test_extractor_dry_run_lists_candidates_without_writes(hook_env, monkeypatch, capsys):
     """Verify the default extractor run is a dry-run with zero writes."""
     runtime = load("lifecycle_runtime")
@@ -874,15 +1169,19 @@ def test_call_runtime_passes_direct_argv(hook_env, monkeypatch):
     seen = []
 
     def fake(argv, **kwargs):
-        seen.append(argv)
+        seen.append((argv, kwargs))
         return types.SimpleNamespace(returncode=0, stdout='{"ok": 1}', stderr="")
 
     monkeypatch.setattr(runtime.subprocess, "run", fake)
-    code = runtime.call_runtime("search", "--query", "x")
+    code = runtime.call_runtime(
+        "remote-event", "--action", "status", input_text='{"event_id":"synthetic"}'
+    )
     assert code == (0, '{"ok": 1}', "")
-    assert seen[0][1:3] == ["--home", str(runtime.profile_path())]
-    assert "search" in seen[0]
-    assert "--query" in seen[0]
+    argv, kwargs = seen[0]
+    assert argv[1:3] == ["--home", str(runtime.profile_path())]
+    assert "remote-event" in argv
+    assert "event_id" not in " ".join(argv)
+    assert kwargs["input"] == '{"event_id":"synthetic"}'
 
 
 def test_emit_with_only_system_message(hook_env, capsys):

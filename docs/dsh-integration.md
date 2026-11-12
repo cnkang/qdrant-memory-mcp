@@ -53,12 +53,10 @@ completed-turn candidate extraction, then sends the candidates to the existing
 Python Owner. All three switches default to `false`. Recall requires both
 `auto_recall.enabled` and `memory_injection.enabled`.
 
-This adapter targets `@deepseek-ai/dsh@0.2.2-rc.1`. The compatible Runtime
-change is merged at 0.6.1 but not yet published on PyPI, so the native path is
-not a supported install with current published packages. Use the Bundle or
-Python/uvx overlay below until Runtime 0.6.1 is released. The
-native package is not published, and it has no real-model or GUI acceptance
-claim. See [native design and support status](dsh-native/design.md).
+This adapter targets `@deepseek-ai/dsh@0.2.2-rc.1`. Runtime 0.6.1 is now
+published on PyPI, but the native adapter package remains private and real-model
+or GUI acceptance is incomplete. Use the Bundle or Python/uvx overlay below for
+a published installation path. See [native design and support status](dsh-native/design.md).
 See the [English setup guide](../integrations/dsh/native/README.md),
 [中文设置说明](../integrations/dsh/native/README.zh-CN.md), and
 [validation evidence](dsh-native/validation.md) for configuration, rollback,
@@ -66,8 +64,13 @@ and the current test boundaries.
 
 ## Alternative: Python/uvx overlay
 
+The 0.3.2 MCP release candidate pins the published Runtime 0.6.1 and will use
+`qdrant-memory-mcp==0.3.2`. It is not a published PyPI package yet, so the
+working commands below intentionally remain pinned to public MCP 0.3.1. Switch
+this overlay only after the 0.3.2 PyPI page and artifacts are available.
+
 Run the pinned 0.3.1 commands below. `qdrant-memory-mcp` 0.3.1 is published
-on PyPI; no source checkout is required for this lane.
+on PyPI; no source checkout is required for this legacy overlay lane.
 
 This path requires Python 3.11+, uv/uvx, and a working embedding service, such
 as Ollama. Follow the [quickstart](quickstart.md), using a new dedicated profile
