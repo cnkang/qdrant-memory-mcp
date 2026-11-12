@@ -225,7 +225,7 @@ def test_official_dsh_cli_installs_the_packed_bundle(tmp_path):
         (root / 'integrations/dsh/bundle/package.json').read_text(encoding='utf-8'),
     )['engines']['dsh']
     dsh_package = json.loads(
-        (Path(env['DSH_TEST_MODULES']) / '@deepseek-ai/dsh/package.json').read_text(encoding='utf-8'),
+        (Path(os.environ['DSH_TEST_MODULES']) / '@deepseek-ai/dsh/package.json').read_text(encoding='utf-8'),
     )
     dsh_version = dsh_package['version']
     exact_engine = re.fullmatch(r'\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?', bundle_engine)
