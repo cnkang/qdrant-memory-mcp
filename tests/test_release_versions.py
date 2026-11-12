@@ -68,11 +68,15 @@ def test_current_workbuddy_and_dsh_instructions_track_project_version():
         if relative.startswith(("docs/dsh-integration", "integrations/workbuddy/README")):
             assert published_requirement in contents, relative
 
-    # Released overlays remain installable while the next PyPI candidate is
-    # unpublished; the advanced WorkBuddy config tracks the candidate pin.
-    assert published_requirement in (ROOT / "integrations/dsh/qdrant-memory.cordis.yml").read_text(
+    # The source overlay follows the candidate MCP version; published setup
+    # instructions above retain the currently published pin.
+    overlay = (ROOT / "integrations/dsh/qdrant-memory.cordis.yml").read_text(
         encoding="utf-8"
     )
+    active_pins = re.findall(
+        r"(?m)^\s+- (qdrant-memory-mcp==\S+)\s*$", overlay
+    )
+    assert active_pins == [requirement]
     assert requirement in (ROOT / "integrations/workbuddy/mcp.uvx.json").read_text(
         encoding="utf-8"
     )
