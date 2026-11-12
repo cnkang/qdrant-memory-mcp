@@ -230,7 +230,7 @@ def test_official_dsh_cli_installs_the_packed_bundle(tmp_path):
     dsh_version = dsh_package['version']
     exact_engine = re.fullmatch(r'\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?', bundle_engine)
     expected_rejection = (
-        env.get('DSH_EXPECT_INCOMPATIBLE_BUNDLE') == '1'
+        os.environ.get('DSH_EXPECT_INCOMPATIBLE_BUNDLE') == '1'
         and exact_engine is not None
         and bundle_engine != dsh_version
     )

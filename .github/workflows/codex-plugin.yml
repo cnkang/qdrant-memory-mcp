@@ -4,6 +4,12 @@ on:
     branches: [main, 'codex/**']
   pull_request:
   workflow_dispatch:
+    inputs:
+      codex_cli_version:
+        description: Exact stable @openai/codex version for the credential-free CLI probe
+        required: false
+        default: '0.167.2'
+        type: string
 permissions:
   contents: read
 concurrency:
@@ -29,7 +35,16 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: '3.11'
-      - run: npm install --global --ignore-scripts @openai/codex@0.167.2
+      - name: Install exact Codex CLI version
+        shell: bash
+        env:
+          CODEX_CLI_VERSION: ${{ github.event.inputs.codex_cli_version || '0.167.2' }}
+        run: |
+          if [[ ! "$CODEX_CLI_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::codex_cli_version must be an exact stable version such as 0.167.2"
+            exit 1
+          fi
+          npm install --global --ignore-scripts "@openai/codex@${CODEX_CLI_VERSION}"
       - name: Report package test environment
         run: |
           python -c "import platform,sys; print('os='+platform.system()); print('arch='+platform.machine()); print('python='+sys.version); print('implementation='+platform.python_implementation()); print('sys.executable='+sys.executable)"
@@ -147,7 +162,16 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: '3.11'
-      - run: npm install --global --ignore-scripts @openai/codex@0.167.2
+      - name: Install exact Codex CLI version
+        shell: bash
+        env:
+          CODEX_CLI_VERSION: ${{ github.event.inputs.codex_cli_version || '0.167.2' }}
+        run: |
+          if [[ ! "$CODEX_CLI_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::codex_cli_version must be an exact stable version such as 0.167.2"
+            exit 1
+          fi
+          npm install --global --ignore-scripts "@openai/codex@${CODEX_CLI_VERSION}"
       - run: "python -m pip install --only-binary=:all: uv==0.13.6"
       - run: "python -m pip install --require-hashes --only-binary=:all: -r .github/requirements-sonar-ci.txt"
       - run: "python -m pip install --only-binary=:all: --no-deps --no-build-isolation ."
