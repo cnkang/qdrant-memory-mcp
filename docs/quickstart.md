@@ -57,8 +57,8 @@ agent profile. Save this as `qdrant-memory.json` inside the new directory:
 ```
 
 Before running these pinned initialization commands, confirm that [PyPI lists
-qdrant-memory-mcp 0.3.1](https://pypi.org/project/qdrant-memory-mcp/0.3.1/).
-Until it is published, follow the [published 0.3.0 quickstart](https://github.com/cnkang/qdrant-memory-mcp/blob/v0.3.0/docs/quickstart.md).
+qdrant-memory-mcp 0.3.2](https://pypi.org/project/qdrant-memory-mcp/0.3.2/).
+Until it is published, follow the [published 0.3.1 quickstart](https://github.com/cnkang/qdrant-memory-mcp/blob/v0.3.1/docs/quickstart.md).
 
 Use a separate directory and `agent_id` for each client. Replace every
 `/path/to/workbuddy-profile` below with your actual absolute path. Keep quotes
@@ -66,8 +66,8 @@ around paths with spaces. On Windows, use your Windows path. Double backslashes
 inside JSON, or use forward slashes.
 
 ```sh
-uvx --from qdrant-memory-mcp==0.3.1 qdrant-memory-mcp --home "/path/to/workbuddy-profile" init
-uvx --from qdrant-memory-mcp==0.3.1 qdrant-memory-mcp --home "/path/to/workbuddy-profile" doctor
+uvx --from qdrant-memory-mcp==0.3.2 qdrant-memory-mcp --home "/path/to/workbuddy-profile" init
+uvx --from qdrant-memory-mcp==0.3.2 qdrant-memory-mcp --home "/path/to/workbuddy-profile" doctor
 ```
 
 Initialization calls the local model, creates local storage and validates its
@@ -89,7 +89,7 @@ enable both the packaged default and this custom instance for this setup.
     "qdrant-memory": {
       "type": "stdio",
       "command": "uvx",
-      "args": ["--from", "qdrant-memory-mcp==0.3.1", "qdrant-memory-mcp", "--home", "/path/to/workbuddy-profile", "mcp"],
+      "args": ["--from", "qdrant-memory-mcp==0.3.2", "qdrant-memory-mcp", "--home", "/path/to/workbuddy-profile", "mcp"],
       "timeout": 30000
     }
   }

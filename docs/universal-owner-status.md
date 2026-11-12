@@ -2,8 +2,8 @@
 
 [简体中文](universal-owner-status.zh-CN.md)
 
-This page describes Runtime 0.6.0 capabilities and the repository's preview adapters.
-Distribution 0.3.1 selects the published Runtime 0.6.0 package.
+This page describes Runtime 0.6.1 capabilities and the repository's preview adapters.
+Distribution 0.3.2 selects the published Runtime 0.6.1 package.
 Preview adapters require a separate installation of the applicable integration.
 Publication and source CI do not establish production acceptance.
 

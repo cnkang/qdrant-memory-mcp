@@ -32,7 +32,7 @@ all agents.
 | Recall | `SessionStart` (`startup\|resume\|clear\|compact\|fork`) → `session_recall.py` | none (read-only `search`; `additionalContext` injection capped by `additionalContextLimit`) | hook trust review |
 | Explicit save | `UserPromptSubmit` → `user_prompt_capture.py` | **one** Runtime `add` for a line starting with `remember:` or `remember：` (≤512 chars, trailing whitespace preserved) | user typed the directive |
 | Staging (auto) | `UserPromptSubmit` stages the turn's user text → `Stop` (`async`, no latency) `turn_capture.py` pairs it with `last_assistant_message` into one bounded local snapshot | local JSON only: `profile/events/codex/pending/` (0600; user excerpt ≤2 KiB, assistant ≤8 KiB; deterministic `event_id`; ring cap 300 pending under a profile-local lock — only newly added events count and an existing event_id always overwrites; overflow counted, nothing dropped silently) | hook trust review; removable at any time by deleting staged files |
-| Extraction | `extract_pending.py` — **operator-run, not a hook** | with the default `dry-run`: zero writes and **no remote provider calls** (loopback providers only). `--confirm`: Runtime `add` per validated candidate (`extraction-v1` contract: bound text ≤256 chars, importance 0..1, ≤3 per turn, secret-shaped text refused, category/importance/provenance and replacement outcomes retained in the event receipt; Runtime 0.6.0 `add` is text-only, so memory-payload metadata lands with the planned Runtime 0.6.1 Owner endpoint). Replacement candidates record the search-located proposal in the receipt; deleting it needs the explicit `--allow-replacement-deletes` flag. Dedupe + admission run under one profile-local lock. Failures keep the event `pending` with `last_error` + retry counter and never abort the batch; successful retries clear both. Non-loopback endpoints require `https://`; `EXTRACTION_API_KEY` comes from the environment (never an argument) | the confirm invocation itself; provider is **local Ollama by default** (`http://127.0.0.1:11434/v1`); any OpenAI-compatible endpoint requires explicit `--base-url/--model` |
+| Extraction | `extract_pending.py` — **operator-run, not a hook** | with the default `dry-run`: zero writes and **no remote provider calls** (loopback providers only). `--confirm` uses the local Runtime `add` path. The explicit `--owner-lifecycle-url https://…` option instead submits only validated candidate fields through Runtime 0.6.1 `remote-event`; it never sends the raw turn, scope IDs, or token value. Owner lifecycle must be enabled and authorized by the protected Runtime grant. Both paths enforce the `extraction-v1` contract (text ≤256 chars, importance 0..1, ≤3 candidates per turn, secret-shaped text refused). Owner receipts are durable and retries use only the event ID; source hashes detect a changed Stop snapshot and leave it pending for review. More than one replacement candidate in a turn is rejected because the Owner schema carries one replacement context. Failures keep the event `pending` with a retryable status and never block Codex. Non-loopback extraction providers require `https://`; provider credentials and the Owner token are referenced by environment variable name, never command-line value. | the confirm invocation plus the explicit Owner URL; provider is **local Ollama by default** (`http://127.0.0.1:11434/v1`); any OpenAI-compatible endpoint requires explicit `--base-url/--model` |
 | Cleanup | `SessionEnd` → `prune_scratch.py` (≤3 s) | expires unpaired pairing scratch (48 h TTL) | none |
 
 Prompt staging is enabled by default. Set `QDRANT_MEMORY_CODEX_AUTO_CAPTURE=0` to
@@ -51,12 +51,11 @@ capacity.
 
 `Stop`-based **extraction** (an automatic LLM call inside the session)
 is still not part of the hooks: extraction is the operator's explicit command
-so that its consent, provider and budget decisions are visible. The eventual
-shared-Runtime route after Runtime 0.6.1 publishes is submission of validated
-candidates to the Owner `qdrant-memory/extraction-v1` endpoint (durable
-receipts + relation review reused from the DSH native design); the local
-`add` path here is the pre-0.6.1 staging behavior and its receipts come from
-the existing ledger.
+so that its consent, provider and budget decisions are visible. With the
+released Runtime 0.6.1, the optional Owner path submits validated candidates
+to `qdrant-memory/extraction-v1`; the Owner performs scope checks, relation
+review and durable idempotent writes. The local `add` path remains available
+for a standalone Codex profile.
 
 ## Privacy and retention facts
 
@@ -97,7 +96,23 @@ python3 integrations/codex-lifecycle/plugin/hooks/extract_pending.py \
 # admit facts through the local Runtime:
 python3 integrations/codex-lifecycle/plugin/hooks/extract_pending.py \
   --model <model> --confirm
+# alternatively, opt in to the protected HTTPS Owner; only candidates are sent:
+python3 integrations/codex-lifecycle/plugin/hooks/extract_pending.py \
+  --model <model> --confirm \
+  --owner-lifecycle-url https://<owner-host> \
+  --owner-token-env QDRANT_MEMORY_REMOTE_TOKEN
 ```
+
+The Owner route requires a Runtime 0.6.1+ CLI, an explicitly enabled and
+authorized Owner lifecycle grant, and a token injected into the Runtime
+process environment. The `--owner-token-env` argument is an environment
+variable name, never the token. An optional `--owner-ca-file` selects a custom
+CA bundle. Owner requests use Runtime's `remote-event` command and its
+protected TLS client; retries inspect the event and retry only its immutable
+Owner plan. Failed and quarantined events stay pending and require explicit
+Runtime operator recovery before the adapter retries them. This route has unit
+and local synthetic coverage; an authenticated real Owner endpoint has not been
+verified in this environment.
 
 Ollama must already serve the chosen chat model locally; the OpenAI-compatible
 client calls `POST {base_url}/chat/completions` with `temperature 0` and a

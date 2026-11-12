@@ -44,8 +44,8 @@ Hermes 相互独立。更新、卸载与恢复说明见 [Bundle 说明](../integ
 再把候选交给现有 Python Owner。三个开关默认都为 `false`。召回需要同时启用
 `auto_recall.enabled` 和 `memory_injection.enabled`。
 
-该适配器针对 `@deepseek-ai/dsh@0.2.2-rc.1`。配套 Runtime 改动已在 0.6.1 合并，但尚未发布到 PyPI，因此它暂时不能与已发布 Runtime 一起作为受支持的安装路径。
-在 Runtime 0.6.1 发布前，请使用上面的 Bundle 或 Python/uvx overlay。
+该适配器针对 `@deepseek-ai/dsh@0.2.2-rc.1`。Runtime 0.6.1 已公开发布到 PyPI，但原生适配器包仍为 private，真实模型和 GUI 验收也未完成。
+已发布的安装路径请使用上面的 Bundle 或 Python/uvx overlay。
 原生包尚未发布，也没有真实模型或 GUI 验收结论。详见
 [原生设计与支持状态](dsh-native/design.md)。配置、回退和验证边界见
 [英文设置指南](../integrations/dsh/native/README.md)、
@@ -54,7 +54,11 @@ Hermes 相互独立。更新、卸载与恢复说明见 [Bundle 说明](../integ
 
 ## 备选：Python/uvx overlay
 
-直接运行下列固定版本命令。`qdrant-memory-mcp` 0.3.1 已发布到 PyPI，此路径不需要源码 checkout。
+MCP 0.3.2 发布候选固定使用已发布的 Runtime 0.6.1，未来安装固定版本为
+`qdrant-memory-mcp==0.3.2`，但目前尚未发布到 PyPI。下方可直接使用的命令继续固定到
+已公开发布的 MCP 0.3.1；只有在 PyPI 已提供 0.3.2 页面和构件后，才切换此 overlay。
+
+直接运行下列固定版本命令。`qdrant-memory-mcp` 0.3.1 已发布到 PyPI，此兼容 overlay 路径不需要源码 checkout。
 
 需要 Python 3.11+、uv/uvx 和可用的嵌入服务（例如 Ollama）。按照
 [快速入门](quickstart.zh-CN.md) 配置，但把 profile 改为独立的

@@ -63,8 +63,8 @@ Never remove locks or change fingerprints to force compatibility.
 
 | Component | Pin | Availability |
 | --- | --- | --- |
-| Python MCP | 0.3.1 | Python/uvx distribution. Confirm the exact version on PyPI |
-| Runtime | 0.6.0 | Public PyPI wheel. Optional CPU provider |
+| Python MCP | 0.3.2 | Release candidate; last published version is 0.3.1. Use 0.3.1 until the 0.3.2 PyPI release is available |
+| Runtime | 0.6.1 | Public PyPI wheel. The 0.3.2 candidate pins this version; MCP 0.3.1 continues to use Runtime 0.6.0 |
 | Node launcher | 0.1.0-rc.8 | Release candidate pinned by the connector and Bundle. It installs Runtime 0.6.0 for standalone MCP use; verify this exact version on npm |
 | DSH bundle | 0.1.6 | Configuration-only npm bundle. Verify this exact version on npm; it installs the launcher through the official MCP client |
 | Bootstrap | uv 0.13.1 / Python 3.11.15 | Fixed platform artifacts, verified uv hash |

@@ -49,7 +49,7 @@ LOCK_TIMEOUT_SECONDS = 10.0
 
 CAPTURE_FORMAT = "qdrant-codex-capture"
 CAPTURE_FORMAT_VERSION = 1
-PLUGIN_VERSION = "0.2.1"
+PLUGIN_VERSION = "0.2.2"
 PROVENANCE = {
     "capture_source": "codex-hook",
     "plugin": "qdrant-memory-lifecycle",
@@ -196,7 +196,9 @@ def load_scope() -> tuple[str, str]:
     return user, agent
 
 
-def call_runtime(*args: str, timeout: float = 20.0) -> tuple[int, str, str]:
+def call_runtime(
+    *args: str, timeout: float = 20.0, input_text: str | None = None
+) -> tuple[int, str, str]:
     """Invoke the Runtime CLI with direct argv (never a shell)."""
     executable = runtime_executable()
     command = [
@@ -212,6 +214,7 @@ def call_runtime(*args: str, timeout: float = 20.0) -> tuple[int, str, str]:
             text=True,
             timeout=timeout,
             check=False,
+            input=input_text,
         )
     except OSError as error:
         raise HookError(f"Runtime {executable} is not usable: {error}") from error
@@ -397,6 +400,11 @@ def write_pending_event(payload: dict) -> str:
         if not existing and pending_count() >= MAX_PENDING_EVENTS:
             mark_overflow()
             return "full"
+        if existing:
+            prior = read_json(destination)
+            receipt = prior.get("owner_lifecycle") if isinstance(prior, dict) else None
+            if isinstance(receipt, dict) and "owner_lifecycle" not in payload:
+                payload = {**payload, "owner_lifecycle": receipt}
         write_json_private(destination, payload)
     return "overwritten" if existing else "written"
 

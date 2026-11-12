@@ -304,6 +304,10 @@ MemoryProvider. The separate Python/uvx alternative below installs MCP
 distribution 0.3.1. Verify the exact launcher version on npm and the connector
 assets on the corresponding GitHub Release before installing. Previous
 connector 0.2.4 archives retain their original per-release provenance and immutable bytes.
+The MCP 0.3.2 release candidate targets Runtime 0.6.1 and pins
+`qdrant-memory-mcp==0.3.2`. The candidate uvx configuration is only usable
+after PyPI publishes MCP 0.3.2; the released
+connector instructions below continue to use public MCP 0.3.1.
 `provenance.json` inside each ZIP records its versions, launcher
 integrity and Skill source commit. The builder rejects drift from checked-in pins:
 
