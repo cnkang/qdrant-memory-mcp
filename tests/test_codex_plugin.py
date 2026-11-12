@@ -18,6 +18,20 @@ package = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(package)
 
 
+def _launcher_for_installed_distribution(tmp_path):
+    """Build an isolated test plugin pinned to the installed test distribution."""
+    import shutil
+    from importlib.metadata import version
+
+    plugin = tmp_path / "plugin-under-test"
+    plugin.mkdir()
+    shutil.copy2(ROOT / "plugins/qdrant-memory/launcher.mjs", plugin / "launcher.mjs")
+    release = json.loads((ROOT / "plugins/qdrant-memory/release.json").read_text())
+    release["mcp_distribution_version"] = version("qdrant-memory-mcp")
+    (plugin / "release.json").write_text(json.dumps(release), encoding="utf-8")
+    return plugin / "launcher.mjs"
+
+
 def test_portable_package():
     """Keep plugin manifests, marketplace metadata, and dependency pins aligned."""
     assert package.validate()["version"] == "0.1.3"
@@ -101,7 +115,13 @@ def test_cli_rejects_external_output_before_building(tmp_path, monkeypatch):
     monkeypatch.setattr(
         sys,
         "argv",
-        ["build_codex_plugin.py", "--skill-repo", str(skill_repo), "--output", str(output)],
+        [
+            "build_codex_plugin.py",
+            "--skill-repo",
+            str(skill_repo),
+            "--output",
+            str(output),
+        ],
     )
 
     with pytest.raises(SystemExit) as error:
@@ -127,7 +147,13 @@ def test_cli_builds_to_validated_output_path(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(
         sys,
         "argv",
-        ["build_codex_plugin.py", "--skill-repo", str(skill_repo), "--output", "dist/plugin.zip"],
+        [
+            "build_codex_plugin.py",
+            "--skill-repo",
+            str(skill_repo),
+            "--output",
+            "dist/plugin.zip",
+        ],
     )
     package.main()
 
@@ -141,9 +167,11 @@ def test_cli_builds_to_validated_output_path(tmp_path, monkeypatch, capsys):
 def test_skill_frontmatter_version_matches_release():
     """The packaged Skill snapshot must carry the release's pinned version."""
     release = json.loads((ROOT / "plugins/qdrant-memory/release.json").read_text())
-    lines = (ROOT / "plugins/qdrant-memory/skills/qdrant-memory/SKILL.md").read_text(
-        encoding="utf-8"
-    ).splitlines()
+    lines = (
+        (ROOT / "plugins/qdrant-memory/skills/qdrant-memory/SKILL.md")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    )
     assert lines[0] == "---"
     end = lines.index("---", 1)
     metadata = lines.index("metadata:", 1, end)
@@ -170,9 +198,12 @@ def test_packaged_text_sources_use_lf_line_endings():
 
 
 def test_text_byte_normalization_handles_archive_eols_and_preserves_binary():
-    assert package._normalize_text_bytes(
-        "references/setup.md", b"first\r\nsecond\rthird\n"
-    ) == b"first\nsecond\nthird\n"
+    assert (
+        package._normalize_text_bytes(
+            "references/setup.md", b"first\r\nsecond\rthird\n"
+        )
+        == b"first\nsecond\nthird\n"
+    )
     binary = b"\x00\xff\r\n"
     assert package._normalize_text_bytes("model.bin", binary) == binary
     with pytest.raises(ValueError, match="not UTF-8"):
@@ -696,7 +727,9 @@ def test_launcher_fails_when_runtime_venv_lacks_mcp_distribution(tmp_path):
     stub = tmp_path / "runtime-bin"
     stub.mkdir()
     executable = stub / (
-        "qdrant-memory.exe" if __import__("sys").platform == "win32" else "qdrant-memory"
+        "qdrant-memory.exe"
+        if __import__("sys").platform == "win32"
+        else "qdrant-memory"
     )
     executable.write_text("#!/bin/sh\nexit 0\n")
     executable.chmod(0o755)
@@ -739,6 +772,14 @@ def test_node_entrypoint_real_mcp(sandbox):
         QDRANT_MEMORY_CODEX_EXECUTABLE=str(runtime),
         QDRANT_MEMORY_CODEX_PYTHON=sys.executable,
     )
+    launcher = _launcher_for_installed_distribution(profile.parent)
+    shadow_cwd = profile.parent / "shadow-cwd"
+    source_metadata = shadow_cwd / "qdrant_memory_mcp.egg-info"
+    source_metadata.mkdir(parents=True)
+    (source_metadata / "PKG-INFO").write_text(
+        "Metadata-Version: 2.1\nName: qdrant-memory-mcp\nVersion: 999.0.0\n",
+        encoding="utf-8",
+    )
     mismatch = profile.parent / "mismatched-runtime" / runtime.name
     mismatch.parent.mkdir()
     shutil.copy2(runtime, mismatch)
@@ -747,7 +788,7 @@ def test_node_entrypoint_real_mcp(sandbox):
         "QDRANT_MEMORY_CODEX_EXECUTABLE": str(mismatch),
     }
     rejected = subprocess.run(
-        ["node", str(ROOT / "plugins/qdrant-memory/launcher.mjs"), "mcp"],
+        ["node", str(launcher), "mcp"],
         env=mismatch_env,
         capture_output=True,
         text=True,
@@ -759,8 +800,9 @@ def test_node_entrypoint_real_mcp(sandbox):
     async def scenario():
         params = StdioServerParameters(
             command="node",
-            args=[str(ROOT / "plugins/qdrant-memory/launcher.mjs"), "mcp"],
+            args=[str(launcher), "mcp"],
             env=env,
+            cwd=str(shadow_cwd),
         )
         async with stdio_client(params) as (read, write):
             async with ClientSession(read, write) as session:
@@ -798,7 +840,9 @@ def test_node_entrypoint_scope_isolation(sandbox):
 
     profile, _, config, env, _, _, _ = sandbox
     runtime = Path(sysconfig.get_path("scripts")) / (
-        "qdrant-memory.exe" if __import__("sys").platform == "win32" else "qdrant-memory"
+        "qdrant-memory.exe"
+        if __import__("sys").platform == "win32"
+        else "qdrant-memory"
     )
     sibling = profile.parent / "sibling-profile"
     sibling.mkdir()
@@ -812,14 +856,26 @@ def test_node_entrypoint_scope_isolation(sandbox):
         check=True,
     )
     assert not json.loads(init.stdout).get("error"), init.stdout
+    launcher = _launcher_for_installed_distribution(profile.parent)
+    shadow_cwd = profile.parent / "shadow-cwd"
+    source_metadata = shadow_cwd / "qdrant_memory_mcp.egg-info"
+    source_metadata.mkdir(parents=True)
+    (source_metadata / "PKG-INFO").write_text(
+        "Metadata-Version: 2.1\nName: qdrant-memory-mcp\nVersion: 999.0.0\n",
+        encoding="utf-8",
+    )
 
     def launcher_session(target):
         params = StdioServerParameters(
             command="node",
-            args=[str(ROOT / "plugins/qdrant-memory/launcher.mjs"), "mcp"],
-            env={**env, "QDRANT_MEMORY_CODEX_PROFILE": str(target),
-                 "QDRANT_MEMORY_CODEX_EXECUTABLE": str(runtime),
-                 "QDRANT_MEMORY_CODEX_PYTHON": sys.executable},
+            args=[str(launcher), "mcp"],
+            env={
+                **env,
+                "QDRANT_MEMORY_CODEX_PROFILE": str(target),
+                "QDRANT_MEMORY_CODEX_EXECUTABLE": str(runtime),
+                "QDRANT_MEMORY_CODEX_PYTHON": sys.executable,
+            },
+            cwd=str(shadow_cwd),
         )
 
         @asynccontextmanager

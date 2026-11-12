@@ -32,6 +32,7 @@ async function verifyMcpVersion(paths) {
     'print(json.dumps({"version": metadata.version("qdrant-memory-mcp"), "scripts": sysconfig.get_path("scripts")}))',
   ].join('\n');
   const result = spawnSync(paths.python, ['-c', script], {
+    cwd: dirname(paths.executable),
     encoding: 'utf8', timeout: 10000, maxBuffer: 256 * 1024, windowsHide: true,
     env: { ...process.env, PYTHONNOUSERSITE: '1', PYTHONPATH: '', PYTHONHOME: '' },
   });
