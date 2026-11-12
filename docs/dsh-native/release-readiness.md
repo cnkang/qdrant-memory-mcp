@@ -186,7 +186,7 @@ No performance optimization is justified by these samples.
 - Run Hermes -> DSH, DSH -> Hermes, and Codex -> DSH using actual Host paths;
   these directions remain NOT RUN, not Owner-API substitutes.
 - Complete real Cloud UPDATE/CONFLICT, model-output and shared-context checks
-  on reviewed MCP main with the public Runtime 0.6.1 wheel.
+  on reviewed MCP main with the public Runtime 0.6.2 wheel.
 - Desktop manual: install 0.1.6, upgrade to candidate, inspect all default-off
   settings, use ordinary Legacy tools with no Owner token, explicitly select
   Unified Owner, enable capture/recall, open a fresh Session, verify exact IDs,
