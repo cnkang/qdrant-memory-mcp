@@ -80,8 +80,10 @@ Session reads remain performance work; no unbounded in-memory queue was added.
 | Upgrade/rollback | Actual official Plugin Manager: published 0.1.6 tgz -> candidate tgz -> 0.1.6 tgz -> remove; one stable entry throughout; synthetic profile sentinel retained; Host module imported through official profile package resolution |
 | Packed Unified Owner | Actual tarball installed by the official Plugin Manager, then imported with the official package resolver into the real AgentLoop: four real HTTPS MCP tools, automatic recall/capture against the same Owner, exact new Qdrant record, and clean tool removal/ordinary conversation on unload |
 
-The reviewed candidate archive SHA256 is
-`eff91e374a9882c2cb760d5aaa07dad63de430b2ea9bfbf5023fd720eb91d75d`.
+From exact MCP main SHA `84ba8cb8b32679265077c1af0ff0187f04dcb480`, two fresh
+packer runs produced byte-identical candidate archives. The current archive
+SHA256 is `d0d3ab7e58d95372930493030bdfa02410ca690ab0b9b3d00f50351d92beac2b`;
+its SRI is `sha512-UXeN22ZNS0TeMXQ5PSEVs/C+rct44hXY+0K6vDZysaV9QViTY9TG5G/EwAYFaOag2Ik+/Pe9KKJLkd9T7PIAVQ==`.
 Files are `package.json`, `index.js`, `native/index.js`, `cordis.patch.yml`,
 `README.md`, and `LICENSE`. Repository locks pin the source dependencies.
 The release script accepts an rc version, requires the exact current main SHA,
