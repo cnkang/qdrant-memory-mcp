@@ -4,6 +4,12 @@ on:
   schedule:
     - cron: '23 2 * * 1'
   workflow_dispatch:
+    inputs:
+      dsh_version:
+        description: DSH host version (next, latest, or an exact published semver)
+        required: false
+        default: next
+        type: string
   push:
     branches: [main, 'codex/**']
     paths:
@@ -52,17 +58,28 @@ jobs:
         run: |
           python -m pip install --require-hashes --only-binary=:all: -r .github/requirements-mcp-ci.txt
           python -m pip install --only-binary=:all: --no-deps .
-      # Resolve the floating `next` dist-tags once into the runner's lock file, then
-      # install exactly that resolution: the probe still tests the newest published
-      # pre-release, while npm never installs an unverified tree. Nothing is
+      # Resolve the selected DSH host and floating companion dist-tags once into
+      # the runner's lock file, then install exactly that resolution. Nothing is
       # committed or pushed.
-      - name: Resolve the official next packages into the runner lock
+      - name: Resolve the selected official DSH packages into the runner lock
+        env:
+          DSH_VERSION: ${{ github.event.inputs.dsh_version || 'next' }}
         working-directory: integrations/dsh
-        run: >-
-          npm install --package-lock-only --save-exact --ignore-scripts --no-audit --no-fund
-          @deepseek-ai/dsh@next
-          @deepseek-ai/dsh-mcp-client@next
-          @deepseek-ai/dsh-skill-filesystem@next
+        shell: bash
+        run: |
+          case "$DSH_VERSION" in
+            next|latest) ;;
+            *)
+              if [[ ! "$DSH_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$ ]]; then
+                echo "::error::dsh_version must be next, latest, or an exact published semver"
+                exit 1
+              fi
+              ;;
+          esac
+          npm install --package-lock-only --save-exact --ignore-scripts --no-audit --no-fund \
+            "@deepseek-ai/dsh@${DSH_VERSION}" \
+            @deepseek-ai/dsh-mcp-client@next \
+            @deepseek-ai/dsh-skill-filesystem@next
       - name: Install the exact next resolution from the lock
         working-directory: integrations/dsh
         run: npm ci --ignore-scripts --no-audit --no-fund

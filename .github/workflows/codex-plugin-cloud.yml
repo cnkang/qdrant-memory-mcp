@@ -85,7 +85,7 @@ jobs:
               output.write("path=" + str(archive) + "\n")
       - name: Install the declared Runtime and pinned Codex
         run: |
-          npm install --global --ignore-scripts @openai/codex@0.165.0
+          npm install --global --ignore-scripts @openai/codex@0.167.2
           python -m venv "$RUNNER_TEMP/codex-runtime"
           "$RUNNER_TEMP/codex-runtime/bin/python" -m pip install -r plugins/qdrant-memory/requirements.txt
           "$RUNNER_TEMP/codex-runtime/bin/python" -c 'import importlib.metadata as m,json,pathlib; expected=json.loads(pathlib.Path("plugins/qdrant-memory/release.json").read_text())["runtime_commit"]; source=json.loads(m.distribution("hermes-plugin-qdrant-memory").read_text("direct_url.json")); assert source["vcs_info"]["commit_id"] == expected; print(json.dumps({"runtime_commit":expected}))'
