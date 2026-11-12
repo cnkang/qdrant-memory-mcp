@@ -29,7 +29,7 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: '3.11'
-      - run: npm install --global --ignore-scripts @openai/codex@0.165.0
+      - run: npm install --global --ignore-scripts @openai/codex@0.167.2
       - name: Report package test environment
         run: |
           python -c "import platform,sys; print('os='+platform.system()); print('arch='+platform.machine()); print('python='+sys.version); print('implementation='+platform.python_implementation()); print('sys.executable='+sys.executable)"
@@ -147,7 +147,7 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: '3.11'
-      - run: npm install --global --ignore-scripts @openai/codex@0.165.0
+      - run: npm install --global --ignore-scripts @openai/codex@0.167.2
       - run: "python -m pip install --only-binary=:all: uv==0.13.6"
       - run: "python -m pip install --require-hashes --only-binary=:all: -r .github/requirements-sonar-ci.txt"
       - run: "python -m pip install --only-binary=:all: --no-deps --no-build-isolation ."

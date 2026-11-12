@@ -95,6 +95,7 @@ jobs:
       - name: Real official client, CLI, Skill provider and Bundle acceptance
         env:
           DSH_TEST_MODULES: ${{ github.workspace }}/integrations/dsh/node_modules
+          DSH_EXPECT_INCOMPATIBLE_BUNDLE: '1'
           QDRANT_TEST_SKILL_ROOT: ${{ github.workspace }}/.scratch/canonical-skills
         run: python -m pytest -q tests/dsh_acceptance.py --junitxml=dsh-next-results.xml
       - name: Reject skipped or incomplete acceptance
