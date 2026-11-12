@@ -1,0 +1,7 @@
+{
+  "name": "qdrant-memory-codex-cli-probe",
+  "version": "1.0.0",
+  "dependencies": {
+    "@openai/codex": "0.167.2"
+  }
+}

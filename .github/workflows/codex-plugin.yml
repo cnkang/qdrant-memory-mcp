@@ -6,10 +6,13 @@ on:
   workflow_dispatch:
     inputs:
       codex_cli_version:
-        description: Exact stable @openai/codex version for the credential-free CLI probe
+        description: Select a hash-locked @openai/codex version for the credential-free CLI probe
         required: false
         default: '0.167.2'
-        type: string
+        type: choice
+        options:
+          - '0.167.2'
+          - '0.165.0'
 permissions:
   contents: read
 concurrency:
@@ -35,16 +38,22 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: '3.11'
-      - name: Install exact Codex CLI version
+      - name: Install hash-locked Codex CLI version
         shell: bash
         env:
           CODEX_CLI_VERSION: ${{ github.event.inputs.codex_cli_version || '0.167.2' }}
         run: |
-          if [[ ! "$CODEX_CLI_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "::error::codex_cli_version must be an exact stable version such as 0.167.2"
-            exit 1
-          fi
-          npm install --global --ignore-scripts "@openai/codex@${CODEX_CLI_VERSION}"
+          case "$CODEX_CLI_VERSION" in
+            0.167.2|0.165.0) ;;
+            *) echo "::error::codex_cli_version must select a checked-in dependency lock"; exit 1 ;;
+          esac
+          lock_dir=".github/codex-cli-locks/${CODEX_CLI_VERSION}"
+          install_dir="$RUNNER_TEMP/codex-cli"
+          mkdir -p "$install_dir"
+          cp "$lock_dir/package.json" "$lock_dir/package-lock.json" "$install_dir/"
+          (cd "$install_dir" && npm ci --ignore-scripts --no-audit --no-fund)
+          node -e 'const p=require(process.argv[1]+"/node_modules/@openai/codex/package.json"); if(p.version!==process.argv[2]) throw new Error("expected "+process.argv[2]+", got "+p.version)' "$install_dir" "$CODEX_CLI_VERSION"
+          echo "$install_dir/node_modules/.bin" >> "$GITHUB_PATH"
       - name: Report package test environment
         run: |
           python -c "import platform,sys; print('os='+platform.system()); print('arch='+platform.machine()); print('python='+sys.version); print('implementation='+platform.python_implementation()); print('sys.executable='+sys.executable)"
@@ -162,16 +171,22 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: '3.11'
-      - name: Install exact Codex CLI version
+      - name: Install hash-locked Codex CLI version
         shell: bash
         env:
           CODEX_CLI_VERSION: ${{ github.event.inputs.codex_cli_version || '0.167.2' }}
         run: |
-          if [[ ! "$CODEX_CLI_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "::error::codex_cli_version must be an exact stable version such as 0.167.2"
-            exit 1
-          fi
-          npm install --global --ignore-scripts "@openai/codex@${CODEX_CLI_VERSION}"
+          case "$CODEX_CLI_VERSION" in
+            0.167.2|0.165.0) ;;
+            *) echo "::error::codex_cli_version must select a checked-in dependency lock"; exit 1 ;;
+          esac
+          lock_dir=".github/codex-cli-locks/${CODEX_CLI_VERSION}"
+          install_dir="$RUNNER_TEMP/codex-cli"
+          mkdir -p "$install_dir"
+          cp "$lock_dir/package.json" "$lock_dir/package-lock.json" "$install_dir/"
+          (cd "$install_dir" && npm ci --ignore-scripts --no-audit --no-fund)
+          node -e 'const p=require(process.argv[1]+"/node_modules/@openai/codex/package.json"); if(p.version!==process.argv[2]) throw new Error("expected "+process.argv[2]+", got "+p.version)' "$install_dir" "$CODEX_CLI_VERSION"
+          echo "$install_dir/node_modules/.bin" >> "$GITHUB_PATH"
       - run: "python -m pip install --only-binary=:all: uv==0.13.6"
       - run: "python -m pip install --require-hashes --only-binary=:all: -r .github/requirements-sonar-ci.txt"
       - run: "python -m pip install --only-binary=:all: --no-deps --no-build-isolation ."

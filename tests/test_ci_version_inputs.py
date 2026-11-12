@@ -1,5 +1,6 @@
 """Keep manual upstream-version probes bounded and reproducible."""
 
+import json
 from pathlib import Path
 
 import yaml
@@ -14,25 +15,35 @@ def _workflow(name):
     )
 
 
-def test_codex_cli_probe_accepts_only_exact_stable_versions():
+def test_codex_cli_probe_accepts_only_hash_locked_stable_versions():
     workflow = _workflow("codex-plugin.yml")
     version_input = workflow["on"]["workflow_dispatch"]["inputs"]["codex_cli_version"]
     assert version_input["default"] == "0.167.2"
     assert version_input["required"] == "false"
-    assert version_input["type"] == "string"
+    assert version_input["type"] == "choice"
+    assert version_input["options"] == ["0.167.2", "0.165.0"]
+    for version in version_input["options"]:
+        lock_dir = ROOT / ".github" / "codex-cli-locks" / version
+        manifest = json.loads((lock_dir / "package.json").read_text(encoding="utf-8"))
+        lock = json.loads((lock_dir / "package-lock.json").read_text(encoding="utf-8"))
+        assert manifest["dependencies"]["@openai/codex"] == version
+        assert lock["packages"]["node_modules/@openai/codex"]["version"] == version
+        assert lock["packages"]["node_modules/@openai/codex"].get("integrity")
     for job_name in ("portable", "lifecycle-e2e"):
         step = next(
             step
             for step in workflow["jobs"][job_name]["steps"]
-            if step.get("name") == "Install exact Codex CLI version"
+            if step.get("name") == "Install hash-locked Codex CLI version"
         )
         assert (
             step["env"]["CODEX_CLI_VERSION"]
             == "${{ github.event.inputs.codex_cli_version || '0.167.2' }}"
         )
-        assert "^[0-9]+\\.[0-9]+\\.[0-9]+$" in step["run"]
+        assert "checked-in dependency lock" in step["run"]
+        assert 'cd "$install_dir" && npm ci' in step["run"]
+        assert "package-lock.json" in step["run"]
         assert "--ignore-scripts" in step["run"]
-        assert "${CODEX_CLI_VERSION}" in step["run"]
+        assert "node_modules/.bin" in step["run"]
 
 
 def test_dsh_compatibility_probe_resolves_selected_host_into_its_lock():
@@ -66,4 +77,7 @@ def test_protected_cloud_acceptance_keeps_a_fixed_codex_cli_version():
         for step in workflow["jobs"]["cloud"]["steps"]
         if step.get("name") == "Install the declared Runtime and pinned Codex"
     )
-    assert "@openai/codex@0.167.2" in install["run"]
+    assert install["env"]["CODEX_CLI_VERSION"] == "0.167.2"
+    assert 'cd "$install_dir" && npm ci' in install["run"]
+    assert "package-lock.json" in install["run"]
+    assert "--ignore-scripts" in install["run"]
