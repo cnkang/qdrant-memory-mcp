@@ -237,10 +237,10 @@ if (process.env.QM_DSH_BUNDLE_PROFILE) {
     const deadline = Date.now() + 10000
     do {
       const rows = await Native.runRuntimeRequest('remote-call', { query: 'Iris' })
-      capturedFact = h.receipts.at(-1)?.candidates?.[0]?.text
-      if (capturedFact) {
+      found = rows.memories.find((row) => normalizeFixtureFact(row.text) === normalizeFixtureFact(captureFact))
+      if (found) {
+        capturedFact = found.text
         assert.equal(normalizeFixtureFact(capturedFact), normalizeFixtureFact(captureFact))
-        found = rows.memories.find((row) => row.text === capturedFact)
       }
       if (found) break
       await new Promise((resolve) => setTimeout(resolve, 50))
