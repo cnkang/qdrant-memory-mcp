@@ -1,7 +1,9 @@
-"""Explicit acceptance: real DSH AgentLoop and MCP against TLS Owner and Docker Qdrant.
+"""Explicit DSH/MCP acceptance against a TLS Owner and Docker Qdrant.
 
-The model and embedding are deterministic. This is not Cloud, Hermes, Pi or
-Codex Host acceptance. The Runtime must be installed from the reviewed wheel.
+The default model and embeddings are deterministic. The protected Cloud
+workflow selects the real Ollama Cloud model for DSH while retaining
+deterministic embeddings. This does not establish Hermes or Codex Host
+acceptance. The Runtime must be installed from the reviewed wheel.
 """
 
 import asyncio
@@ -21,6 +23,11 @@ import uuid
 ROOT = Path(__file__).resolve().parents[2]
 FACT = 'Synthetic Project Iris uses SQLite WAL.'
 CAPTURE_FACT = 'Synthetic Project Iris requires encrypted daily backups.'
+
+
+def _normalize_fixture_fact(text: str) -> str:
+    """Ignore only the cloud extractor's optional synthetic-fixture label."""
+    return text.removeprefix('Synthetic ')
 
 
 def test_dsh_capture_and_mcp_recall_with_scoped_https_owner(tmp_path, monkeypatch):
@@ -118,14 +125,16 @@ def test_dsh_capture_and_mcp_recall_with_scoped_https_owner(tmp_path, monkeypatc
                         print(json.dumps({'dsh_metrics': metrics}))
             rows = asyncio.run(call('mcp', 'qdrant_memory_search', {'query': 'Iris'}))['memories']
             captured = [r for r in rows if r['created_by_device'] == 'dsh']
-            assert len(captured) == 1 and captured[0]['text'] == CAPTURE_FACT
+            assert len(captured) == 1, captured
+            captured_fact = captured[0]['text']
+            assert _normalize_fixture_fact(captured_fact) == _normalize_fixture_fact(CAPTURE_FACT)
             assert captured[0]['id'] != seed['id']
-            assert client.retrieve(collection, [captured[0]['id']])[0].payload['text'] == CAPTURE_FACT
+            assert client.retrieve(collection, [captured[0]['id']])[0].payload['text'] == captured_fact
             pi_env = {**env, 'QM_REAL_OWNER': '1',
                       'QDRANT_MEMORY_OWNER_URL': endpoint, 'QDRANT_MEMORY_CA_FILE': str(cert),
                       'QDRANT_MEMORY_REMOTE_TOKEN': token['private'],
                       'QDRANT_MEMORY_RECALL_TOKEN': token['read'],
-                      'QM_PI_EXPECTED_FACT': CAPTURE_FACT, 'QM_PI_EXPECTED_ID': captured[0]['id'],
+                      'QM_PI_EXPECTED_FACT': captured_fact, 'QM_PI_EXPECTED_ID': captured[0]['id'],
                       'QM_PI_QUERY': 'Synthetic Project Iris backup policy?'}
             for _ in range(2):
                 pi = subprocess.run(['node', '--test', 'tests/test_pi_owner_host.mjs'],
@@ -257,9 +266,11 @@ def test_dsh_capture_and_mcp_recall_with_scoped_https_owner(tmp_path, monkeypatc
                     if 'bundle_model_calls' in metrics:
                         bundle_metrics = metrics
             combined_rows = asyncio.run(call('mcp', 'qdrant_memory_search', {'query': 'Iris'}))['memories']
-            packed_rows = [row for row in combined_rows if row['text'] == packed_fact]
+            packed_rows = [row for row in combined_rows
+                           if _normalize_fixture_fact(row['text']) == _normalize_fixture_fact(packed_fact)]
             assert len(packed_rows) == 1
-            assert client.retrieve(collection, [packed_rows[0]['id']])[0].payload['text'] == packed_fact
+            packed_capture_fact = packed_rows[0]['text']
+            assert client.retrieve(collection, [packed_rows[0]['id']])[0].payload['text'] == packed_capture_fact
             report = {'model': os.environ['SOAK_LLM_MODEL'] if os.environ.get('QM_DSH_CLOUD') == '1' else 'deterministic',
                       'embedding': 'deterministic-3d',
                       'dsh_process_seconds': round(dsh_seconds, 3),

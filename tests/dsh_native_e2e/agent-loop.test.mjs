@@ -55,6 +55,7 @@ const Native = await import(process.env.QM_DSH_BUNDLE_PROFILE
 
 const fact = 'Synthetic Project Iris uses SQLite WAL.'
 const captureFact = process.env.QM_DSH_CAPTURE_FACT || fact
+const normalizeFixtureFact = (value) => value.replace(/^Synthetic\s+/u, '')
 const text = (value) => [
   { type: 'block-start', index: 0, blockType: 'text' },
   { type: 'text-delta', index: 0, text: value },
@@ -231,11 +232,16 @@ if (process.env.QM_DSH_BUNDLE_PROFILE) {
     const agent = await h.create('iris-packed-bundle')
     await h.send(agent, captureFact)
     assert.ok(h.provider.requests.some((r) => JSON.stringify(r.messages).includes('Synthetic Project Iris')))
+    let capturedFact
     let found
     const deadline = Date.now() + 10000
     do {
       const rows = await Native.runRuntimeRequest('remote-call', { query: 'Iris' })
-      found = rows.memories.find((row) => row.text === captureFact)
+      capturedFact = h.receipts.at(-1)?.candidates?.[0]?.text
+      if (capturedFact) {
+        assert.equal(normalizeFixtureFact(capturedFact), normalizeFixtureFact(captureFact))
+        found = rows.memories.find((row) => row.text === capturedFact)
+      }
       if (found) break
       await new Promise((resolve) => setTimeout(resolve, 50))
     } while (Date.now() < deadline)
@@ -266,7 +272,9 @@ test('real AgentLoop injects recall into Provider requests and durable Session, 
   await h.ctx.sessions.flush(agent.session)
   const snapshot = await h.ctx.sessionQuery.readSession(agent.session.id)
   assert.ok(snapshot.events.some((e) => e.type === 'user/message' && e.data.source?.kind === 'qdrant-memory'))
-  assert.equal(h.receipts[0].candidates[0].text, captureFact)
+  const capturedFact = h.receipts[0].candidates[0].text
+  assert.equal(normalizeFixtureFact(capturedFact), normalizeFixtureFact(captureFact),
+    'cloud extraction may omit only the synthetic-fixture label')
   assert.equal(h.metrics().recall_owner_calls, 1)
   assert.equal(h.metrics().capture_events_committed, 1)
   let activePlugin = h.plugin
@@ -276,7 +284,9 @@ test('real AgentLoop injects recall into Provider requests and durable Session, 
     const fresh = await h.create('iris-fresh-cloud-session')
     await h.send(fresh, 'Which synthetic Project Iris fact is in the supplied memory context?')
     const request = h.provider.requests.filter((r) => r.purpose !== 'qdrant-memory-extraction').at(-1)
-    assert.match(JSON.stringify(request.messages), /Synthetic Project Iris/)
+    const recalled = request.messages.filter((message) => message.source?.kind === 'qdrant-memory')
+    assert.ok(recalled.length > 0, 'fresh session must receive persisted memory context')
+    assert.ok(JSON.stringify(recalled).includes(capturedFact), 'fresh session must receive the committed fact')
     console.log(JSON.stringify({ status: 'PASS', model: process.env.SOAK_LLM_MODEL,
       model_calls: h.provider.requests.length, latency_ms: h.latency, usage: h.usage,
       scope: 'synthetic-alice/project/iris', owner_receipt: 'COMMITTED' }))
