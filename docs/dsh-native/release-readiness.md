@@ -20,16 +20,24 @@ The statements in this 2026-11-09 baseline record what had not yet been done at 
 
 ## Release decisions
 
-Runtime 0.6.1 is now published and verified from PyPI, and MCP PR #81 is merged. These facts clear the Runtime publication and source-merge prerequisites only; they do not establish final DSH Native acceptance. Protected Cloud acceptance must run from reviewed main and use the public Runtime wheel.
+Runtime 0.6.2 is now published and verified from PyPI, and MCP PR #81 is merged. This supersedes the 0.6.1 prerequisite while clearing Runtime publication only; it does not establish final DSH Native acceptance. Protected Cloud acceptance must run from reviewed main and use the public Runtime 0.6.2 wheel.
 
 | Decision | Status |
 | --- | --- |
-| RUNTIME_0_6_1_RELEASE_READY | YES |
+| RUNTIME_0_6_2_PUBLIC_WHEEL | YES |
 | PR_81_MERGE_READY | MERGED |
 | DSH_NATIVE_E2E_VERIFIED | NOT VERIFIED |
 | BUNDLE_IN_PLACE_UPGRADE_SAFE | NOT VERIFIED |
 | OLLAMA_CLOUD_ACCEPTANCE_VERIFIED | NOT VERIFIED |
 | DSH_BUNDLE_NEW_VERSION_RELEASE_READY | NO |
+
+Runtime 0.6.2 is tagged at source SHA
+`913fa705922b5bfeb29d52f102cfc6385a4d0436`; its public PyPI wheel SHA256 is
+`4606d1529092104d5594866032c61a02376c127f2ffc483c0442a7549b40c264`.
+PR #95 updates the protected DSH Cloud workflow to install that public wheel
+and checks out the same immutable Runtime SHA only for `tests/helpers.py`.
+The DSH Owner implementation is imported from the installed wheel. Cloud
+acceptance remains NOT VERIFIED until the protected main-only workflow runs.
 
 ## Implemented candidate
 
@@ -123,21 +131,31 @@ passed on MCP main `28f14f727eb224b8777b1c90cffb4be5ee0156b9`.
 ## Cloud acceptance
 
 `dsh-native-cloud.yml` accepts only canonical-repository main `workflow_dispatch`
-and checks out its exact reviewed SHA before entering `soak-cloud`. It installs
-the public Runtime 0.6.1 wheel, not a Git fallback. The DSH official pi-ai
-Provider uses `openai-completions` at the exact `https://ollama.com/v1` endpoint,
+and checks out its exact reviewed SHA before entering `soak-cloud`. The candidate
+workflow installs the public Runtime 0.6.2 wheel, not a Git fallback; the exact
+0.6.2 source checkout is used only to load `tests/helpers.py`. The DSH official
+pi-ai Provider uses `openai-completions` at the exact `https://ollama.com/v1` endpoint,
 with an environment credential reference, zero Provider retries, at most eight
 model calls, 1200 output tokens per call and a short job timeout. Credentials
 are not written to profiles, container images or evidence.
 
-No protected Cloud execution is recorded for the reviewed DSH Native main.
-The public Runtime 0.6.1 wheel is available, but Cloud API compatibility,
-model availability and real extraction remain NOT VERIFIED until the protected
-matrix is executed. The prepared smoke
-path covers capture and fresh-Session recall, independent MCP/Pi context and
-turns after disabling automation. It is not the full Cloud UPDATE/CONFLICT
-and Hermes/Codex matrix; those scenarios remain NOT RUN and are release
-blockers. Deterministic model tests and real Qdrant do not substitute for Cloud.
+Protected DSH Cloud run
+[43303663019](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/43303663019)
+reached Ollama Cloud but failed because the extractor omitted the fixture-only
+leading `Synthetic ` label while preserving the fact. Separately, the packed-
+bundle E2E test exposed that a process-local receipt list cannot observe a
+separate Owner process; PR #95 changes that assertion to query the real Owner.
+Both are test-observation defects, not evidence of data loss or an access
+control failure. Neither run is a pass and neither establishes the full Cloud
+matrix. PR #95 also pins the post-merge workflow to the public Runtime 0.6.2
+wheel. Cloud API
+compatibility, model availability and durable real extraction remain NOT
+VERIFIED until that protected main-only workflow succeeds and its evidence is
+reviewed. The prepared smoke path covers capture and fresh-Session recall,
+independent MCP/Pi context and turns after disabling automation. It is not the
+full Cloud UPDATE/CONFLICT and Hermes/Codex matrix; those scenarios remain NOT
+RUN and are release blockers. Deterministic model tests and real Qdrant do not
+substitute for Cloud.
 
 ## Principal and storage review
 
@@ -179,9 +197,9 @@ No performance optimization is justified by these samples.
 
 | Required decision | Status | Reason |
 | --- | --- | --- |
-| RUNTIME_0_6_1_RELEASE_READY | YES | Published to PyPI from Soak-validated exact SHA `2696122405e3324a1e227c131e0f9b2a320dd23c`; clean public install passed |
+| RUNTIME_0_6_2_PUBLIC_WHEEL | YES | Published from exact source SHA `913fa705922b5bfeb29d52f102cfc6385a4d0436`; clean public wheel SHA256 `4606d1529092104d5594866032c61a02376c127f2ffc483c0442a7549b40c264` |
 | PR_81_MERGE_READY | MERGED | MCP PR #81 merged at `6f8e57383b760668abe7aa52f4d3c865f8d762e5` |
 | DSH_NATIVE_E2E_VERIFIED | NOT VERIFIED | Core actual-loop/Docker evidence passed; full Host matrix above is incomplete |
 | BUNDLE_IN_PLACE_UPGRADE_SAFE | NOT VERIFIED | Actual local install/upgrade/rollback passed; full platform and Desktop acceptance outstanding |
-| OLLAMA_CLOUD_ACCEPTANCE_VERIFIED | NOT VERIFIED | Protected real-model matrix not executed on reviewed main with the public Runtime wheel |
+| OLLAMA_CLOUD_ACCEPTANCE_VERIFIED | NOT VERIFIED | Protected run 43303663019 exposed two test-observation defects; PR #95 corrects them and pins Runtime 0.6.2, but the post-merge protected run is pending |
 | DSH_BUNDLE_NEW_VERSION_RELEASE_READY | NO | Complete Cloud, platform, cross-client and Desktop gates remain outstanding; public npm bundle stays at 0.1.6 |
