@@ -20,7 +20,7 @@ The statements in this 2026-11-09 baseline record what had not yet been done at 
 
 ## Release decisions
 
-Runtime 0.6.2 is now published and verified from PyPI, and MCP PR #81 is merged. This supersedes the 0.6.1 prerequisite while clearing Runtime publication only; it does not establish final DSH Native acceptance. Protected Cloud acceptance must run from reviewed main and use the public Runtime 0.6.2 wheel.
+Runtime 0.6.2 is now published and verified from PyPI, and MCP PR #81 is merged. This supersedes the 0.6.1 prerequisite while clearing Runtime publication only; it does not establish final DSH Native acceptance. A protected main Cloud smoke now passes with the public Runtime 0.6.2 wheel, but the full Cloud and cross-client matrix remains outstanding.
 
 | Decision | Status |
 | --- | --- |
@@ -36,8 +36,9 @@ Runtime 0.6.2 is tagged at source SHA
 `4606d1529092104d5594866032c61a02376c127f2ffc483c0442a7549b40c264`.
 PR #95 updates the protected DSH Cloud workflow to install that public wheel
 and checks out the same immutable Runtime SHA only for `tests/helpers.py`.
-The DSH Owner implementation is imported from the installed wheel. Cloud
-acceptance remains NOT VERIFIED until the protected main-only workflow runs.
+The DSH Owner implementation is imported from the installed wheel. The
+post-merge protected main-only smoke passed; this is partial Cloud evidence,
+not final DSH acceptance.
 
 ## Implemented candidate
 
@@ -146,16 +147,29 @@ leading `Synthetic ` label while preserving the fact. Separately, the packed-
 bundle E2E test exposed that a process-local receipt list cannot observe a
 separate Owner process; PR #95 changes that assertion to query the real Owner.
 Both are test-observation defects, not evidence of data loss or an access
-control failure. Neither run is a pass and neither establishes the full Cloud
-matrix. PR #95 also pins the post-merge workflow to the public Runtime 0.6.2
-wheel. Cloud API
-compatibility, model availability and durable real extraction remain NOT
-VERIFIED until that protected main-only workflow succeeds and its evidence is
-reviewed. The prepared smoke path covers capture and fresh-Session recall,
-independent MCP/Pi context and turns after disabling automation. It is not the
-full Cloud UPDATE/CONFLICT and Hermes/Codex matrix; those scenarios remain NOT
-RUN and are release blockers. Deterministic model tests and real Qdrant do not
-substitute for Cloud.
+control failure. Those failed runs are not passes and do not establish the full
+Cloud matrix. PR #95 also pins the post-merge workflow to the public Runtime 0.6.2
+wheel.
+
+Protected main-only Cloud run
+[43326521742](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/43326521742)
+passed at exact MCP SHA `84ba8cb8b32679265077c1af0ff0187f04dcb480` after the
+`soak-cloud` environment approval. It installed the public Runtime 0.6.2 wheel
+and official DSH `0.2.2-rc.1`, used the configured Ollama Cloud
+`deepseek-v4.1-flash` model, and passed one pytest case with zero failures or
+skips. The real DSH AgentLoop extracted a synthetic fact into the HTTPS Owner;
+a fresh MCP process recalled the exact persisted Qdrant ID. The run also
+verified the separate Pi process path twice, scope isolation, Owner event
+receipts and retry idempotency, permission rejection, and capture through the
+packed Unified Bundle. The report records eight model calls across the DSH and
+packed-bundle loops. Artifact `dsh-cloud-synthetic` has SHA256
+`8f09dd5d9030cedf0e319c77890168abdd7a7a829c4ea36290405af47b9f34eb`.
+
+This is a successful configured-model smoke, not the full Cloud matrix. Its
+directions report DSH->MCP, MCP->DSH and DSH->Pi as PASS, while Hermes->DSH and
+Codex->DSH remain NOT RUN. Cloud UPDATE/CONFLICT and complete cross-client
+acceptance also remain outstanding. Deterministic model tests and real Qdrant
+do not substitute for those paths.
 
 ## Principal and storage review
 
@@ -201,5 +215,5 @@ No performance optimization is justified by these samples.
 | PR_81_MERGE_READY | MERGED | MCP PR #81 merged at `6f8e57383b760668abe7aa52f4d3c865f8d762e5` |
 | DSH_NATIVE_E2E_VERIFIED | NOT VERIFIED | Core actual-loop/Docker evidence passed; full Host matrix above is incomplete |
 | BUNDLE_IN_PLACE_UPGRADE_SAFE | NOT VERIFIED | Actual local install/upgrade/rollback passed; full platform and Desktop acceptance outstanding |
-| OLLAMA_CLOUD_ACCEPTANCE_VERIFIED | NOT VERIFIED | Protected run 43303663019 exposed two test-observation defects; PR #95 corrects them and pins Runtime 0.6.2, but the post-merge protected run is pending |
-| DSH_BUNDLE_NEW_VERSION_RELEASE_READY | NO | Complete Cloud, platform, cross-client and Desktop gates remain outstanding; public npm bundle stays at 0.1.6 |
+| OLLAMA_CLOUD_ACCEPTANCE_VERIFIED | NOT VERIFIED | Protected run 43326521742 passed one configured-model synthetic smoke at exact main SHA `84ba8cb8b32679265077c1af0ff0187f04dcb480`; full UPDATE/CONFLICT and Hermes/Codex paths remain incomplete |
+| DSH_BUNDLE_NEW_VERSION_RELEASE_READY | NO | Full Cloud, platform, cross-client and Desktop gates remain outstanding; public npm bundle stays at 0.1.6 |
