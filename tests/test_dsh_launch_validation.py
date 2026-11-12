@@ -39,6 +39,21 @@ COMPOSED_CONFIGS = {
 }
 
 
+def released_overlay():
+    """Use the published MCP pin while testing the released DSH guide."""
+    overlay = (ROOT / 'integrations/dsh/qdrant-memory.cordis.yml').read_text(
+        encoding='utf-8'
+    )
+    overlay, replacements = re.subn(
+        r'(?m)^(\s+- )qdrant-memory-mcp==\S+(\s*)$',
+        lambda match: f'{match.group(1)}qdrant-memory-mcp==0.3.1{match.group(2)}',
+        overlay,
+        count=1,
+    )
+    assert replacements == 1
+    return overlay
+
+
 @pytest.fixture(autouse=True)
 def composed_profile(tmp_path):
     """Supply an empty composed profile for isolated validator tests."""
@@ -53,7 +68,7 @@ def test_effective_args_select_prepared_package(tmp_path, guide, inline, version
     text = guide.read_text(encoding='utf-8')
     validators = re.findall(r'(import sys\nimport yaml\n.*?)(?=\nPY\n|\n\'@)', text, re.S)
     assert len(validators) == 2
-    patch = (ROOT / 'integrations/dsh/qdrant-memory.cordis.yml').read_text(encoding='utf-8')
+    patch = released_overlay()
     patch = patch.replace('qdrant-memory-mcp==0.3.1', f'qdrant-memory-mcp=={version}')
     if inline:
         patch = patch.replace('- --from\n          - ', '- --from=')
@@ -85,7 +100,7 @@ def test_invalid_active_configuration_is_rejected(tmp_path, mutation, guide):
     validators = re.findall(r'(import sys\nimport yaml\n.*?)(?=\nPY\n|\n\'@)', text, re.S)
     assert len(validators) == 2
     selected = tmp_path / 'patch.yml'
-    selected.write_text(mutation((ROOT / 'integrations/dsh/qdrant-memory.cordis.yml').read_text(encoding='utf-8')), encoding='utf-8')
+    selected.write_text(mutation(released_overlay()), encoding='utf-8')
     for validator in validators:
         result = subprocess.run(
             [sys.executable, '-c', validator, str(selected), 'qdrant-memory-mcp==0.3.1', str(tmp_path), str(tmp_path / 'composed.yml')],
@@ -101,7 +116,7 @@ def test_shell_launch_gate(tmp_path, guide, version, base):
     """Execute the published shell flow with inert setup and launch commands."""
     profile = tmp_path / 'profile'
     profile.mkdir()
-    patch = (ROOT / 'integrations/dsh/qdrant-memory.cordis.yml').read_text(encoding='utf-8')
+    patch = released_overlay()
     patch = patch.replace('qdrant-memory-mcp==0.3.1', f'qdrant-memory-mcp=={version}')
     patch = patch.replace('      config:', '      decoy: [--from, qdrant-memory-mcp==0.3.1]\n      config:')
     if base == 'unicode-conflict':
@@ -183,7 +198,7 @@ exit "$status"
 @pytest.mark.parametrize('conflict', ['none', 'memory', 'additional'])
 def test_mcp_server_name_conflicts(tmp_path, guide, before, conflict):
     """Reject a competing MCP server regardless of its insertion order."""
-    patch = (ROOT / 'integrations/dsh/qdrant-memory.cordis.yml').read_text(encoding='utf-8')
+    patch = released_overlay()
     other = patch.replace('id: cnkang-qdrant-memory-mcp', 'id: another-mcp')
     if conflict != 'memory':
         other = other.replace('serverName: qdrant-memory', 'serverName: another-server')
@@ -203,7 +218,7 @@ def test_mcp_server_name_conflicts(tmp_path, guide, before, conflict):
 @pytest.mark.parametrize('home_kind', ['prepared', 'old', 'inline-prepared', 'inline-old', 'dynamic-old', 'duplicate'])
 def test_home_selects_prepared_profile(tmp_path, guide, home_kind):
     """Accept only the prepared home, including literal and inline CLI forms."""
-    patch = (ROOT / 'integrations/dsh/qdrant-memory.cordis.yml').read_text(encoding='utf-8')
+    patch = released_overlay()
     expected = tmp_path / 'prepared profile'
     literal = expected if home_kind.endswith('prepared') else tmp_path / 'old-profile'
     expression = "!!js process.env.QDRANT_MEMORY_DSH_PROFILE || require('node:path').join(require('node:os').homedir(), '.qdrant-memory-dsh')"
@@ -235,7 +250,7 @@ if sys.platform == 'win32':
         profile = tmp_path / 'profile with spaces'
         profile.mkdir()
         patch = profile / 'qdrant-memory.cordis.yml'
-        patch.write_text((ROOT / 'integrations/dsh/qdrant-memory.cordis.yml').read_text(encoding='utf-8').replace(
+        patch.write_text(released_overlay().replace(
             'qdrant-memory-mcp==0.3.1', f'qdrant-memory-mcp=={version}'), encoding='utf-8')
         if base == 'unicode-conflict':
             patch.write_text(patch.read_text(encoding='utf-8').replace(
