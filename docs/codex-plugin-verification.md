@@ -25,10 +25,9 @@ those choices and the CLI is installed from checked-in integrity-locked files.
 Protected Cloud acceptance remains fixed. Product, Runtime, MCP, Skill, action
 SHA and dependency-lock pins remain source-controlled release inputs.
 
-Plugin Creator currently serves the private 0.1.1 release
-(`pluginrel_6ae9912881d88191a204e9889eb09b30`); its normalized `.mcp.json` has
-an empty environment map. The eight Codex environment names have not been
-verified in a Creator-normalized candidate.
+Plugin Creator currently serves the private 0.1.1 release; its normalized
+`.mcp.json` has an empty environment map. The eight Codex environment names
+have not been verified in a Creator-normalized candidate.
 
 ## Candidate verification run (2026-11-09, codex/plugin-readiness-20261109)
 
