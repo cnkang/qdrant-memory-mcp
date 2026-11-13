@@ -156,6 +156,7 @@ def _require_private_windows_file(path: Path) -> None:
 
 
 _COMMENT_LINE_RE = re.compile(r"(^|\s+)#.*$")
+_PIP_ENV_VAR_RE = re.compile(r"\$\{[A-Z0-9_]+\}")
 _VALUE_OPTIONS = frozenset(
     {
         "-i",
@@ -225,6 +226,11 @@ def _require_self_contained_lock(lock: Path) -> None:
         stripped = _COMMENT_LINE_RE.sub("", line).strip()
         if not stripped:
             continue
+        if _PIP_ENV_VAR_RE.search(stripped):
+            raise ValueError(
+                "--requirements-lock must not use pip environment-variable expansion; "
+                "replace ${NAME} references with literal values"
+            )
         try:
             tokens = shlex.split(stripped, comments=False, posix=True)
         except ValueError as exc:
@@ -606,7 +612,12 @@ def _resolve_lock(parser: argparse.ArgumentParser, args: argparse.Namespace) -> 
             or parent_info.st_uid != os.getuid()
             or parent_info.st_mode & 0o022
         ):
-            parser.error("--requirements-lock must be in a private, user-owned directory")
+            parser.error(
+                "--requirements-lock must be in a private, user-owned directory: "
+                f"{lock.parent}; remove group/world write access with "
+                f"`chmod go-w {shlex.quote(str(lock.parent))}`, or move the lock "
+                "into a user-owned private directory"
+            )
         for ancestor in lock.parents:
             try:
                 ancestor_info = ancestor.stat()
@@ -621,7 +632,11 @@ def _resolve_lock(parser: argparse.ArgumentParser, args: argparse.Namespace) -> 
                 or ancestor_info.st_uid not in {os.getuid(), 0}
             ):
                 parser.error(
-                    "--requirements-lock must not sit under a directory writable or replaceable by another account"
+                    "--requirements-lock must not sit under a directory writable or "
+                    "replaceable by another account: "
+                    f"{ancestor}; remove group/world write access with "
+                    f"`chmod go-w {shlex.quote(str(ancestor))}`, or move the lock "
+                    "under a user-owned or root-owned directory"
                 )
             try:
                 _require_darwin_allow_acl(ancestor)
@@ -629,7 +644,10 @@ def _resolve_lock(parser: argparse.ArgumentParser, args: argparse.Namespace) -> 
                 parser.error(str(exc) or "Cannot verify the requirements-lock path")
         if info.st_uid != os.getuid() or info.st_mode & 0o022:
             parser.error(
-                "--requirements-lock must be owned by the current user and not group/world-writable"
+                "--requirements-lock must be owned by the current user and not "
+                f"group/world-writable: {lock}; remove group/world write bits with "
+                f"`chmod go-w {shlex.quote(str(lock))}`, or replace it with a "
+                "user-owned file"
             )
     return lock
 

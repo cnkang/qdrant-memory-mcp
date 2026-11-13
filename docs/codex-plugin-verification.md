@@ -3,8 +3,8 @@
 ## Latest status update (2026-11-13)
 
 The public plugin remains **0.1.3**. A 0.1.4 source candidate is being prepared
-against MCP 0.3.3, Runtime 0.6.2 and the pinned Skill 0.4.3 snapshot
-(`skills-20261113.1`, commit `a51242b027f1dea19e2c655e1a37cb780ef396e6`); it is
+against MCP 0.3.3, Runtime 0.6.2 and the pinned Skill 0.4.4 snapshot
+(`skills-20261113.2`, commit `607b1335f7babc9a7a2f909d12d8214124d1032c`); it is
 not published. A fresh Python 3.11 environment installed MCP 0.3.3 and Runtime
 0.6.2 from public PyPI and passed `uv pip check`; the final clean 0.1.4 ZIP,
 protected Cloud acceptance, and Creator readback are still pending.

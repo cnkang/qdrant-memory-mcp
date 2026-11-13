@@ -7,7 +7,7 @@
   unchanged.
 
 - Prepare Codex plugin 0.1.4 (not published): pin MCP distribution 0.3.3,
-  Runtime 0.6.2 and Skill 0.4.3 (snapshot `skills-20261113.1`). The plugin's
+  Runtime 0.6.2 and Skill 0.4.4 (snapshot `skills-20261113.2`). The plugin's
   `requirements.txt` now installs exact public PyPI releases instead of a
   Runtime Git commit, so installation no longer needs Git or a source build;
   `release.json` keeps the source commits as provenance.
