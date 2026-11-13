@@ -26,16 +26,39 @@ def test_cross_client_dispatch_defaults_to_public_runtime_and_keeps_old_fixture_
     assert inputs["qdrant_client_version"]["default"] == "1.20.0"
 
     owner = workflow["jobs"]["owner"]
-    assert owner["env"]["DSH_RUNTIME_VERSION"] == "${{ inputs.runtime_version || '0.6.2' }}"
-    assert owner["env"]["QDRANT_CLIENT_VERSION"] == "${{ inputs.qdrant_client_version || '1.20.0' }}"
+    assert owner["env"]["DSH_RUNTIME_VERSION"] == "0.6.2"
+    assert owner["env"]["QDRANT_CLIENT_VERSION"] == "1.20.0"
     runtime_checkout = next(
         step["with"]
         for step in owner["steps"]
         if step.get("with", {}).get("repository") == "cnkang/hermes-plugin-qdrant-memory"
     )
-    assert "2696122405e3324a1e227c131e0f9b2a320dd23c" in runtime_checkout["ref"]
-    assert "913fa705922b5bfeb29d52f102cfc6385a4d0436" in runtime_checkout["ref"]
-    assert runtime_checkout["ref"] == (
+    assert runtime_checkout["ref"] == "913fa705922b5bfeb29d52f102cfc6385a4d0436"
+    node_setup = next(step["with"] for step in owner["steps"] if "setup-node" in step.get("uses", ""))
+    python_setup = next(step["with"] for step in owner["steps"] if "setup-python" in step.get("uses", ""))
+    assert node_setup["node-version"] == "24.9.0"
+    assert python_setup["python-version"] == "3.11"
+    assert "inputs." not in str(owner)
+
+    compatibility = workflow["jobs"]["compatibility"]
+    assert compatibility["name"] == "Manual DSH compatibility probe (not release evidence)"
+    assert compatibility["needs"] == "owner"
+    assert "github.event_name == 'workflow_dispatch'" in compatibility["if"]
+    for field, default in (
+        ("runtime_version", "0.6.2"),
+        ("node_version", "24.9.0"),
+        ("python_version", "3.11"),
+        ("qdrant_client_version", "1.20.0"),
+    ):
+        assert f"inputs.{field} != '{default}'" in compatibility["if"]
+    assert compatibility["env"]["DSH_RUNTIME_VERSION"] == "${{ inputs.runtime_version }}"
+    assert compatibility["env"]["QDRANT_CLIENT_VERSION"] == "${{ inputs.qdrant_client_version }}"
+    compatibility_checkout = next(
+        step["with"]
+        for step in compatibility["steps"]
+        if step.get("with", {}).get("repository") == "cnkang/hermes-plugin-qdrant-memory"
+    )
+    assert compatibility_checkout["ref"] == (
         "${{ inputs.runtime_version == '0.6.1' && "
         "'2696122405e3324a1e227c131e0f9b2a320dd23c' || "
         "'913fa705922b5bfeb29d52f102cfc6385a4d0436' }}"
