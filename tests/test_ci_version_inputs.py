@@ -48,24 +48,43 @@ def test_codex_cli_probe_accepts_only_hash_locked_stable_versions():
 
 def test_dsh_compatibility_probe_resolves_selected_host_into_its_lock():
     workflow = _workflow("dsh-next.yml")
-    version_input = workflow["on"]["workflow_dispatch"]["inputs"]["dsh_version"]
-    assert version_input["default"] == "next"
-    assert version_input["required"] == "false"
-    assert version_input["type"] == "string"
+    version_inputs = workflow["on"]["workflow_dispatch"]["inputs"]
     step = next(
         step
         for step in workflow["jobs"]["next"]["steps"]
         if step.get("name")
         == "Resolve the selected official DSH packages into the runner lock"
     )
+
+    for input_name, env_name in (
+        ("dsh_version", "DSH_VERSION"),
+        ("dsh_mcp_client_version", "DSH_MCP_CLIENT_VERSION"),
+        ("dsh_skill_filesystem_version", "DSH_SKILL_FILESYSTEM_VERSION"),
+    ):
+        version_input = version_inputs[input_name]
+        assert version_input["default"] == "next"
+        assert version_input["required"] == "false"
+        assert version_input["type"] == "string"
+        assert step["env"][env_name] == (
+            "${{ github.event.inputs." + input_name + " || 'next' }}"
+        )
+
+    run_script = step["run"]
     assert (
-        step["env"]["DSH_VERSION"] == "${{ github.event.inputs.dsh_version || 'next' }}"
+        'for version in "$DSH_VERSION" "$DSH_MCP_CLIENT_VERSION" '
+        '"$DSH_SKILL_FILESYSTEM_VERSION";' in run_script
     )
-    assert "next|latest" in step["run"]
-    assert "@deepseek-ai/dsh@${DSH_VERSION}" in step["run"]
-    assert "@deepseek-ai/dsh-mcp-client@next" in step["run"]
-    assert "@deepseek-ai/dsh-skill-filesystem@next" in step["run"]
-    assert "npm install --package-lock-only" in step["run"]
+    assert "next|latest" in run_script
+    assert "published semver" in run_script
+    for package_name, env_name in (
+        ("dsh", "DSH_VERSION"),
+        ("dsh-mcp-client", "DSH_MCP_CLIENT_VERSION"),
+        ("dsh-skill-filesystem", "DSH_SKILL_FILESYSTEM_VERSION"),
+    ):
+        assert (
+            "@deepseek-ai/" + package_name + "@${" + env_name + "}"
+        ) in run_script
+    assert "npm install --package-lock-only" in run_script
 
 
 def test_protected_cloud_acceptance_keeps_a_fixed_codex_cli_version():
