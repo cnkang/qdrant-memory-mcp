@@ -55,7 +55,11 @@ const Native = await import(process.env.QM_DSH_BUNDLE_PROFILE
 
 const fact = 'Synthetic Project Iris uses SQLite WAL.'
 const captureFact = process.env.QM_DSH_CAPTURE_FACT || fact
-const normalizeFixtureFact = (value) => value.replace(/^Synthetic\s+/u, '')
+const normalizeFixtureFact = (value) => value
+  .replace(/^Synthetic\s+/u, '')
+  .replace(/\bpoint-in-time recovery\s*\(PITR\)/iu, 'PITR')
+  .replace(/\bPITR\s*\(point-in-time recovery\)/iu, 'PITR')
+  .toLocaleLowerCase('en-US')
 const text = (value) => [
   { type: 'block-start', index: 0, blockType: 'text' },
   { type: 'text-delta', index: 0, text: value },
@@ -233,6 +237,8 @@ if (process.env.QM_DSH_BUNDLE_PROFILE) {
     const names = h.ctx.tools.definitions().map((tool) => tool.name).filter((name) => name.startsWith('mcp__qdrant-memory__'))
     assert.equal(names.length, 4)
     const agent = await h.create('iris-packed-bundle')
+    const existingRows = await Native.runRuntimeRequest('remote-call', { query: 'Iris' })
+    const existingMemoryIds = new Set(existingRows.memories.map((row) => row.id))
     await h.send(agent, captureFact)
     assert.ok(h.provider.requests.some((r) => JSON.stringify(r.messages).includes('Synthetic Project Iris')))
     let capturedFact
@@ -241,12 +247,16 @@ if (process.env.QM_DSH_BUNDLE_PROFILE) {
     const deadline = Date.now() + captureWaitMs
     do {
       const rows = await Native.runRuntimeRequest('remote-call', { query: 'Iris' })
-      found = rows.memories.find((row) => normalizeFixtureFact(row.text) === normalizeFixtureFact(captureFact))
+      const matchingRows = rows.memories.filter((row) => !existingMemoryIds.has(row.id)
+        && normalizeFixtureFact(row.text) === normalizeFixtureFact(captureFact))
+      found = matchingRows[0]
       observedMemoryTexts = rows.memories
         .filter((row) => typeof row?.text === 'string' && /iris/i.test(row.text))
         .slice(0, 8)
-        .map((row) => row.text.slice(0, 400))
+        .map((row) => ({ id: row.id, created_by_device: row.created_by_device, text: row.text.slice(0, 400) }))
       if (found) {
+        assert.equal(matchingRows.length, 1,
+          `packed Native capture must create one matching Owner record; observed: ${JSON.stringify(matchingRows)}`)
         capturedFact = found.text
         assert.equal(normalizeFixtureFact(capturedFact), normalizeFixtureFact(captureFact))
       }

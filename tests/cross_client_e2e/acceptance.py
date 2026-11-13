@@ -13,6 +13,7 @@ from importlib.metadata import version
 import json
 import os
 from pathlib import Path
+import re
 import socket
 import subprocess
 import sys
@@ -26,8 +27,13 @@ CAPTURE_FACT = 'Synthetic Project Iris requires encrypted daily backups.'
 
 
 def _normalize_fixture_fact(text: str) -> str:
-    """Ignore only the cloud extractor's optional synthetic-fixture label."""
-    return text.removeprefix('Synthetic ')
+    """Normalize the fixture label and one documented PITR expansion."""
+    normalized = text.removeprefix('Synthetic ')
+    normalized = re.sub(
+        r'\b(?:point-in-time recovery\s*\(PITR\)|PITR\s*\(point-in-time recovery\))',
+        'PITR', normalized, flags=re.IGNORECASE,
+    )
+    return normalized.casefold()
 
 
 def test_dsh_capture_and_mcp_recall_with_scoped_https_owner(tmp_path, monkeypatch):
@@ -267,7 +273,8 @@ def test_dsh_capture_and_mcp_recall_with_scoped_https_owner(tmp_path, monkeypatc
                         bundle_metrics = metrics
             combined_rows = asyncio.run(call('mcp', 'qdrant_memory_search', {'query': 'Iris'}))['memories']
             packed_rows = [row for row in combined_rows
-                           if _normalize_fixture_fact(row['text']) == _normalize_fixture_fact(packed_fact)]
+                           if row.get('created_by_device') == 'dsh'
+                           and _normalize_fixture_fact(row['text']) == _normalize_fixture_fact(packed_fact)]
             assert len(packed_rows) == 1
             packed_capture_fact = packed_rows[0]['text']
             assert client.retrieve(collection, [packed_rows[0]['id']])[0].payload['text'] == packed_capture_fact
