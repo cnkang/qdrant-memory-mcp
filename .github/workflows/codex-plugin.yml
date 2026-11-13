@@ -89,7 +89,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: cnkang/skills
-          ref: 7684609626c6f14c1bcd910e0a67fc931717b402
+          ref: a51242b027f1dea19e2c655e1a37cb780ef396e6
           path: .skill-source
           persist-credentials: false
       - name: Build immutable upstream skill snapshot
@@ -126,7 +126,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: cnkang/skills
-          ref: 7684609626c6f14c1bcd910e0a67fc931717b402
+          ref: a51242b027f1dea19e2c655e1a37cb780ef396e6
           path: .skill-source
           persist-credentials: false
       - run: python scripts/build_codex_plugin.py --validate
@@ -209,7 +209,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: cnkang/skills
-          ref: 7684609626c6f14c1bcd910e0a67fc931717b402
+          ref: a51242b027f1dea19e2c655e1a37cb780ef396e6
           path: .skill-source
           persist-credentials: false
       - name: Run the credential-free real CLI end-to-end
@@ -288,7 +288,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: cnkang/skills
-          ref: 7684609626c6f14c1bcd910e0a67fc931717b402
+          ref: a51242b027f1dea19e2c655e1a37cb780ef396e6
           path: .skill-source
           persist-credentials: false
       - name: Install pinned uv for compatibility E2E
