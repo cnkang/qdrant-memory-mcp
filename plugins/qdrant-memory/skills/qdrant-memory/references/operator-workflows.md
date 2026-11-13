@@ -9,7 +9,7 @@ installed Runtime CLI. Do not turn CLI maintenance into additional MCP tools.
 ## New isolated local profile
 
 Use this path only when the user wants a new profile and confirms a new
-user-controlled directory. The supported Runtime 0.6.0 `setup` command creates a
+user-controlled directory. The supported Runtime 0.6.2 `setup` command creates a
 private embedded profile and initializes its collection. It requires an
 explicit embedding-provider choice. For the recommended local CPU option:
 

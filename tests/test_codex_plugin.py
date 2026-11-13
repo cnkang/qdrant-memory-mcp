@@ -34,18 +34,23 @@ def _launcher_for_installed_distribution(tmp_path):
 
 def test_portable_package():
     """Keep plugin manifests, marketplace metadata, and dependency pins aligned."""
-    assert package.validate()["version"] == "0.1.3"
+    assert package.validate()["version"] == "0.1.4"
     marketplace = json.loads((ROOT / ".agents/plugins/marketplace.json").read_text())
     assert marketplace["name"] == "cnkang"
     assert marketplace["interface"]["displayName"] == "Kang's plugins"
     assert marketplace["plugins"][0]["source"]["path"] == "./plugins/qdrant-memory"
     release = json.loads((ROOT / "plugins/qdrant-memory/release.json").read_text())
-    assert release["plugin_version"] == "0.1.3"
-    assert release["skill_version"] == "0.4.1"
-    assert release["mcp_distribution_version"] == "0.3.1"
+    assert release["plugin_version"] == "0.1.4"
+    assert release["skill_version"] == "0.4.2"
+    assert release["mcp_distribution_version"] == "0.3.3"
     assert len(release["runtime_commit"]) == len(release["skill_commit"]) == 40
     requirements = (ROOT / "plugins/qdrant-memory/requirements.txt").read_text()
-    assert release["runtime_commit"] in requirements
+    assert (
+        f"hermes-plugin-qdrant-memory[mcp,local]=={release['runtime_version']}"
+        in requirements
+    )
+    assert release["runtime_commit"] not in requirements
+    assert "git+https://github.com/cnkang/hermes-plugin-qdrant-memory" not in requirements
     assert "qdrant-memory-mcp==" + release["mcp_distribution_version"] in requirements
 
 
@@ -447,7 +452,7 @@ def test_install_smoke_uses_resolved_cli_and_checks_lifecycle(
             (home / "config.toml").write_text("enabled = true\n")
             return json.dumps(
                 {
-                    "version": "invalid" if wrong_version else "0.1.3",
+                    "version": "invalid" if wrong_version else smoke.PLUGIN_VERSION,
                     "installedPath": str(cache),
                 }
             )
@@ -688,9 +693,9 @@ def test_launcher_rejects_stale_mcp_pin():
     script = """
 import { assertMcpVersion } from './plugins/qdrant-memory/launcher.mjs';
 import assert from 'node:assert/strict';
-const release = {mcp_distribution_version: '0.3.1'};
-assert.doesNotThrow(() => assertMcpVersion(release, '0.3.1'));
-assert.throws(() => assertMcpVersion(release, '0.3.0'), /setup skill/);
+const release = {mcp_distribution_version: '0.3.3'};
+assert.doesNotThrow(() => assertMcpVersion(release, '0.3.3'));
+assert.throws(() => assertMcpVersion(release, '0.3.2'), /setup skill/);
 console.log('PASS');
 """
     result = subprocess.run(

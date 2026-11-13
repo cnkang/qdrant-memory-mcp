@@ -4,7 +4,7 @@ description: Use, maintain and migrate Qdrant memories through MCP tools or a st
 license: MIT
 compatibility: Requires a configured Qdrant memory runtime and embedding service. Use scoped MCP tools or the qdrant-memory standalone CLI without Hermes. Existing Hermes tools and hermes qdrant-memory remain compatible. Install and configure the runtime separately.
 metadata:
-  version: "0.4.1"
+  version: "0.4.2"
 ---
 
 # Qdrant memory
@@ -24,7 +24,7 @@ Read only the reference needed for the request:
 | Search/save facts, replace/delete by exact ID, inspect provenance | [Usage](references/usage.md) | Scoped MCP/Hermes `qdrant_memory_*` tools or standalone CLI |
 | Status, diagnostics, inventory/export, authorized retry/scope deletion | [Maintenance](references/maintenance.md) | Standalone `qdrant-memory --home PROFILE` or existing Hermes CLI |
 | Mem0 JSON/collection dry-run, import, resume/retry-failed, verification | [Migration](references/migration.md) | Selected CLI's `migrate mem0` command |
-| Codex native v1/v2 inspection, migration, verified export and safe exit | [Codex portability](references/codex.md) | Runtime with `codex` CLI support; check `--help` |
+| Codex native v1/v2 inspection, migration, handoff or Owner candidate events | [Codex portability](references/codex.md) | Runtime CLI and, for Owner events, a separately verified adapter |
 
 Discover compatible scoped tools first. If absent, use the configured standalone
 CLI. Hermes's existing tools/CLI remain compatible. Read [runtime setup](references/runtime.md),
@@ -41,12 +41,13 @@ For DeepSeek Harness, read [DSH setup](references/dsh.md). For WorkBuddy, read
 DSH normally exposes `mcp__qdrant-memory__qdrant_memory_search` (and add, update,
 delete under the same prefix). A different configured server name changes that
 prefix. Match the discovered schema and raw tool suffix. Never invent a tool or
-strip scope checks. The published DSH MCP Bundle and Python overlay provide
+strip scope checks. The published DSH Bundle and Python/uvx overlay provide
 explicit memory tools and do not automatically capture or prefetch conversation
-turns. A separate unpublished native Cordis source preview adds opt-in capture
-and recall for a compatible Runtime; it is not supported by current published
-Runtime packages. Read [DSH setup](references/dsh.md) before describing that
-preview as available.
+turns. An unpublished source candidate in the same-name Bundle adds an optional
+Native lifecycle; it is not a separate Cordis package. `native-owner` exposes
+no MCP tools, while `unified-owner` combines the lifecycle with four explicit
+MCP tools. The candidate is not a published or release-ready install. Read
+[DSH setup](references/dsh.md) before describing it as available.
 
 ## Shared boundaries
 
@@ -72,7 +73,10 @@ Ordinary Hermes Native Provider capture does not automatically share private
 records. Runtime 0.5.0 Native Owner can capture to a project only through an
 explicitly approved grant rule and profile allowlist. For that path, read
 [Universal Owner](references/universal-owner.md). That reference describes
-Native Owner, HTTPS MCP, device credentials, and Pi lifecycle tests.
+Native Owner, HTTPS MCP, device credentials, Pi lifecycle tests, Runtime 0.6.1's
+extraction-v1 candidate-event contract, and Runtime 0.6.2's receipt-scoped
+failed-event recovery. It does not provide a Codex hook adapter or establish
+host acceptance.
 
 Loading this skill grants no save/edit/delete, retry/import, service-stop,
 overwrite, installation or configuration permission. Stay within the user's

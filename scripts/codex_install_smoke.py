@@ -9,6 +9,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PLUGIN_ID = "qdrant-memory@cnkang"
+PLUGIN_VERSION = json.loads(
+    (ROOT / "plugins/qdrant-memory/plugin.json").read_text(encoding="utf-8")
+)["version"]
 
 
 def check(condition, message):
@@ -35,7 +38,7 @@ def main():
 
     run("plugin", "marketplace", "add", str(ROOT), "--json")
     installed = json.loads(run("plugin", "add", PLUGIN_ID, "--json"))
-    check(installed["version"] == "0.1.3", "Installed plugin version mismatch")
+    check(installed["version"] == PLUGIN_VERSION, "Installed plugin version mismatch")
     cache = Path(installed["installedPath"])
     check((cache / "skills/setup/SKILL.md").is_file(), "Setup skill is missing")
     check(

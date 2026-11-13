@@ -15,6 +15,7 @@ import argparse
 import json
 import os
 import re
+import shlex
 import shutil
 import stat
 from pathlib import Path
@@ -23,9 +24,22 @@ import sys
 import venv
 from typing import Sequence
 
-VERSION = "0.6.0"
+VERSION = "0.6.2"
 PLUGIN_ID = "qdrant-memory"
 WINDOWS_ACL_UNVERIFIED = "Cannot verify the Windows parent ACL"
+WINDOWS_FILE_ACL_UNVERIFIED = "Cannot verify the Windows lock file ACL"
+
+
+def _require_darwin_allow_acl(path: Path) -> None:
+    """Reject a Darwin allow ACL that can override the file's mode bits."""
+    if sys.platform != "darwin":
+        return
+    result = subprocess.run(
+        ["/bin/ls", "-lde", str(path)], env={"LC_ALL": "C"},
+        check=True, capture_output=True, text=True, timeout=10,
+    )
+    if any(re.match(r"\s*\d+:.*\ballow\b", line) for line in result.stdout.splitlines()):
+        raise ValueError("Choose a private lock path without granting macOS ACL entries")
 
 
 def _require_private_mkdir() -> None:
@@ -39,37 +53,11 @@ def _require_private_mkdir() -> None:
         raise ValueError("Windows setup requires Python 3.11.10+, 3.12.4+, or 3.13+")
 
 
-def _require_private_parent(parent: Path) -> None:
-    """Reject native ACL grants that can undermine the private venv directory."""
-    if sys.platform == "darwin":
-        # Darwin allow ACLs can override mode 0700 and propagate to new children.
-        # Reject them before mkdir; do not change an operator's existing ACL.
-        result = subprocess.run(
-            ["/bin/ls", "-lde", str(parent)], env={"LC_ALL": "C"},
-            check=True, capture_output=True, text=True, timeout=10,
-        )
-        if any(re.match(r"\s*\d+:.*\ballow\b", line) for line in result.stdout.splitlines()):
-            raise ValueError("Choose a private parent without granting macOS ACL entries")
-    elif os.name == "nt":
-        import ctypes
-        from ctypes import wintypes
-
-        # Resolve the Windows binary through the OS, not cwd, PATH or SystemRoot
-        # from the caller. The script is constant; the path is environment data.
-        kernel = ctypes.WinDLL("kernel32", use_last_error=True)
-        kernel.GetWindowsDirectoryW.argtypes = [wintypes.LPWSTR, wintypes.UINT]
-        kernel.GetWindowsDirectoryW.restype = wintypes.UINT
-        directory = ctypes.create_unicode_buffer(32768)
-        length = kernel.GetWindowsDirectoryW(directory, len(directory))
-        if not length or length >= len(directory):
-            raise ValueError(WINDOWS_ACL_UNVERIFIED)
-        root = directory.value
-        powershell = Path(root) / "System32/WindowsPowerShell/v1.0/powershell.exe"
-        script = """
+_WINDOWS_ACL_SCRIPT = """
 $ErrorActionPreference = 'Stop'
-$acl = [System.IO.Directory]::GetAccessControl($env:QM_INSTALL_PARENT)
+$acl = [System.IO.__KIND__]::GetAccessControl($env:__VARIABLE__)
 $user = [System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value
-$owners = @($user, 'S-1-5-18', 'S-1-5-32-544')
+$owners = @($user, 'S-1-5-18', 'S-1-5-32-544', 'S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464')
 $owner = $acl.GetOwner([System.Security.Principal.SecurityIdentifier]).Value
 if ($owners -notcontains $owner) { exit 3 }
 $allowed = $owners + @('S-1-3-0', 'S-1-3-4')
@@ -84,20 +72,153 @@ foreach ($entry in $raw.DiscretionaryAcl) {
 }
 exit 0
 """
+
+
+def _require_windows_acl(path: Path, *, directory: bool, label: str) -> None:
+    """Reject a Windows DACL that grants other accounts write or delete access."""
+    if os.name != "nt":
+        return
+    unverified = WINDOWS_ACL_UNVERIFIED if directory else WINDOWS_FILE_ACL_UNVERIFIED
+    import ctypes
+    from ctypes import wintypes
+
+    # Resolve the Windows binary through the OS, not cwd, PATH or SystemRoot
+    # from the caller. The script is constant; the path is environment data.
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel.GetWindowsDirectoryW.argtypes = [wintypes.LPWSTR, wintypes.UINT]
+    kernel.GetWindowsDirectoryW.restype = wintypes.UINT
+    windows = ctypes.create_unicode_buffer(32768)
+    length = kernel.GetWindowsDirectoryW(windows, len(windows))
+    if not length or length >= len(windows):
+        raise ValueError(unverified)
+    root = windows.value
+    powershell = Path(root) / "System32/WindowsPowerShell/v1.0/powershell.exe"
+    kind = "Directory" if directory else "File"
+    variable = "QM_INSTALL_PARENT" if directory else "QM_INSTALL_FILE"
+    script = _WINDOWS_ACL_SCRIPT.replace("__KIND__", kind).replace("__VARIABLE__", variable)
+    try:
+        result = subprocess.run(
+            [str(powershell), "-NoProfile", "-NonInteractive", "-Command", script],
+            shell=False, env={"SystemRoot": root, "WINDIR": root, variable: str(path)},
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=30,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise ValueError(unverified) from exc
+    # Includes child deletion and permission changes, not only file writes.
+    if result.returncode == 3:
+        raise ValueError(f"Choose a {label} without other-account write ACL grants")
+    if result.returncode:
+        raise ValueError(unverified)
+
+
+def _require_private_parent(parent: Path) -> None:
+    """Reject native ACL grants that can undermine the private venv directory."""
+    if sys.platform == "darwin":
+        # Darwin allow ACLs can override mode 0700 and propagate to new children.
+        # Reject them before mkdir; do not change an operator's existing ACL.
+        result = subprocess.run(
+            ["/bin/ls", "-lde", str(parent)], env={"LC_ALL": "C"},
+            check=True, capture_output=True, text=True, timeout=10,
+        )
+        if any(re.match(r"\s*\d+:.*\ballow\b", line) for line in result.stdout.splitlines()):
+            raise ValueError("Choose a private parent without granting macOS ACL entries")
+    elif os.name == "nt":
+        _require_windows_acl(parent, directory=True, label="user-controlled parent")
+
+
+def _require_private_windows_file(path: Path) -> None:
+    """Reject a Windows lock file or replaceable ancestor with an unsafe DACL."""
+    _require_windows_acl(path, directory=False, label="lock file")
+    for ancestor in path.parents[1:]:
+        _require_windows_acl(ancestor, directory=True, label="lock ancestor")
+
+
+_COMMENT_LINE_RE = re.compile(r"(^|\s+)#.*$")
+_VALUE_OPTIONS = frozenset(
+    {
+        "-i",
+        "--index-url",
+        "--pypi-url",
+        "--extra-index-url",
+        "-f",
+        "--find-links",
+        "-e",
+        "--editable",
+        "--trusted-host",
+        "--no-binary",
+        "--only-binary",
+        "--hash",
+        "--config-settings",
+        "--global-option",
+        "--install-option",
+        "--progress-bar",
+        "--root",
+        "--target",
+        "--prefix",
+        "--src",
+        "--upgrade-strategy",
+        "--platform",
+        "--python-version",
+        "--implementation",
+        "--abi",
+        "--build",
+    }
+)
+
+
+def _is_include_option(token: str) -> bool:
+    """Return whether one pip option token selects another requirements file."""
+    name = token.split("=", 1)[0]
+    if name.startswith("--") and len(name) > 2:
+        return "--requirement".startswith(name) or "--constraint".startswith(name)
+    return name.startswith(("-r", "-c"))
+
+
+def _logical_lock_lines(text: str):
+    """Join backslash continuations the way pip does before option scanning."""
+    pending = None
+    for line in text.splitlines():
+        if not line.endswith("\\") or _COMMENT_LINE_RE.match(line):
+            if _COMMENT_LINE_RE.match(line):
+                # Keep comments separate; pip does not continue them.
+                line = " " + line
+            if pending is not None:
+                yield pending + line
+                pending = None
+            else:
+                yield line
+        else:
+            pending = (pending or "") + line.strip("\\")
+    if pending is not None:
+        yield pending
+
+
+def _require_self_contained_lock(lock: Path) -> None:
+    """Reject a lock that would make pip read another, unvalidated file."""
+    try:
+        text = lock.read_text(encoding="utf-8", errors="replace")
+    except OSError as exc:
+        raise ValueError("Cannot read the requirements lock") from exc
+    for line in _logical_lock_lines(text):
+        stripped = _COMMENT_LINE_RE.sub("", line).strip()
+        if not stripped:
+            continue
         try:
-            result = subprocess.run(
-                [str(powershell), "-NoProfile", "-NonInteractive", "-Command", script],
-                shell=False, env={"SystemRoot": root, "WINDIR": root, "QM_INSTALL_PARENT": str(parent)},
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=30,
-            )
-        except subprocess.TimeoutExpired as exc:
-            raise ValueError(WINDOWS_ACL_UNVERIFIED) from exc
-        # Includes child deletion and permission changes, not only file writes.
-        # A readable parent is allowed; the new root has its own private DACL.
-        if result.returncode == 3:
-            raise ValueError("Choose a user-controlled parent without other-account write ACL grants")
-        if result.returncode:
-            raise ValueError(WINDOWS_ACL_UNVERIFIED)
+            tokens = shlex.split(stripped, comments=False, posix=True)
+        except ValueError as exc:
+            raise ValueError("Cannot parse the requirements lock") from exc
+        skip_value = False
+        for token in tokens:
+            if skip_value:
+                skip_value = False
+                continue
+            if token in _VALUE_OPTIONS:
+                skip_value = True
+                continue
+            if _is_include_option(token):
+                raise ValueError(
+                    "--requirements-lock must be self-contained; remove -r/-c includes"
+                )
 
 
 def _release_key(version: str) -> tuple[int, int, int]:
@@ -440,8 +561,54 @@ def _resolve_lock(parser: argparse.ArgumentParser, args: argparse.Namespace) -> 
     if not args.requirements_lock:
         return None
     lock = args.requirements_lock.expanduser().resolve()
-    if not lock.is_file():
+    try:
+        info = lock.stat()
+    except OSError:
         parser.error("--requirements-lock must name a trusted requirements file")
+    if not stat.S_ISREG(info.st_mode):
+        parser.error("--requirements-lock must name a regular file")
+    try:
+        _require_private_parent(lock.parent)
+        _require_darwin_allow_acl(lock)
+        _require_private_windows_file(lock)
+        _require_self_contained_lock(lock)
+    except (ValueError, OSError, subprocess.SubprocessError) as exc:
+        parser.error(str(exc) or "Cannot verify the requirements-lock permissions")
+    if os.name != "nt":
+        try:
+            parent_info = lock.parent.stat()
+        except OSError:
+            parser.error("--requirements-lock directory must be accessible")
+        if (
+            not stat.S_ISDIR(parent_info.st_mode)
+            or parent_info.st_uid != os.getuid()
+            or parent_info.st_mode & 0o022
+        ):
+            parser.error("--requirements-lock must be in a private, user-owned directory")
+        for ancestor in lock.parents:
+            try:
+                ancestor_info = ancestor.stat()
+            except OSError:
+                parser.error("--requirements-lock directory must be accessible")
+            if (
+                not stat.S_ISDIR(ancestor_info.st_mode)
+                or (
+                    ancestor_info.st_mode & 0o022
+                    and not ancestor_info.st_mode & 0o1000
+                )
+                or ancestor_info.st_uid not in {os.getuid(), 0}
+            ):
+                parser.error(
+                    "--requirements-lock must not sit under a directory writable or replaceable by another account"
+                )
+            try:
+                _require_darwin_allow_acl(ancestor)
+            except (ValueError, OSError, subprocess.SubprocessError) as exc:
+                parser.error(str(exc) or "Cannot verify the requirements-lock path")
+        if info.st_uid != os.getuid() or info.st_mode & 0o022:
+            parser.error(
+                "--requirements-lock must be owned by the current user and not group/world-writable"
+            )
     return lock
 
 
@@ -490,10 +657,9 @@ def _create_venv(target: Path) -> None:
 def _pip_selection(target: Path, requirement: str, lock: Path | None) -> tuple[list[str], Path]:
     """Return the pip arguments and working directory for the install."""
     if lock:
-        # Read the operator's lock in place: relative includes and local
-        # artifact paths must resolve against its own directory.
-        lock_path = Path(lock).resolve()
-        return ["--require-hashes", "--only-binary=:all:", "-r", str(lock_path)], lock_path.parent
+        # Use the already resolved and validated path. Re-resolving here could
+        # follow a replacement between validation and pip's read.
+        return ["--require-hashes", "--only-binary=:all:", "-r", str(lock)], lock.parent
     # Keep the requested version out of the argv; pip reads it from a
     # file this installer writes inside the private venv root.
     requirement_file = target / "runtime-requirements.txt"

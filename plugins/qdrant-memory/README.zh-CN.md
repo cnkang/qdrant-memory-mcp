@@ -13,9 +13,9 @@ Marketplace 展示名为 **Kang's plugins**，标识为 `cnkang`；安装选择�
 `qdrant-memory@cnkang`。
 其中 `test_evidence` 路径相对于插件 ZIP 根目录（`VERIFICATION.md`）。
 采用可移植 Agent Plugins 格式、Node 20+ stdio 启动层和已有 Python 3.11+ Runtime。
-安装还需要 uv 和 PATH 中可用的 Git，以获取锁定提交的 Runtime 源码。
-插件候选版本为 0.1.3，固定使用 MCP 0.3.1、Runtime 0.6.0、Skill 0.4.1 及 `release.json`
-中的不可变源码提交；安装前确认准确依赖版本已公开。没有新增记忆引擎；
+插件通过公开 PyPI 安装精确锁定的 MCP 0.3.3 和 Runtime 0.6.2；安装不需要 Git 或源码构建。
+`release.json` 中不可变源码提交仅用于记录来源。插件候选版本为 0.1.4，固定使用
+MCP 0.3.3、Runtime 0.6.2 和 Skill 0.4.2。没有新增记忆引擎；
 Hermes、DSH 和 WorkBuddy 按各自的版本及验收门禁独立发布。
 
 每次更新插件后，重新执行下方固定的 `uv pip install` 命令，再重新连接。
