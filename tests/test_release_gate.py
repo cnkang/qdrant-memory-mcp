@@ -146,6 +146,10 @@ def test_release_gate_ignores_other_shas_branches_and_events():
         + [  # a pull request run for this commit
             _run(name, event="pull_request", branch=None) for name in REQUIRED_WORKFLOWS
         ]
+        + [  # manual compatibility overrides are not release evidence
+            _run(name, event="workflow_dispatch", branch="main")
+            for name in REQUIRED_WORKFLOWS
+        ]
     )
     report = check_release_gate("cnkang/qdrant-memory-mcp", SHA, fetch=_fetch(runs))
     assert report["passed"] is False

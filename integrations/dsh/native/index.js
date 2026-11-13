@@ -8,7 +8,7 @@ export const name = 'qdrant-memory-dsh-native'
 export const inject = ['agents', 'llm', 'sessionQuery', 'sessions']
 
 export const CANDIDATE_SCHEMA = 'qdrant-memory/extraction-v1'
-const RETRYABLE_OWNER_EVENT_STATUSES = new Set(['ACCEPTED', 'PENDING'])
+const RETRYABLE_OWNER_EVENT_STATUSES = new Set(['ACCEPTED', 'PENDING', 'FAILED'])
 export const SUPPORTED_DSH_RELEASE = '0.2.2-rc.1'
 /** Session plugin record carrying the last durably captured turn number. */
 export const RECOVERY_PROGRESS_RECORD = 'plugin:qdrant-memory/recovery-progress'

@@ -40,6 +40,33 @@ The DSH Owner implementation is imported from the installed wheel. The
 post-merge protected main-only smoke passed; this is partial Cloud evidence,
 not final DSH acceptance.
 
+## Live repository evidence (2026-11-13)
+
+The latest fetched MCP `main` is `7571bc73a4cdd8d5059ba6cc4664b1837ee02566`.
+On that exact SHA, [DSH Native run 43344866002](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/43344866002)
+passed all four Linux x64, macOS 15 ARM64, and Windows x64 jobs, including the
+Node 24.9.0 floor; none of those jobs had skipped or cancelled steps.
+[DSH cross-client run 43344866057](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/43344866057)
+also passed its real DSH AgentLoop, HTTPS Owner, and Docker Qdrant job with no
+skipped or cancelled steps. Its model is deterministic, so it is not evidence
+for full live-model acceptance.
+
+The public npm registry still reports
+`@cnkang/qdrant-memory-dsh-bundle@latest` as `0.1.6`; no Native or `0.2.0-rc.1`
+bundle has been published. Official DSH reports `latest=0.2.2-rc.1` and
+`next=0.2.2-rc.2`. The last protected Cloud smoke remains run 43326521742 on
+MCP SHA `84ba8cb8b32679265077c1af0ff0187f04dcb480`; it passed one real-model
+synthetic case with zero skips, but did not cover Cloud UPDATE/CONFLICT or the
+Hermes/Codex-to-DSH directions. These remain release blockers.
+
+The compatibility workflows expose optional manual inputs. Cross-client
+acceptance defaults to the public Runtime 0.6.2 source and keeps 0.6.1 only as
+a manual compatibility fixture; the `next` probe retains DSH `next`, Node 24,
+Python 3.11, and its existing pnpm fallback. The required Native matrix,
+protected Cloud environment, bundle release toolchain, action SHAs, package
+integrity data, and product Runtime constraints remain fixed. Manual override
+runs do not satisfy the exact-main push release gate.
+
 ## Implemented candidate
 
 The candidate remains `@cnkang/qdrant-memory-dsh-bundle@0.2.0-rc.1`; the

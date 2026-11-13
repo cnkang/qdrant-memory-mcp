@@ -1006,7 +1006,7 @@ test('recovery takeover preserves the slice for a different executing turn', { t
   assert.equal(handlers.size, 0)
 })
 
-test('pending Owner receipts retry the stored plan while failed and quarantined wait for Owner recovery', async () => {
+test('accepted, pending and failed Owner receipts retry the stored plan while quarantined waits for operator recovery', async () => {
   const events = [
     { type: 'turn/start', seq: 1, data: { turn: 1 } },
     { type: 'user/message', seq: 2, data: {
@@ -1057,7 +1057,7 @@ test('pending Owner receipts retry the stored plan while failed and quarantined 
       if (options.action === 'status') return { status }
       if (options.action === 'retry') {
         retryCalls += 1
-        return { status }
+        return { status: status === 'FAILED' ? 'PENDING' : status }
       }
       throw new Error('unexpected Owner action')
     })
@@ -1068,7 +1068,7 @@ test('pending Owner receipts retry the stored plan while failed and quarantined 
         data: { turn: 1, reason: { kind: 'completed' } },
       })
       assert.equal(extractionCalls, 0, status)
-      assert.equal(retryCalls, status === 'PENDING' ? 1 : 0, status)
+      assert.equal(retryCalls, status === 'QUARANTINED' ? 0 : 1, status)
       assert.equal(dispose.metrics().capture_failed, 1, status)
     } finally {
       dispose()
@@ -1076,6 +1076,80 @@ test('pending Owner receipts retry the stored plan while failed and quarantined 
     assert.equal(typeof cleanup, 'function', status)
     assert.equal(handlers.size, 0, status)
   }
+})
+
+test('failed Owner receipt retries its stored plan without re-extracting the turn', async () => {
+  const events = [
+    { type: 'turn/start', seq: 1, data: { turn: 1 } },
+    { type: 'user/message', seq: 2, data: {
+      source: { kind: 'user' },
+      content: [{ type: 'text', text: 'Remember the retained fact.' }],
+    } },
+    { type: 'assistant/message', seq: 3, data: {
+      turn: 1,
+      message: {
+        source: { kind: 'model', provider: 'provider-a', model: 'model-a' },
+        content: [{ type: 'text', text: 'Acknowledged.' }],
+      },
+    } },
+    { type: 'turn/end', seq: 4, data: { turn: 1, reason: { kind: 'completed' } } },
+  ]
+  const handlers = new Map()
+  let cleanup
+  let extractionCalls = 0
+  let retryCalls = 0
+  let retryPayload
+  const session = { id: 'failed-receipt-retry' }
+  const ctx = {
+    on(event, handler) {
+      handlers.set(event, handler)
+      return () => handlers.delete(event)
+    },
+    effect(register) { cleanup = register() },
+    logger: { warn() {} },
+    llm: {
+      async *stream() {
+        extractionCalls += 1
+        yield { type: 'finish', reason: { kind: 'stop' } }
+      },
+    },
+    sessions: { flush: async () => true },
+    sessionQuery: { readSession: async () => ({ events }) },
+    agents: { get() { return undefined }, list() { return [] } },
+  }
+  const agent = {
+    session,
+    model: { current: () => ({ provider: 'provider-a', model: 'model-a' }) },
+  }
+  const config = {
+    ...DEFAULT_CONFIG,
+    auto_capture: { ...DEFAULT_CONFIG.auto_capture, enabled: true },
+  }
+  const dispose = apply(ctx, config, async (_mode, payload, options) => {
+    if (options.action === 'status') return { status: 'FAILED' }
+    if (options.action === 'retry') {
+      retryCalls += 1
+      retryPayload = payload
+      return { status: 'COMMITTED' }
+    }
+    throw new Error('failed receipts must reuse the stored Owner plan')
+  })
+  try {
+    handlers.get('agent/created')({ agent })
+    await handlers.get('session/event')(session, {
+      type: 'turn/end',
+      data: { turn: 1, reason: { kind: 'completed' } },
+    })
+    assert.equal(extractionCalls, 0)
+    assert.equal(retryCalls, 1)
+    assert.deepEqual(retryPayload, { event_id: compileTurn(events, session.id, 1).event_id })
+    assert.equal(dispose.metrics().capture_failed, 0)
+    assert.equal(dispose.metrics().capture_events_committed, 1)
+  } finally {
+    dispose()
+  }
+  assert.equal(typeof cleanup, 'function')
+  assert.equal(handlers.size, 0)
 })
 
 test('an accepted receipt that remains failed is counted without re-extraction', async () => {

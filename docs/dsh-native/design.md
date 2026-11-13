@@ -6,8 +6,8 @@
 
 This is an opt-in source preview. The native package source is merged to `main`
 but the npm package remains private and unpublished. It targets DSH
-`0.2.2-rc.1`, Node.js `>=24.9.0`, and Python Runtime 0.6.1 or newer for
-versioned candidate events and durable receipt retries. Runtime 0.6.1 is
+`0.2.2-rc.1`, Node.js `>=24.9.0`, and Python Runtime 0.6.2 or newer for
+versioned candidate events and receipt-scoped failed-operation retries. Runtime 0.6.2 is
 published on PyPI. API review used the
 official DSH release tag commit
 `66491b05e3f05ad35bcdd4f6cd7ed26041d9e3db` and checked the merged source at
