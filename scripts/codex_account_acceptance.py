@@ -159,6 +159,7 @@ def validate_calls(calls, required_tool, expected_arguments, expected_memory=Non
             actual_fields = set(actual_arguments)
             shared_fields = expected_fields & actual_fields
             details = {
+                "tool": required_tool,
                 "missing_fields": sorted(expected_fields - actual_fields, key=str),
                 "unexpected_fields": sorted(actual_fields - expected_fields, key=str),
                 "value_mismatch_fields": sorted(
@@ -180,6 +181,7 @@ def validate_calls(calls, required_tool, expected_arguments, expected_memory=Non
             }
         else:
             details = {
+                "tool": required_tool,
                 "expected_type": type(expected_arguments).__name__,
                 "observed_type": type(actual_arguments).__name__,
             }
@@ -614,9 +616,12 @@ def run(args):
         command(setup, env, work)
         runtime = args.runtime.resolve()
         before_add = inventory(runtime, profile, env, work)
-        fact = "Codex plugin acceptance preference: blue ceramic teacup."
+        fact = "Codex plugin acceptance preference blue ceramic teacup"
         first = case(
-            f"Call the qdrant-memory plugin's qdrant_memory_add tool exactly once to save exactly: {fact} "
+            "Call the qdrant-memory plugin's qdrant_memory_add tool exactly once. "
+            "Set its text argument to the value of this JSON string, copying the contents "
+            f"exactly without the surrounding quotes: {json.dumps(fact)}. "
+            "Do not paraphrase, normalize, or add punctuation. "
             "Use only that tool. Do not call qdrant_memory_search, qdrant_memory_update, "
             "qdrant_memory_delete, shell, or any other tool before or after. "
             "This is approved synthetic test data. Report the tool result.",
@@ -637,8 +642,10 @@ def run(args):
             "agent_id": "codex-fixture",
         }
         second = case(
-            "In the qdrant-memory plugin, call qdrant_memory_search exactly once with query exactly: "
-            "blue ceramic teacup. Use only that tool. Do not save, update, delete, or call any "
+            "In the qdrant-memory plugin, call qdrant_memory_search exactly once. "
+            "Set its query argument to the value of this JSON string, copying the contents "
+            'exactly without the surrounding quotes: "blue ceramic teacup". '
+            "Use only that tool. Do not save, update, delete, or call any "
             "other memory tool. Report the retrieved fact and ID.",
             "qdrant_memory_search",
             env,
@@ -709,10 +716,12 @@ def run(args):
         )
         verify_handoff_snapshot(output, pre_export)
         before_update = inventory(runtime, profile, env, work)
-        replacement = "Codex plugin acceptance preference: amber ceramic teacup."
+        replacement = "Codex plugin acceptance preference amber ceramic teacup"
         updated = case(
             f"Using only qdrant-memory, call qdrant_memory_update exactly once for ID {identifier} "
-            f"with text exactly: {replacement} "
+            "Set its text argument to the value of this JSON string, copying the contents "
+            f"exactly without the surrounding quotes: {json.dumps(replacement)}. "
+            "Do not paraphrase, normalize, or add punctuation. "
             "Do not call qdrant_memory_search, qdrant_memory_add, qdrant_memory_delete, shell, "
             "or any other tool before or after. This update to the synthetic test fact is "
             "approved. Do not change other records.",

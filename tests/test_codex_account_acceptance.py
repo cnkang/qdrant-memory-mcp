@@ -275,6 +275,7 @@ def test_argument_mismatch_diagnostic_names_fields_without_values():
     assert "MCP operation arguments differ" in message
     details = json.loads(message.split(": ", 1)[1])
     assert details == {
+        "tool": "qdrant_memory_add",
         "missing_fields": [],
         "unexpected_fields": ["extra"],
         "value_mismatch_fields": ["text"],
