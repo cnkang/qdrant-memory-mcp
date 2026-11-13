@@ -123,9 +123,32 @@ def test_codex_toolchain_versions_are_optional_and_have_validated_defaults():
         for step in compatibility["steps"]
         if step.get("name") == "Run the credential-free real CLI compatibility end-to-end"
     )
-    assert "uv==0.13.6" in uv_setup["run"]
-    assert uv_setup["run"].index("uv==0.13.6") < uv_setup["run"].index("uv --version")
+    uv_install = (
+        "python -m pip install --require-hashes --only-binary=:all: "
+        "-r .github/requirements-uv-ci.txt"
+    )
+    assert uv_install in uv_setup["run"]
+    assert uv_setup["run"].index(uv_install) < uv_setup["run"].index("uv --version")
     assert compatibility["steps"].index(uv_setup) < compatibility["steps"].index(e2e)
+
+
+def test_codex_e2e_lanes_install_uv_from_its_hash_lock():
+    """Both real-CLI lanes install the same hash-locked uv release."""
+    source = (ROOT / ".github/requirements-uv-ci.in").read_text(encoding="utf-8")
+    lock = (ROOT / ".github/requirements-uv-ci.txt").read_text(encoding="utf-8")
+    pins = [line for line in source.splitlines() if line and not line.startswith("#")]
+    assert pins == ["uv==0.13.6"]
+    assert "uv==0.13.6 \\\n    --hash=sha256:" in lock
+    workflow = _workflow("codex-plugin.yml")
+    for job_name in ("lifecycle-e2e", "compatibility-probe"):
+        runs = [step.get("run", "") for step in workflow["jobs"][job_name]["steps"]]
+        uv_runs = [run for run in runs if "uv==" in run or "requirements-uv-ci" in run]
+        assert uv_runs, job_name
+        assert all(
+            "--require-hashes" in run and "-r .github/requirements-uv-ci.txt" in run
+            for run in uv_runs
+        ), job_name
+        assert not any("uv==" in run for run in uv_runs), job_name
 
 
 def test_dsh_compatibility_probe_resolves_selected_host_into_its_lock():

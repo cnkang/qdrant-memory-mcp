@@ -203,7 +203,7 @@ jobs:
           (cd "$install_dir" && npm ci --ignore-scripts --no-audit --no-fund)
           node -e 'const p=require(process.argv[1]+"/node_modules/@openai/codex/package.json"); if(p.version!==process.argv[2]) throw new Error("expected "+process.argv[2]+", got "+p.version)' "$install_dir" "$CODEX_CLI_VERSION"
           echo "$install_dir/node_modules/.bin" >> "$GITHUB_PATH"
-      - run: "python -m pip install --only-binary=:all: uv==0.13.6"
+      - run: "python -m pip install --require-hashes --only-binary=:all: -r .github/requirements-uv-ci.txt"
       - run: "python -m pip install --require-hashes --only-binary=:all: -r .github/requirements-sonar-ci.txt"
       - run: "python -m pip install --only-binary=:all: --no-deps --no-build-isolation ."
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -293,7 +293,7 @@ jobs:
           persist-credentials: false
       - name: Install pinned uv for compatibility E2E
         run: |
-          python -m pip install --only-binary=:all: uv==0.13.6
+          python -m pip install --require-hashes --only-binary=:all: -r .github/requirements-uv-ci.txt
           uv --version
       - name: Run the credential-free real CLI compatibility end-to-end
         id: e2e

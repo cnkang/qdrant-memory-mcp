@@ -1,0 +1,3 @@
+# Source pin for requirements-uv-ci.txt (Python 3.11). Regenerate the lock with:
+#   cd .github && uv pip compile --universal --python-version 3.11 --generate-hashes requirements-uv-ci.in -o requirements-uv-ci.txt
+uv==0.13.6
