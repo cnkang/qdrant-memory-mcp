@@ -3,8 +3,9 @@
 ## Latest status update (2026-11-13)
 
 The public plugin remains **0.1.3**. A 0.1.4 source candidate is being prepared
-against MCP 0.3.3, Runtime 0.6.2 and the pinned Skill 0.4.2 snapshot; it is not
-published. A fresh Python 3.11 environment installed MCP 0.3.3 and Runtime
+against MCP 0.3.3, Runtime 0.6.2 and the pinned Skill 0.4.3 snapshot
+(`skills-20261113.1`, commit `a51242b027f1dea19e2c655e1a37cb780ef396e6`); it is
+not published. A fresh Python 3.11 environment installed MCP 0.3.3 and Runtime
 0.6.2 from public PyPI and passed `uv pip check`; the final clean 0.1.4 ZIP,
 protected Cloud acceptance, and Creator readback are still pending.
 MCP 0.3.3 passed its exact-main release gate at
@@ -75,6 +76,11 @@ working-tree candidate evidence, not an exact-commit artifact or GitHub CI
 result. It does not replace protected Cloud, Creator-normalization or Desktop
 GUI acceptance. The MCP lifecycle portion drives the launcher directly with
 the test SDK; it does not prove Codex itself launched the configured process.
+This run predates the Skill 0.4.3 pin: it packaged Skill 0.4.2 at
+`f06db94b334e17c50b74dce66b9b919132301183`. Skill 0.4.3 later changed the
+bundled installer's Windows ACL checks and the DSH reference, so the ZIP
+digest above and this run do not cover the current 0.1.4 candidate, which
+still needs its own run.
 
 ## Candidate verification run (2026-11-09, codex/plugin-readiness-20261109)
 
