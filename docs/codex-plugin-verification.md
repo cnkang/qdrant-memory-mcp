@@ -1,5 +1,33 @@
 # Qdrant Memory for Codex: engineering and acceptance record
 
+## Latest status update (2026-11-13)
+
+The public plugin remains **0.1.3**. A 0.1.4 source candidate is being prepared
+against MCP 0.3.3, Runtime 0.6.2 and the pinned Skill 0.4.2 snapshot; it is not
+published, and no clean release ZIP or public install has been accepted yet.
+MCP 0.3.3 passed its exact-main release gate at
+`7571bc73a4cdd8d5059ba6cc4664b1837ee02566` and is published on public PyPI and
+the MCP Registry. A fresh public-PyPI install was verified; the GitHub Release
+`v0.3.3` remains a draft with the WorkBuddy connector artifacts.
+
+The user manually verified the 0.1.3 setup and tool flow in Codex Desktop,
+including setup in an isolated profile and subsequent memory operations. That
+evidence applies to 0.1.3 only. The 0.1.4 candidate still needs its own Desktop
+acceptance; it must not inherit the earlier result.
+
+The Codex CI workflow keeps its required package, merged-package and lifecycle
+lanes fixed at Node 22, Python 3.11 and Codex CLI 0.167.2. Optional manual
+inputs select Node 22/24, Python 3.11/3.14 and Codex CLI 0.167.2/0.165.0 only
+for a separate compatibility probe. The selected values are validated against
+those choices and the CLI is installed from checked-in integrity-locked files.
+Protected Cloud acceptance remains fixed. Product, Runtime, MCP, Skill, action
+SHA and dependency-lock pins remain source-controlled release inputs.
+
+Plugin Creator currently serves the private 0.1.1 release
+(`pluginrel_6ae9912881d88191a204e9889eb09b30`); its normalized `.mcp.json` has
+an empty environment map. The eight Codex environment names have not been
+verified in a Creator-normalized candidate.
+
 ## Candidate verification run (2026-11-09, codex/plugin-readiness-20261109)
 
 Environment: macOS 27.2 Apple Silicon (arm64), Codex CLI 0.165.0, Node 24.18.0,
@@ -70,9 +98,11 @@ Codex-specific passthrough and the CLI demonstrably surfaces all eight names
 (above). The submission portal "derives `.mcp.json` and
 `.codex-plugin/plugin.json` from root `plugin.json` and `mcp.json`" for
 portable packages, which matches the recorded 0.1.1 Creator normalization
-(`env: {}`); no Creator-side evidence exists showing the eight names survive
-that derivation for this candidate, so Creator-normalized forwarding stays
-**NOT VERIFIED** and the source/Marketplace ZIP remains the validated path.
+(`env: {}`). The current private Creator release still reads back with `env: {}`;
+no Creator-side evidence shows the eight names survive normalization for the
+0.1.4 candidate. Creator-normalized forwarding stays **NOT VERIFIED**. The
+0.1.3 repository Marketplace/source ZIP remains the validated delivery path;
+the 0.1.4 source candidate still requires its own package and install evidence.
 
 ### Hooks research conclusion (drives Mode B separation)
 
@@ -661,9 +691,9 @@ performed during review remediation.
 - Automatic native bulk writeback: no stable public plugin API was verified in
   the inspected Codex source/docs. Internal note handlers and SQLite/generated
   file edits are not substitutes. The CLI reports native import UNSUPPORTED.
-- Desktop UI acceptance: the available Computer Use tool explicitly rejected
-  control of `com.openai.codex` for safety reasons. No alternate UI mechanism was
-  used to bypass that restriction. CLI evidence does not count as Desktop proof.
+- Desktop UI acceptance for plugin 0.1.4: the user's manual Codex Desktop test
+  verified the earlier public 0.1.3 setup and tool flow. It does not verify this
+  newer candidate, which still needs a fresh Desktop install and acceptance run.
 - Official public-directory release: local MCP submissions require approved
   partner allowlisting, verified publication identity and remaining preparation.
   The private Plugin Creator candidate is not a public-directory approval.

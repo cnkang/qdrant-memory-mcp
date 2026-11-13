@@ -95,7 +95,7 @@ def validate(root=PLUGIN, files=None):
     manifest = json.loads(read("plugin.json"))
     mcp = json.loads(read("mcp.json"))
     require(manifest["name"] == "qdrant-memory", "Invalid plugin name")
-    require(manifest["version"] == "0.1.3", "Invalid plugin version")
+    require(manifest["version"] == "0.1.4", "Invalid plugin version")
     require(
         not {"skills", "mcpServers", "apps", "interface"} & manifest.keys(),
         "Invalid manifest fields",
@@ -462,7 +462,7 @@ def main():
     """Build the pinned plugin archive or validate its offline invariants."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--output", type=Path, default=ROOT / "dist/qdrant-memory-codex-0.1.3.zip"
+        "--output", type=Path, default=ROOT / "dist/qdrant-memory-codex-0.1.4.zip"
     )
     parser.add_argument("--skill-repo", type=Path)
     parser.add_argument("--validate", action="store_true")

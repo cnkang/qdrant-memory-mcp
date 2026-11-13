@@ -33,17 +33,86 @@ def test_codex_cli_probe_accepts_only_hash_locked_stable_versions():
         step = next(
             step
             for step in workflow["jobs"][job_name]["steps"]
-            if step.get("name") == "Install hash-locked Codex CLI version"
+            if step.get("name") == "Install fixed hash-locked Codex CLI version"
         )
-        assert (
-            step["env"]["CODEX_CLI_VERSION"]
-            == "${{ github.event.inputs.codex_cli_version || '0.167.2' }}"
-        )
-        assert "checked-in dependency lock" in step["run"]
+        assert step["env"]["CODEX_CLI_VERSION"] == "0.167.2"
+        assert '.github/codex-cli-locks/${CODEX_CLI_VERSION}' in step["run"]
         assert 'cd "$install_dir" && npm ci' in step["run"]
         assert "package-lock.json" in step["run"]
         assert "--ignore-scripts" in step["run"]
         assert "node_modules/.bin" in step["run"]
+
+    compatibility = workflow["jobs"]["compatibility-probe"]
+    assert compatibility["if"] == (
+        "${{ github.event_name == 'workflow_dispatch' && "
+        "(inputs.node_version != '22' || inputs.python_version != '3.11' || "
+        "inputs.codex_cli_version != '0.167.2') }}"
+    )
+    selected = next(
+        step
+        for step in compatibility["steps"]
+        if step.get("name") == "Install selected hash-locked Codex CLI version"
+    )
+    assert (
+        compatibility["env"]["CODEX_CLI_VERSION"]
+        == "${{ inputs.codex_cli_version || '0.167.2' }}"
+    )
+    assert '.github/codex-cli-locks/${CODEX_CLI_VERSION}' in selected["run"]
+    assert 'cd "$install_dir" && npm ci' in selected["run"]
+    assert "package-lock.json" in selected["run"]
+    assert "--ignore-scripts" in selected["run"]
+
+
+def test_codex_toolchain_versions_are_optional_and_have_validated_defaults():
+    workflow = _workflow("codex-plugin.yml")
+    inputs = workflow["on"]["workflow_dispatch"]["inputs"]
+    assert inputs["node_version"]["default"] == "22"
+    assert inputs["node_version"]["required"] == "false"
+    assert inputs["node_version"]["type"] == "choice"
+    assert inputs["node_version"]["options"] == ["22", "24"]
+    assert inputs["python_version"]["default"] == "3.11"
+    assert inputs["python_version"]["required"] == "false"
+    assert inputs["python_version"]["type"] == "choice"
+    assert inputs["python_version"]["options"] == ["3.11", "3.14"]
+    for job_name in ("portable", "merged-package", "lifecycle-e2e"):
+        steps = workflow["jobs"][job_name]["steps"]
+        node_setup = next(
+            step for step in steps if step.get("uses", "").startswith("actions/setup-node@")
+        )
+        python_setup = next(
+            step for step in steps if step.get("uses", "").startswith("actions/setup-python@")
+        )
+        assert node_setup["with"]["node-version"] == "22"
+        assert python_setup["with"]["python-version"] == "3.11"
+        assert "inputs." not in json.dumps(workflow["jobs"][job_name])
+
+    compatibility = workflow["jobs"]["compatibility-probe"]
+    assert compatibility["name"] == "Optional manual toolchain compatibility probe"
+    assert compatibility["env"] == {
+        "CODEX_PLUGIN_NODE_VERSION": "${{ inputs.node_version || '22' }}",
+        "CODEX_PLUGIN_PYTHON_VERSION": "${{ inputs.python_version || '3.11' }}",
+        "CODEX_CLI_VERSION": "${{ inputs.codex_cli_version || '0.167.2' }}",
+    }
+    validation = next(
+        step
+        for step in compatibility["steps"]
+        if step.get("name") == "Validate selected compatibility versions"
+    )
+    assert "22|24" in validation["run"]
+    assert "3.11|3.14" in validation["run"]
+    assert "0.167.2|0.165.0" in validation["run"]
+    node_setup = next(
+        step
+        for step in compatibility["steps"]
+        if step.get("uses", "").startswith("actions/setup-node@")
+    )
+    python_setup = next(
+        step
+        for step in compatibility["steps"]
+        if step.get("uses", "").startswith("actions/setup-python@")
+    )
+    assert node_setup["with"]["node-version"] == "${{ env.CODEX_PLUGIN_NODE_VERSION }}"
+    assert python_setup["with"]["python-version"] == "${{ env.CODEX_PLUGIN_PYTHON_VERSION }}"
 
 
 def test_dsh_compatibility_probe_resolves_selected_host_into_its_lock():
@@ -97,6 +166,18 @@ def test_protected_cloud_acceptance_keeps_a_fixed_codex_cli_version():
         if step.get("name") == "Install the declared Runtime and pinned Codex"
     )
     assert install["env"]["CODEX_CLI_VERSION"] == "0.167.2"
+    node_setup = next(
+        step
+        for step in workflow["jobs"]["cloud"]["steps"]
+        if step.get("uses", "").startswith("actions/setup-node@")
+    )
+    python_setup = next(
+        step
+        for step in workflow["jobs"]["cloud"]["steps"]
+        if step.get("uses", "").startswith("actions/setup-python@")
+    )
+    assert node_setup["with"]["node-version"] == "22"
+    assert python_setup["with"]["python-version"] == "3.11"
     assert 'cd "$install_dir" && npm ci' in install["run"]
     assert "package-lock.json" in install["run"]
     assert "--ignore-scripts" in install["run"]

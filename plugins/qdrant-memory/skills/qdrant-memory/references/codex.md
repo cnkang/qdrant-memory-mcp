@@ -5,6 +5,24 @@ later. Discover the actual installed `qdrant-memory codex --help` before use;
 the reference alone does not install or upgrade the backend. Keep the Runtime
 as the sole storage engine.
 
+## Owner extraction candidate events
+
+Runtime 0.6.1 supports the versioned `qdrant-memory/extraction-v1` input for
+authenticated Owner lifecycle events. When a Codex adapter has been separately
+authorized and verified, it can submit bounded extracted candidates through
+the Owner instead of sending a raw turn. Check the installed
+`qdrant-memory remote-event --help` and [Universal Owner](universal-owner.md)
+for the exact contract. Candidate text and model output do not grant identity,
+scope or write authority. This Skill does not install a Codex hook adapter,
+enable automatic capture, or establish Codex host acceptance. Do not send
+transcripts or candidates to a remote model without explicit authorization.
+
+Runtime 0.6.2 can retry a persisted `FAILED` Owner event by its existing receipt
+after an authorized operator fixes the cause. This Runtime recovery does not
+install, enable or authorize Codex capture, and it never retries a
+`QUARANTINED` event automatically. Inspect the installed
+`qdrant-memory remote-event --help` before using the operation.
+
 Use an explicitly authorized canonical `--codex-home` (or CODEX_HOME). Inspect
 both v1 and v2 without reading chats, raw memories, credentials or unrelated
 agent data. Configuration inspection cannot prove effective client settings.
