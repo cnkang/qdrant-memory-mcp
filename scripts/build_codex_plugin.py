@@ -104,8 +104,8 @@ def validate(root=PLUGIN, files=None):
     require(isinstance(extensions, dict), "Invalid root extensions")
     inline_extension = extensions.get("com.openai")
     require(
-        inline_extension is None or isinstance(inline_extension, dict),
-        "Invalid root OpenAI extension",
+        inline_extension is None,
+        "Root OpenAI extension is unsupported; use the Codex compatibility overlay",
     )
 
     overlay = json.loads(read(".codex-plugin/plugin.json"))
@@ -122,11 +122,7 @@ def validate(root=PLUGIN, files=None):
         isinstance(compatibility_extension, dict),
         "Invalid compatibility OpenAI extension",
     )
-    extension = (
-        inline_extension
-        if inline_extension is not None
-        else compatibility_extension
-    )
+    extension = compatibility_extension
     require(
         extension.get("onboardingSkill") == "./skills/setup/SKILL.md",
         "Invalid onboarding skill",
@@ -142,12 +138,6 @@ def validate(root=PLUGIN, files=None):
         interface.get("category") == "Productivity",
         "Invalid category",
     )
-    if inline_extension is not None:
-        require(
-            compatibility_extension.get("onboardingSkill")
-            == inline_extension.get("onboardingSkill"),
-            "Compatibility onboarding mismatch",
-        )
     require(
         not ((root / ".mcp.json").exists() if files is None else ".mcp.json" in files),
         "Unsupported MCP manifest",

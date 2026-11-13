@@ -41,6 +41,9 @@ The 0.1.4 source candidate now keeps portable identity in root `plugin.json`,
 keeps the Agent Plugins 1.0 MCP server definition in root `mcp.json`, and moves
 OpenAI presentation, onboarding and the Codex MCP server mapping (including
 the eight-name `env_vars` allowlist) into `.codex-plugin/plugin.json`.
+The package validator rejects a root `extensions.com.openai` entry, because
+the portable Agent Plugins manifest cannot express the overlay's environment
+allowlist and Codex would otherwise ignore that overlay.
 
 The E2E check now parses `codex mcp get qdrant-memory --json` and requires
 `transport.env_vars` to contain exactly the allowlisted names (order is not

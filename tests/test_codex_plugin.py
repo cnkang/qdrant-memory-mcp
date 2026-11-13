@@ -99,8 +99,8 @@ def test_codex_openai_compatibility_overlay_is_the_active_fallback():
     assert set(codex_server["env_vars"]) == set(expected_env_vars)
 
 
-def test_builder_accepts_inline_openai_extension_with_compatible_fallback(tmp_path):
-    """Continue accepting packages that define OpenAI settings inline."""
+def test_builder_rejects_root_openai_extension_that_overrides_overlay(tmp_path):
+    """Keep OpenAI settings in the overlay so MCP env forwarding stays effective."""
     import shutil
 
     plugin = tmp_path / "plugin"
@@ -114,9 +114,8 @@ def test_builder_accepts_inline_openai_extension_with_compatible_fallback(tmp_pa
     }
     manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
 
-    assert package.validate(plugin)["extensions"]["com.openai"] == overlay[
-        "extensions"
-    ]["com.openai"]
+    with pytest.raises(ValueError, match="Root OpenAI extension is unsupported"):
+        package.validate(plugin)
 
 
 @pytest.mark.parametrize(
@@ -126,7 +125,7 @@ def test_builder_accepts_inline_openai_extension_with_compatible_fallback(tmp_pa
 def test_builder_rejects_malformed_inline_extension_without_using_fallback(
     tmp_path, inline_extension
 ):
-    """An inline extension always wins by spec, even when it is malformed."""
+    """Reject any root OpenAI extension that would suppress the Codex overlay."""
     import shutil
 
     plugin = tmp_path / "plugin"
@@ -136,7 +135,7 @@ def test_builder_rejects_malformed_inline_extension_without_using_fallback(
     manifest["extensions"] = {"com.openai": inline_extension}
     manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
 
-    with pytest.raises(ValueError, match="Invalid onboarding skill|Invalid OpenAI interface"):
+    with pytest.raises(ValueError, match="Root OpenAI extension is unsupported"):
         package.validate(plugin)
 
 
