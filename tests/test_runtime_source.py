@@ -25,6 +25,24 @@ def test_cross_harness_checkouts_match_selected_runtime_source():
     assert all(revision == source["commit"] for revision in checkouts)
 
 
+def test_sonar_coverage_runtime_pin_matches_distribution_source():
+    """Coverage dependencies must use the Runtime release pinned by the distribution."""
+    root = pathlib.Path(__file__).resolve().parents[1]
+    source = json.loads((root / "runtime-source.json").read_text())
+    requirements = (root / ".github/requirements-sonar-ci.in").read_text()
+    lock = (root / ".github/requirements-sonar-ci.txt").read_text()
+    source_pins = re.findall(
+        r"(?m)^hermes-plugin-qdrant-memory\[mcp\]==([^\s#]+)\s*$",
+        requirements,
+    )
+    locked_pins = re.findall(
+        r"(?m)^hermes-plugin-qdrant-memory==([^\s\\]+)\s+\\$",
+        lock,
+    )
+    assert source_pins == [source["version"]]
+    assert locked_pins == [source["version"]]
+
+
 def test_public_runtime_avoids_clone(monkeypatch):
     """Use the public pinned Runtime wheel without cloning a source fallback."""
     module = load_script("prepare_runtime")

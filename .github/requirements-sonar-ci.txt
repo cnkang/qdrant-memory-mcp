@@ -572,9 +572,9 @@ h2==4.4.1 \
     --hash=sha256:0e25f1462b23c9cb82d9eb02e28bc706dac2a68cb457c6a0d74d63c8a2a5d0e6 \
     --hash=sha256:4e866ffb1a869ae14dd9b5e6beb5c24a13da0495ad72b65925ded182521c1516
     # via httpx
-hermes-plugin-qdrant-memory==0.6.1 \
-    --hash=sha256:4025497177f294dfe586f36756d29af2397844027a0f18def05eb6befd16fc1a \
-    --hash=sha256:5ad7835f454789c1bcb48d877a303ebb6f95e6084ab62d0ecaf50e4f44d26cc9
+hermes-plugin-qdrant-memory==0.6.2 \
+    --hash=sha256:012956be71c7a59a096cca35a6cb339990f8a7d5ecc121166b29d425f2ae57b8 \
+    --hash=sha256:4606d1529092104d5594866032c61a02376c127f2ffc483c0442a7549b40c264
     # via -r requirements-sonar-ci.in
 hpack==4.2.0 \
     --hash=sha256:0895cfa3b5531fc65fe439c05eb65144f123bf7a394fcaa56aa423548d8e45c0 \
