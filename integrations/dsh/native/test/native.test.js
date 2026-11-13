@@ -708,6 +708,8 @@ test('disabled auto-capture leaves queued turns unresolved for the next resume',
   let readCount = 0
   let resolveInitialRecoveryRead
   const initialRecoveryRead = new Promise((resolve) => { resolveInitialRecoveryRead = resolve })
+  const candidateOutput = JSON.stringify({ memories: [candidate], replacement_context: '' })
+  let extractionCount = 0
   const handlers = new Map()
   const ctx = {
     on(event, handler) {
@@ -728,6 +730,9 @@ test('disabled auto-capture leaves queued turns unresolved for the next resume',
       async readSession() {
         readCount += 1
         const result = snapshot
+        // agent/created reads the session twice: first for the capture
+        // boundary (this session has no append handler), then for the
+        // recovery scan scheduled after that boundary resolves.
         if (readCount === 2) resolveInitialRecoveryRead()
         return result
       },
@@ -738,8 +743,6 @@ test('disabled auto-capture leaves queued turns unresolved for the next resume',
     ...DEFAULT_CONFIG,
     auto_capture: { ...DEFAULT_CONFIG.auto_capture, enabled: true },
   }
-  const candidateOutput = JSON.stringify({ memories: [candidate], replacement_context: '' })
-  let extractionCount = 0
   let resolveFirstStatus
   const firstStatus = new Promise((resolve) => { resolveFirstStatus = resolve })
   let resolveFirstStatusStarted
