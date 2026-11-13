@@ -4,7 +4,9 @@
 
 The public plugin remains **0.1.3**. A 0.1.4 source candidate is being prepared
 against MCP 0.3.3, Runtime 0.6.2 and the pinned Skill 0.4.2 snapshot; it is not
-published, and no clean release ZIP or public install has been accepted yet.
+published. A fresh Python 3.11 environment installed MCP 0.3.3 and Runtime
+0.6.2 from public PyPI and passed `uv pip check`; the final clean 0.1.4 ZIP,
+protected Cloud acceptance, and Creator readback are still pending.
 MCP 0.3.3 passed its exact-main release gate at
 `7571bc73a4cdd8d5059ba6cc4664b1837ee02566` and is published on public PyPI and
 the MCP Registry. A fresh public-PyPI install was verified; the GitHub Release
