@@ -59,13 +59,15 @@ MCP SHA `84ba8cb8b32679265077c1af0ff0187f04dcb480`; it passed one real-model
 synthetic case with zero skips, but did not cover Cloud UPDATE/CONFLICT or the
 Hermes/Codex-to-DSH directions. These remain release blockers.
 
-The compatibility workflows expose optional manual inputs. Cross-client
-acceptance defaults to the public Runtime 0.6.2 source and keeps 0.6.1 only as
-a manual compatibility fixture; the `next` probe retains DSH `next`, Node 24,
-Python 3.11, and its existing pnpm fallback. The required Native matrix,
-protected Cloud environment, bundle release toolchain, action SHAs, package
-integrity data, and product Runtime constraints remain fixed. Manual override
-runs do not satisfy the exact-main push release gate.
+The compatibility workflows expose optional manual inputs. The required
+cross-client `owner` job always uses the immutable Runtime 0.6.2 source, Node
+24.9.0, Python 3.11, and qdrant-client 1.20.0. Non-default selections run in
+a separate manual-only compatibility job; Runtime 0.6.1 remains a manual
+compatibility fixture. The `next` probe retains DSH `next`, Node 24, Python
+3.11, and its existing pnpm fallback. The required Native matrix, protected
+Cloud environment, bundle release toolchain, action SHAs, package integrity
+data, and product Runtime constraints remain fixed. Manual override runs do
+not satisfy the exact-main push release gate.
 
 ## Implemented candidate
 
