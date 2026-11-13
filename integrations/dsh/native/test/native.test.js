@@ -1366,7 +1366,7 @@ test('an accepted receipt that remains failed is counted without re-extraction',
   assert.equal(handlers.size, 0)
 })
 
-test('a non-committed submit is counted as a failed capture', async () => {
+test('a non-committed submit is counted and disabled retry is replayed later', async () => {
   const session = { id: 'submit-failed-session' }
   const events = [
     { type: 'turn/start', seq: 1, data: { turn: 1 } },
@@ -1418,19 +1418,40 @@ test('a non-committed submit is counted as a failed capture', async () => {
     ...DEFAULT_CONFIG,
     auto_capture: { ...DEFAULT_CONFIG.auto_capture, enabled: true },
   }
+  let submitCalls = 0
+  let disableTimer
   const dispose = apply(ctx, config, async (_mode, _payload, options) => {
     if (options.action === 'status') return { status: 'NOT_FOUND' }
-    if (options.action === 'submit') return { status: 'FAILED' }
+    if (options.action === 'submit') {
+      submitCalls += 1
+      if (submitCalls === 1) return { status: 'FAILED' }
+      if (submitCalls === 2) {
+        disableTimer = setTimeout(() => { config.auto_capture.enabled = false }, 10)
+        throw new Error('temporary Owner request failure')
+      }
+      return { status: 'COMMITTED' }
+    }
     throw new Error('unexpected Runtime call')
   })
+  const completedTurn = {
+    type: 'turn/end',
+    data: { turn: 1, reason: { kind: 'completed' } },
+  }
   try {
     handlers.get('agent/created')({ agent })
-    await handlers.get('session/event')(session, {
-      type: 'turn/end',
-      data: { turn: 1, reason: { kind: 'completed' } },
-    })
+    await handlers.get('session/event')(session, completedTurn)
     assert.equal(dispose.metrics().capture_failed, 1)
+
+    await handlers.get('session/event')(session, completedTurn)
+    assert.equal(config.auto_capture.enabled, false)
+    assert.equal(submitCalls, 2, 'the disabled retry did not send the candidate')
+
+    config.auto_capture.enabled = true
+    await handlers.get('session/event')(session, completedTurn)
+    assert.equal(submitCalls, 3, 'the unresolved turn was replayed after capture resumed')
+    assert.equal(dispose.metrics().capture_events_committed, 1)
   } finally {
+    clearTimeout(disableTimer)
     dispose()
   }
   assert.equal(typeof cleanup, 'function')
