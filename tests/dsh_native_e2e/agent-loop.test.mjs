@@ -219,7 +219,10 @@ test('complete DSH process restart resumes durable opt-in and uncaptured turns',
 })
 
 if (process.env.QM_DSH_BUNDLE_PROFILE) {
-  test('packed Bundle runs Native and four MCP tools against one real Owner', { timeout: 30000 }, async (t) => {
+  const cloudAgentTimeoutMs = process.env.QM_DSH_CLOUD === '1' ? 90000 : 5000
+  const captureWaitMs = Native.DEFAULT_CONFIG.auto_capture.timeout_ms + 10000
+  const testTimeoutMs = cloudAgentTimeoutMs + captureWaitMs + 15000
+  test('packed Bundle runs Native and four MCP tools against one real Owner', { timeout: testTimeoutMs }, async (t) => {
     const h = await harness(t, Native.DEFAULT_CONFIG)
     await h.plugin.dispose()
     const Bundle = await import(pathToFileURL(join(sourceProfile, 'node_modules/@cnkang/qdrant-memory-dsh-bundle/index.js')))
@@ -234,18 +237,23 @@ if (process.env.QM_DSH_BUNDLE_PROFILE) {
     assert.ok(h.provider.requests.some((r) => JSON.stringify(r.messages).includes('Synthetic Project Iris')))
     let capturedFact
     let found
-    const deadline = Date.now() + 10000
+    let observedMemoryTexts = []
+    const deadline = Date.now() + captureWaitMs
     do {
       const rows = await Native.runRuntimeRequest('remote-call', { query: 'Iris' })
       found = rows.memories.find((row) => normalizeFixtureFact(row.text) === normalizeFixtureFact(captureFact))
+      observedMemoryTexts = rows.memories
+        .filter((row) => typeof row?.text === 'string' && /iris/i.test(row.text))
+        .slice(0, 8)
+        .map((row) => row.text.slice(0, 400))
       if (found) {
         capturedFact = found.text
         assert.equal(normalizeFixtureFact(capturedFact), normalizeFixtureFact(captureFact))
       }
       if (found) break
-      await new Promise((resolve) => setTimeout(resolve, 50))
+      await new Promise((resolve) => setTimeout(resolve, 250))
     } while (Date.now() < deadline)
-    assert.ok(found, 'packed Native capture must reach the real Owner')
+    assert.ok(found, `packed Native capture must reach the real Owner within ${captureWaitMs}ms; observed synthetic Iris memories: ${JSON.stringify(observedMemoryTexts)}`)
     await bundle.dispose()
     assert.equal(h.ctx.tools.definitions().filter((tool) => tool.name.startsWith('mcp__qdrant-memory__')).length, 0)
     const count = h.provider.requests.length
