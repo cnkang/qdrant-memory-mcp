@@ -374,6 +374,20 @@ def test_offline_requirements_require_exactly_one_runtime_substitution(
         module.offline_requirements("macos-arm64", wheelhouse, meta, work)
 
 
+def test_runtime_requirement_pattern_accepts_ascii_case_variants():
+    module = load_locks()
+    assert module._RUNTIME_REQUIREMENT_RE.fullmatch(
+        "HERMES_PLUGIN_QDRANT_MEMORY[MCP,local]==0.6.2"
+    )
+
+
+def test_runtime_requirement_pattern_rejects_non_ascii_casefold_characters():
+    module = load_locks()
+    assert module._RUNTIME_REQUIREMENT_RE.fullmatch(
+        "hermes-plugin-qdrant-memory==0.6.2\u212a"
+    ) is None
+
+
 def test_compile_lock_uses_expected_flags(work, monkeypatch):
     module = load_locks()
     argv_seen = []
