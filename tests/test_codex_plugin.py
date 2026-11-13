@@ -570,7 +570,9 @@ def test_install_smoke_uses_resolved_cli_and_checks_lifecycle(
     home, cache = tmp_path / "home", tmp_path / "cache"
     (cache / "skills/setup").mkdir(parents=True)
     (cache / "skills/setup/SKILL.md").write_text("fixture")
-    (cache / "plugin.json").write_text(
+    (cache / "plugin.json").write_text(json.dumps({"name": "qdrant-memory"}))
+    (cache / ".codex-plugin").mkdir()
+    (cache / ".codex-plugin/plugin.json").write_text(
         json.dumps(
             {
                 "extensions": {
