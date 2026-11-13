@@ -1,5 +1,6 @@
 """Lock builder prototype: unit coverage for its orchestration and contracts."""
 
+import hashlib
 import importlib.util
 import json
 import sys
@@ -27,15 +28,31 @@ def work(tmp_path):
 
 
 def pinned_meta(wheel, sha="a" * 64):
-    release = json.loads(
-        (ROOT / "plugins/qdrant-memory/release.json").read_text(encoding="utf-8")
-    )
+    release = current_release()
     return {
         "wheel": wheel,
         "sha256": sha,
         "commit": release["runtime_commit"],
         "runtime_version": release["runtime_version"],
     }
+
+
+def current_release():
+    return json.loads(
+        (ROOT / "plugins/qdrant-memory/release.json").read_text(encoding="utf-8")
+    )
+
+
+def runtime_wheel_name():
+    return (
+        "hermes_plugin_qdrant_memory-"
+        + current_release()["runtime_version"]
+        + "-py3-none-any.whl"
+    )
+
+
+def wheel_meta(wheel):
+    return pinned_meta(wheel.name, hashlib.sha256(wheel.read_bytes()).hexdigest())
 
 
 def test_platform_matrix_is_complete():
@@ -153,7 +170,14 @@ def test_run_allows_approved_options_and_paths_with_spaces(work, monkeypatch):
 
     monkeypatch.setattr(module.subprocess, "run", fake_run)
     output_dir = work / "wheel output"
-    arguments = ["build", "--wheel", "--out-dir", str(output_dir), str(work)]
+    arguments = [
+        "build",
+        "--no-header",
+        "--wheel",
+        "--out-dir",
+        str(output_dir),
+        str(work),
+    ]
 
     result = module.run("uv", arguments, work)
 
@@ -183,18 +207,20 @@ def test_hashed_requirements_drop_the_git_runtime_line(work, monkeypatch):
     lock_dir.mkdir()
     monkeypatch.setattr(module, "LOCKS", lock_dir)
     source = lock_dir / "macos-arm64.txt"
+    commit = current_release()["runtime_commit"]
     source.write_text(
         "annotated-types==0.8.0 \\\n    --hash=sha256:aa\n"
         "hermes-plugin-qdrant-memory @ git+https://github.com/cnkang/"
-        "hermes-plugin-qdrant-memory.git@dee6777432f17523db75f6be32cf3ef15e48235c\n"
-        "qdrant-memory-mcp==0.3.1 \\\n    --hash=sha256:bb\n",
+        f"hermes-plugin-qdrant-memory.git@{commit}\n"
+        "qdrant-memory-mcp==0.3.3 \\\n    --hash=sha256:bb\n",
         encoding="utf-8",
     )
     filtered = module.hashed_requirements("macos-arm64", work)
     text = filtered.read_text(encoding="utf-8")
     assert "git+" not in text
     assert "annotated-types==0.8.0" in text
-    assert "qdrant-memory-mcp==0.3.1" in text
+    assert "qdrant-memory-mcp==0.3.3" in text
+    assert "hermes-plugin-qdrant-memory" not in text
 
 
 def test_hashed_requirements_reject_unlisted_platform(work):
@@ -222,7 +248,7 @@ def test_validate_runtime_wheel_rejects_paths_and_other_files(name):
 
 def test_validate_runtime_wheel_accepts_a_builder_wheel_name():
     module = load_locks()
-    name = "hermes_plugin_qdrant_memory-0.6.0-py3-none-any.whl"
+    name = runtime_wheel_name()
     assert module.validate_runtime_wheel(name) == name
 
 
@@ -252,62 +278,151 @@ def test_offline_requirements_substitute_the_recorded_wheel(work, monkeypatch):
     monkeypatch.setattr(module, "LOCKS", lock_dir)
     wheelhouse = work / "wh"
     wheelhouse.mkdir()
-    wheel = wheelhouse / "hermes_plugin_qdrant_memory-0.6.0-py3-none-any.whl"
+    wheel = wheelhouse / runtime_wheel_name()
     wheel.write_bytes(b"wheel-bytes")
-    meta = {
-        "wheel": wheel.name,
-        "sha256": "a" * 64,
-        "commit": "d" * 40,
-        "runtime_version": "0.6.0",
-    }
+    meta = wheel_meta(wheel)
+    commit = current_release()["runtime_commit"]
     (lock_dir / "macos-arm64.txt").write_text(
         "annotated-types==0.8.0\n"
-        "hermes-plugin-qdrant-memory @ git+https://github.com/x@dee6777432f17523db75f6be32cf3ef15e48235c\n",
+        "hermes-plugin-qdrant-memory @ git+https://github.com/cnkang/"
+        f"hermes-plugin-qdrant-memory.git@{commit}\n",
         encoding="utf-8",
     )
     target = module.offline_requirements("macos-arm64", wheelhouse, meta, work)
     text = target.read_text(encoding="utf-8")
     assert wheel.resolve().as_uri() in text
-    assert f"--hash=sha256:{'a' * 64}" in text
+    assert f"--hash=sha256:{meta['sha256']}" in text
     assert "git+" not in text
 
 
-def test_offline_requirements_require_exact_one_substitution(work, monkeypatch):
+def test_offline_requirements_substitute_public_runtime_wheel_hash_block(work, monkeypatch):
     module = load_locks()
     lock_dir = work / "locks"
     lock_dir.mkdir()
     monkeypatch.setattr(module, "LOCKS", lock_dir)
     wheelhouse = work / "wh"
     wheelhouse.mkdir()
-    (wheelhouse / "hermes_plugin_qdrant_memory-0.6.0-py3-none-any.whl").write_bytes(b"x")
-    meta = {"wheel": "hermes_plugin_qdrant_memory-0.6.0-py3-none-any.whl",
-            "sha256": "b" * 64, "commit": "c" * 40, "runtime_version": "0.6.0"}
+    wheel = wheelhouse / runtime_wheel_name()
+    wheel.write_bytes(b"source-built-runtime")
+    meta = wheel_meta(wheel)
+    runtime_version = current_release()["runtime_version"]
     source = lock_dir / "macos-arm64.txt"
-    source.write_text("annotated-types==0.8.0\n"
-                      "hermes-plugin-qdrant-memory @ git+https://x@dee6777432f17523db75f6be32cf3ef15e48235c\n"
-                      "qdrant-memory-mcp==0.3.1\n", encoding="utf-8")
+    source.write_text(
+        "annotated-types==0.8.0 \\\n    --hash=sha256:aa\n"
+        f"hermes-plugin-qdrant-memory=={runtime_version} \\\n"
+        "    --hash=sha256:public-pypi-wheel-hash\n"
+        "qdrant-memory-mcp==0.3.3 \\\n    --hash=sha256:bb\n",
+        encoding="utf-8",
+    )
     target = module.offline_requirements("macos-arm64", wheelhouse, meta, work)
-    subs = [line for line in target.read_text(encoding="utf-8").splitlines() if "file://" in line]
-    assert len(subs) == 1
+    text = target.read_text(encoding="utf-8")
+    assert wheel.resolve().as_uri() in text
+    assert f"--hash=sha256:{meta['sha256']}" in text
+    assert "public-pypi-wheel-hash" not in text
+    assert "annotated-types==0.8.0" in text
+    assert "qdrant-memory-mcp==0.3.3" in text
+    assert text.count("file://") == 1
+
+
+def test_offline_requirements_reject_runtime_wheel_hash_mismatch(work, monkeypatch):
+    module = load_locks()
+    lock_dir = work / "locks"
+    lock_dir.mkdir()
+    monkeypatch.setattr(module, "LOCKS", lock_dir)
+    wheelhouse = work / "wh"
+    wheelhouse.mkdir()
+    wheel = wheelhouse / runtime_wheel_name()
+    wheel.write_bytes(b"source-built-runtime")
+    meta = wheel_meta(wheel)
+    meta["sha256"] = "a" * 64
+    commit = current_release()["runtime_commit"]
+    (lock_dir / "macos-arm64.txt").write_text(
+        "hermes-plugin-qdrant-memory @ git+https://github.com/cnkang/"
+        f"hermes-plugin-qdrant-memory.git@{commit}\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="SHA-256 does not match"):
+        module.offline_requirements("macos-arm64", wheelhouse, meta, work)
+
+
+@pytest.mark.parametrize(
+    "runtime_entries",
+    [
+        "annotated-types==0.8.0\n",
+        "hermes-plugin-qdrant-memory @ git+https://github.com/cnkang/"
+        "hermes-plugin-qdrant-memory.git@{commit}\n"
+        "hermes-plugin-qdrant-memory @ git+https://github.com/cnkang/"
+        "hermes-plugin-qdrant-memory.git@{commit}\n",
+    ],
+)
+def test_offline_requirements_require_exactly_one_runtime_substitution(
+    work, monkeypatch, runtime_entries
+):
+    module = load_locks()
+    lock_dir = work / "locks"
+    lock_dir.mkdir()
+    monkeypatch.setattr(module, "LOCKS", lock_dir)
+    wheelhouse = work / "wh"
+    wheelhouse.mkdir()
+    wheel = wheelhouse / runtime_wheel_name()
+    wheel.write_bytes(b"source-built-runtime")
+    meta = wheel_meta(wheel)
+    commit = current_release()["runtime_commit"]
+    source = lock_dir / "macos-arm64.txt"
+    source.write_text(runtime_entries.format(commit=commit), encoding="utf-8")
+    with pytest.raises(ValueError, match="exactly one Runtime requirement"):
+        module.offline_requirements("macos-arm64", wheelhouse, meta, work)
 
 
 def test_compile_lock_uses_expected_flags(work, monkeypatch):
     module = load_locks()
     argv_seen = []
+    requirement_inputs = []
+    lock_dir = work / "locks"
+    lock_dir.mkdir()
+    monkeypatch.setattr(module, "LOCKS", lock_dir)
 
     def fake_run(executable, arguments, cwd, **kwargs):
         argv_seen.append([executable, *arguments])
+        requirement_path = next(
+            Path(argument)
+            for argument in arguments
+            if argument.endswith("desktop-runtime-lock-requirements.txt")
+        )
+        requirement_inputs.append(requirement_path.read_text(encoding="utf-8"))
+        output_path = Path(arguments[arguments.index("-o") + 1])
+        output_path.write_text(
+            "qdrant-memory-mcp==0.3.3\n"
+            f"    # via -r {requirement_path}\n",
+            encoding="utf-8",
+        )
         return types.SimpleNamespace(returncode=0, stdout="", stderr="")
 
     monkeypatch.setattr(module, "run", fake_run)
     output = module.compile_lock("windows-x64", work)
-    assert output == module.LOCKS / "windows-x64.txt"
+    assert output == lock_dir / "windows-x64.txt"
     args = argv_seen[0]
     assert "--python-platform" in args
     assert "x86_64-pc-windows-msvc" in args
     assert "--generate-hashes" in args
-    assert args[args.index("-o") + 1].startswith("runtime-locks/")
-    assert "plugins/qdrant-memory/requirements.txt" in args
+    assert "--no-header" in args
+    assert args[args.index("-o") + 1] == str(output)
+    release = current_release()
+    assert "qdrant-memory-mcp==0.3.3" in requirement_inputs[0]
+    assert (
+        f"hermes-plugin-qdrant-memory[mcp,local] @ git+"
+        f"{module.RUNTIME_REPOSITORY}@{release['runtime_commit']}"
+    ) in requirement_inputs[0]
+    assert "hermes-plugin-qdrant-memory[mcp,local]==" not in requirement_inputs[0]
+    generated = output.read_text(encoding="utf-8")
+    assert generated.startswith(
+        "# Generated by scripts/build_runtime_locks.py; do not edit.\n"
+        "# Source requirements: plugins/qdrant-memory/requirements.txt\n"
+        "# Target: windows-x64 (x86_64-pc-windows-msvc; Python 3.11)\n"
+        f"# Runtime source commit: {release['runtime_commit']}\n\n"
+    )
+    assert str(work) not in generated
+    assert "# via -r plugins/qdrant-memory/requirements.txt" in generated
 
 
 def test_compile_lock_surfaces_resolution_failures(work, monkeypatch):
@@ -320,15 +435,34 @@ def test_compile_lock_surfaces_resolution_failures(work, monkeypatch):
         module.compile_lock("linux-x64", work)
 
 
+def test_compile_lock_rejects_runtime_requirement_version_drift(work, monkeypatch):
+    module = load_locks()
+    requirements = work / "requirements.txt"
+    requirements.write_text(
+        "qdrant-memory-mcp==0.3.3\n"
+        "hermes-plugin-qdrant-memory[mcp,local]==0.6.1\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(module, "REQUIREMENTS", requirements)
+    with pytest.raises(ValueError, match="Runtime version must match release.json"):
+        module._runtime_requirement_for_desktop_lock(work)
+
+
 def test_build_runtime_wheel_records_hash_and_save(work, monkeypatch):
     module = load_locks()
     created = []
 
     def fake_run(executable, arguments, cwd, **kwargs):
+        if executable == "git" and arguments[-2:] == ["rev-parse", "HEAD"]:
+            return types.SimpleNamespace(
+                returncode=0,
+                stdout=current_release()["runtime_commit"] + "\n",
+                stderr="",
+            )
         if executable == "uv" and arguments[:1] == ["build"]:
             wheel_dir = cwd / "wheel"
             wheel_dir.mkdir(parents=True, exist_ok=True)
-            target = wheel_dir / "hermes_plugin_qdrant_memory-0.6.0-py3-none-any.whl"
+            target = wheel_dir / runtime_wheel_name()
             target.write_bytes(b"wheel-bytes")
         created.append((executable, arguments[:1]))
         return types.SimpleNamespace(returncode=0, stdout="", stderr="")
@@ -348,10 +482,45 @@ def test_build_runtime_wheel_records_hash_and_save(work, monkeypatch):
     assert recorded == meta
 
 
+def test_build_runtime_wheel_refuses_to_overwrite_a_different_same_name_wheel(
+    work, monkeypatch
+):
+    module = load_locks()
+    save_dir = work / "wheelhouse"
+    save_dir.mkdir()
+    existing = save_dir / runtime_wheel_name()
+    existing.write_bytes(b"public-pypi-wheel")
+
+    def fake_run(executable, arguments, cwd, **kwargs):
+        if executable == "git" and arguments[-2:] == ["rev-parse", "HEAD"]:
+            return types.SimpleNamespace(
+                returncode=0,
+                stdout=current_release()["runtime_commit"] + "\n",
+                stderr="",
+            )
+        if executable == "uv" and arguments[:1] == ["build"]:
+            wheel_dir = cwd / "wheel"
+            wheel_dir.mkdir(parents=True, exist_ok=True)
+            (wheel_dir / runtime_wheel_name()).write_bytes(b"source-wheel")
+        return types.SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(module, "run", fake_run)
+    with pytest.raises(FileExistsError, match="refusing to overwrite"):
+        module.build_runtime_wheel(work, save_dir=save_dir)
+    assert existing.read_bytes() == b"public-pypi-wheel"
+    assert not (save_dir / "runtime-wheel.json").exists()
+
+
 def test_build_runtime_wheel_fails_on_build_error(work, monkeypatch):
     module = load_locks()
 
     def fake_run(executable, arguments, cwd, **kwargs):
+        if executable == "git" and arguments[-2:] == ["rev-parse", "HEAD"]:
+            return types.SimpleNamespace(
+                returncode=0,
+                stdout=current_release()["runtime_commit"] + "\n",
+                stderr="",
+            )
         if executable == "uv" and arguments[:1] == ["build"]:
             return types.SimpleNamespace(returncode=1, stdout="", stderr="wheel boom")
         return types.SimpleNamespace(returncode=0, stdout="", stderr="")
@@ -363,10 +532,17 @@ def test_build_runtime_wheel_fails_on_build_error(work, monkeypatch):
 
 def test_build_runtime_wheel_requires_the_wheel(work, monkeypatch):
     module = load_locks()
-    monkeypatch.setattr(
-        module, "run", lambda *a, **k: types.SimpleNamespace(returncode=0, stdout="", stderr="")
-    )
-    with pytest.raises(StopIteration):
+    def fake_run(executable, arguments, cwd, **kwargs):
+        if executable == "git" and arguments[-2:] == ["rev-parse", "HEAD"]:
+            return types.SimpleNamespace(
+                returncode=0,
+                stdout=current_release()["runtime_commit"] + "\n",
+                stderr="",
+            )
+        return types.SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(module, "run", fake_run)
+    with pytest.raises(RuntimeError, match="exactly one wheel"):
         _ = module.build_runtime_wheel(work)
 
 
@@ -374,9 +550,9 @@ def test_verify_offline_hashes_wheels_and_probes_console(work, monkeypatch):
     module = load_locks()
     wheelhouse = work / "wh"
     wheelhouse.mkdir()
-    runtime_wheel = wheelhouse / "hermes_plugin_qdrant_memory-0.6.0-py3-none-any.whl"
+    runtime_wheel = wheelhouse / runtime_wheel_name()
     runtime_wheel.write_bytes(b"wheel")
-    meta = pinned_meta(runtime_wheel.name, "c" * 64)
+    meta = wheel_meta(runtime_wheel)
     lockfile = module.LOCKS / "macos-arm64.txt"
     assert lockfile.is_file()
     steps = {"install": 0}
@@ -423,10 +599,10 @@ def test_verify_offline_rejects_stale_wheelhouse_metadata(work, monkeypatch):
     module = load_locks()
     monkeypatch.setattr(module.platform, "machine", lambda: "arm64")
     meta = {
-        "wheel": "hermes_plugin_qdrant_memory-0.6.0-py3-none-any.whl",
+        "wheel": runtime_wheel_name(),
         "sha256": "a" * 64,
         "commit": "b" * 40,
-        "runtime_version": "0.6.0",
+        "runtime_version": current_release()["runtime_version"],
     }
 
     with pytest.raises(ValueError, match="does not match the pinned release"):
@@ -437,7 +613,7 @@ def test_verify_offline_fails_when_the_console_probe_fails(work, monkeypatch):
     module = load_locks()
     wheelhouse = work / "wh"
     wheelhouse.mkdir()
-    wheel = wheelhouse / "hermes_plugin_qdrant_memory-0.6.0-py3-none-any.whl"
+    wheel = wheelhouse / runtime_wheel_name()
     wheel.write_bytes(b"w")
 
     def fake_subprocess(argv, **kwargs):
@@ -447,7 +623,7 @@ def test_verify_offline_fails_when_the_console_probe_fails(work, monkeypatch):
 
     monkeypatch.setattr(module.subprocess, "run", fake_subprocess)
     monkeypatch.setattr(module.platform, "machine", lambda: "arm64")
-    meta = pinned_meta(wheel.name)
+    meta = wheel_meta(wheel)
     with pytest.raises(RuntimeError, match="broken"):
         module.verify_offline("macos-arm64", wheelhouse, meta)
 
@@ -456,8 +632,9 @@ def test_verify_offline_uses_a_private_requirements_file_per_run(work, monkeypat
     module = load_locks()
     wheelhouse = work / "wh"
     wheelhouse.mkdir()
-    (wheelhouse / "hermes_plugin_qdrant_memory-0.6.0-py3-none-any.whl").write_bytes(b"w")
-    meta = pinned_meta("hermes_plugin_qdrant_memory-0.6.0-py3-none-any.whl")
+    wheel = wheelhouse / runtime_wheel_name()
+    wheel.write_bytes(b"w")
+    meta = wheel_meta(wheel)
     requirements_paths = []
     venv_arguments = []
 
@@ -490,8 +667,9 @@ def test_verify_offline_fails_when_install_fails(work, monkeypatch):
     module = load_locks()
     wheelhouse = work / "wh"
     wheelhouse.mkdir()
-    (wheelhouse / "hermes_plugin_qdrant_memory-0.6.0-py3-none-any.whl").write_bytes(b"w")
-    meta = pinned_meta("hermes_plugin_qdrant_memory-0.6.0-py3-none-any.whl", "e" * 64)
+    wheel = wheelhouse / runtime_wheel_name()
+    wheel.write_bytes(b"w")
+    meta = wheel_meta(wheel)
 
     def fake_run(executable, arguments, cwd, **kwargs):
         if arguments[:3] == ["-P", "-m", "pip"]:
@@ -525,19 +703,30 @@ def test_seeded_python_uses_uv_venv(work, monkeypatch):
 def test_build_wheelhouse_downloads_for_host_and_saves_wheel(work, monkeypatch):
     module = load_locks()
     pip_calls = []
+    downloaded_requirements = []
     wheelbuilt = {"done": False}
 
     def fake_run(executable, arguments, cwd, **kwargs):
         if arguments[:3] == ["-P", "-m", "pip"]:
             pip_calls.append(([executable, *arguments], cwd))
+            requirement_path = Path(arguments[arguments.index("-r") + 1])
+            downloaded_requirements.append(
+                requirement_path.read_text(encoding="utf-8")
+            )
             wheelhouse_flag = arguments[arguments.index("-d") + 1]
             destination = cwd if wheelhouse_flag == "." else Path(wheelhouse_flag)
             destination.mkdir(parents=True, exist_ok=True)
             (destination / "annotated_types-0.8.0-py3-none-any.whl").write_bytes(b"w")
+        if executable == "git" and arguments[-2:] == ["rev-parse", "HEAD"]:
+            return types.SimpleNamespace(
+                returncode=0,
+                stdout=current_release()["runtime_commit"] + "\n",
+                stderr="",
+            )
         if executable == "uv" and arguments[:1] == ["build"]:
             wheel_dir = cwd / "wheel"
             wheel_dir.mkdir(parents=True, exist_ok=True)
-            (wheel_dir / "hermes_plugin_qdrant_memory-0.6.0-py3-none-any.whl").write_bytes(b"w")
+            (wheel_dir / runtime_wheel_name()).write_bytes(b"w")
             wheelbuilt["done"] = True
         return types.SimpleNamespace(returncode=0, stdout="", stderr="")
 
@@ -547,6 +736,19 @@ def test_build_wheelhouse_downloads_for_host_and_saves_wheel(work, monkeypatch):
     assert (wheelhouse / "runtime-wheel.json").is_file()
     expected_targets = module.host_platforms()
     assert pip_calls, "pip download must run for each host platform lock"
+    assert all(
+        not any(
+            module._requirement_name(line) == module.RUNTIME_DISTRIBUTION
+            for line in text.splitlines()
+        )
+        for text in downloaded_requirements
+    )
+    assert all("qdrant-memory-mcp==0.3.3" in text for text in downloaded_requirements)
+    assert (wheelhouse / runtime_wheel_name()).is_file()
+    metadata = json.loads((wheelhouse / "runtime-wheel.json").read_text(encoding="utf-8"))
+    assert metadata["sha256"] == hashlib.sha256(
+        (wheelhouse / runtime_wheel_name()).read_bytes()
+    ).hexdigest()
     download_arguments, download_cwd = pip_calls[0]
     assert download_cwd == wheelhouse
     assert download_arguments[1:4] == ["-P", "-m", "pip"]
