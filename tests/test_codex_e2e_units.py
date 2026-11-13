@@ -202,20 +202,40 @@ def test_decode_tool_parses_runtime_payload():
 
 def test_env_forwarding_visibility(monkeypatch, tmp_path):
     module = load_e2e()
-    full = " ".join(module.ENV_VAR_NAMES)
-    monkeypatch.setattr(module, "codex", lambda *a, **k: full, raising=False)
+    full = json.dumps(
+        {
+            "name": "qdrant-memory",
+            "transport": {
+                "type": "stdio",
+                "env_vars": list(module.ENV_VAR_NAMES),
+                "env": {"SENTINEL_SECRET": "never report this value"},
+            },
+        }
+    )
+    calls = []
+
+    def fake_codex(argv, *_args, **_kwargs):
+        calls.append(argv)
+        return full
+
+    monkeypatch.setattr(module, "codex", fake_codex, raising=False)
     evidence = module.assert_env_forwarding_visible({}, tmp_path)
     assert evidence["all_present"] is True
     assert len(evidence["visible"]) == len(module.ENV_VAR_NAMES)
+    assert calls == [["mcp", "get", "qdrant-memory", "--json"]]
+    assert "never report this value" not in json.dumps(evidence)
+
+    partial_config = json.loads(full)
+    partial_config["transport"]["env_vars"].pop()
     monkeypatch.setattr(
         module,
         "codex",
-        lambda *a, **k: full.replace("QDRANT_API_KEY", ""),
+        lambda *a, **k: json.dumps(partial_config),
         raising=False,
     )
     partial = module.assert_env_forwarding_visible({}, tmp_path)
     assert partial["all_present"] is False
-    assert set(partial["visible"]) == set(module.ENV_VAR_NAMES) - {"QDRANT_API_KEY"}
+    assert partial["visible"] == list(module.ENV_VAR_NAMES[:-1])
 
 
 def test_install_plugin_verifies_package_and_env_names(monkeypatch, tmp_path):
@@ -224,25 +244,52 @@ def test_install_plugin_verifies_package_and_env_names(monkeypatch, tmp_path):
     (cache / "skills/setup").mkdir(parents=True)
     (cache / "skills/setup/SKILL.md").write_text("skill")
     (cache / ".codex-plugin").mkdir(parents=True)
-    (cache / ".codex-plugin/plugin.json").write_text("{}")
-    (cache / "plugin.json").write_text(
+    portable_server = {
+        "type": "stdio",
+        "command": "node",
+        "args": ["${PLUGIN_ROOT}/launcher.mjs", "mcp"],
+        "cwd": "${PLUGIN_ROOT}",
+    }
+    overlay_server = {
+        **portable_server,
+        "env_vars": list(module.ENV_VAR_NAMES),
+    }
+    (cache / ".codex-plugin/plugin.json").write_text(
         json.dumps(
             {
+                "name": "qdrant-memory",
+                "version": "0.1.4",
                 "extensions": {
-                    "com.openai": {"onboardingSkill": "./skills/setup/SKILL.md"}
-                }
+                    "com.openai": {
+                        "onboardingSkill": "./skills/setup/SKILL.md",
+                        "interface": {"displayName": "Qdrant Memory for Codex"},
+                    }
+                },
+                "mcpServers": {"qdrant-memory": overlay_server},
             }
         )
+    )
+    (cache / "mcp.json").write_text(
+        json.dumps({"mcpServers": {"qdrant-memory": portable_server}})
+    )
+    (cache / "plugin.json").write_text(
+        json.dumps({"name": "qdrant-memory", "version": "0.1.4"})
+    )
+    effective_config = json.dumps(
+        {
+            "name": "qdrant-memory",
+            "transport": {"type": "stdio", "env_vars": list(module.ENV_VAR_NAMES)},
+        }
     )
     outputs = {
         ("plugin", "marketplace"): "{}",
         ("plugin", "add"): json.dumps(
-            {"version": "0.1.3", "installedPath": str(cache)}
+            {"version": "0.1.4", "installedPath": str(cache)}
         ),
         ("plugin", "list"): json.dumps(
             {"installed": [{"pluginId": module.PLUGIN_ID, "enabled": True}]}
         ),
-        ("mcp", "get"): " ".join(module.ENV_VAR_NAMES),
+        ("mcp", "get"): effective_config,
     }
 
     def fake_codex(argv, env, workdir, *, ok=True):
@@ -250,7 +297,7 @@ def test_install_plugin_verifies_package_and_env_names(monkeypatch, tmp_path):
 
     monkeypatch.setattr(module, "codex", fake_codex)
     installed = module.install_plugin({}, tmp_path, tmp_path, tmp_path)
-    assert installed["version"] == "0.1.3"
+    assert installed["version"] == "0.1.4"
     assert installed["env_forwarding"]["all_present"]
 
 

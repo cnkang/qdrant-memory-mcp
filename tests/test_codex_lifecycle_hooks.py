@@ -90,7 +90,7 @@ def test_main_plugin_package_contains_no_hooks():
     manifest = json.loads(
         (ROOT / "plugins/qdrant-memory/plugin.json").read_text(encoding="utf-8")
     )
-    assert "hooks" not in manifest["extensions"]["com.openai"]
+    assert manifest.get("extensions", {}).get("com.openai") is None
     overlay = json.loads(
         (ROOT / "plugins/qdrant-memory/.codex-plugin/plugin.json").read_text(
             encoding="utf-8"

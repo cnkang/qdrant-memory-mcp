@@ -4,18 +4,5 @@
   "version": "0.1.4",
   "description": "One Memory. Multiple Agents. No Lock-in. Local durable memory with verified imports, portable exports and safe Codex handoff.",
   "author": {"name": "cnkang", "url": "https://github.com/cnkang"},
-  "license": "MIT",
-  "extensions": {
-    "com.openai": {
-      "onboardingSkill": "./skills/setup/SKILL.md",
-      "interface": {
-        "displayName": "Qdrant Memory for Codex",
-        "shortDescription": "Portable memory. No lock-in.",
-        "longDescription": "Keep ownership of your memory across agents. Explicit scoped search, add, update and delete use the existing Qdrant Runtime. CPU embeddings run locally after approved setup. Import Codex semantic memories, export readable JSON and Markdown, verify checksums, and leave safely. Native adoption remains pending until verified in Codex.",
-        "developerName": "cnkang",
-        "category": "Productivity",
-        "defaultPrompt": "Set up isolated local Qdrant memory and explain import, backup and safe exit."
-      }
-    }
-  }
+  "license": "MIT"
 }
