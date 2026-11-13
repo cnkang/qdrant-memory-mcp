@@ -181,3 +181,8 @@ def test_protected_cloud_acceptance_keeps_a_fixed_codex_cli_version():
     assert 'cd "$install_dir" && npm ci' in install["run"]
     assert "package-lock.json" in install["run"]
     assert "--ignore-scripts" in install["run"]
+    assert "--index-url https://pypi.org/simple" in install["run"]
+    assert 'release["mcp_distribution_version"]' in install["run"]
+    assert 'release["runtime_version"]' in install["run"]
+    assert 'distribution.read_text("direct_url.json") is not None' in install["run"]
+    assert 'source["vcs_info"]["commit_id"]' not in install["run"]
