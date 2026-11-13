@@ -96,8 +96,31 @@ jobs:
           node -e 'const p=require(process.argv[1]+"/node_modules/@openai/codex/package.json"); if(p.version!==process.argv[2]) throw new Error("expected "+process.argv[2]+", got "+p.version)' "$install_dir" "$CODEX_CLI_VERSION"
           echo "$install_dir/node_modules/.bin" >> "$GITHUB_PATH"
           python -m venv "$RUNNER_TEMP/codex-runtime"
-          "$RUNNER_TEMP/codex-runtime/bin/python" -m pip install -r plugins/qdrant-memory/requirements.txt
-          "$RUNNER_TEMP/codex-runtime/bin/python" -c 'import importlib.metadata as m,json,pathlib; expected=json.loads(pathlib.Path("plugins/qdrant-memory/release.json").read_text())["runtime_commit"]; source=json.loads(m.distribution("hermes-plugin-qdrant-memory").read_text("direct_url.json")); assert source["vcs_info"]["commit_id"] == expected; print(json.dumps({"runtime_commit":expected}))'
+          "$RUNNER_TEMP/codex-runtime/bin/python" -m pip install --index-url https://pypi.org/simple -r plugins/qdrant-memory/requirements.txt
+          "$RUNNER_TEMP/codex-runtime/bin/python" - <<'PY'
+          import importlib.metadata as metadata
+          import json
+          from pathlib import Path
+
+          release = json.loads(Path("plugins/qdrant-memory/release.json").read_text(encoding="utf-8"))
+          expected = {
+              "qdrant-memory-mcp": release["mcp_distribution_version"],
+              "hermes-plugin-qdrant-memory": release["runtime_version"],
+          }
+          installed = {}
+          for name, version in expected.items():
+              distribution = metadata.distribution(name)
+              if distribution.version != version:
+                  raise SystemExit(f"Expected {name} {version}, installed {distribution.version}")
+              if distribution.read_text("direct_url.json") is not None:
+                  raise SystemExit(f"Expected {name} from public PyPI, found a direct URL install")
+              installed[name] = distribution.version
+          print(json.dumps({
+              "registry": "https://pypi.org/simple",
+              "distributions": installed,
+              "runtime_source_commit_provenance": release["runtime_commit"],
+          }))
+          PY
       - name: Test repository-backed marketplace with protected Ollama
         id: source_acceptance
         continue-on-error: true
