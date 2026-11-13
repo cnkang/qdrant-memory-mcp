@@ -2,7 +2,8 @@
 
 Runs the actual installed Codex CLI against an isolated CODEX_HOME:
 
-1. Repository-marketplace install with ``codex mcp`` inspection evidence.
+1. Repository-marketplace install with effective ``codex mcp get --json``
+   configuration evidence (this inspects config and does not launch the server).
 2. Exact rebuilt ZIP install through a materialized ZIP marketplace.
 3. Pinned Runtime installation into a private virtual environment from the
    plugin's own ``requirements.txt`` (never installed by the launcher).
@@ -157,13 +158,23 @@ def install_runtime_venv(work, requirements):
 
 
 def assert_env_forwarding_visible(env, workdir):
-    """Require every overlay env name in ``codex mcp get`` (values stay masked)."""
-    server_get = codex(["mcp", "get", "qdrant-memory"], env, workdir)
-    visible = [name for name in ENV_VAR_NAMES if name in server_get]
+    """Check the effective Codex MCP config for the exact env-name allowlist."""
+    server_get = codex(["mcp", "get", "qdrant-memory", "--json"], env, workdir)
+    try:
+        config = json.loads(server_get)
+    except (TypeError, json.JSONDecodeError) as exc:
+        raise AssertionError("codex mcp get --json did not return valid JSON") from exc
+    transport = config.get("transport") if isinstance(config, dict) else None
+    declared = transport.get("env_vars") if isinstance(transport, dict) else None
+    visible = declared if isinstance(declared, list) else []
+    string_names = all(isinstance(name, str) for name in visible)
     return {
-        "visible": visible,
-        "all_present": set(visible) == set(ENV_VAR_NAMES),
-        "server_get_tail": server_get[-1600:],
+        "visible": [name for name in visible if isinstance(name, str)],
+        "all_present": (
+            string_names
+            and len(visible) == len(ENV_VAR_NAMES)
+            and set(visible) == set(ENV_VAR_NAMES)
+        ),
     }
 
 
@@ -194,12 +205,34 @@ def install_plugin(env, workdir, marketplace_root, codex_home):
     )
     assert (cache / "skills/setup/SKILL.md").is_file(), "Setup skill missing"
     assert (cache / ".codex-plugin/plugin.json").is_file(), "Codex overlay missing"
+    portable = json.loads((cache / "plugin.json").read_text(encoding="utf-8"))
+    assert portable.get("extensions", {}).get("com.openai") is None, (
+        "Root OpenAI extension overrides the compatibility overlay"
+    )
+    overlay = json.loads(
+        (cache / ".codex-plugin/plugin.json").read_text(encoding="utf-8")
+    )
+    openai = overlay.get("extensions", {}).get("com.openai", {})
+    assert openai.get("onboardingSkill") == "./skills/setup/SKILL.md", (
+        "Overlay onboarding skill mismatch"
+    )
+    assert openai.get("interface", {}).get("displayName") == "Qdrant Memory for Codex"
+    portable_servers = json.loads(
+        (cache / "mcp.json").read_text(encoding="utf-8")
+    )["mcpServers"]
+    overlay_servers = overlay.get("mcpServers", {})
+    for name, portable_server in portable_servers.items():
+        codex_server = overlay_servers.get(name, {})
+        assert {
+            key: codex_server.get(key) for key in portable_server
+        } == portable_server, f"Codex overlay server differs from portable MCP config: {name}"
+    env_vars = overlay_servers.get("qdrant-memory", {}).get("env_vars", [])
     assert (
-        json.loads((cache / "plugin.json").read_text(encoding="utf-8"))["extensions"][
-            "com.openai"
-        ]["onboardingSkill"]
-        == "./skills/setup/SKILL.md"
-    ), "Onboarding skill mismatch"
+        isinstance(env_vars, list)
+        and all(isinstance(name, str) for name in env_vars)
+        and len(env_vars) == len(ENV_VAR_NAMES)
+        and set(env_vars) == set(ENV_VAR_NAMES)
+    ), "Codex overlay env_vars allowlist mismatch"
     listing = json.loads(codex(["plugin", "list", "--json"], env, workdir))
     entry = next(p for p in listing["installed"] if p["pluginId"] == PLUGIN_ID)
     assert entry["enabled"], "Install reported the plugin disabled"

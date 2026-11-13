@@ -54,6 +54,144 @@ def test_portable_package():
     assert "qdrant-memory-mcp==" + release["mcp_distribution_version"] in requirements
 
 
+def test_codex_openai_compatibility_overlay_is_the_active_fallback():
+    """Keep OpenAI-specific settings in the overlay fallback, not root plugin.json."""
+    portable = json.loads(
+        (ROOT / "plugins/qdrant-memory/plugin.json").read_text(encoding="utf-8")
+    )
+    portable_mcp = json.loads(
+        (ROOT / "plugins/qdrant-memory/mcp.json").read_text(encoding="utf-8")
+    )
+    overlay = json.loads(
+        (ROOT / "plugins/qdrant-memory/.codex-plugin/plugin.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert portable["name"] == overlay["name"] == "qdrant-memory"
+    assert portable["version"] == overlay["version"]
+    assert portable.get("extensions", {}).get("com.openai") is None
+    assert set(portable_mcp) == {"$schema", "mcpServers"}
+    assert portable_mcp["$schema"] == (
+        "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json"
+    )
+
+    openai = overlay["extensions"]["com.openai"]
+    assert openai["onboardingSkill"] == "./skills/setup/SKILL.md"
+    assert openai["interface"]["displayName"] == "Qdrant Memory for Codex"
+    assert openai["interface"]["defaultPrompt"]
+    assert set(overlay["mcpServers"]) == set(portable_mcp["mcpServers"])
+
+    expected_env_vars = [
+        "QDRANT_MEMORY_CODEX_ROOT",
+        "QDRANT_MEMORY_CODEX_PROFILE",
+        "QDRANT_MEMORY_CODEX_EXECUTABLE",
+        "QDRANT_MEMORY_CODEX_PYTHON",
+        "QDRANT_MEMORY_CODEX_OWNER_URL",
+        "QDRANT_MEMORY_SHARED_TOKEN",
+        "QDRANT_API_KEY",
+        "EMBEDDING_API_KEY",
+    ]
+    portable_server = portable_mcp["mcpServers"]["qdrant-memory"]
+    codex_server = overlay["mcpServers"]["qdrant-memory"]
+    assert {key: codex_server.get(key) for key in portable_server} == portable_server
+    assert len(codex_server["env_vars"]) == len(expected_env_vars)
+    assert set(codex_server["env_vars"]) == set(expected_env_vars)
+
+
+def test_builder_accepts_inline_openai_extension_with_compatible_fallback(tmp_path):
+    """Continue accepting packages that define OpenAI settings inline."""
+    import shutil
+
+    plugin = tmp_path / "plugin"
+    shutil.copytree(package.PLUGIN, plugin)
+    manifest_path = plugin / "plugin.json"
+    overlay_path = plugin / ".codex-plugin/plugin.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    overlay = json.loads(overlay_path.read_text(encoding="utf-8"))
+    manifest["extensions"] = {
+        "com.openai": overlay["extensions"]["com.openai"]
+    }
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    assert package.validate(plugin)["extensions"]["com.openai"] == overlay[
+        "extensions"
+    ]["com.openai"]
+
+
+@pytest.mark.parametrize(
+    "inline_extension",
+    [{}, {"onboardingSkill": "./skills/setup/SKILL.md"}],
+)
+def test_builder_rejects_malformed_inline_extension_without_using_fallback(
+    tmp_path, inline_extension
+):
+    """An inline extension always wins by spec, even when it is malformed."""
+    import shutil
+
+    plugin = tmp_path / "plugin"
+    shutil.copytree(package.PLUGIN, plugin)
+    manifest_path = plugin / "plugin.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["extensions"] = {"com.openai": inline_extension}
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="Invalid onboarding skill|Invalid OpenAI interface"):
+        package.validate(plugin)
+
+
+@pytest.mark.parametrize(
+    "declared, expected",
+    [
+        ("exact", True),
+        ("reordered", True),
+        ("missing", False),
+        ("extra", False),
+        ("duplicate", False),
+        ("wrong_location", False),
+    ],
+)
+def test_codex_e2e_checks_json_config_allowlist_not_text_substrings(
+    monkeypatch, tmp_path, declared, expected
+):
+    """Inspect only effective JSON field names and never retain env values."""
+    from test_release_guards import load_script
+
+    e2e = load_script("codex_plugin_e2e")
+    env_vars = list(e2e.ENV_VAR_NAMES)
+    transport = {"env": {"SENTINEL_SECRET": "secret-value"}}
+    if declared == "exact":
+        transport["env_vars"] = env_vars
+    elif declared == "reordered":
+        transport["env_vars"] = list(reversed(env_vars))
+    elif declared == "missing":
+        transport["env_vars"] = env_vars[:-1]
+    elif declared == "extra":
+        transport["env_vars"] = env_vars + ["UNEXPECTED_VARIABLE"]
+    elif declared == "duplicate":
+        transport["env_vars"] = env_vars + [env_vars[0]]
+    else:
+        transport["env"] = {name: "secret-value" for name in env_vars}
+
+    commands = []
+
+    def fake_codex(argv, env, workdir, *, ok=True):
+        commands.append(argv)
+        return json.dumps({"name": "qdrant-memory", "transport": transport})
+
+    monkeypatch.setattr(e2e, "codex", fake_codex)
+    result = e2e.assert_env_forwarding_visible({}, tmp_path)
+
+    assert commands == [["mcp", "get", "qdrant-memory", "--json"]]
+    assert result["all_present"] is expected
+    assert "secret-value" not in json.dumps(result)
+    assert "SENTINEL_SECRET" not in json.dumps(result)
+    if declared == "wrong_location":
+        assert result["visible"] == []
+    else:
+        assert result["visible"] == transport["env_vars"]
+
+
 def test_cli_archive_output_stays_inside_dist(tmp_path, monkeypatch):
     output_root = tmp_path / "dist"
     output_root.mkdir()

@@ -27,7 +27,51 @@ SHA and dependency-lock pins remain source-controlled release inputs.
 
 Plugin Creator currently serves the private 0.1.1 release; its normalized
 `.mcp.json` has an empty environment map. The eight Codex environment names
-have not been verified in a Creator-normalized candidate.
+have not been verified in a Creator-normalized candidate. A local 0.1.4
+manifest correction passed the isolated local source/ZIP CLI run below; no
+Creator candidate has been changed, and exact-commit CI remains pending.
+
+## Manifest selection and CLI config evidence (2026-11-13)
+
+The official [plugin packaging guide](https://developers.openai.com/plugins/build/plugins)
+states that root `extensions.com.openai` replaces the entire
+`.codex-plugin/plugin.json` compatibility overlay; the two are not merged. The
+overlay is selected as fallback only when the root OpenAI extension is absent.
+The 0.1.4 source candidate now keeps portable identity in root `plugin.json`,
+keeps the Agent Plugins 1.0 MCP server definition in root `mcp.json`, and moves
+OpenAI presentation, onboarding and the Codex MCP server mapping (including
+the eight-name `env_vars` allowlist) into `.codex-plugin/plugin.json`.
+
+The E2E check now parses `codex mcp get qdrant-memory --json` and requires
+`transport.env_vars` to contain exactly the allowlisted names (order is not
+significant; duplicates and additional names fail). Codex documents
+`mcp_servers.<id>.env_vars` as the allowlist for additional stdio-server
+environment variables in its [configuration reference](https://developers.openai.com/codex/config-file/config-reference).
+The check's evidence records only environment-variable names, never values.
+This command proves the effective configuration exposed by Codex CLI; it does
+**not** launch the configured server or prove that a running process received
+those variables. Separate
+launcher/MCP lifecycle checks execute the launcher directly with a controlled
+test environment, not through Codex's process launcher. Plugin Creator
+normalization remains an independent acceptance path: the private 0.1.1 record
+still reads back with `env: {}`, and the 0.1.4 Creator candidate remains
+blocked pending a guarded update and readback.
+
+Local real-CLI candidate run: Codex CLI `0.165.0`, Python `3.14.0`, command
+`uv run --python 3.14 --extra dev python scripts/codex_plugin_e2e.py --work-dir /tmp/qm-pr101-followup-codex-e2e-20261113-002`.
+Repository Marketplace install and ZIP Marketplace install both reported
+version `0.1.4`; the structured environment-name allowlist check passed on
+both. The 34-file ZIP had SHA-256
+`6e84a6d825f0cbaf605cdfbdb21047afa9de001efdef51285def30a222a6430e`. The
+Runtime venv install, `doctor`, four-tool discovery, duplicate-add idempotency,
+update/delete, fresh-session persistence, SIGKILL recovery, profile isolation,
+disable/uninstall and post-uninstall record read all passed. The run used an
+isolated `CODEX_HOME`, local synthetic embeddings and the plugin's pinned
+runtime requirements. Its build report says `source_dirty: true`, so this is
+working-tree candidate evidence, not an exact-commit artifact or GitHub CI
+result. It does not replace protected Cloud, Creator-normalization or Desktop
+GUI acceptance. The MCP lifecycle portion drives the launcher directly with
+the test SDK; it does not prove Codex itself launched the configured process.
 
 ## Candidate verification run (2026-11-09, codex/plugin-readiness-20261109)
 
@@ -50,7 +94,7 @@ without any subscription. Executed run (canonical evidence JSON:
 | Step | Result |
 |---|---|
 | `plugin marketplace add` + `plugin add qdrant-memory@cnkang` from the repository marketplace | PASS, version 0.1.3, installed cache carries `.codex-plugin/plugin.json` overlay and setup skill |
-| `codex mcp get qdrant-memory` | all **eight** overlay environment names visible through the CLI (values masked by CLI) |
+| `codex mcp get qdrant-memory` | historical human-readable output contained the eight names; this used a substring scan and did not prove the exact effective JSON allowlist. Superseded by the 2026-11-13 structured check above. |
 | uninstall + marketplace cleanup | PASS (cache removed) |
 | build source ZIP from the exact commit with the pinned Skill snapshot | PASS (`build()` byte-for-byte archive path, SHA-256 recorded in the JSON evidence) |
 | install from the exact rebuilt ZIP through a temp ZIP marketplace | PASS, same identity/version and all eight env names |
@@ -94,9 +138,12 @@ tagged commits; `tests/test_release_gate.py` updated.
 
 Released [Agent Plugins MCP schema 1.0.0](https://agent-plugins.org/schemas/1.0.0/mcp.schema.json)
 still declares only `type|command|args|cwd|env` for stdio servers and has **no
-`env_vars` field**; the Codex overlay's `env_vars` remains the working
-Codex-specific passthrough and the CLI demonstrably surfaces all eight names
-(above). The submission portal "derives `.mcp.json` and
+`env_vars` field**. `env_vars` is Codex-specific and therefore belongs only in
+the Codex compatibility overlay, not portable `mcp.json`. The earlier CLI
+substring scan is not sufficient acceptance evidence; the 2026-11-13 check
+uses the parsed effective `transport.env_vars` array and does not inspect or
+log values. It proves configuration visibility only, not process launch or
+Creator normalization. The submission portal "derives `.mcp.json` and
 `.codex-plugin/plugin.json` from root `plugin.json` and `mcp.json`" for
 portable packages, which matches the recorded 0.1.1 Creator normalization
 (`env: {}`). The current private Creator release still reads back with `env: {}`;
@@ -264,10 +311,12 @@ Desktop-only package.
 
 On 2026-11-06, Codex CLI `0.165.0` installed the local source Marketplace into
 an isolated `CODEX_HOME` using `codex plugin marketplace add` and
-`codex plugin add qdrant-memory@cnkang`. `codex mcp list/get` showed the local
-stdio server and the eight declared overlay environment-variable names, with
-values masked. This confirms the Codex CLI source-install path, not Plugin
-Creator normalization or a Desktop GUI run.
+`codex plugin add qdrant-memory@cnkang`. The historical human-readable
+`codex mcp list/get` output showed the local stdio server and the eight names;
+it did not prove exact effective JSON structure or process-level environment
+delivery. This confirms only the CLI source-install path, not Plugin Creator
+normalization or a Desktop GUI run. Current structured evidence is recorded
+above.
 
 The real MCP SDK source-entrypoint test was rerun with MCP SDK 2.3.0, MCP
 distribution 0.3.1 and Runtime 0.6.0 at the pinned release commit. Command:

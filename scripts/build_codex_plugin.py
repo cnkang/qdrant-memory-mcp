@@ -100,15 +100,14 @@ def validate(root=PLUGIN, files=None):
         not {"skills", "mcpServers", "apps", "interface"} & manifest.keys(),
         "Invalid manifest fields",
     )
-    extension = manifest["extensions"]["com.openai"]
+    extensions = manifest.get("extensions", {})
+    require(isinstance(extensions, dict), "Invalid root extensions")
+    inline_extension = extensions.get("com.openai")
     require(
-        extension["onboardingSkill"] == "./skills/setup/SKILL.md",
-        "Invalid onboarding skill",
+        inline_extension is None or isinstance(inline_extension, dict),
+        "Invalid root OpenAI extension",
     )
-    require(
-        len(extension["interface"]["shortDescription"]) <= 30, "Description too long"
-    )
-    require(extension["interface"]["category"] == "Productivity", "Invalid category")
+
     overlay = json.loads(read(".codex-plugin/plugin.json"))
     require(
         all(
@@ -116,19 +115,51 @@ def validate(root=PLUGIN, files=None):
         ),
         "Compatibility manifest mismatch",
     )
+    overlay_extensions = overlay.get("extensions", {})
+    require(isinstance(overlay_extensions, dict), "Invalid compatibility extensions")
+    compatibility_extension = overlay_extensions.get("com.openai")
     require(
-        overlay["extensions"]["com.openai"]["onboardingSkill"]
-        == extension["onboardingSkill"],
-        "Compatibility onboarding mismatch",
+        isinstance(compatibility_extension, dict),
+        "Invalid compatibility OpenAI extension",
     )
+    extension = (
+        inline_extension
+        if inline_extension is not None
+        else compatibility_extension
+    )
+    require(
+        extension.get("onboardingSkill") == "./skills/setup/SKILL.md",
+        "Invalid onboarding skill",
+    )
+    interface = extension.get("interface")
+    require(isinstance(interface, dict), "Invalid OpenAI interface")
+    short_description = interface.get("shortDescription")
+    require(
+        isinstance(short_description, str) and len(short_description) <= 30,
+        "Description too long",
+    )
+    require(
+        interface.get("category") == "Productivity",
+        "Invalid category",
+    )
+    if inline_extension is not None:
+        require(
+            compatibility_extension.get("onboardingSkill")
+            == inline_extension.get("onboardingSkill"),
+            "Compatibility onboarding mismatch",
+        )
     require(
         not ((root / ".mcp.json").exists() if files is None else ".mcp.json" in files),
         "Unsupported MCP manifest",
     )
     server = mcp["mcpServers"]["qdrant-memory"]
     compatible = dict(overlay["mcpServers"]["qdrant-memory"])
+    env_vars = compatible.pop("env_vars", None)
     require(
-        set(compatible.pop("env_vars"))
+        isinstance(env_vars, list)
+        and all(isinstance(name, str) for name in env_vars)
+        and len(env_vars) == 8
+        and set(env_vars)
         == {
             "QDRANT_MEMORY_CODEX_ROOT",
             "QDRANT_MEMORY_CODEX_PROFILE",
