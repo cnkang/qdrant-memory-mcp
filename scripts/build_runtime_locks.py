@@ -41,6 +41,11 @@ RUNTIME_REPOSITORY = (
     "https://github.com/cnkang/hermes-plugin-qdrant-memory.git"
 )
 RUNTIME_DIRECT_URL_SEPARATOR = " @ git+"
+# Case-insensitive distribution name with optional extras; the rest of a lock
+# entry (URL, commit, version) is matched case-sensitively.
+_RUNTIME_NAME_PATTERN = (
+    r"(?i:hermes[-_.]plugin[-_.]qdrant[-_.]memory)(?:\[[A-Za-z0-9,_.-]+\])?"
+)
 _RUNTIME_REQUIREMENT_RE = re.compile(
     r"\s*hermes[-_.]plugin[-_.]qdrant[-_.]memory"
     r"(?P<extras>\[[A-Z0-9,_.-]+\])?\s*==\s*"
@@ -265,7 +270,9 @@ def build_runtime_wheel(work: Path, save_dir: Path | None = None) -> dict:
             existing_digest = hashlib.sha256(saved_wheel.read_bytes()).hexdigest()
             if existing_digest != digest:
                 raise FileExistsError(
-                    "refusing to overwrite a different wheel with the same filename"
+                    "refusing to overwrite a different wheel with the same filename "
+                    f"({saved_wheel}); Runtime wheel builds are not byte-identical, "
+                    "so pass a fresh, empty --wheelhouse directory"
                 )
         else:
             shutil.copy2(wheel, saved_wheel)
@@ -308,7 +315,11 @@ def validate_sha256(digest: object) -> str:
 
 
 def _split_requirement_blocks(lock: Path) -> tuple[list[str], list[list[str]]]:
-    """Separate leading options from requirement blocks in a compiled lock."""
+    """Split a compiled lock into leading comments and per-entry line blocks.
+
+    Each block starts at an unindented, non-comment line (a requirement or a
+    pip option) and keeps its indented hash and ``# via`` continuation lines.
+    """
     blocks = []
     prefix = []
     current = None
@@ -339,24 +350,45 @@ def _expected_runtime_source(release: dict) -> str:
     return f"git+{RUNTIME_REPOSITORY}@{release['runtime_commit']}"
 
 
-def _has_expected_runtime_source(entry: str, expected_source: str) -> bool:
-    return RUNTIME_DIRECT_URL_SEPARATOR in entry and entry.endswith(expected_source)
+def _validate_runtime_entry(entry: str, release: dict) -> None:
+    """Accept only the exact pinned source URL or exact published Runtime version.
 
-
-def _validate_offline_runtime_entry(entry: str, release: dict) -> None:
-    """Accept only the pinned source URL or exact published Runtime version."""
-    expected_source = _expected_runtime_source(release)
-    if RUNTIME_DIRECT_URL_SEPARATOR in entry:
-        if not entry.endswith(expected_source):
-            raise ValueError("runtime lock source does not match the pinned commit")
-        return
-    match = re.match(
-        r"^hermes[-_.]plugin[-_.]qdrant[-_.]memory(?:\[[^\]]+\])?\s*==\s*([^\s\\]+)",
+    ``entry`` is the first line of the lock's single Runtime block. The
+    wheelhouse build drops that block from the hashed download, and offline
+    verification replaces it with the recorded local wheel, so both paths use
+    this one check and accept the same entries.
+    """
+    source = re.fullmatch(
+        _RUNTIME_NAME_PATTERN
+        + r"\s*@\s*"
+        + re.escape(_expected_runtime_source(release)),
         entry,
-        re.IGNORECASE | re.ASCII,
+        re.ASCII,
     )
-    if match is None or match.group(1) != release["runtime_version"]:
+    if source is not None:
+        return
+    if "@" in entry:
+        raise ValueError("runtime lock source does not match the pinned commit")
+    version = re.fullmatch(
+        _RUNTIME_NAME_PATTERN + r"\s*==\s*(?P<version>[^\s;\\]+)(?:\s+\\)?",
+        entry,
+        re.ASCII,
+    )
+    if version is None or version.group("version") != release["runtime_version"]:
         raise ValueError("runtime lock version does not match the pinned release")
+
+
+def _select_runtime_block(
+    lock: Path, release: dict
+) -> tuple[list[str], list[list[str]], list[str]]:
+    """Return the lock's blocks plus its single, validated Runtime block."""
+    prefix, blocks = _split_requirement_blocks(lock)
+    runtime_blocks = _runtime_requirement_blocks(blocks)
+    if len(runtime_blocks) != 1:
+        raise ValueError("runtime lock must contain exactly one Runtime requirement")
+    runtime_block = runtime_blocks[0]
+    _validate_runtime_entry(runtime_block[0].strip(), release)
+    return prefix, blocks, runtime_block
 
 
 def offline_requirements(
@@ -377,13 +409,7 @@ def offline_requirements(
         raise ValueError("runtime wheel SHA-256 does not match runtime-wheel.json")
     replacement = f"{runtime_wheel.resolve().as_uri()} --hash=sha256:{digest}"
     target = target_dir / VERIFY_REQUIREMENTS_FILENAME
-    prefix, blocks = _split_requirement_blocks(lock)
-    runtime_blocks = _runtime_requirement_blocks(blocks)
-    if len(runtime_blocks) != 1:
-        raise ValueError("runtime lock must contain exactly one Runtime requirement")
-    release = load_release()
-    runtime_block = runtime_blocks[0]
-    _validate_offline_runtime_entry(runtime_block[0].strip(), release)
+    prefix, blocks, runtime_block = _select_runtime_block(lock, load_release())
 
     output = list(prefix)
     for block in blocks:
@@ -518,29 +544,20 @@ def host_platforms() -> list:
 
 
 def hashed_requirements(platform: str, work: Path) -> Path:
-    """Requirements copy without the unhashable direct-URL Runtime line."""
+    """Requirements copy without the Runtime entry, which is built from source."""
     if platform not in PLATFORM_LOCKS:
         raise ValueError(f"Unsupported runtime lock platform: {platform}")
     lock = LOCKS / f"{platform}.txt"
     target = work / f"hashed-{platform}.txt"
-    release = load_release()
-    expected_source = _expected_runtime_source(release)
-    prefix, blocks = _split_requirement_blocks(lock)
+    prefix, blocks, runtime_block = _select_runtime_block(lock, load_release())
 
-    runtime_count = 0
     output = list(prefix)
     for block in blocks:
-        first = block[0].strip()
-        if _requirement_name(first) == RUNTIME_DISTRIBUTION:
-            runtime_count += 1
-            if not _has_expected_runtime_source(first, expected_source):
-                raise ValueError("runtime lock source does not match the pinned commit")
+        if block is runtime_block:
             continue
-        if RUNTIME_DIRECT_URL_SEPARATOR in first:
+        if RUNTIME_DIRECT_URL_SEPARATOR in block[0]:
             raise ValueError("only the pinned Runtime source may be excluded from wheel download")
         output.extend(block)
-    if runtime_count != 1:
-        raise ValueError("runtime lock must contain exactly one Runtime source requirement")
     target.write_text("\n".join(output) + "\n", encoding="utf-8")
     return target
 

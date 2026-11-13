@@ -223,6 +223,76 @@ def test_hashed_requirements_drop_the_git_runtime_line(work, monkeypatch):
     assert "hermes-plugin-qdrant-memory" not in text
 
 
+def test_hashed_requirements_drop_the_public_runtime_pin_block(work, monkeypatch):
+    """The wheelhouse and --verify accept the same Runtime entry forms."""
+    module = load_locks()
+    lock_dir = work / "locks"
+    lock_dir.mkdir()
+    monkeypatch.setattr(module, "LOCKS", lock_dir)
+    runtime_version = current_release()["runtime_version"]
+    (lock_dir / "macos-arm64.txt").write_text(
+        "annotated-types==0.8.0 \\\n    --hash=sha256:aa\n"
+        f"hermes-plugin-qdrant-memory=={runtime_version} \\\n"
+        "    --hash=sha256:public-pypi-wheel-hash\n"
+        "    # via -r plugins/qdrant-memory/requirements.txt\n"
+        "qdrant-memory-mcp==0.3.3 \\\n    --hash=sha256:bb\n",
+        encoding="utf-8",
+    )
+    text = module.hashed_requirements("macos-arm64", work).read_text(encoding="utf-8")
+    assert "hermes-plugin-qdrant-memory" not in text
+    assert "public-pypi-wheel-hash" not in text
+    assert "annotated-types==0.8.0" in text
+    assert "qdrant-memory-mcp==0.3.3" in text
+
+
+@pytest.mark.parametrize(
+    "entry, message",
+    [
+        (
+            "hermes-plugin-qdrant-memory @ git+https://evil.example/runtime.git@main"
+            "#git+https://github.com/cnkang/hermes-plugin-qdrant-memory.git@{commit}",
+            "does not match the pinned commit",
+        ),
+        (
+            "hermes-plugin-qdrant-memory @ git+https://github.com/cnkang/"
+            "hermes-plugin-qdrant-memory.git@" + "0" * 40,
+            "does not match the pinned commit",
+        ),
+        (
+            "hermes-plugin-qdrant-memory @ git+https://github.com/cnkang/"
+            "hermes-plugin-qdrant-memory.git@{commit} ; sys_platform == 'win32'",
+            "does not match the pinned commit",
+        ),
+        (
+            "hermes-plugin-qdrant-memory @ https://example.invalid/runtime.whl",
+            "does not match the pinned commit",
+        ),
+        ("hermes-plugin-qdrant-memory==0.0.1 \\", "does not match the pinned release"),
+    ],
+)
+def test_runtime_entry_validation_is_exact_and_shared(work, monkeypatch, entry, message):
+    """Both lock consumers reject the same non-exact Runtime entries."""
+    module = load_locks()
+    lock_dir = work / "locks"
+    lock_dir.mkdir()
+    monkeypatch.setattr(module, "LOCKS", lock_dir)
+    commit = current_release()["runtime_commit"]
+    (lock_dir / "macos-arm64.txt").write_text(
+        "annotated-types==0.8.0 \\\n    --hash=sha256:aa\n"
+        + entry.format(commit=commit)
+        + "\n    --hash=sha256:cc\n",
+        encoding="utf-8",
+    )
+    wheelhouse = work / "wh"
+    wheelhouse.mkdir()
+    wheel = wheelhouse / runtime_wheel_name()
+    wheel.write_bytes(b"source-built-runtime")
+    with pytest.raises(ValueError, match=message):
+        module.hashed_requirements("macos-arm64", work)
+    with pytest.raises(ValueError, match=message):
+        module.offline_requirements("macos-arm64", wheelhouse, wheel_meta(wheel), work)
+
+
 def test_hashed_requirements_reject_unlisted_platform(work):
     module = load_locks()
     with pytest.raises(ValueError, match="Unsupported runtime lock platform"):
@@ -519,7 +589,9 @@ def test_build_runtime_wheel_refuses_to_overwrite_a_different_same_name_wheel(
         return types.SimpleNamespace(returncode=0, stdout="", stderr="")
 
     monkeypatch.setattr(module, "run", fake_run)
-    with pytest.raises(FileExistsError, match="refusing to overwrite"):
+    with pytest.raises(
+        FileExistsError, match="refusing to overwrite.*fresh, empty --wheelhouse"
+    ):
         module.build_runtime_wheel(work, save_dir=save_dir)
     assert existing.read_bytes() == b"public-pypi-wheel"
     assert not (save_dir / "runtime-wheel.json").exists()
