@@ -124,6 +124,7 @@ def test_codex_toolchain_versions_are_optional_and_have_validated_defaults():
         if step.get("name") == "Run the credential-free real CLI compatibility end-to-end"
     )
     assert "uv==0.13.6" in uv_setup["run"]
+    assert uv_setup["run"].index("uv==0.13.6") < uv_setup["run"].index("uv --version")
     assert compatibility["steps"].index(uv_setup) < compatibility["steps"].index(e2e)
 
 
