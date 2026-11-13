@@ -40,7 +40,7 @@ jobs:
           python integrations/workbuddy/build.py --release-tag "$RELEASE_TAG" --check
           python integrations/workbuddy/build.py --release-tag "$RELEASE_TAG"
       - name: Package and candidate protocol gates before protected PyPI publication
-        run: python -m pytest -q tests/test_workbuddy_package.py tests/test_workbuddy_release.py tests/test_workbuddy_public_install.py tests/test_workbuddy_mcp.py tests/test_dsh_bundle.py
+        run: python -m pytest -q tests/test_workbuddy_package.py tests/test_workbuddy_workflow_inputs.py tests/test_workbuddy_release.py tests/test_workbuddy_public_install.py tests/test_workbuddy_mcp.py tests/test_dsh_bundle.py
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: workbuddy-release-assets
