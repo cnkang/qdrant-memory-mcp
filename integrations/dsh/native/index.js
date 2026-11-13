@@ -1070,11 +1070,14 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
     if (extraction.replacement_context) payload.replacement_context = extraction.replacement_context
     if (stopped()) return false
     const result = await retryRequest(
-      () => runtimeRequest('remote-event', payload, {
-        signal,
-        timeoutMs: config.auto_capture.timeout_ms,
-        action: 'submit',
-      }),
+      () => {
+        if (stopped()) return null
+        return runtimeRequest('remote-event', payload, {
+          signal,
+          timeoutMs: config.auto_capture.timeout_ms,
+          action: 'submit',
+        })
+      },
       signal,
     )
     if (stopped()) return false
