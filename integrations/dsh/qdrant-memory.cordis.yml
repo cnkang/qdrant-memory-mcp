@@ -1,9 +1,10 @@
 # Enable for this launch only: dsh web --patch /absolute/path/to/this-file
 # Prepare this dedicated profile first; no setup/download occurs during probing.
-# Run this Python/uvx overlay only after PyPI lists qdrant-memory-mcp 0.3.1:
-# https://pypi.org/project/qdrant-memory-mcp/0.3.1/
-# Until then, follow the published 0.3.0 DSH guide:
-# https://github.com/cnkang/qdrant-memory-mcp/blob/v0.3.0/docs/dsh-integration.md
+# This source candidate uses MCP 0.3.3 and Runtime 0.6.2. Run the overlay only
+# after PyPI lists qdrant-memory-mcp 0.3.3:
+# https://pypi.org/project/qdrant-memory-mcp/0.3.3/
+# Until then, follow the published 0.3.2 DSH guide:
+# https://github.com/cnkang/qdrant-memory-mcp/blob/v0.3.2/docs/dsh-integration.md
 - insert:
     - id: cnkang-qdrant-memory-mcp
       name: '@deepseek-ai/dsh-mcp-client'
@@ -13,7 +14,7 @@
         command: uvx
         args:
           - --from
-          - qdrant-memory-mcp==0.3.2
+          - qdrant-memory-mcp==0.3.3
           - qdrant-memory-mcp
           - --home
           - !!js process.env.QDRANT_MEMORY_DSH_PROFILE || require('node:path').join(require('node:os').homedir(), '.qdrant-memory-dsh')

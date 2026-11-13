@@ -52,7 +52,7 @@ def test_current_workbuddy_and_dsh_instructions_track_project_version():
     """Keep candidate docs distinct from currently published integration pins."""
     project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     requirement = f"qdrant-memory-mcp=={project['project']['version']}"
-    published_requirement = "qdrant-memory-mcp==0.3.1"
+    published_requirement = "qdrant-memory-mcp==0.3.2"
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     candidate_docs = [
         "docs/quickstart.zh-CN.md",
