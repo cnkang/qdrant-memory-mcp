@@ -61,26 +61,84 @@ normalization remains an independent acceptance path: the private 0.1.1 record
 still reads back with `env: {}`, and the 0.1.4 Creator candidate remains
 blocked pending a guarded update and readback.
 
-Local real-CLI candidate run: Codex CLI `0.165.0`, Python `3.14.0`, command
-`uv run --python 3.14 --extra dev python scripts/codex_plugin_e2e.py --work-dir /tmp/qm-pr101-followup-codex-e2e-20261113-002`.
-Repository Marketplace install and ZIP Marketplace install both reported
-version `0.1.4`; the structured environment-name allowlist check passed on
-both. The 34-file ZIP had SHA-256
-`6e84a6d825f0cbaf605cdfbdb21047afa9de001efdef51285def30a222a6430e`. The
-Runtime venv install, `doctor`, four-tool discovery, duplicate-add idempotency,
-update/delete, fresh-session persistence, SIGKILL recovery, profile isolation,
-disable/uninstall and post-uninstall record read all passed. The run used an
-isolated `CODEX_HOME`, local synthetic embeddings and the plugin's pinned
-runtime requirements. Its build report says `source_dirty: true`, so this is
-working-tree candidate evidence, not an exact-commit artifact or GitHub CI
-result. It does not replace protected Cloud, Creator-normalization or Desktop
-GUI acceptance. The MCP lifecycle portion drives the launcher directly with
-the test SDK; it does not prove Codex itself launched the configured process.
-This run predates the Skill 0.4.3 pin: it packaged Skill 0.4.2 at
-`f06db94b334e17c50b74dce66b9b919132301183`. Skill 0.4.3 later changed the
-bundled installer's Windows ACL checks and the DSH reference, so the ZIP
-digest above and this run do not cover the current 0.1.4 candidate, which
-still needs its own run.
+Local real-CLI candidate run (2026-11-13): exact source commit
+`6ef6bead8cd2f9d56a79e98baa5a8f5c2a5c6263`; the checkout was clean and synced
+with the PR branch, and the builder reported `source_dirty: false`. The tested
+candidate pins the public Skill 0.4.4 snapshot `skills-20261113.2` at
+`607b1335f7babc9a7a2f909d12d8214124d1032c`. The locked Codex CLI package
+reported `codex-cli 0.167.2`; the environment used Node `v22.23.2`, Python
+`3.11.15` and uv `0.13.6`.
+
+The real CLI installed the repository Marketplace candidate and the rebuilt
+ZIP Marketplace candidate; both reported plugin version `0.1.4`. The effective
+MCP `env_vars` allowlist check passed for both installs. The eight names were
+`QDRANT_MEMORY_CODEX_ROOT`, `QDRANT_MEMORY_CODEX_PROFILE`,
+`QDRANT_MEMORY_CODEX_EXECUTABLE`, `QDRANT_MEMORY_CODEX_PYTHON`,
+`QDRANT_MEMORY_CODEX_OWNER_URL`, `QDRANT_MEMORY_SHARED_TOKEN`,
+`QDRANT_API_KEY` and `EMBEDDING_API_KEY`; no values were recorded. The ZIP
+contains 34 files and has SHA-256
+`66c287c252e1ddc9880e09176b28aeb1eec63d3a2b9a1142b5b69e963f535fcd`.
+The installed Runtime venv reported `hermes-plugin-qdrant-memory 0.6.2` and
+`qdrant-memory-mcp 0.3.3` from the plugin's pinned public package requirements.
+
+All 16 E2E report steps completed: repository Marketplace install and cleanup,
+ZIP build and install, Runtime venv installation, two isolated profile setups,
+`doctor`, discovery of all four tools, duplicate-add idempotency, update and
+delete, fresh-session persistence, recovery after a deliberate SIGKILL, scope
+isolation with zero cross-profile leakage, disable, uninstall and a successful
+post-uninstall record read. The test used synthetic local embeddings and an
+isolated temporary `CODEX_HOME`; the process environment was cleared before
+launch. It used no model conversation or credentials.
+
+Reproduction commands (run from the repository root; temporary variables point
+only to paths created for this run):
+
+```sh
+TASK_ROOT="$(mktemp -d /private/tmp/qdrant-codex-cli-0.167.2.XXXXXX)"
+CLI_PREFIX="$TASK_ROOT/cli-install"
+VENV="$PWD/.venv"
+SKILL_SNAPSHOT="$TASK_ROOT/skills"
+UV_BIN="$(command -v uv)"
+NODE_BIN="$(command -v node)"
+test "$(git rev-parse HEAD)" = 6ef6bead8cd2f9d56a79e98baa5a8f5c2a5c6263
+test "$(git rev-parse origin/codex/codex-plugin-dependency-pins-20261113)" = 6ef6bead8cd2f9d56a79e98baa5a8f5c2a5c6263
+test -z "$(git status --porcelain)"
+uv venv --python 3.11.15 .venv
+uv pip install --python "$VENV/bin/python" --require-hashes \
+  --only-binary=:all: -r .github/requirements-sonar-ci.txt
+uv pip install --python "$VENV/bin/python" --no-deps --no-build-isolation .
+mkdir -p "$CLI_PREFIX" "$TASK_ROOT/home" "$TASK_ROOT/cache" \
+  "$TASK_ROOT/config" "$TASK_ROOT/data" "$TASK_ROOT/uv-cache"
+cp .github/codex-cli-locks/0.167.2/package.json \
+  .github/codex-cli-locks/0.167.2/package-lock.json "$CLI_PREFIX/"
+(cd "$CLI_PREFIX" && npm ci --ignore-scripts --no-audit --no-fund)
+node --version
+npm --version
+uv --version
+git clone --no-checkout --filter=blob:none \
+  https://github.com/cnkang/skills.git "$SKILL_SNAPSHOT"
+git -C "$SKILL_SNAPSHOT" fetch --depth=1 origin \
+  607b1335f7babc9a7a2f909d12d8214124d1032c
+git -C "$SKILL_SNAPSHOT" checkout --detach \
+  607b1335f7babc9a7a2f909d12d8214124d1032c
+python3.11 scripts/build_codex_plugin.py --validate
+python3.11 scripts/build_codex_plugin.py --skill-repo "$SKILL_SNAPSHOT"
+RUN_PATH="$CLI_PREFIX/node_modules/.bin:$VENV/bin:$(dirname "$UV_BIN"):$(dirname "$NODE_BIN"):/usr/bin:/bin"
+PATH="$RUN_PATH" node --version
+PATH="$RUN_PATH" codex --version
+env -i HOME="$TASK_ROOT/home" USERPROFILE="$TASK_ROOT/home" \
+  CODEX_HOME="$TASK_ROOT/codex-home" \
+  XDG_CACHE_HOME="$TASK_ROOT/cache" XDG_CONFIG_HOME="$TASK_ROOT/config" \
+  XDG_DATA_HOME="$TASK_ROOT/data" UV_CACHE_DIR="$TASK_ROOT/uv-cache" \
+  TMPDIR=/private/tmp LANG=en_US.UTF-8 PATH="$RUN_PATH" \
+  "$VENV/bin/python" scripts/codex_plugin_e2e.py \
+  --work-dir "$TASK_ROOT/run" --skill-repo "$SKILL_SNAPSHOT" --keep
+```
+
+This local real-CLI run does not replace protected Cloud acceptance,
+Plugin-Creator normalization or Codex Desktop GUI acceptance. The MCP
+lifecycle portion drives the launcher directly with the test SDK; it does not
+prove that Codex itself launched the configured MCP process.
 
 ## Candidate verification run (2026-11-09, codex/plugin-readiness-20261109)
 
