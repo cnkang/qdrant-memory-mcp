@@ -31,9 +31,9 @@ on:
         default: '3.11'
         type: string
       pnpm_version:
-        description: Optional exact pnpm version; blank keeps the existing runner version or 12.14.0 fallback
+        description: Exact pnpm version (11 or newer); defaults to 12.14.0
         required: false
-        default: ''
+        default: '12.14.0'
         type: string
   push:
     branches: [main, 'codex/**']
@@ -131,27 +131,31 @@ jobs:
           tests/dev/test_dsh_lock_audit.py::test_dsh_lock_excludes_oauth_vulnerable_sdk_versions
           tests/dev/test_dsh_lock_audit.py::test_dsh_lock_excludes_vulnerable_http_and_schema_versions
           tests/dev/test_dsh_lock_audit.py::test_dsh_lock_excludes_vulnerable_zip_parser_versions
-      - name: Ensure pnpm for the official DSH plugin manager
+      - name: Validate exact supported pnpm version
         env:
-          PNPM_VERSION: ${{ github.event.inputs.pnpm_version }}
+          PNPM_VERSION: ${{ github.event.inputs.pnpm_version || '12.14.0' }}
         shell: bash
         run: |
-          if [[ -n "$PNPM_VERSION" ]]; then
-            if [[ ! "$PNPM_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$ ]]; then
-              echo "::error::pnpm_version must be an exact published semver"
-              exit 1
-            fi
-            installed_pnpm="$(pnpm --version 2>/dev/null || true)"
-            if [[ "$installed_pnpm" == "$PNPM_VERSION" ]]; then exit 0; fi
-            # pnpm's own installer materialises its managed binary and shims.
-            npm install --global "pnpm@${PNPM_VERSION}"
-            test "$(pnpm --version)" = "$PNPM_VERSION"
-            exit 0
-          fi
-          if pnpm --version; then exit 0; fi
-          # pnpm ships a placeholder binary; its own installer is what materialises the
-          # host binary and the Windows shims, so this install must keep its scripts.
-          npm install --global pnpm@12.14.0
+          python - <<'PY'
+          import os
+          import re
+
+          version = os.environ["PNPM_VERSION"]
+          match = re.fullmatch(
+              r"(?P<major>0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)"
+              r"(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?",
+              version,
+          )
+          if match is None:
+              raise SystemExit("pnpm_version must be an exact published semver")
+          if int(match.group("major")) < 11:
+              raise SystemExit("pnpm/setup v3 requires pnpm >=11")
+          PY
+      - name: Set up pnpm for the official DSH plugin manager
+        uses: pnpm/setup@731dfb6463bbd11c11fd0ee11fe00ed0e36d48a1 # v3
+        with:
+          version: ${{ github.event.inputs.pnpm_version || '12.14.0' }}
+          install: false
       - name: Real official client, CLI, Skill provider and Bundle acceptance
         env:
           DSH_TEST_MODULES: ${{ github.workspace }}/integrations/dsh/node_modules

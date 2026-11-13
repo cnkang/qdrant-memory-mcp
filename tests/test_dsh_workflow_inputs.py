@@ -73,16 +73,41 @@ def test_dsh_next_dispatch_versions_are_optional_and_default_to_current_values()
     assert inputs["dsh_skill_filesystem_version"]["default"] == "next"
     assert inputs["node_version"]["default"] == "24"
     assert inputs["python_version"]["default"] == "3.11"
-    assert inputs["pnpm_version"]["default"] == ""
+    assert inputs["pnpm_version"]["default"] == "12.14.0"
 
     serialized = (WORKFLOWS / "dsh-next.yml").read_text(encoding="utf-8")
     for variable in (
         "DSH_MCP_CLIENT_VERSION",
         "DSH_SKILL_FILESYSTEM_VERSION",
         "pnpm_version must be an exact published semver",
-        "pnpm@12.14.0",
+        "pnpm/setup v3 requires pnpm >=11",
     ):
         assert variable in serialized
+
+    validate = next(
+        step
+        for step in workflow["jobs"]["next"]["steps"]
+        if step.get("name") == "Validate exact supported pnpm version"
+    )
+    assert validate["env"]["PNPM_VERSION"] == (
+        "${{ github.event.inputs.pnpm_version || '12.14.0' }}"
+    )
+    assert "re.fullmatch" in validate["run"]
+    assert 'int(match.group("major")) < 11' in validate["run"]
+
+    setup = next(
+        step
+        for step in workflow["jobs"]["next"]["steps"]
+        if step.get("name") == "Set up pnpm for the official DSH plugin manager"
+    )
+    assert setup["uses"] == (
+        "pnpm/setup@731dfb6463bbd11c11fd0ee11fe00ed0e36d48a1"
+    )
+    assert setup["with"]["version"] == (
+        "${{ github.event.inputs.pnpm_version || '12.14.0' }}"
+    )
+    assert setup["with"]["install"] is False
+    assert "npm install --global" not in serialized
 
 
 def test_protected_cloud_and_release_toolchains_have_no_mutable_inputs():
