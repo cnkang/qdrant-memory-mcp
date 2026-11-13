@@ -990,7 +990,7 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
    * capturable content; false leaves the turn for a later recovery pass.
    */
   const captureTurn = async (session, turnNumber, agent, sourceEvents, signal) => {
-    if (!isActiveAgent(agent, signal)) return false
+    if (!config.auto_capture.enabled || !isActiveAgent(agent, signal)) return false
     let events = sourceEvents
     if (!events) {
       const flushed = await awaitWithSignal(
@@ -998,7 +998,7 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
         signal,
         'DSH session flush was cancelled',
       )
-      if (!isActiveAgent(agent, signal)) return false
+      if (!config.auto_capture.enabled || !isActiveAgent(agent, signal)) return false
       if (flushed !== true) {
         safeLog(ctx, 'warn', 'Qdrant Memory capture skipped because DSH has no durable session flush handler.')
         return false
@@ -1008,7 +1008,7 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
         signal,
         'DSH session read was cancelled',
       )
-      if (!isActiveAgent(agent, signal)) return false
+      if (!config.auto_capture.enabled || !isActiveAgent(agent, signal)) return false
       events = snapshot.events
     }
     const turn = compileTurn(events, session.id, turnNumber, config.auto_capture.max_input_chars)
@@ -1029,7 +1029,7 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
       }),
       signal,
     )
-    if (!isActiveAgent(agent, signal)) return false
+    if (!config.auto_capture.enabled || !isActiveAgent(agent, signal)) return false
     if (status.status === 'COMMITTED' || status.status === 'CANCELLED') return true
     if (RETRYABLE_OWNER_EVENT_STATUSES.has(status.status)) {
       const result = await retryRequest(
@@ -1040,7 +1040,7 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
         }),
         signal,
       )
-      if (!isActiveAgent(agent, signal)) return false
+      if (!config.auto_capture.enabled || !isActiveAgent(agent, signal)) return false
       if (result.status !== 'COMMITTED' && result.status !== 'CANCELLED') {
         metrics.capture_failed += 1
         safeLog(ctx, 'warn', `Qdrant Memory capture remains in Owner recovery (status: ${String(result.status ?? 'unknown')}).`)
@@ -1056,7 +1056,7 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
     }
 
     const extraction = await extractWithDsh(ctx, agent, turn, signal, config.auto_capture)
-    if (!isActiveAgent(agent, signal)) return false
+    if (!config.auto_capture.enabled || !isActiveAgent(agent, signal)) return false
     const payload = {
       event_id: turn.event_id,
       session_id: turn.session_id,
@@ -1065,7 +1065,7 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
       candidates: extraction.candidates,
     }
     if (extraction.replacement_context) payload.replacement_context = extraction.replacement_context
-    if (!isActiveAgent(agent, signal)) return false
+    if (!config.auto_capture.enabled || !isActiveAgent(agent, signal)) return false
     const result = await retryRequest(
       () => runtimeRequest('remote-event', payload, {
         signal,
@@ -1074,7 +1074,7 @@ export function apply(ctx, config, runtimeRequest = runRuntimeRequest) {
       }),
       signal,
     )
-    if (!isActiveAgent(agent, signal)) return false
+    if (!config.auto_capture.enabled || !isActiveAgent(agent, signal)) return false
     if (result.status !== 'COMMITTED' && result.status !== 'CANCELLED') {
       metrics.capture_failed += 1
       safeLog(ctx, 'warn', `Qdrant Memory capture was not committed (status: ${String(result.status ?? 'unknown')}).`)
