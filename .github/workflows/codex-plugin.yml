@@ -291,6 +291,8 @@ jobs:
           ref: f06db94b334e17c50b74dce66b9b919132301183
           path: .skill-source
           persist-credentials: false
+      - name: Install pinned uv for compatibility E2E
+        run: "python -m pip install --only-binary=:all: uv==0.13.6"
       - name: Run the credential-free real CLI compatibility end-to-end
         id: e2e
         run: |

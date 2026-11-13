@@ -40,6 +40,13 @@ RUNTIME_DISTRIBUTION = "hermes-plugin-qdrant-memory"
 RUNTIME_REPOSITORY = (
     "https://github.com/cnkang/hermes-plugin-qdrant-memory.git"
 )
+RUNTIME_DIRECT_URL_SEPARATOR = " @ git+"
+_RUNTIME_REQUIREMENT_RE = re.compile(
+    r"\s*hermes[-_.]plugin[-_.]qdrant[-_.]memory"
+    r"(?P<extras>\[[A-Z0-9,_.-]+\])?\s*==\s*"
+    r"(?P<version>[0-9A-Z.!+_-]+)\s*(?:#.*)?",
+    re.IGNORECASE | re.ASCII,
+)
 PLATFORM_LOCKS = {
     "linux-x64": ("x86_64-unknown-linux-gnu", "3.11"),
     "macos-arm64": ("aarch64-apple-darwin", "3.11"),
@@ -170,17 +177,14 @@ def _runtime_requirement_for_desktop_lock(work: Path) -> Path:
     if len(indexes) != 1:
         raise ValueError("requirements.txt must contain exactly one Runtime pin")
     index = indexes[0]
-    match = re.fullmatch(
-        r"\s*hermes[-_.]plugin[-_.]qdrant[-_.]memory(?P<extras>\[[A-Za-z0-9,_.-]+\])?\s*==\s*(?P<version>[0-9A-Za-z.!+_-]+)\s*(?:#.*)?",
-        lines[index],
-        re.IGNORECASE,
-    )
+    match = _RUNTIME_REQUIREMENT_RE.fullmatch(lines[index])
     if match is None or match.group("version") != release["runtime_version"]:
         raise ValueError(
             "requirements.txt Runtime version must match release.json before compiling locks"
         )
     runtime_requirement = (
-        f"{RUNTIME_DISTRIBUTION}{match.group('extras') or ''} @ git+"
+        f"{RUNTIME_DISTRIBUTION}{match.group('extras') or ''}"
+        f"{RUNTIME_DIRECT_URL_SEPARATOR}"
         f"{RUNTIME_REPOSITORY}@{release['runtime_commit']}"
     )
     lines[index] = runtime_requirement
@@ -303,6 +307,58 @@ def validate_sha256(digest: object) -> str:
     return digest
 
 
+def _split_requirement_blocks(lock: Path) -> tuple[list[str], list[list[str]]]:
+    """Separate leading options from requirement blocks in a compiled lock."""
+    blocks = []
+    prefix = []
+    current = None
+    for line in lock.read_text(encoding="utf-8").splitlines():
+        if line and not line[0].isspace() and not line.startswith("#"):
+            if current is not None:
+                blocks.append(current)
+            current = [line]
+        elif current is None:
+            prefix.append(line)
+        else:
+            current.append(line)
+    if current is not None:
+        blocks.append(current)
+    return prefix, blocks
+
+
+def _runtime_requirement_blocks(blocks: list[list[str]]) -> list[list[str]]:
+    """Select the blocks whose first line names the Runtime distribution."""
+    return [
+        block
+        for block in blocks
+        if _requirement_name(block[0]) == RUNTIME_DISTRIBUTION
+    ]
+
+
+def _expected_runtime_source(release: dict) -> str:
+    return f"git+{RUNTIME_REPOSITORY}@{release['runtime_commit']}"
+
+
+def _has_expected_runtime_source(entry: str, expected_source: str) -> bool:
+    return RUNTIME_DIRECT_URL_SEPARATOR in entry and entry.endswith(expected_source)
+
+
+def _validate_offline_runtime_entry(entry: str, release: dict) -> None:
+    """Accept only the pinned source URL or exact published Runtime version."""
+    expected_source = _expected_runtime_source(release)
+    if RUNTIME_DIRECT_URL_SEPARATOR in entry:
+        if not entry.endswith(expected_source):
+            raise ValueError("runtime lock source does not match the pinned commit")
+        return
+    match = re.match(
+        r"^hermes[-_.]plugin[-_.]qdrant[-_.]memory(?:\[[^\]]+\])?\s*==\s*([^\s\\]+)",
+        entry,
+        re.IGNORECASE | re.ASCII,
+    )
+    if match is None or match.group(1) != release["runtime_version"]:
+        raise ValueError("runtime lock version does not match the pinned release")
+
+
 def offline_requirements(
     platform: str, wheelhouse: Path, runtime_meta: dict, target_dir: Path
 ) -> Path:
@@ -321,46 +377,17 @@ def offline_requirements(
         raise ValueError("runtime wheel SHA-256 does not match runtime-wheel.json")
     replacement = f"{runtime_wheel.resolve().as_uri()} --hash=sha256:{digest}"
     target = target_dir / VERIFY_REQUIREMENTS_FILENAME
-
-    blocks = []
-    prefix = []
-    current = None
-    for line in lock.read_text(encoding="utf-8").splitlines():
-        if line and not line[0].isspace() and not line.startswith("#"):
-            if current is not None:
-                blocks.append(current)
-            current = [line]
-        elif current is None:
-            prefix.append(line)
-        else:
-            current.append(line)
-    if current is not None:
-        blocks.append(current)
-
-    runtime_blocks = [
-        block for block in blocks
-        if _requirement_name(block[0]) == RUNTIME_DISTRIBUTION
-    ]
+    prefix, blocks = _split_requirement_blocks(lock)
+    runtime_blocks = _runtime_requirement_blocks(blocks)
     if len(runtime_blocks) != 1:
         raise ValueError("runtime lock must contain exactly one Runtime requirement")
-    runtime_entry = runtime_blocks[0][0].strip()
     release = load_release()
-    expected_source = f"git+{RUNTIME_REPOSITORY}@{release['runtime_commit']}"
-    if " @ git+" in runtime_entry:
-        if not runtime_entry.endswith(expected_source):
-            raise ValueError("runtime lock source does not match the pinned commit")
-    else:
-        match = re.match(
-            r"^hermes[-_.]plugin[-_.]qdrant[-_.]memory(?:\[[^\]]+\])?\s*==\s*([^\s\\]+)",
-            runtime_entry,
-            re.IGNORECASE,
-        )
-        if match is None or match.group(1) != release["runtime_version"]:
-            raise ValueError("runtime lock version does not match the pinned release")
+    runtime_block = runtime_blocks[0]
+    _validate_offline_runtime_entry(runtime_block[0].strip(), release)
 
     output = list(prefix)
     for block in blocks:
-        if block is runtime_blocks[0]:
+        if block is runtime_block:
             output.append(replacement)
         else:
             output.extend(block)
@@ -497,22 +524,8 @@ def hashed_requirements(platform: str, work: Path) -> Path:
     lock = LOCKS / f"{platform}.txt"
     target = work / f"hashed-{platform}.txt"
     release = load_release()
-    expected_source = f"git+{RUNTIME_REPOSITORY}@{release['runtime_commit']}"
-    lines = lock.read_text(encoding="utf-8").splitlines()
-    blocks = []
-    prefix = []
-    current = None
-    for line in lines:
-        if line and not line[0].isspace() and not line.startswith("#"):
-            if current is not None:
-                blocks.append(current)
-            current = [line]
-        elif current is None:
-            prefix.append(line)
-        else:
-            current.append(line)
-    if current is not None:
-        blocks.append(current)
+    expected_source = _expected_runtime_source(release)
+    prefix, blocks = _split_requirement_blocks(lock)
 
     runtime_count = 0
     output = list(prefix)
@@ -520,10 +533,10 @@ def hashed_requirements(platform: str, work: Path) -> Path:
         first = block[0].strip()
         if _requirement_name(first) == RUNTIME_DISTRIBUTION:
             runtime_count += 1
-            if " @ git+" not in first or not first.endswith(expected_source):
+            if not _has_expected_runtime_source(first, expected_source):
                 raise ValueError("runtime lock source does not match the pinned commit")
             continue
-        if " @ git+" in first:
+        if RUNTIME_DIRECT_URL_SEPARATOR in first:
             raise ValueError("only the pinned Runtime source may be excluded from wheel download")
         output.extend(block)
     if runtime_count != 1:

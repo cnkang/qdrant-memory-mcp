@@ -113,6 +113,18 @@ def test_codex_toolchain_versions_are_optional_and_have_validated_defaults():
     )
     assert node_setup["with"]["node-version"] == "${{ env.CODEX_PLUGIN_NODE_VERSION }}"
     assert python_setup["with"]["python-version"] == "${{ env.CODEX_PLUGIN_PYTHON_VERSION }}"
+    uv_setup = next(
+        step
+        for step in compatibility["steps"]
+        if step.get("name") == "Install pinned uv for compatibility E2E"
+    )
+    e2e = next(
+        step
+        for step in compatibility["steps"]
+        if step.get("name") == "Run the credential-free real CLI compatibility end-to-end"
+    )
+    assert "uv==0.13.6" in uv_setup["run"]
+    assert compatibility["steps"].index(uv_setup) < compatibility["steps"].index(e2e)
 
 
 def test_dsh_compatibility_probe_resolves_selected_host_into_its_lock():
