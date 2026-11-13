@@ -16,35 +16,64 @@ def _workflow(name):
     return document
 
 
-def test_preview_inputs_select_only_compatibility_toolchains():
+def test_preview_inputs_select_only_optional_compatibility_toolchains():
     workflow = _workflow("workbuddy-preview.yml")
     dispatch = workflow["on"]["workflow_dispatch"]
     inputs = dispatch["inputs"]
 
     assert set(inputs) == {"python_version", "node_version"}
     assert inputs["python_version"] == {
-        "description": "Python interpreter for compatibility tests; product Runtime pins stay locked",
+        "description": "Python interpreter for the optional manual probe; required checks stay on 3.11",
         "required": False,
         "default": "3.11",
         "type": "choice",
         "options": ["3.11", "3.14"],
     }
     assert inputs["node_version"] == {
-        "description": "Node.js interpreter for compatibility tests; WorkBuddy's managed runtime stays at Node 20",
+        "description": "Node.js interpreter for the optional manual probe; required checks stay on Node 20",
         "required": False,
         "default": "20",
         "type": "choice",
         "options": ["20", "22", "24"],
     }
 
-    steps = workflow["jobs"]["connector"]["steps"]
-    python_setup = next(step for step in steps if str(step.get("uses", "")).startswith("actions/setup-python@"))
-    node_setup = next(step for step in steps if str(step.get("uses", "")).startswith("actions/setup-node@"))
-    assert python_setup["with"]["python-version"] == "${{ inputs.python_version || '3.11' }}"
-    assert node_setup["with"]["node-version"] == "${{ inputs.node_version || '20' }}"
+    jobs = workflow["jobs"]
+    required = jobs["connector"]
+    assert required["name"] == "WorkBuddy package and stdio acceptance"
+    required_steps = required["steps"]
+    python_setup = next(step for step in required_steps if str(step.get("uses", "")).startswith("actions/setup-python@"))
+    node_setup = next(step for step in required_steps if str(step.get("uses", "")).startswith("actions/setup-node@"))
+    assert python_setup["with"]["python-version"] == "3.11"
+    assert node_setup["with"]["node-version"] == "20"
+    required_json = json.dumps(required)
+    assert "inputs.python_version" not in required_json
+    assert "inputs.node_version" not in required_json
+    assert "vars." not in json.dumps(workflow)
 
-    # The selectable versions are test-host runtimes only. Product versions and
-    # npm integrity continue to come from reviewed, immutable source pins.
+    compatibility = jobs["compatibility"]
+    assert compatibility["name"] == "WorkBuddy compatibility probe"
+    assert compatibility["needs"] == "connector"
+    assert compatibility["if"] == (
+        "${{ github.event_name == 'workflow_dispatch' && "
+        "(inputs.python_version != '3.11' || inputs.node_version != '20') }}"
+    )
+    assert compatibility["env"] == {
+        "WORKBUDDY_TEST_PYTHON_VERSION": "${{ inputs.python_version || '3.11' }}",
+        "WORKBUDDY_TEST_NODE_VERSION": "${{ inputs.node_version || '20' }}",
+    }
+    compatibility_steps = compatibility["steps"]
+    compatibility_python = next(
+        step for step in compatibility_steps
+        if str(step.get("uses", "")).startswith("actions/setup-python@")
+    )
+    compatibility_node = next(
+        step for step in compatibility_steps
+        if str(step.get("uses", "")).startswith("actions/setup-node@")
+    )
+    assert compatibility_python["with"]["python-version"] == "${{ env.WORKBUDDY_TEST_PYTHON_VERSION }}"
+    assert compatibility_node["with"]["node-version"] == "${{ env.WORKBUDDY_TEST_NODE_VERSION }}"
+
+    # Product pins and npm integrity remain sourced from reviewed immutable files.
     launcher = json.loads((ROOT / "launcher-source.json").read_text(encoding="utf-8"))
     mcp = json.loads((ROOT / "integrations/workbuddy/mcp.json").read_text(encoding="utf-8"))
     skill = json.loads((ROOT / "integrations/workbuddy/skill-source.json").read_text(encoding="utf-8"))
@@ -53,6 +82,7 @@ def test_preview_inputs_select_only_compatibility_toolchains():
     assert server["args"][1] == f"{launcher['name']}@{launcher['version']}"
     assert server["npmRegistries"] == ["https://registry.npmjs.org"]
     assert launcher["integrity"].startswith("sha512-")
+    assert launcher["runtime_version"] == "0.6.0"
     assert len(skill["commit"]) == 40
 
 
