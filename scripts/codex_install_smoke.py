@@ -19,6 +19,26 @@ def check(condition, message):
         raise RuntimeError(message)
 
 
+def installed_openai_extension(cache):
+    """Resolve Codex settings using the manifest precedence used by the host."""
+    root_manifest = json.loads((cache / "plugin.json").read_text(encoding="utf-8"))
+    root_extensions = root_manifest.get("extensions", {})
+    check(isinstance(root_extensions, dict), "Installed plugin extensions are invalid")
+    extension = root_extensions.get("com.openai")
+    if extension is None:
+        overlay_path = cache / ".codex-plugin/plugin.json"
+        check(overlay_path.is_file(), "Codex compatibility overlay is missing")
+        overlay = json.loads(overlay_path.read_text(encoding="utf-8"))
+        overlay_extensions = overlay.get("extensions", {})
+        check(
+            isinstance(overlay_extensions, dict),
+            "Codex compatibility extensions are invalid",
+        )
+        extension = overlay_extensions.get("com.openai")
+    check(isinstance(extension, dict), "Installed Codex OpenAI extension is missing")
+    return extension
+
+
 def main():
     """Install the plugin in an isolated Codex home and verify its lifecycle."""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -42,9 +62,7 @@ def main():
     cache = Path(installed["installedPath"])
     check((cache / "skills/setup/SKILL.md").is_file(), "Setup skill is missing")
     check(
-        json.loads((cache / "plugin.json").read_text())["extensions"]["com.openai"][
-            "onboardingSkill"
-        ]
+        installed_openai_extension(cache).get("onboardingSkill")
         == "./skills/setup/SKILL.md",
         "Onboarding skill declaration mismatch",
     )
