@@ -10,6 +10,31 @@ on:
         required: false
         default: next
         type: string
+      dsh_mcp_client_version:
+        description: DSH MCP client version (next, latest, or an exact published semver)
+        required: false
+        default: next
+        type: string
+      dsh_skill_filesystem_version:
+        description: DSH skill filesystem version (next, latest, or an exact published semver)
+        required: false
+        default: next
+        type: string
+      node_version:
+        description: Node.js compatibility version
+        required: false
+        default: '24'
+        type: string
+      python_version:
+        description: Python compatibility version
+        required: false
+        default: '3.11'
+        type: string
+      pnpm_version:
+        description: Optional exact pnpm version; blank keeps the existing runner version or 12.14.0 fallback
+        required: false
+        default: ''
+        type: string
   push:
     branches: [main, 'codex/**']
     paths:
@@ -44,10 +69,10 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
-          node-version: '24'
+          node-version: ${{ github.event.inputs.node_version || '24' }}
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
-          python-version: '3.11'
+          python-version: ${{ github.event.inputs.python_version || '3.11' }}
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: cnkang/skills
@@ -64,22 +89,26 @@ jobs:
       - name: Resolve the selected official DSH packages into the runner lock
         env:
           DSH_VERSION: ${{ github.event.inputs.dsh_version || 'next' }}
+          DSH_MCP_CLIENT_VERSION: ${{ github.event.inputs.dsh_mcp_client_version || 'next' }}
+          DSH_SKILL_FILESYSTEM_VERSION: ${{ github.event.inputs.dsh_skill_filesystem_version || 'next' }}
         working-directory: integrations/dsh
         shell: bash
         run: |
-          case "$DSH_VERSION" in
-            next|latest) ;;
-            *)
-              if [[ ! "$DSH_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$ ]]; then
-                echo "::error::dsh_version must be next, latest, or an exact published semver"
-                exit 1
-              fi
-              ;;
-          esac
+          for version in "$DSH_VERSION" "$DSH_MCP_CLIENT_VERSION" "$DSH_SKILL_FILESYSTEM_VERSION"; do
+            case "$version" in
+              next|latest) ;;
+              *)
+                if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$ ]]; then
+                  echo "::error::DSH package versions must be next, latest, or exact published semver values"
+                  exit 1
+                fi
+                ;;
+            esac
+          done
           npm install --package-lock-only --save-exact --ignore-scripts --no-audit --no-fund \
             "@deepseek-ai/dsh@${DSH_VERSION}" \
-            @deepseek-ai/dsh-mcp-client@next \
-            @deepseek-ai/dsh-skill-filesystem@next
+            "@deepseek-ai/dsh-mcp-client@${DSH_MCP_CLIENT_VERSION}" \
+            "@deepseek-ai/dsh-skill-filesystem@${DSH_SKILL_FILESYSTEM_VERSION}"
       - name: Install the exact next resolution from the lock
         working-directory: integrations/dsh
         run: npm ci --ignore-scripts --no-audit --no-fund
@@ -103,8 +132,22 @@ jobs:
           tests/dev/test_dsh_lock_audit.py::test_dsh_lock_excludes_vulnerable_http_and_schema_versions
           tests/dev/test_dsh_lock_audit.py::test_dsh_lock_excludes_vulnerable_zip_parser_versions
       - name: Ensure pnpm for the official DSH plugin manager
+        env:
+          PNPM_VERSION: ${{ github.event.inputs.pnpm_version }}
         shell: bash
         run: |
+          if [[ -n "$PNPM_VERSION" ]]; then
+            if [[ ! "$PNPM_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$ ]]; then
+              echo "::error::pnpm_version must be an exact published semver"
+              exit 1
+            fi
+            installed_pnpm="$(pnpm --version 2>/dev/null || true)"
+            if [[ "$installed_pnpm" == "$PNPM_VERSION" ]]; then exit 0; fi
+            # pnpm's own installer materialises its managed binary and shims.
+            npm install --global "pnpm@${PNPM_VERSION}"
+            test "$(pnpm --version)" = "$PNPM_VERSION"
+            exit 0
+          fi
           if pnpm --version; then exit 0; fi
           # pnpm ships a placeholder binary; its own installer is what materialises the
           # host binary and the Windows shims, so this install must keep its scripts.

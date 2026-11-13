@@ -50,7 +50,7 @@ it currently reads the full individual Session log once per recovery pass.
 Prepare the candidate tarball with `python scripts/pack_dsh_bundle.py
 --output-dir dist/dsh-bundle` from the repository root. Direct `npm pack` of
 this source directory omits the canonical Native module and is not a release
-artifact. Publication requires approved Runtime 0.6.1 public-wheel, protected
+artifact. Publication requires approved Runtime 0.6.2 public-wheel, protected
 Cloud and Desktop acceptance. When approved, publish this candidate under
 `next`, keeping `latest=0.1.6`; this task does not publish either package.
 

@@ -4,6 +4,35 @@ on:
     branches: [main, 'codex/**']
   pull_request:
   workflow_dispatch:
+    inputs:
+      runtime_version:
+        description: Runtime source release used for this compatibility run
+        required: false
+        type: choice
+        options:
+          - '0.6.1'
+          - '0.6.2'
+        default: '0.6.2'
+      node_version:
+        description: Node.js version for the DSH host compatibility run
+        required: false
+        type: string
+        default: '24.9.0'
+      python_version:
+        description: Python version for the source-built Owner runtime
+        required: false
+        type: choice
+        options:
+          - '3.11'
+          - '3.12'
+          - '3.13'
+          - '3.14'
+        default: '3.11'
+      qdrant_client_version:
+        description: Exact qdrant-client version for this compatibility run
+        required: false
+        type: string
+        default: '1.20.0'
 permissions:
   contents: read
 concurrency:
@@ -20,6 +49,8 @@ jobs:
       PYTHONWARNINGS: 'error:Qdrant client version:UserWarning'
       QDRANT_OWNER_RUNTIME_ROOT: ${{ github.workspace }}/.scratch/dsh-runtime
       QDRANT_DSH_EVIDENCE: ${{ github.workspace }}/dsh-cross-client.json
+      DSH_RUNTIME_VERSION: ${{ inputs.runtime_version || '0.6.2' }}
+      QDRANT_CLIENT_VERSION: ${{ inputs.qdrant_client_version || '1.20.0' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -27,28 +58,34 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: cnkang/hermes-plugin-qdrant-memory
-          ref: 6df73703419f061e77b9b640c15ddf6609d26e58
+          # Release source SHAs stay immutable; the input selects only this fixed map.
+          ref: ${{ inputs.runtime_version == '0.6.1' && '2696122405e3324a1e227c131e0f9b2a320dd23c' || '913fa705922b5bfeb29d52f102cfc6385a4d0436' }}
           path: .scratch/dsh-runtime
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
-          node-version: '24.9.0'
+          node-version: ${{ inputs.node_version || '24.9.0' }}
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
-          python-version: '3.11'
+          python-version: ${{ inputs.python_version || '3.11' }}
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115
         with:
           version: '11.28.5'
           package_json_file: integrations/dsh/native/package.json
           run_install: false
       - name: Install exact DSH and build the source-snapshot Runtime wheel
+        shell: bash
         run: |
+          if [[ ! "$QDRANT_CLIENT_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo 'qdrant_client_version must be an exact X.Y.Z version' >&2
+            exit 1
+          fi
           npm ci --prefix .github/ci-deps/dsh-native --ignore-scripts --no-audit --no-fund
           npm ci --prefix integrations/dsh/native --ignore-scripts --no-audit --no-fund
           npm ci --prefix integrations/agent-hosts --ignore-scripts --no-audit --no-fund
           python -m pip install --only-binary=:all: 'build==1.4.0' 'pytest==9.2.0'
           python -m build .scratch/dsh-runtime --outdir "$RUNNER_TEMP/runtime-dist"
-          python -m pip install --only-binary=:all: "$RUNNER_TEMP/runtime-dist/hermes_plugin_qdrant_memory-0.6.1-py3-none-any.whl[remote]" 'qdrant-client==1.20.0'
+          python -m pip install --only-binary=:all: "$RUNNER_TEMP/runtime-dist/hermes_plugin_qdrant_memory-${DSH_RUNTIME_VERSION}-py3-none-any.whl[remote]" "qdrant-client==${QDRANT_CLIENT_VERSION}"
       - name: Start isolated fixed-version Qdrant
         run: docker compose -p dsh-ci -f tests/cross_client_e2e/docker-compose.yml up -d
       - name: Real AgentLoop capture, MCP recall and principal isolation

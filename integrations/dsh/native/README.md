@@ -6,8 +6,8 @@ Runtime through its authenticated HTTPS Owner endpoint. It does not open
 Qdrant, create a second ledger, or change the four public MCP tools.
 
 The package targets the pinned DSH prerelease `0.2.2-rc.1`, Node.js 24.9 or
-newer, and Python Runtime 0.6.1 or newer. Runtime 0.6.1 supports the versioned
-candidate event and durable receipt retry used by this adapter. The DSH package
+newer, and Python Runtime 0.6.2 or newer. Runtime 0.6.2 supports versioned
+candidate events and receipt-scoped retries for failed operations. The DSH package
 remains private canonical source. The reviewed packer includes it in the existing
 `@cnkang/qdrant-memory-dsh-bundle` candidate; do not publish a separate Native
 package. See [Bundle storage modes](../bundle/README.md#candidate-storage-modes).
@@ -82,9 +82,11 @@ by the [shared security guide](https://github.com/cnkang/qdrant-memory-mcp/blob/
   session log. On resume it checks the completed turns that follow the saved
   activation boundary against Owner receipts, batched in eight turns, and skips
   turns already resolved through the durable recovery-progress marker. For
-  `ACCEPTED` and `PENDING` receipts, it retries by event ID only; the Runtime
-  reuses the original immutable candidate plan. `FAILED` and `QUARANTINED`
-  receipts remain for explicit Owner-operator recovery. Candidate data stays
+  `ACCEPTED`, `PENDING`, and `FAILED` receipts, it retries by event ID only; the
+  Runtime reuses the original immutable candidate plan and, for `FAILED`, queues
+  only failed operations. `QUARANTINED` receipts remain for explicit
+  Owner-operator recovery. If the retry does not reach `COMMITTED`, the turn
+  remains unresolved for a later recovery pass. Candidate data stays
   out of the DSH session log, and the adapter does not re-extract under that ID.
 - The queue is bounded. A full queue or a failure before an Owner receipt can
   leave an uncaptured turn in the DSH log. Successful DSH flush plus an Owner
@@ -149,25 +151,25 @@ Runtime Owner must be ready before enabling either write or recall behavior.
 Embedding selection belongs to the Python Owner profile, not DSH. Create a new
 Owner destination using the [Runtime embedding guide](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/local-embedding.md)
 and [shared Owner setup](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/shared-memory/README.md).
-Runtime 0.6.1 provides the versioned candidate-event and retry contract used by
-the adapter and is publicly available on PyPI. The commands below install the
-released `0.6.1` wheel. On replay, the adapter automatically retries Owner
-receipts in `ACCEPTED` or `PENDING` state by event ID, reusing the Owner's
-stored plan. `FAILED` and `QUARANTINED` events require explicit Owner-operator
-recovery.
+Runtime 0.6.2 provides the versioned candidate-event and failed-operation retry
+contract used by the adapter and is publicly available on PyPI. The commands
+below install the released `0.6.2` wheel. On replay, the adapter automatically
+retries Owner receipts in `ACCEPTED`, `PENDING`, or `FAILED` state by event ID.
+Runtime reuses the stored plan and retries only failed operations; `QUARANTINED`
+events still require explicit Owner-operator recovery.
 
 For a new local CPU Owner, explicitly install the Runtime's `local` extra and
 create a separate profile:
 
 ```sh
-python -m pip install 'hermes-plugin-qdrant-memory[remote,local]==0.6.1'
+python -m pip install 'hermes-plugin-qdrant-memory[remote,local]==0.6.2'
 qdrant-memory setup --profile /absolute/private/dsh-owner --embedding-provider fastembed --agent-id dsh-owner
 ```
 
 For an existing Ollama model, the Runtime `local` extra is not needed:
 
 ```sh
-python -m pip install 'hermes-plugin-qdrant-memory[remote]==0.6.1'
+python -m pip install 'hermes-plugin-qdrant-memory[remote]==0.6.2'
 qdrant-memory setup --profile /absolute/private/dsh-owner --embedding-provider ollama --model qwen3-embedding:4b --dimensions 2560 --agent-id dsh-owner
 ```
 
