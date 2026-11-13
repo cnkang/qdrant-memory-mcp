@@ -683,6 +683,152 @@ test('completed capture flushes the DSH log and retries from its stable Owner re
   }
 })
 
+test('disabled auto-capture leaves queued turns unresolved for the next resume', async () => {
+  const session = { id: 'capture-disabled-session', seq: 0 }
+  const makeTurnEvents = (turn, firstSeq, text) => [
+    { type: 'turn/start', seq: firstSeq, data: { turn } },
+    { type: 'user/message', seq: firstSeq + 1, data: {
+      source: { kind: 'user' },
+      content: [{ type: 'text', text: `Remember that ${text}.` }],
+    } },
+    { type: 'assistant/message', seq: firstSeq + 2, data: {
+      turn,
+      message: {
+        source: { kind: 'model', provider: 'provider-a', model: 'model-a' },
+        content: [{ type: 'text', text: `I will remember that ${text}.` }],
+      },
+    } },
+    { type: 'turn/end', seq: firstSeq + 3, data: { turn, reason: { kind: 'completed' } } },
+  ]
+  const events = [
+    ...makeTurnEvents(1, 1, 'the DSH project uses the existing Python Runtime'),
+    ...makeTurnEvents(2, 5, 'capture can resume from the session log'),
+  ]
+  let snapshot = { events: [] }
+  let readCount = 0
+  let resolveInitialRecoveryRead
+  const initialRecoveryRead = new Promise((resolve) => { resolveInitialRecoveryRead = resolve })
+  const handlers = new Map()
+  const ctx = {
+    on(event, handler) {
+      handlers.set(event, handler)
+      return () => handlers.delete(event)
+    },
+    effect(register) { register() },
+    logger: { warn() {} },
+    llm: {
+      async *stream() {
+        extractionCount += 1
+        yield { type: 'text-delta', text: candidateOutput }
+        yield { type: 'finish', reason: { kind: 'stop' } }
+      },
+    },
+    sessions: { flush: async () => true },
+    sessionQuery: {
+      async readSession() {
+        readCount += 1
+        const result = snapshot
+        if (readCount === 2) resolveInitialRecoveryRead()
+        return result
+      },
+    },
+    agents: { get() { return undefined }, list() { return [] } },
+  }
+  const config = {
+    ...DEFAULT_CONFIG,
+    auto_capture: { ...DEFAULT_CONFIG.auto_capture, enabled: true },
+  }
+  const candidateOutput = JSON.stringify({ memories: [candidate], replacement_context: '' })
+  let extractionCount = 0
+  let resolveFirstStatus
+  const firstStatus = new Promise((resolve) => { resolveFirstStatus = resolve })
+  let resolveFirstStatusStarted
+  const firstStatusStarted = new Promise((resolve) => { resolveFirstStatusStarted = resolve })
+  let resolveResumedSubmit
+  const resumedSubmit = new Promise((resolve) => { resolveResumedSubmit = resolve })
+  const requests = []
+  const firstTurn = compileTurn(events, session.id, 1, config.auto_capture.max_input_chars)
+  const secondTurn = compileTurn(events, session.id, 2, config.auto_capture.max_input_chars)
+  assert.ok(firstTurn)
+  assert.ok(secondTurn)
+
+  const dispose = apply(ctx, config, async (_mode, payload, options) => {
+    const action = options?.action
+    requests.push({ action, payload })
+    if (action === 'status') {
+      const statusCount = requests.filter((request) => request.action === 'status').length
+      if (statusCount === 1) {
+        resolveFirstStatusStarted()
+        return firstStatus
+      }
+      return { status: 'NOT_FOUND' }
+    }
+    if (action === 'submit') {
+      if (payload.event_id === secondTurn.event_id) resolveResumedSubmit(payload)
+      return { status: 'COMMITTED' }
+    }
+    throw new Error(`unexpected Runtime action: ${String(action)}`)
+  })
+  const waitFor = (promise, label) => {
+    let timer
+    return Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`${label} timed out`)), 3000)
+      }),
+    ]).finally(() => clearTimeout(timer))
+  }
+
+  const firstAgent = {
+    session,
+    model: { current: () => ({ provider: 'provider-a', model: 'model-a' }) },
+  }
+  try {
+    handlers.get('agent/created')({ agent: firstAgent })
+    await waitFor(initialRecoveryRead, 'initial recovery scan')
+    await new Promise(setImmediate)
+    snapshot = { events }
+
+    const onSessionEvent = handlers.get('session/event')
+    const firstCompletion = onSessionEvent(session, {
+      type: 'turn/end',
+      data: { turn: 1, reason: { kind: 'completed' } },
+    })
+    await waitFor(firstStatusStarted, 'first Owner status request')
+    const secondCompletion = onSessionEvent(session, {
+      type: 'turn/end',
+      data: { turn: 2, reason: { kind: 'completed' } },
+    })
+    config.auto_capture.enabled = false
+    resolveFirstStatus({ status: 'NOT_FOUND' })
+    await waitFor(Promise.all([firstCompletion, secondCompletion]), 'queued captures')
+
+    assert.deepEqual(requests.filter((request) => request.action === 'status')
+      .map((request) => request.payload.event_id), [firstTurn.event_id])
+    assert.deepEqual(requests.filter((request) => request.action === 'submit'), [])
+    assert.equal(extractionCount, 0)
+
+    config.auto_capture.enabled = true
+    handlers.get('agent/disposed')({ agent: firstAgent })
+    const resumedAgent = { session, model: firstAgent.model }
+    handlers.get('agent/created')({ agent: resumedAgent })
+    await waitFor(resumedSubmit, 'replayed queued turn')
+    await new Promise(setImmediate)
+
+    assert.deepEqual(requests.filter((request) => request.action === 'status')
+      .map((request) => request.payload.event_id), [
+      firstTurn.event_id,
+      firstTurn.event_id,
+      secondTurn.event_id,
+    ])
+    assert.deepEqual(requests.filter((request) => request.action === 'submit')
+      .map((request) => request.payload.event_id), [firstTurn.event_id, secondTurn.event_id])
+    assert.equal(extractionCount, 2)
+  } finally {
+    dispose()
+  }
+})
+
 test('fork recovery captures only child-owned turns', async () => {
   const parentEvents = [
     { type: 'turn/start', seq: 1, data: { turn: 1 } },
