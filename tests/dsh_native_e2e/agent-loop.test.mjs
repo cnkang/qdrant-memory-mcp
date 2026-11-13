@@ -224,7 +224,9 @@ test('complete DSH process restart resumes durable opt-in and uncaptured turns',
 
 if (process.env.QM_DSH_BUNDLE_PROFILE) {
   const cloudAgentTimeoutMs = process.env.QM_DSH_CLOUD === '1' ? 90000 : 5000
-  const captureWaitMs = Native.DEFAULT_CONFIG.auto_capture.timeout_ms + 10000
+  const captureWaitMs = process.env.QM_DSH_CLOUD === '1'
+    ? Math.max(Native.DEFAULT_CONFIG.auto_capture.timeout_ms + 10000, 120000)
+    : Native.DEFAULT_CONFIG.auto_capture.timeout_ms + 10000
   const testTimeoutMs = cloudAgentTimeoutMs + captureWaitMs + 15000
   test('packed Bundle runs Native and four MCP tools against one real Owner', { timeout: testTimeoutMs }, async (t) => {
     const h = await harness(t, Native.DEFAULT_CONFIG)
