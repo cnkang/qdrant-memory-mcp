@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Release MCP distribution 0.3.3 with the public Runtime 0.6.2 pin. This fixes
+  the dependency mismatch in 0.3.2; MCP schemas, tools and stored data remain
+  unchanged.
+
 - Harden the lifecycle auto-capture preview per review: HTTPS-only non-loopback
   extraction endpoints, `--confirm` required before staged text reaches any
   remote provider, broader secret-shaped candidate refusal (bearer tokens,
