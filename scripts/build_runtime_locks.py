@@ -7,15 +7,16 @@ Desktop GUI acceptance remain unresolved
 
 1. One hash-locked, binary-only transitive dependency file per supported
    platform (``linux-x64``, ``macos-arm64``, ``macos-x64``, ``windows-x64``)
-   resolved from the plugin's pinned ``requirements.txt``.
-2. The Runtime wheel built once from the immutable pinned source commit, with
-   its SHA-256 recorded (the lock keeps the Codex plugin's Git pin for online
-   provenance; the desktop bundle may substitute the recorded wheel).
+   resolved from the plugin's pinned requirements, with Runtime resolved from
+   the immutable source commit named by ``release.json``.
+2. The Runtime wheel built from that source commit, with its SHA-256 recorded.
+   Offline verification substitutes this local wheel for the Git requirement.
 3. ``--verify <platform>`` proves offline installation from a prebuilt
    wheelhouse plus the pinned Runtime wheel, with hash checking enabled.
 
-Network is required to resolve or to build the wheelhouse. All hashes that land
-in files are platform-reproducible, unlike resolver output.
+Network is required to resolve dependencies or build a wheelhouse. Dependency
+hashes come from the locked package artifacts; the Runtime hash pins one local
+wheel build, whose bytes are not reproducible across build timestamps.
 """
 
 import argparse
@@ -32,8 +33,13 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 REQUIREMENTS = ROOT / "plugins/qdrant-memory/requirements.txt"
+RELEASE_FILE = ROOT / "plugins/qdrant-memory/release.json"
 LOCKS = ROOT / "runtime-locks"
 RUNTIME_WHEEL_FILENAME = "runtime-wheel.json"
+RUNTIME_DISTRIBUTION = "hermes-plugin-qdrant-memory"
+RUNTIME_REPOSITORY = (
+    "https://github.com/cnkang/hermes-plugin-qdrant-memory.git"
+)
 PLATFORM_LOCKS = {
     "linux-x64": ("x86_64-unknown-linux-gnu", "3.11"),
     "macos-arm64": ("aarch64-apple-darwin", "3.11"),
@@ -51,7 +57,7 @@ _SAFE_SUBPROCESS_ARGUMENT = re.compile(
     r"-C|-P|-m|-o|-r|-d|--depth|--wheel|--out-dir|--python-version|"
     r"--python-platform|--generate-hashes|--seed|--python|--require-hashes|"
     r"--only-binary=:all:|--no-deps|--no-index|--no-cache-dir|--find-links|--help|"
-    r"--offline|--no-python-downloads"
+    r"--offline|--no-header|--no-python-downloads"
     r"|[^-\x00-\x1f\x7f][^\x00-\x1f\x7f]*"
     r")$"
 )
@@ -129,6 +135,80 @@ def validate_runtime_commit(commit: object) -> str:
     return commit
 
 
+def load_release() -> dict:
+    """Read and validate the release fields used by source-built locks."""
+    release = json.loads(RELEASE_FILE.read_text(encoding="utf-8"))
+    validate_runtime_commit(release.get("runtime_commit"))
+    if release.get("runtime_repository") != RUNTIME_REPOSITORY.removesuffix(".git"):
+        raise ValueError("release runtime_repository does not match the approved source")
+    version = release.get("runtime_version")
+    if not isinstance(version, str) or re.fullmatch(r"[0-9A-Za-z.!+_-]+", version) is None:
+        raise ValueError("runtime_version must be a valid pinned version")
+    return release
+
+
+def _requirement_name(line: str) -> str | None:
+    """Return a normalized package name for one top-level requirement line."""
+    stripped = line.strip()
+    if not stripped or stripped.startswith("#") or stripped.startswith("-"):
+        return None
+    match = re.match(r"([A-Za-z0-9][A-Za-z0-9._-]*)", stripped)
+    if match is None:
+        return None
+    return re.sub(r"[-_.]+", "-", match.group(1)).lower()
+
+
+def _runtime_requirement_for_desktop_lock(work: Path) -> Path:
+    """Pin the Desktop prototype to the release's immutable Runtime source."""
+    release = load_release()
+    lines = REQUIREMENTS.read_text(encoding="utf-8").splitlines()
+    indexes = [
+        index
+        for index, line in enumerate(lines)
+        if _requirement_name(line) == RUNTIME_DISTRIBUTION
+    ]
+    if len(indexes) != 1:
+        raise ValueError("requirements.txt must contain exactly one Runtime pin")
+    index = indexes[0]
+    match = re.fullmatch(
+        r"\s*hermes[-_.]plugin[-_.]qdrant[-_.]memory(?P<extras>\[[A-Za-z0-9,_.-]+\])?\s*==\s*(?P<version>[0-9A-Za-z.!+_-]+)\s*(?:#.*)?",
+        lines[index],
+        re.IGNORECASE,
+    )
+    if match is None or match.group("version") != release["runtime_version"]:
+        raise ValueError(
+            "requirements.txt Runtime version must match release.json before compiling locks"
+        )
+    runtime_requirement = (
+        f"{RUNTIME_DISTRIBUTION}{match.group('extras') or ''} @ git+"
+        f"{RUNTIME_REPOSITORY}@{release['runtime_commit']}"
+    )
+    lines[index] = runtime_requirement
+    target = work / "desktop-runtime-lock-requirements.txt"
+    target.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return target
+
+
+def _validate_runtime_metadata(runtime_meta: object) -> tuple[str, str]:
+    """Validate source provenance, wheel version, and hash against release.json."""
+    if not isinstance(runtime_meta, dict):
+        raise ValueError("runtime-wheel.json must contain a JSON object")
+    release = load_release()
+    commit = validate_runtime_commit(runtime_meta.get("commit"))
+    if (
+        commit != release["runtime_commit"]
+        or runtime_meta.get("runtime_version") != release["runtime_version"]
+    ):
+        raise ValueError("wheelhouse runtime metadata does not match the pinned release")
+    wheel_name = validate_runtime_wheel(runtime_meta.get("wheel"))
+    expected_prefix = (
+        "hermes_plugin_qdrant_memory-" + release["runtime_version"] + "-"
+    )
+    if not wheel_name.startswith(expected_prefix):
+        raise ValueError("runtime wheel filename does not match the pinned release version")
+    return wheel_name, validate_sha256(runtime_meta.get("sha256"))
+
+
 def build_runtime_wheel(work: Path, save_dir: Path | None = None) -> dict:
     """Clone the pinned Runtime commit and build one platform-neutral wheel.
 
@@ -136,10 +216,8 @@ def build_runtime_wheel(work: Path, save_dir: Path | None = None) -> dict:
     not guaranteed byte-reproducible across builds (build metadata contains a
     timestamp). The recorded SHA-256 pins exactly the recorded wheel.
     """
-    release = json.loads(
-        (ROOT / "plugins/qdrant-memory/release.json").read_text(encoding="utf-8")
-    )
-    commit = validate_runtime_commit(release["runtime_commit"])
+    release = load_release()
+    commit = release["runtime_commit"]
     source = work / "runtime-source"
     run("git", ["init", str(source)], work)
     run(
@@ -150,12 +228,15 @@ def build_runtime_wheel(work: Path, save_dir: Path | None = None) -> dict:
             "remote",
             "add",
             "origin",
-            "https://github.com/cnkang/hermes-plugin-qdrant-memory.git",
+            RUNTIME_REPOSITORY,
         ],
         work,
     )
     run("git", ["-C", str(source), "fetch", "--depth", "1", "origin", commit], work)
     run("git", ["-C", str(source), "checkout", "FETCH_HEAD"], work)
+    checkout = run("git", ["-C", str(source), "rev-parse", "HEAD"], work)
+    if checkout.stdout.strip() != commit:
+        raise RuntimeError("checked out Runtime source does not match the pinned commit")
     build = run(
         "uv",
         ["build", "--wheel", "--out-dir", str(work / "wheel"), str(source)],
@@ -164,11 +245,26 @@ def build_runtime_wheel(work: Path, save_dir: Path | None = None) -> dict:
     )
     if build.returncode:
         raise RuntimeError("uv build --wheel failed: " + build.stderr[-800:])
-    wheel = next((work / "wheel").glob("hermes_plugin_qdrant_memory-*.whl"))
+    wheels = list((work / "wheel").glob("hermes_plugin_qdrant_memory-*.whl"))
+    if len(wheels) != 1:
+        raise RuntimeError("Runtime source build must produce exactly one wheel")
+    wheel = wheels[0]
+    if not wheel.name.startswith(
+        "hermes_plugin_qdrant_memory-" + release["runtime_version"] + "-"
+    ):
+        raise RuntimeError("Runtime source build produced a wheel for the wrong version")
     digest = hashlib.sha256(wheel.read_bytes()).hexdigest()
     if save_dir is not None:
         save_dir.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(wheel, save_dir / wheel.name)
+        saved_wheel = save_dir / wheel.name
+        if saved_wheel.exists():
+            existing_digest = hashlib.sha256(saved_wheel.read_bytes()).hexdigest()
+            if existing_digest != digest:
+                raise FileExistsError(
+                    "refusing to overwrite a different wheel with the same filename"
+                )
+        else:
+            shutil.copy2(wheel, saved_wheel)
         (save_dir / RUNTIME_WHEEL_FILENAME).write_text(
             json.dumps(
                 {
@@ -216,19 +312,59 @@ def offline_requirements(
     lock = LOCKS / f"{platform}.txt"
     if not lock.is_file():
         raise FileNotFoundError(f"Runtime lock not found: {lock}")
-    runtime_wheel = wheelhouse / validate_runtime_wheel(runtime_meta.get("wheel"))
+    wheel_name, digest = _validate_runtime_metadata(runtime_meta)
+    runtime_wheel = wheelhouse / wheel_name
     if not runtime_wheel.is_file():
         raise FileNotFoundError(f"Runtime wheel not found: {runtime_wheel}")
-    digest = validate_sha256(runtime_meta.get("sha256"))
+    actual_digest = hashlib.sha256(runtime_wheel.read_bytes()).hexdigest()
+    if actual_digest != digest:
+        raise ValueError("runtime wheel SHA-256 does not match runtime-wheel.json")
     replacement = f"{runtime_wheel.resolve().as_uri()} --hash=sha256:{digest}"
     target = target_dir / VERIFY_REQUIREMENTS_FILENAME
-    lines = []
+
+    blocks = []
+    prefix = []
+    current = None
     for line in lock.read_text(encoding="utf-8").splitlines():
-        if line.startswith("hermes-plugin-qdrant-memory @ git+"):
-            lines.append(replacement)
+        if line and not line[0].isspace() and not line.startswith("#"):
+            if current is not None:
+                blocks.append(current)
+            current = [line]
+        elif current is None:
+            prefix.append(line)
         else:
-            lines.append(line)
-    target.write_text("\n".join(lines) + "\n", encoding="utf-8")
+            current.append(line)
+    if current is not None:
+        blocks.append(current)
+
+    runtime_blocks = [
+        block for block in blocks
+        if _requirement_name(block[0]) == RUNTIME_DISTRIBUTION
+    ]
+    if len(runtime_blocks) != 1:
+        raise ValueError("runtime lock must contain exactly one Runtime requirement")
+    runtime_entry = runtime_blocks[0][0].strip()
+    release = load_release()
+    expected_source = f"git+{RUNTIME_REPOSITORY}@{release['runtime_commit']}"
+    if " @ git+" in runtime_entry:
+        if not runtime_entry.endswith(expected_source):
+            raise ValueError("runtime lock source does not match the pinned commit")
+    else:
+        match = re.match(
+            r"^hermes[-_.]plugin[-_.]qdrant[-_.]memory(?:\[[^\]]+\])?\s*==\s*([^\s\\]+)",
+            runtime_entry,
+            re.IGNORECASE,
+        )
+        if match is None or match.group(1) != release["runtime_version"]:
+            raise ValueError("runtime lock version does not match the pinned release")
+
+    output = list(prefix)
+    for block in blocks:
+        if block is runtime_blocks[0]:
+            output.append(replacement)
+        else:
+            output.extend(block)
+    target.write_text("\n".join(output) + "\n", encoding="utf-8")
     return target
 
 
@@ -242,16 +378,7 @@ def verify_offline(target: str, wheelhouse: Path, runtime_meta: dict) -> dict:
         raise RuntimeError(
             f"--verify {target} requires host architecture {expected}; this host reports {actual}"
         )
-    if not isinstance(runtime_meta, dict):
-        raise ValueError("runtime-wheel.json must contain a JSON object")
-    release = json.loads(
-        (ROOT / "plugins/qdrant-memory/release.json").read_text(encoding="utf-8")
-    )
-    if (
-        runtime_meta.get("commit") != release["runtime_commit"]
-        or runtime_meta.get("runtime_version") != release["runtime_version"]
-    ):
-        raise ValueError("wheelhouse runtime metadata does not match the pinned release")
+    _validate_runtime_metadata(runtime_meta)
     work = Path(tempfile.mkdtemp(prefix="qm-lock-verify-"))
     try:
         verify_req = offline_requirements(target, wheelhouse, runtime_meta, work)
@@ -305,31 +432,50 @@ def verify_offline(target: str, wheelhouse: Path, runtime_meta: dict) -> dict:
         shutil.rmtree(work, ignore_errors=True)
 
 
-def compile_lock(target: str, _work: Path) -> Path:
-    """Resolve one platform's full transitive graph with hashes.
-
-    Source and output paths stay relative to the repository root so generated
-    headers remain host-independent.
-    """
+def compile_lock(target: str, work: Path) -> Path:
+    """Resolve one platform graph, then normalize generated lock metadata."""
+    if target not in PLATFORM_LOCKS:
+        raise ValueError(f"Unsupported runtime lock platform: {target}")
     platform, python = PLATFORM_LOCKS[target]
     output = LOCKS / f"{target}.txt"
+    requirements = _runtime_requirement_for_desktop_lock(work)
     args = [
         "pip",
         "compile",
+        "--no-header",
         "--generate-hashes",
         "--python-version",
         python,
         "--python-platform",
         platform,
-        "plugins/qdrant-memory/requirements.txt",
+        str(requirements),
         "-o",
-        f"runtime-locks/{target}.txt",
+        str(output),
     ]
     result = run("uv", args, ROOT, check=False)
     if result.returncode:
         raise RuntimeError(
             f"uv pip compile for {target} failed: {result.stderr[-1200:]}"
         )
+    if not output.is_file():
+        raise RuntimeError(f"uv pip compile for {target} did not create its lock file")
+    release = load_release()
+    canonical_header = "\n".join(
+        [
+            "# Generated by scripts/build_runtime_locks.py; do not edit.",
+            "# Source requirements: plugins/qdrant-memory/requirements.txt",
+            f"# Target: {target} ({platform}; Python {python})",
+            f"# Runtime source commit: {release['runtime_commit']}",
+            "",
+            "",
+        ]
+    )
+    generated = output.read_text(encoding="utf-8").replace(
+        str(requirements), "plugins/qdrant-memory/requirements.txt"
+    )
+    output.write_text(
+        canonical_header + generated, encoding="utf-8"
+    )
     return output
 
 
@@ -350,13 +496,39 @@ def hashed_requirements(platform: str, work: Path) -> Path:
         raise ValueError(f"Unsupported runtime lock platform: {platform}")
     lock = LOCKS / f"{platform}.txt"
     target = work / f"hashed-{platform}.txt"
-    lines = [
-        line
-        for line in lock.read_text(encoding="utf-8").splitlines()
-        if not line.startswith("hermes-plugin-qdrant-memory @ git+")
-        and " @ git+" not in line
-    ]
-    target.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    release = load_release()
+    expected_source = f"git+{RUNTIME_REPOSITORY}@{release['runtime_commit']}"
+    lines = lock.read_text(encoding="utf-8").splitlines()
+    blocks = []
+    prefix = []
+    current = None
+    for line in lines:
+        if line and not line[0].isspace() and not line.startswith("#"):
+            if current is not None:
+                blocks.append(current)
+            current = [line]
+        elif current is None:
+            prefix.append(line)
+        else:
+            current.append(line)
+    if current is not None:
+        blocks.append(current)
+
+    runtime_count = 0
+    output = list(prefix)
+    for block in blocks:
+        first = block[0].strip()
+        if _requirement_name(first) == RUNTIME_DISTRIBUTION:
+            runtime_count += 1
+            if " @ git+" not in first or not first.endswith(expected_source):
+                raise ValueError("runtime lock source does not match the pinned commit")
+            continue
+        if " @ git+" in first:
+            raise ValueError("only the pinned Runtime source may be excluded from wheel download")
+        output.extend(block)
+    if runtime_count != 1:
+        raise ValueError("runtime lock must contain exactly one Runtime source requirement")
+    target.write_text("\n".join(output) + "\n", encoding="utf-8")
     return target
 
 
@@ -414,15 +586,18 @@ def build_lock_files() -> None:
                 [
                     "# Runtime dependency locks (build prototype)",
                     "",
-                    "Hash-locked, binary-only transitive dependency resolutions of the",
-                    "plugin's pinned requirements for each platform. The lock keeps the",
-                    "pinned Runtime Git requirement; the wheel built during lock generation",
-                    "and its SHA-256 are recorded in `runtime-wheel.json`.",
+                    "Hash-locked, binary-only transitive dependency resolutions for the",
+                    "plugin's public requirements on each platform. For this Desktop-only",
+                    "prototype, the lock replaces the public Runtime wheel pin with the",
+                    "immutable Runtime source commit; that wheel is built separately and",
+                    "its SHA-256 is recorded in `runtime-wheel.json`.",
                     "",
-                    "The wheel itself is not committed here: it is a local build artifact of the",
-                    "pinned Runtime commit, and rebuilds are not byte-identical. Keep the wheel",
-                    "with the metadata (the `--wheelhouse` build does) when the recorded SHA-256",
-                    "must remain verifiable.",
+                    "The Runtime source package is excluded from the hash-locked PyPI wheel",
+                    "download, so a wheelhouse never downloads a same-name wheel and then",
+                    "overwrites it. The Runtime wheel itself is not committed here: it is a",
+                    "local build artifact of the pinned source commit, and rebuilds are not",
+                    "byte-identical. Keep the wheel with its metadata (the `--wheelhouse`",
+                    "build does) when the recorded SHA-256 must remain verifiable.",
                     "",
                     "Verification is gated on the host architecture: the lock files carry the",
                     "universal hash set, so a matching hash alone does not prove a target install.",

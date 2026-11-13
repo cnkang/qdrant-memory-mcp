@@ -80,8 +80,12 @@ def test_cloud_preflight_restricts_the_actual_checkout(
     assert "github.event.inputs" not in text
     assert text.count("${{ secrets.SOAK_LLM_API_KEY }}") == 2
     assert "--mode cloud" in cloud
-    assert "-m pip install -r plugins/qdrant-memory/requirements.txt" in cloud
-    assert 'source["vcs_info"]["commit_id"] == expected' in cloud
+    assert "-m pip install" in cloud
+    assert "--index-url https://pypi.org/simple" in cloud
+    assert "-r plugins/qdrant-memory/requirements.txt" in cloud
+    assert 'distribution.version != version' in cloud
+    assert 'distribution.read_text("direct_url.json") is not None' in cloud
+    assert 'source["vcs_info"]["commit_id"]' not in cloud
     assert "--force-reinstall" not in cloud
 
 

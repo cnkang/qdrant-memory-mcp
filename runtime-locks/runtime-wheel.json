@@ -1,6 +1,6 @@
 {
-  "wheel": "hermes_plugin_qdrant_memory-0.6.0-py3-none-any.whl",
-  "sha256": "9ed5dfbf00eedfebf95deb67f2b46292addda23792a17b54d75a30c48d277854",
-  "commit": "dee6777432f17523db75f6be32cf3ef15e48235c",
-  "runtime_version": "0.6.0"
+  "wheel": "hermes_plugin_qdrant_memory-0.6.2-py3-none-any.whl",
+  "sha256": "1102eead4bce75004928b6d7a38880ebf7700f9d1a420e0d4b2a6f69f4a3714b",
+  "commit": "913fa705922b5bfeb29d52f102cfc6385a4d0436",
+  "runtime_version": "0.6.2"
 }
