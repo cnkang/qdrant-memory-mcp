@@ -6,6 +6,30 @@
   the dependency mismatch in 0.3.2; MCP schemas, tools and stored data remain
   unchanged.
 
+- Prepare Codex plugin 0.1.4 (not published): pin MCP distribution 0.3.3,
+  Runtime 0.6.2 and Skill 0.4.3 (snapshot `skills-20261113.1`). The plugin's
+  `requirements.txt` now installs exact public PyPI releases instead of a
+  Runtime Git commit, so installation no longer needs Git or a source build;
+  `release.json` keeps the source commits as provenance.
+- Move OpenAI presentation, onboarding and the Codex MCP server mapping with
+  its eight-name `env_vars` allowlist from root `plugin.json` into
+  `.codex-plugin/plugin.json`. A root `extensions.com.openai` object replaces
+  that overlay entirely, so the package validator now rejects one.
+- The real-CLI end-to-end lane parses `codex mcp get --json` and requires
+  `transport.env_vars` to equal the allowlist exactly (names only, never
+  values). Required Codex lanes stay on Node 22, Python 3.11 and Codex CLI
+  0.167.2; a manual compatibility probe can select Node 24, Python 3.14 or
+  Codex CLI 0.165.0. Both end-to-end lanes install uv from a hash-locked
+  requirements file.
+- Desktop runtime locks compile from the release's Runtime source commit with
+  a host-independent header. The builder verifies the checked-out commit and
+  wheel version, checks the Runtime wheel's SHA-256 before an offline install,
+  applies one exact check to the lock's Runtime entry for both `--wheelhouse`
+  and `--verify`, and refuses to overwrite a different same-name wheel in an
+  existing wheelhouse.
+- DSH native adapter: stop queued captures as soon as auto-capture is
+  disabled; the unresolved turns replay on the next resume.
+
 - Harden the lifecycle auto-capture preview per review: HTTPS-only non-loopback
   extraction endpoints, `--confirm` required before staged text reaches any
   remote provider, broader secret-shaped candidate refusal (bearer tokens,
@@ -20,7 +44,7 @@
 - Add a credential-free real-Codex-CLI end-to-end lane
   (`scripts/codex_plugin_e2e.py`, CI job `lifecycle-e2e`): isolated `CODEX_HOME`
   installs from both the repository marketplace and the exact rebuilt ZIP,
-  verifies the eight overlay environment names through `codex mcp get`, runs
+  verifies the eight overlay environment names through `codex mcp get --json`, runs
   the pinned Runtime install from the plugin requirements, and drives the
   four-tool lifecycle through the real launcher — duplicate-add idempotency,
   exact-ID update/delete, fresh-session persistence, SIGKILL recovery, scope
