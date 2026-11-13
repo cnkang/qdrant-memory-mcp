@@ -234,7 +234,10 @@ sticky bit; otherwise the lock or its path could supply its own integrity root.
 On macOS the lock file and its ancestors must also carry no `allow` ACL
 entries. Windows validates the regular-file shape and checks the directory,
 every ancestor, and file DACLs. The lock must be self-contained: `-r`/`-c`
-includes are rejected so pip reads only the validated file. This
+includes and active pip-style `${NAME}` references are rejected after logical
+line joining and comment removal. Replace variables with literal values;
+references inside comments are ignored. This prevents environment expansion
+from concealing an include before pip parses the validated file. The lock then
 enables pip `--require-hashes --only-binary=:all:`. Missing hashes or
 unavailable wheels fail closed. No fallback to a source build is attempted.
 This option cannot be combined with `--revision`. Explicit immutable source

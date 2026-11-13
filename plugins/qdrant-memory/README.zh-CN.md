@@ -15,7 +15,7 @@ Marketplace 展示名为 **Kang's plugins**，标识为 `cnkang`；安装选择�
 采用可移植 Agent Plugins 格式、Node 20+ stdio 启动层和已有 Python 3.11+ Runtime。
 插件通过公开 PyPI 安装精确锁定的 MCP 0.3.3 和 Runtime 0.6.2；安装不需要 Git 或源码构建。
 `release.json` 中不可变源码提交仅用于记录来源。插件候选版本为 0.1.4，固定使用
-MCP 0.3.3、Runtime 0.6.2 和 Skill 0.4.3（公开快照 `skills-20261113.1`，固定提交 `a51242b027f1dea19e2c655e1a37cb780ef396e6`）。没有新增记忆引擎；
+MCP 0.3.3、Runtime 0.6.2 和 Skill 0.4.4（公开快照 `skills-20261113.2`，固定提交 `607b1335f7babc9a7a2f909d12d8214124d1032c`）。没有新增记忆引擎；
 Hermes、DSH 和 WorkBuddy 按各自的版本及验收门禁独立发布。
 
 每次更新插件后，重新执行下方固定的 `uv pip install` 命令，再重新连接。
