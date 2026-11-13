@@ -13,9 +13,15 @@ not automatically capture or prefetch turns. The existing Bundle's
 `@cnkang/qdrant-memory-dsh-bundle` npm name. The private Native module remains
 canonical source, not a second publication. The candidate requires DSH `0.2.2-rc.1` and Node.js
 `>=24.9.0`; its extraction-v1 event prerequisite is available in published
-Runtime 0.6.1. Runtime 0.6.2 is now public and adds explicit recovery for
-persisted `FAILED` Owner events; the DSH adapter does not issue that operation
-automatically. This clears a Runtime publication prerequisite only. The DSH
+Runtime 0.6.1. Runtime 0.6.2 is now public and adds recovery for persisted
+Owner events. When `auto_capture.enabled` is true, DSH session recovery checks
+eligible receipts and automatically sends `remote-event --action retry` for
+`ACCEPTED`, `PENDING`, and `FAILED` events, reusing each stable event ID. This
+does not ask for separate per-event confirmation; the Owner still checks the
+configured token, scope, and idempotent receipt. Enable automatic capture only
+when unattended retries are authorized for that profile. Disable it to stop
+background capture and recovery. This clears a Runtime publication
+prerequisite only. The DSH
 source candidate is not a published or release-ready install: its protected
 Ollama Cloud matrix is not yet green, full UPDATE/CONFLICT and cross-client
 acceptance is incomplete, and Desktop GUI acceptance remains unverified. The
@@ -47,9 +53,9 @@ durable receipts and Qdrant writes. No automatic sharing between DSH, Hermes,
 or WorkBuddy private profiles is implied.
 
 For preview configuration, profile-local migration and rollback, read the
-[candidate Bundle configuration guide](https://github.com/cnkang/qdrant-memory-mcp/blob/2ed833df84658837f3c31dfc6fc5e2d64a6f9401/integrations/dsh/bundle/README.md).
+[candidate Bundle configuration guide](https://github.com/cnkang/qdrant-memory-mcp/blob/8e4931465acd3ec2d5a8e09284847d4276ebaf74/integrations/dsh/bundle/README.md).
 For compatibility and validation evidence, read [PR #81](https://github.com/cnkang/qdrant-memory-mcp/pull/81)
-and its [release gap report](https://github.com/cnkang/qdrant-memory-mcp/blob/2ed833df84658837f3c31dfc6fc5e2d64a6f9401/docs/dsh-native/release-readiness.md).
+and its [release gap report](https://github.com/cnkang/qdrant-memory-mcp/blob/8e4931465acd3ec2d5a8e09284847d4276ebaf74/docs/dsh-native/release-readiness.md).
 The synthetic tests and profile install smoke do not establish real-model,
 AgentLoop, Qdrant/CPU embedding, or desktop GUI acceptance.
 

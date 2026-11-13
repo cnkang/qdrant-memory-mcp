@@ -63,19 +63,36 @@ if ($owners -notcontains $owner) { exit 3 }
 $allowed = $owners + @('S-1-3-0', 'S-1-3-4')
 $raw = [System.Security.AccessControl.RawSecurityDescriptor]::new($acl.GetSecurityDescriptorBinaryForm(), 0)
 if ($null -eq $raw.DiscretionaryAcl) { exit 3 }
+$mask = __ACL_MASK__
+$skipInheritOnly = __SKIP_INHERIT_ONLY__
 foreach ($entry in $raw.DiscretionaryAcl) {
     if ([int]$entry.AceType -notin @(0, 1)) { exit 3 }
+    if ($skipInheritOnly -and (([int]$entry.AceFlags -band 0x08) -ne 0)) { continue }
     $sid = $entry.SecurityIdentifier.Value
     if ([int]$entry.AceType -eq 0 -and
-        (([long]$entry.AccessMask -band 0x500D0156) -ne 0) -and
+        (([long]$entry.AccessMask -band $mask) -ne 0) -and
         $allowed -notcontains $sid) { exit 3 }
 }
 exit 0
 """
 
 
-def _require_windows_acl(path: Path, *, directory: bool, label: str) -> None:
-    """Reject a Windows DACL that grants other accounts write or delete access."""
+def _windows_acl_script(*, directory: bool, replacement_only: bool) -> str:
+    """Build the PowerShell DACL probe for a lock or one of its ancestors."""
+    kind = "Directory" if directory else "File"
+    mask = "0x100D0040" if replacement_only else "0x500D0156"
+    skip_inherit_only = "$true" if replacement_only else "$false"
+    return (
+        _WINDOWS_ACL_SCRIPT.replace("__KIND__", kind)
+        .replace("__ACL_MASK__", mask)
+        .replace("__SKIP_INHERIT_ONLY__", skip_inherit_only)
+    )
+
+
+def _require_windows_acl(
+    path: Path, *, directory: bool, label: str, replacement_only: bool = False
+) -> None:
+    """Reject unsafe Windows DACL grants, optionally limited to path replacement."""
     if os.name != "nt":
         return
     unverified = WINDOWS_ACL_UNVERIFIED if directory else WINDOWS_FILE_ACL_UNVERIFIED
@@ -93,9 +110,9 @@ def _require_windows_acl(path: Path, *, directory: bool, label: str) -> None:
         raise ValueError(unverified)
     root = windows.value
     powershell = Path(root) / "System32/WindowsPowerShell/v1.0/powershell.exe"
-    kind = "Directory" if directory else "File"
     variable = "QM_INSTALL_PARENT" if directory else "QM_INSTALL_FILE"
-    script = _WINDOWS_ACL_SCRIPT.replace("__KIND__", kind).replace("__VARIABLE__", variable)
+    script = _windows_acl_script(directory=directory, replacement_only=replacement_only)
+    script = script.replace("__VARIABLE__", variable)
     try:
         result = subprocess.run(
             [str(powershell), "-NoProfile", "-NonInteractive", "-Command", script],
@@ -129,8 +146,13 @@ def _require_private_parent(parent: Path) -> None:
 def _require_private_windows_file(path: Path) -> None:
     """Reject a Windows lock file or replaceable ancestor with an unsafe DACL."""
     _require_windows_acl(path, directory=False, label="lock file")
+    # The lock and its direct parent get the strict write mask. Effective
+    # inherited grants appear on those objects; higher ancestors only need
+    # replacement rights checked, so sibling-creation rights do not block use.
     for ancestor in path.parents[1:]:
-        _require_windows_acl(ancestor, directory=True, label="lock ancestor")
+        _require_windows_acl(
+            ancestor, directory=True, label="lock ancestor", replacement_only=True
+        )
 
 
 _COMMENT_LINE_RE = re.compile(r"(^|\s+)#.*$")
@@ -196,9 +218,9 @@ def _logical_lock_lines(text: str):
 def _require_self_contained_lock(lock: Path) -> None:
     """Reject a lock that would make pip read another, unvalidated file."""
     try:
-        text = lock.read_text(encoding="utf-8", errors="replace")
-    except OSError as exc:
-        raise ValueError("Cannot read the requirements lock") from exc
+        text = lock.read_text(encoding="utf-8-sig")
+    except (OSError, UnicodeError) as exc:
+        raise ValueError("Cannot read the requirements lock as UTF-8") from exc
     for line in _logical_lock_lines(text):
         stripped = _COMMENT_LINE_RE.sub("", line).strip()
         if not stripped:
