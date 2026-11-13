@@ -28,15 +28,17 @@ def test_cross_harness_checkouts_match_selected_runtime_source():
 def test_public_runtime_avoids_clone(monkeypatch):
     """Use the public pinned Runtime wheel without cloning a source fallback."""
     module = load_script("prepare_runtime")
+    root = pathlib.Path(__file__).resolve().parents[1]
+    source = json.loads((root / "runtime-source.json").read_text())
     commands = []
     monkeypatch.setattr(
         module.urllib.request, "urlopen", lambda *a, **k: io.BytesIO(b"{}")
     )
     monkeypatch.setattr(module.subprocess, "run", lambda cmd, **k: commands.append(cmd))
-    module.main()
+    module.main(root=root)
     assert len(commands) == 1
     assert "download" in commands[0]
-    assert commands[0][-1] == "hermes-plugin-qdrant-memory==0.6.1"
+    assert commands[0][-1] == f"hermes-plugin-qdrant-memory=={source['version']}"
 
 
 def test_runtime_lookup_error_does_not_silently_fallback(monkeypatch):

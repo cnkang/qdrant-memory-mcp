@@ -38,7 +38,9 @@ def test_connector_metadata_and_generated_pin():
     }
     assert launcher["name"] == "@cnkang/qdrant-memory-launcher"
     assert server["args"][1] == f"{launcher['name']}@{launcher['version']}"
-    assert runtime["version"] == "0.6.1"
+    assert project["dependencies"] == [
+        f"hermes-plugin-qdrant-memory[mcp]=={runtime['version']}"
+    ]
     assert len(source["commit"]) == 40
 
 

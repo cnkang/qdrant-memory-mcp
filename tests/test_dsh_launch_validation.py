@@ -5,6 +5,7 @@ import json
 import re
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -39,6 +40,13 @@ COMPOSED_CONFIGS = {
 }
 
 
+# Keep the tested public pin distinct from the not-yet-published source candidate.
+PUBLISHED_MCP_VERSION = "0.3.2"
+CANDIDATE_MCP_VERSION = tomllib.loads((ROOT / 'pyproject.toml').read_text())[
+    'project'
+]['version']
+
+
 def released_overlay():
     """Use the published MCP pin while testing the released DSH guide."""
     overlay = (ROOT / 'integrations/dsh/qdrant-memory.cordis.yml').read_text(
@@ -46,7 +54,7 @@ def released_overlay():
     )
     overlay, replacements = re.subn(
         r'(?m)^(\s+- )qdrant-memory-mcp==\S+(\s*)$',
-        lambda match: f'{match.group(1)}qdrant-memory-mcp==0.3.1{match.group(2)}',
+        lambda match: f'{match.group(1)}qdrant-memory-mcp=={PUBLISHED_MCP_VERSION}{match.group(2)}',
         overlay,
         count=1,
     )
@@ -62,14 +70,19 @@ def composed_profile(tmp_path):
 
 @pytest.mark.parametrize('guide', GUIDES, ids=lambda path: path.name)
 @pytest.mark.parametrize('inline', [False, True])
-@pytest.mark.parametrize('version', ['0.3.1', '0.3.0', '9.9.9'])
+@pytest.mark.parametrize(
+    'version', [PUBLISHED_MCP_VERSION, CANDIDATE_MCP_VERSION, '9.9.9']
+)
 def test_effective_args_select_prepared_package(tmp_path, guide, inline, version):
     """Only the active args prefix can authorize launching the prepared version."""
     text = guide.read_text(encoding='utf-8')
     validators = re.findall(r'(import sys\nimport yaml\n.*?)(?=\nPY\n|\n\'@)', text, re.S)
     assert len(validators) == 2
     patch = released_overlay()
-    patch = patch.replace('qdrant-memory-mcp==0.3.1', f'qdrant-memory-mcp=={version}')
+    patch = patch.replace(
+        f'qdrant-memory-mcp=={PUBLISHED_MCP_VERSION}',
+        f'qdrant-memory-mcp=={version}',
+    )
     if inline:
         patch = patch.replace('- --from\n          - ', '- --from=')
     patch = patch.replace('      config:', '      unrelated: [--from, qdrant-memory-mcp==0.3.1]\n      config:')
@@ -77,10 +90,10 @@ def test_effective_args_select_prepared_package(tmp_path, guide, inline, version
     selected.write_text(patch, encoding='utf-8')
     for validator in validators:
         result = subprocess.run(
-            [sys.executable, '-c', validator, str(selected), 'qdrant-memory-mcp==0.3.1', str(tmp_path), str(tmp_path / 'composed.yml')],
+            [sys.executable, '-c', validator, str(selected), f'qdrant-memory-mcp=={PUBLISHED_MCP_VERSION}', str(tmp_path), str(tmp_path / 'composed.yml')],
             capture_output=True, encoding='utf-8', timeout=10,
         )
-        assert (result.returncode == 0) == (version == '0.3.1'), result.stderr
+        assert (result.returncode == 0) == (version == PUBLISHED_MCP_VERSION), result.stderr
 
 
 @pytest.mark.parametrize('mutation', [
@@ -89,7 +102,9 @@ def test_effective_args_select_prepared_package(tmp_path, guide, inline, version
     lambda text: text.replace('        args:', '        decoy:'),
     lambda text: text.replace('command: uvx', 'command: other'),
     lambda text: text.replace('- --from', '- --unknown'),
-    lambda text: text.replace('- --from\n          - qdrant-memory-mcp==0.3.1', '- --from'),
+    lambda text: text.replace(
+        f'- --from\n          - qdrant-memory-mcp=={PUBLISHED_MCP_VERSION}', '- --from'
+    ),
     lambda text: text + '\n- id: cnkang-qdrant-memory-mcp\n  config:\n    args: [--from=qdrant-memory-mcp==0.3.0, qdrant-memory-mcp]\n',
     lambda text: text + '\n' + text,
 ])
@@ -103,21 +118,24 @@ def test_invalid_active_configuration_is_rejected(tmp_path, mutation, guide):
     selected.write_text(mutation(released_overlay()), encoding='utf-8')
     for validator in validators:
         result = subprocess.run(
-            [sys.executable, '-c', validator, str(selected), 'qdrant-memory-mcp==0.3.1', str(tmp_path), str(tmp_path / 'composed.yml')],
+            [sys.executable, '-c', validator, str(selected), f'qdrant-memory-mcp=={PUBLISHED_MCP_VERSION}', str(tmp_path), str(tmp_path / 'composed.yml')],
             capture_output=True, encoding='utf-8', timeout=10,
         )
         assert result.returncode != 0
 
 
 @pytest.mark.parametrize('guide', GUIDES, ids=lambda path: path.name)
-@pytest.mark.parametrize('version', ['0.3.1', '0.3.0'])
+@pytest.mark.parametrize('version', [PUBLISHED_MCP_VERSION, CANDIDATE_MCP_VERSION])
 @pytest.mark.parametrize('base', COMPOSED_CONFIGS)
 def test_shell_launch_gate(tmp_path, guide, version, base):
     """Execute the published shell flow with inert setup and launch commands."""
     profile = tmp_path / 'profile'
     profile.mkdir()
     patch = released_overlay()
-    patch = patch.replace('qdrant-memory-mcp==0.3.1', f'qdrant-memory-mcp=={version}')
+    patch = patch.replace(
+        f'qdrant-memory-mcp=={PUBLISHED_MCP_VERSION}',
+        f'qdrant-memory-mcp=={version}',
+    )
     patch = patch.replace('      config:', '      decoy: [--from, qdrant-memory-mcp==0.3.1]\n      config:')
     if base == 'unicode-conflict':
         patch = patch.replace('serverName: qdrant-memory', 'serverName: 共享记忆')
@@ -149,7 +167,7 @@ dsh() {
     # Feed source over stdin rather than Windows' command-line quoting rules.
     result = subprocess.run([bash, '--noprofile', '--norc', '-s'], input=script,
                             env=env, capture_output=True, encoding='utf-8', timeout=30)
-    allowed = version == '0.3.1' and base in ('clean', 'unrelated', 'group-unrelated')
+    allowed = version == PUBLISHED_MCP_VERSION and base in ('clean', 'unrelated', 'group-unrelated')
     assert launched.exists() == allowed, result
     assert (result.returncode == 0) == allowed, result
     if launched.exists():
@@ -208,7 +226,7 @@ def test_mcp_server_name_conflicts(tmp_path, guide, before, conflict):
     selected.write_text(other + '\n' + patch if before else patch + '\n' + other, encoding='utf-8')
     for validator in re.findall(r'(import sys\nimport yaml\n.*?)(?=\nPY\n|\n\'@)', guide.read_text(encoding='utf-8'), re.S):
         result = subprocess.run(
-            [sys.executable, '-c', validator, str(selected), 'qdrant-memory-mcp==0.3.1', str(tmp_path), str(tmp_path / 'composed.yml')],
+            [sys.executable, '-c', validator, str(selected), f'qdrant-memory-mcp=={PUBLISHED_MCP_VERSION}', str(tmp_path), str(tmp_path / 'composed.yml')],
             capture_output=True, encoding='utf-8', timeout=10,
         )
         assert (result.returncode != 0) == (conflict != 'none'), result
@@ -235,7 +253,7 @@ def test_home_selects_prepared_profile(tmp_path, guide, home_kind):
     selected.write_text(patch, encoding='utf-8')
     for validator in re.findall(r'(import sys\nimport yaml\n.*?)(?=\nPY\n|\n\'@)', guide.read_text(encoding='utf-8'), re.S):
         result = subprocess.run(
-            [sys.executable, '-c', validator, str(selected), 'qdrant-memory-mcp==0.3.1', str(expected), str(tmp_path / 'composed.yml')],
+            [sys.executable, '-c', validator, str(selected), f'qdrant-memory-mcp=={PUBLISHED_MCP_VERSION}', str(expected), str(tmp_path / 'composed.yml')],
             capture_output=True, encoding='utf-8', timeout=10,
         )
         assert (result.returncode == 0) == home_kind.endswith('prepared'), result
@@ -243,7 +261,7 @@ def test_home_selects_prepared_profile(tmp_path, guide, home_kind):
 
 if sys.platform == 'win32':
     @pytest.mark.parametrize('guide', GUIDES, ids=lambda path: path.name)
-    @pytest.mark.parametrize('version', ['0.3.1', '0.3.0'])
+    @pytest.mark.parametrize('version', [PUBLISHED_MCP_VERSION, CANDIDATE_MCP_VERSION])
     @pytest.mark.parametrize('base', COMPOSED_CONFIGS)
     def test_powershell_launch_gate(tmp_path, guide, version, base):
         """Exercise Windows PowerShell validation and its selected launch path."""
@@ -251,7 +269,7 @@ if sys.platform == 'win32':
         profile.mkdir()
         patch = profile / 'qdrant-memory.cordis.yml'
         patch.write_text(released_overlay().replace(
-            'qdrant-memory-mcp==0.3.1', f'qdrant-memory-mcp=={version}'), encoding='utf-8')
+            f'qdrant-memory-mcp=={PUBLISHED_MCP_VERSION}', f'qdrant-memory-mcp=={version}'), encoding='utf-8')
         if base == 'unicode-conflict':
             patch.write_text(patch.read_text(encoding='utf-8').replace(
                 'serverName: qdrant-memory', 'serverName: 共享记忆'), encoding='utf-8')
@@ -281,7 +299,7 @@ function dsh {
                    COMPOSED_CONFIG=COMPOSED_CONFIGS[base], DUMP_FAIL=str(int(base == 'dump-failure')))
         result = subprocess.run(['powershell.exe', '-NoProfile', '-NonInteractive', '-File', str(script)],
                                 env=env, capture_output=True, timeout=30)
-        allowed = version == '0.3.1' and base in ('clean', 'unrelated', 'group-unrelated')
+        allowed = version == PUBLISHED_MCP_VERSION and base in ('clean', 'unrelated', 'group-unrelated')
         diagnostic = (result.stdout + result.stderr).decode('utf-8', errors='replace')
         assert (result.returncode == 0) == allowed, diagnostic
         assert launched.exists() == allowed, diagnostic

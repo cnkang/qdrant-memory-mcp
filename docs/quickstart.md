@@ -56,9 +56,9 @@ agent profile. Save this as `qdrant-memory.json` inside the new directory:
 }
 ```
 
-Before running these pinned initialization commands, confirm that [PyPI lists
-qdrant-memory-mcp 0.3.2](https://pypi.org/project/qdrant-memory-mcp/0.3.2/).
-Until it is published, follow the [published 0.3.1 quickstart](https://github.com/cnkang/qdrant-memory-mcp/blob/v0.3.1/docs/quickstart.md).
+This source prepares candidate `qdrant-memory-mcp==0.3.3` with Runtime 0.6.2;
+it is not a public package yet. The commands below use public MCP 0.3.2. Confirm it on
+[PyPI](https://pypi.org/project/qdrant-memory-mcp/0.3.2/) before installing.
 
 Use a separate directory and `agent_id` for each client. Replace every
 `/path/to/workbuddy-profile` below with your actual absolute path. Keep quotes

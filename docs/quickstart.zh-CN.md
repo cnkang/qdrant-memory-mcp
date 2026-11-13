@@ -56,9 +56,9 @@ ollama pull qwen3-embedding:4b
 }
 ```
 
-运行以下固定版本初始化命令前，请确认 [PyPI 已列出
-qdrant-memory-mcp 0.3.2](https://pypi.org/project/qdrant-memory-mcp/0.3.2/)。
-发布前请先按[已发布的 0.3.1 快速入门](https://github.com/cnkang/qdrant-memory-mcp/blob/v0.3.1/docs/quickstart.zh-CN.md)操作。
+当前源码准备的是候选 `qdrant-memory-mcp==0.3.3`（依赖 Runtime 0.6.2）；尚未公开发布。
+下方命令继续使用公开版 MCP 0.3.2。安装前请确认它仍列在
+[PyPI](https://pypi.org/project/qdrant-memory-mcp/0.3.2/) 上。
 
 其他 agent 使用各自的新目录和 `agent_id`。在终端运行下列命令，把
 `/path/to/workbuddy-profile` **全部替换**为刚才的绝对路径；含空格时保留引号。
