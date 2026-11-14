@@ -304,3 +304,11 @@ def test_release_workflow_requires_the_public_launcher_pin():
     assert "public_install.py --require-launcher" in workflow
     preview = (ROOT / ".github/workflows/workbuddy-preview.yml").read_text(encoding="utf-8")
     assert "public-launcher-acceptance.mjs" in preview
+
+
+def test_public_launcher_acceptance_fails_closed_when_pin_is_unpublished():
+    workflow = (ROOT / ".github/workflows/cross-harness.yml").read_text(encoding="utf-8")
+    assert "Fail when the pinned launcher is unpublished (NOT VERIFIED)" in workflow
+    assert "steps.pin.outputs.launcher != 'true'" in workflow
+    assert 'echo "Public npm acceptance: NOT VERIFIED' in workflow
+    assert "exit 1" in workflow
