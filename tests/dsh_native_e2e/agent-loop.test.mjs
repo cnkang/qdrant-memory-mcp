@@ -6,6 +6,7 @@ import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test, { after, before } from 'node:test'
+import { createAcceptanceChildEnvironment } from '../public-launcher-env.mjs'
 
 const [nodeMajor, nodeMinor] = process.versions.node.split('.').map(Number)
 
@@ -210,8 +211,15 @@ test('complete DSH process restart resumes durable opt-in and uncaptured turns',
   const directory = await mkdtemp(join(tmpdir(), 'dsh-process-recovery-'))
   t.after(() => rm(directory, { recursive: true, force: true }))
   for (const phase of ['prepare', 'resume']) {
-    const env = { ...process.env, QM_DSH_PROCESS_PHASE: phase, QM_DSH_PROCESS_ROOT: directory }
-    delete env.NODE_TEST_CONTEXT
+    const env = createAcceptanceChildEnvironment(process.env, {
+      HOME: directory,
+      USERPROFILE: directory,
+      TMPDIR: directory,
+      TEMP: directory,
+      TMP: directory,
+      QM_DSH_PROCESS_PHASE: phase,
+      QM_DSH_PROCESS_ROOT: directory,
+    })
     const child = spawnSync(process.execPath, ['--test', '--test-name-pattern=persisted process fixture',
       fileURLToPath(new URL('./process-fixture.mjs', import.meta.url))], {
       env,
