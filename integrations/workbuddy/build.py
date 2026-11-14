@@ -215,8 +215,8 @@ def write_once(path, content):
 
 
 def package_name(connector, mcp, release_tag):
-    if release_tag is not None and release_tag != "v" + mcp:
-        raise ValueError("Release tag must match package version")
+    if release_tag is not None and release_tag not in ("v" + mcp, "workbuddy-v" + connector):
+        raise ValueError("Release tag must match the MCP distribution or WorkBuddy connector version")
     suffix = "" if release_tag else "-preview"
     return f"qdrant-memory-workbuddy-connector-v{connector}-mcp-v{mcp}{suffix}.zip"
 

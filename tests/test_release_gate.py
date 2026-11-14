@@ -229,7 +229,7 @@ def test_manual_release_dispatch_requires_a_matching_tag():
             {"pypi": "build", "registry": ["build", "pypi"]},
         ),
         "workbuddy-release.yml": (
-            "startsWith(github.ref, 'refs/tags/v')",
+            "startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/workbuddy-v')",
             {"attach": "build"},
         ),
         "dsh-bundle-release.yml": (
