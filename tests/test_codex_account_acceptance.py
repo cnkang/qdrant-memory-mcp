@@ -137,6 +137,45 @@ def test_command_redacts_external_errors(tmp_path, monkeypatch):
     assert "[REDACTED]" in str(error.value)
 
 
+def test_command_redacts_readiness_diagnostics_before_printing(
+    tmp_path, monkeypatch, capsys
+):
+    from types import SimpleNamespace
+
+    acceptance = load_script("codex_account_acceptance")
+    secret = "synthetic-cloud-key"
+    monkeypatch.setattr(
+        acceptance.subprocess,
+        "run",
+        lambda *a, **kw: SimpleNamespace(
+            returncode=0,
+            stderr=f"Qdrant Memory is not ready. provider detail: {secret}",
+            stdout="ready",
+        ),
+    )
+
+    assert acceptance.command(
+        ["codex"], {"SOAK_LLM_API_KEY": secret}, tmp_path
+    ) == "ready"
+    diagnostic = capsys.readouterr().err
+    assert secret not in diagnostic
+    assert "Qdrant Memory is not ready." in diagnostic
+    assert "[REDACTED]" in diagnostic
+
+
+def test_redact_removes_common_credential_patterns_without_environment_values():
+    acceptance = load_script("codex_account_acceptance")
+    diagnostic = acceptance.redact(
+        "Authorization: Bearer bearer-sentinel; "
+        "api_key=query-sentinel https://user:password-sentinel@example.invalid/",
+        {},
+    )
+
+    assert "bearer-sentinel" not in diagnostic
+    assert "query-sentinel" not in diagnostic
+    assert "user:password-sentinel" not in diagnostic
+
+
 def test_cloud_provider_rejects_unapproved_routing(tmp_path):
     acceptance = load_script("codex_account_acceptance")
     env = {

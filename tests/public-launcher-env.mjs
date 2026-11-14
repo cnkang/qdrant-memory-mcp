@@ -3,6 +3,21 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const PUBLIC_NPM_REGISTRY = 'https://registry.npmjs.org/';
+const CREDENTIAL_ENV_NAME = /(token|key|secret|password|passwd|credential|auth|cookie)/i;
+const ACCEPTANCE_CHILD_ENV_KEYS = new Set([
+  'path', 'systemroot', 'windir', 'comspec', 'pathext', 'systemdrive',
+]);
+
+/** Copy only OS process-launch variables; callers supply isolated paths explicitly. */
+export function createAcceptanceChildEnvironment(sourceEnv, overrides = {}) {
+  if (Object.keys(overrides).some(key => CREDENTIAL_ENV_NAME.test(key))) {
+    throw new TypeError('Acceptance child environment cannot include credential variables');
+  }
+  const env = Object.fromEntries(
+    Object.entries(sourceEnv).filter(([key]) => ACCEPTANCE_CHILD_ENV_KEYS.has(key.toLowerCase())),
+  );
+  return Object.assign(env, overrides);
+}
 
 /**
  * Build a public-install environment without inheriting credentials or user npm

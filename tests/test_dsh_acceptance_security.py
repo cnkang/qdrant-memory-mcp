@@ -81,3 +81,16 @@ def test_cloud_acceptance_diagnostics_redact_all_known_credential_values():
     assert 'synthetic-owner-token' not in safe
     assert 'synthetic-recall-token' not in safe
     assert safe.count('[REDACTED]') == 3
+
+
+def test_cloud_acceptance_diagnostics_redact_common_credential_patterns():
+    output = (
+        'api_key=query-sentinel https://user:password-sentinel@example.invalid/ '
+        'Authorization: Bearer bearer-sentinel'
+    )
+
+    safe = ACCEPTANCE._redact_diagnostics(output, [])
+
+    assert 'query-sentinel' not in safe
+    assert 'user:password-sentinel' not in safe
+    assert 'bearer-sentinel' not in safe

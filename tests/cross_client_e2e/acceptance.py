@@ -64,7 +64,12 @@ def _redact_diagnostics(text, secrets):
         if secret:
             text = text.replace(secret, '[REDACTED]')
     text = re.sub(r'(?i)(authorization\s*[:=]\s*bearer\s+)\S+', r'\1[REDACTED]', text)
-    text = re.sub(r'(?i)((?:api[_ -]?key|token|secret|password)\s*[:=]\s*)\S+', r'\1[REDACTED]', text)
+    text = re.sub(
+        r'(?i)((?:api[_ -]?key|access[_ -]?token|refresh[_ -]?token|token|secret|password|passwd|credential|cookie)\s*[:=]\s*)\S+',
+        r'\1[REDACTED]',
+        text,
+    )
+    text = re.sub(r'(?i)(https?://)[^/\s@]+@', r'\1[REDACTED]@', text)
     return text
 
 

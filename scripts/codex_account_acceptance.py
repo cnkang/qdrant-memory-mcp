@@ -10,6 +10,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import stat
 import subprocess
 import sys
@@ -50,8 +51,31 @@ class Embeddings(BaseHTTPRequestHandler):
 def redact(text, env):
     """Remove environment secrets before diagnostics leave the runner."""
     for name, value in env.items():
-        if value and any(word in name.lower() for word in ("token", "key", "secret")):
+        if value and any(
+            word in name.lower()
+            for word in (
+                "token",
+                "key",
+                "secret",
+                "password",
+                "passwd",
+                "credential",
+                "auth",
+                "cookie",
+            )
+        ):
             text = text.replace(value, "[REDACTED]")
+    text = re.sub(
+        r"(?i)(authorization\s*[:=]\s*(?:bearer|basic)\s+)\S+",
+        r"\1[REDACTED]",
+        text,
+    )
+    text = re.sub(
+        r"(?i)((?:api[_ -]?key|access[_ -]?token|refresh[_ -]?token|token|secret|password|passwd|credential|cookie)\s*[:=]\s*)\S+",
+        r"\1[REDACTED]",
+        text,
+    )
+    text = re.sub(r"(?i)(https?://)[^/\s@]+@", r"\1[REDACTED]@", text)
     return text
 
 
@@ -61,7 +85,7 @@ def command(argv, env, cwd, *, capture_stderr=False):
     )
     for line in result.stderr.splitlines():
         if "Qdrant Memory is not ready." in line:
-            print(line, file=sys.stderr)
+            print(redact(line, env), file=sys.stderr)
     if result.returncode:
         # Do not echo external service error text or credential-bearing stderr.
         diagnostic = redact(result.stderr, env)[-1600:]

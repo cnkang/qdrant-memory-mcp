@@ -93,13 +93,13 @@ function launch(host, extra = []) {
     responses.clear();
   };
   child.once('error', error => {
-    failPending(new Error(`Could not start npx (${error.code ?? 'unknown error'})${diagnosticSummary()}`));
+    failPending(new Error(`Could not start ${host} launcher via npx (${error.code ?? 'unknown error'})${diagnosticSummary()}`));
   });
   child.once('close', (code, signal) => {
-    if (responses.size) failPending(new Error(`npx exited before responding (code ${code}, signal ${signal})${diagnosticSummary()}`));
+    if (responses.size) failPending(new Error(`${host} launcher via npx exited before responding (code ${code}, signal ${signal})${diagnosticSummary()}`));
   });
   child.stdin.on('error', error => {
-    failPending(new Error(`Could not send MCP request to npx (${error.code ?? 'unknown error'})${diagnosticSummary()}`));
+    failPending(new Error(`Could not send MCP request to ${host} launcher via npx (${error.code ?? 'unknown error'})${diagnosticSummary()}`));
   });
   const lines = createInterface({ input: child.stdout });
   lines.on('line', line => {
@@ -112,12 +112,12 @@ function launch(host, extra = []) {
   async function request(method, params, timeoutMs = 30000) {
     const current = ++id;
     if (child.exitCode !== null || child.signalCode !== null) {
-      throw new Error(`npx exited before ${method} (code ${child.exitCode}, signal ${child.signalCode})${diagnosticSummary()}`);
+      throw new Error(`${host} launcher via npx exited before ${method} (code ${child.exitCode}, signal ${child.signalCode})${diagnosticSummary()}`);
     }
     let timer;
     const response = new Promise((accept, reject) => {
       responses.set(current, { resolve: accept, reject });
-      timer = setTimeout(() => reject(new Error(`Timed out waiting for ${method}${diagnosticSummary()}`)), timeoutMs);
+      timer = setTimeout(() => reject(new Error(`Timed out waiting for ${method} from ${host} launcher${diagnosticSummary()}`)), timeoutMs);
     });
     try {
       child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: current, method, params }) + '\n');

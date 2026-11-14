@@ -1,7 +1,36 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import { createPublicNpmEnvironment } from './public-launcher-env.mjs';
+import {
+  createAcceptanceChildEnvironment,
+  createPublicNpmEnvironment,
+} from './public-launcher-env.mjs';
+
+test('acceptance children inherit only OS launch variables and explicit paths', () => {
+  const env = createAcceptanceChildEnvironment({
+    PATH: '/usr/bin',
+    SystemRoot: 'C:\\Windows',
+    HOME: '/Users/example',
+    AWS_BEARER_TOKEN_BEDROCK: 'synthetic-bedrock-token',
+    SOAK_LLM_API_KEY: 'synthetic-cloud-key',
+    NODE_OPTIONS: '--require ./untrusted-hook.js',
+    npm_config_userconfig: '/Users/example/.npmrc',
+  }, {
+    HOME: '/tmp/isolated-home',
+    QDRANT_MEMORY_MANAGED_ROOT: '/tmp/managed-root',
+  });
+
+  assert.deepEqual(env, {
+    PATH: '/usr/bin',
+    SystemRoot: 'C:\\Windows',
+    HOME: '/tmp/isolated-home',
+    QDRANT_MEMORY_MANAGED_ROOT: '/tmp/managed-root',
+  });
+  assert.throws(
+    () => createAcceptanceChildEnvironment({}, { SOAK_LLM_API_KEY: 'synthetic-cloud-key' }),
+    /cannot include credential variables/,
+  );
+});
 
 test('public npm acceptance strips inherited credentials and npm configuration', async t => {
   const sandbox = await createPublicNpmEnvironment('/tmp/disposable-profile', {

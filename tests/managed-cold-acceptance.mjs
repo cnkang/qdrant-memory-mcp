@@ -5,10 +5,19 @@ import { createInterface } from 'node:readline';
 import { readFile, writeFile, lstat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { createAcceptanceChildEnvironment } from './public-launcher-env.mjs';
 const packageRoot = process.env.QDRANT_TEST_LAUNCHER_ROOT || fileURLToPath(new URL('../integrations/managed/', import.meta.url));
 const { locations, prepare, installed, runtime, dependencyDigest } = await import(pathToFileURL(join(packageRoot, 'provision.mjs')));
 const root = process.env.QDRANT_MEMORY_MANAGED_ROOT;
 assert.ok(root, 'Choose an explicit disposable managed root');
+const childEnvironment = createAcceptanceChildEnvironment(process.env, {
+  HOME: root,
+  USERPROFILE: root,
+  TMPDIR: root,
+  TEMP: root,
+  TMP: root,
+  QDRANT_MEMORY_MANAGED_ROOT: root,
+});
 const start = performance.now();
 const dsh = locations('dsh'), wb = locations('workbuddy');
 assert.notEqual(dsh.profile, wb.profile);
@@ -53,7 +62,7 @@ const runSequentially = (items, action) => items.reduce(
   (previous, item) => previous.then(() => action(item)), Promise.resolve());
 
 async function session(host, action) {
-  const child = spawn(process.execPath, [launcher, 'mcp', host], { env: process.env, stdio: ['pipe', 'pipe', 'pipe'] });
+  const child = spawn(process.execPath, [launcher, 'mcp', host], { env: childEnvironment, stdio: ['pipe', 'pipe', 'pipe'] });
   const responses = new Map();
   const lines = createInterface({ input: child.stdout });
   lines.on('line', line => {

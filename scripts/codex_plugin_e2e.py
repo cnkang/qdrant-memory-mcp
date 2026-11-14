@@ -26,6 +26,7 @@ import importlib.util
 import json
 import os
 import queue
+import re
 import shutil
 import signal
 import subprocess
@@ -55,11 +56,54 @@ _secret_env = {
 }
 
 
-def redact(text):
+def _is_sensitive_environment_name(name):
+    return any(
+        word in name.lower()
+        for word in (
+            "token",
+            "key",
+            "secret",
+            "password",
+            "passwd",
+            "credential",
+            "auth",
+            "cookie",
+        )
+    )
+
+
+def _without_sensitive_environment(env):
+    """Keep credentials out of local CLI acceptance subprocesses."""
+    return {
+        name: value
+        for name, value in env.items()
+        if not _is_sensitive_environment_name(name)
+    }
+
+
+def redact(text, env=None):
     """Strip accidental secret material from diagnostics before printing."""
-    for name, value in _secret_env.items():
+    candidates = dict(_secret_env)
+    if env is not None:
+        candidates.update(
+            (name, value)
+            for name, value in env.items()
+            if _is_sensitive_environment_name(name)
+        )
+    for value in candidates.values():
         if value:
             text = text.replace(value, "[REDACTED]")
+    text = re.sub(
+        r"(?i)(authorization\s*[:=]\s*(?:bearer|basic)\s+)\S+",
+        r"\1[REDACTED]",
+        text,
+    )
+    text = re.sub(
+        r"(?i)((?:api[_ -]?key|access[_ -]?token|refresh[_ -]?token|token|secret|password|passwd|credential|cookie)\s*[:=]\s*)\S+",
+        r"\1[REDACTED]",
+        text,
+    )
+    text = re.sub(r"(?i)(https?://)[^/\s@]+@", r"\1[REDACTED]@", text)
     return text
 
 
@@ -80,12 +124,17 @@ acceptance = load_script("codex_account_acceptance")
 def run(argv, env, cwd, *, ok=True, timeout=240):
     """Run a command and return its stdout; raise with a redacted diagnostic."""
     completed = subprocess.run(
-        argv, env=env, cwd=cwd, capture_output=True, text=True, timeout=timeout
+        argv,
+        env=_without_sensitive_environment(env),
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+        timeout=timeout,
     )
     if (completed.returncode == 0) != ok:
         raise RuntimeError(
             f"{Path(argv[0]).name} exited {completed.returncode}: "
-            + redact(completed.stderr[-1200:])
+            + redact(completed.stderr[-1200:], env)
         )
     return completed.stdout
 
@@ -117,7 +166,7 @@ def bin_dir(venv):
 
 def launcher_env(profile, runtime_exe):
     """Host environment for the installed plugin launcher (explicit path overrides)."""
-    env = {k: v for k, v in os.environ.items() if k not in _secret_env}
+    env = _without_sensitive_environment(os.environ)
     for name in (
         "QDRANT_MEMORY_CODEX_ROOT",
         "QDRANT_MEMORY_CODEX_PROFILE",

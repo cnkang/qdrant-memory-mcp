@@ -107,6 +107,39 @@ def test_run_wraps_subprocess_by_expectation(monkeypatch, tmp_path):
     assert module.run(["codex", "x"], {}, tmp_path, ok=False) == ""
 
 
+def test_run_does_not_forward_or_print_sensitive_environment_values(monkeypatch, tmp_path):
+    module = load_e2e()
+    child_environment = {}
+    credentials = {
+        "AWS_BEARER_TOKEN_BEDROCK": "synthetic-bedrock-token",
+        "SOAK_LLM_API_KEY": "synthetic-cloud-key",
+    }
+
+    def fail(argv, **kwargs):
+        child_environment.update(kwargs["env"])
+        return subprocess.CompletedProcess(
+            argv,
+            2,
+            stdout="",
+            stderr="request failed " + " ".join(credentials.values()),
+        )
+
+    monkeypatch.setattr(subprocess, "run", fail)
+    supplied_environment = {
+        "PATH": "/usr/bin",
+        "QDRANT_MEMORY_PROFILE": "isolated-profile",
+        **credentials,
+    }
+    with pytest.raises(RuntimeError) as error:
+        module.run(["codex", "x"], supplied_environment, tmp_path)
+
+    assert child_environment["PATH"] == "/usr/bin"
+    assert child_environment["QDRANT_MEMORY_PROFILE"] == "isolated-profile"
+    assert not set(credentials).intersection(child_environment)
+    assert all(value not in str(error.value) for value in credentials.values())
+    assert str(error.value).count("[REDACTED]") == len(credentials)
+
+
 def test_codex_uses_run_with_default_expectation(monkeypatch, tmp_path):
     module = load_e2e()
     seen = []
@@ -130,6 +163,13 @@ def test_redact_removes_secret_environment_values(monkeypatch):
     assert "innocent text" in module.redact("innocent text")
     monkeypatch.setattr(module, "_secret_env", {}, raising=False)
     assert module.redact("plain-secret") == "plain-secret"
+    diagnostic = module.redact(
+        "Authorization: Bearer bearer-sentinel "
+        "https://user:password-sentinel@example.invalid/api?api_key=query-sentinel"
+    )
+    assert "bearer-sentinel" not in diagnostic
+    assert "user:password-sentinel" not in diagnostic
+    assert "query-sentinel" not in diagnostic
 
 
 def test_bin_dir_matches_host_layout(tmp_path):
