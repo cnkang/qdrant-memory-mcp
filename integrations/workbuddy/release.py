@@ -51,13 +51,47 @@ def git(root: Path, *args: str) -> str:
     return subprocess.check_output(['git', '-C', str(root), *args], text=True, stderr=subprocess.DEVNULL).strip()
 
 
+def release_tag_commit(root: Path, tag: str) -> str | None:
+    """Resolve a local release ref without passing the CLI-supplied tag to Git."""
+    refs = subprocess.check_output(
+        ['git', '-C', str(root), 'for-each-ref',
+         '--format=%(refname)%00%(objecttype)%00%(objectname)%00%(*objecttype)%00%(*objectname)',
+         'refs/tags/'],
+        stderr=subprocess.DEVNULL,
+    )
+    expected_ref = f'refs/tags/{tag}'.encode('ascii')
+    for line in refs.split(b'\n'):
+        if not line:
+            continue
+        ref, object_type, object_sha, _, _ = line.split(b'\0')
+        if ref != expected_ref:
+            continue
+        if object_type == b'commit':
+            if not re.fullmatch(rb'(?:[0-9a-f]{40}|[0-9a-f]{64})', object_sha):
+                raise ValueError('Release tag has an invalid object ID')
+            return object_sha.decode('ascii')
+        if object_type == b'tag':
+            if not re.fullmatch(rb'(?:[0-9a-f]{40}|[0-9a-f]{64})', object_sha):
+                raise ValueError('Release tag has an invalid object ID')
+            try:
+                return subprocess.check_output(
+                    ['git', '-C', str(root), 'rev-parse', '--verify', '--end-of-options',
+                     f'{object_sha.decode("ascii")}^{{commit}}'],
+                    text=True,
+                    stderr=subprocess.DEVNULL,
+                ).strip()
+            except subprocess.CalledProcessError:
+                raise ValueError('Release tag must resolve to a commit') from None
+        raise ValueError('Release tag must resolve to a commit')
+    return None
+
+
 def validate_source(root: Path, tag: str, main_ref: str = 'refs/remotes/origin/main') -> tuple[str, str]:
     mcp_version, connector_version = release_versions(root)
     if not release_tag_matches(tag, mcp_version, connector_version):
         raise ValueError('Release tag must match v<MCP version> or workbuddy-v<connector version>')
-    try:
-        sha = git(root, 'rev-parse', '--verify', f'refs/tags/{tag}^{{commit}}')
-    except subprocess.CalledProcessError:
+    sha = release_tag_commit(root, tag)
+    if sha is None:
         raise ValueError('Release requires an existing tag; create it only through the approved release process') from None
     if git(root, 'rev-parse', 'HEAD') != sha:
         raise ValueError('Current checkout does not match release tag commit')

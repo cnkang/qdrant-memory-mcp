@@ -1,6 +1,7 @@
 """Offline release safety checks; never create external tags or releases."""
 import hashlib
 import importlib.util
+import os
 import subprocess
 from pathlib import Path
 
@@ -43,10 +44,49 @@ def test_validate_existing_tag_at_clean_merged_head(source):
     assert release.validate_source(source, 'v1.2.3')[0] == git(source, 'rev-parse', 'HEAD')
 
 
+def test_validate_annotated_tag_at_clean_merged_head(source):
+    git(source, 'tag', '-d', 'v1.2.3')
+    git(source, 'tag', '-a', 'v1.2.3', '-m', 'release')
+    release = module()
+    assert release.validate_source(source, 'v1.2.3')[0] == git(source, 'rev-parse', 'HEAD')
+
+
+def test_validate_nested_annotated_tag_at_clean_merged_head(source):
+    git(source, 'tag', '-d', 'v1.2.3')
+    git(source, 'tag', '-a', 'intermediate', '-m', 'intermediate')
+    git(source, 'tag', '-a', 'v1.2.3', '-m', 'release', 'intermediate')
+    release = module()
+    assert release.validate_source(source, 'v1.2.3')[0] == git(source, 'rev-parse', 'HEAD')
+
+
+def test_unrelated_unicode_line_separator_tag_does_not_break_resolution(source):
+    git(source, 'tag', 'unrelated\u2028tag')
+    release = module()
+    assert release.validate_source(source, 'v1.2.3')[0] == git(source, 'rev-parse', 'HEAD')
+
+
+@pytest.mark.skipif(os.name == 'nt', reason='Non-UTF-8 Git ref test requires POSIX argv bytes')
+def test_unrelated_non_utf8_tag_does_not_break_resolution(source):
+    created = subprocess.run(
+        [b'git', b'-C', os.fsencode(source), b'tag', b'unrelated-\xff'],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    if created.returncode:
+        pytest.skip('Host filesystem cannot store a non-UTF-8 Git ref name')
+    release = module()
+    assert release.validate_source(source, 'v1.2.3')[0] == git(source, 'rev-parse', 'HEAD')
+
+
 def test_validate_connector_tag_at_clean_merged_head(source):
     release = module()
     git(source, 'tag', 'workbuddy-v0.1.0')
     assert release.validate_source(source, 'workbuddy-v0.1.0')[0] == git(source, 'rev-parse', 'HEAD')
+
+
+def test_valid_but_missing_tag_is_rejected(source):
+    with pytest.raises(ValueError, match='existing tag'):
+        module().validate_source(source, 'workbuddy-v0.1.0')
 
 
 @pytest.mark.parametrize('tag', ['1.2.3', 'v01.2.3', 'v1.2.4', 'v1.2.3-other', 'workbuddy-v0.1.1', 'workbuddy-v01.0.0'])
