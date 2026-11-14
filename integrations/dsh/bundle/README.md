@@ -52,7 +52,10 @@ Prepare the candidate tarball with `python scripts/pack_dsh_bundle.py
 this source directory omits the canonical Native module and is not a release
 artifact. Publication requires approved Runtime 0.6.2 public-wheel, protected
 Cloud and Desktop acceptance. When approved, publish this candidate under
-`next`, keeping `latest=0.1.6`; this task does not publish either package.
+`latest` and `next` are intentionally moved to this RC so testers receive it
+from the default tag. That also means unpinned installs resolve to this
+Node.js 24.9+ candidate; older Hosts must explicitly remain on `0.1.6`. This
+RC does not claim final Desktop or full Cloud acceptance.
 
 ## Requirements
 
@@ -77,7 +80,7 @@ The DSH MCP probe is temporary and must never run installation or downloads.
 Prepare the shared backend explicitly, once:
 
 ```sh
-npx -y @cnkang/qdrant-memory-launcher@0.1.0-rc.8 prepare dsh
+npx -y @cnkang/qdrant-memory-launcher@0.1.0-rc.9 prepare dsh
 ```
 
 Preparation downloads the private Python environment, the Runtime wheel and a

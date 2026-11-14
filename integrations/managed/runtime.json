@@ -1,10 +1,10 @@
 {
-  "revision": "dee6777432f17523db75f6be32cf3ef15e48235c",
-  "version": "0.6.0",
+  "revision": "913fa705922b5bfeb29d52f102cfc6385a4d0436",
+  "version": "0.6.2",
   "status": "released-wheel",
-  "url": "https://files.pythonhosted.org/packages/83/b3/c3cac42e78f6ae633e879f5b71c6bcf6ad98930d6c1b01e575feb689f436/hermes_plugin_qdrant_memory-0.6.0-py3-none-any.whl",
-  "sha256": "484a3cdd45ee5ecff92b76be062046597a7fcf9e58ad9667a993a80b77ef6a15",
-  "size": 159267,
+  "url": "https://files.pythonhosted.org/packages/a1/a6/874753af6915a8e00e547b69111d00f653eb9d8913d7cb0857ef06786c91/hermes_plugin_qdrant_memory-0.6.2-py3-none-any.whl",
+  "sha256": "4606d1529092104d5594866032c61a02376c127f2ffc483c0442a7549b40c264",
+  "size": 164159,
   "fastembed_version": "0.9.1",
   "model_revision": "faf4aa4225822f3bc6376869cb1164e8e3feedd0"
 }

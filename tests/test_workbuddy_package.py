@@ -31,7 +31,7 @@ def test_connector_metadata_and_generated_pin():
     assert server == {
         "type": "stdio",
         "command": "npx",
-        "args": ["-y", "@cnkang/qdrant-memory-launcher@0.1.0-rc.8", "mcp", "workbuddy", "--auto-setup"],
+        "args": ["-y", "@cnkang/qdrant-memory-launcher@0.1.0-rc.9", "mcp", "workbuddy", "--auto-setup"],
         "runtime": {"type": "node", "version": "20"},
         "npmRegistries": ["https://registry.npmjs.org"],
         "timeout": 60000,
@@ -186,7 +186,7 @@ def test_package_manifest_provenance_and_output_guard(tmp_path, monkeypatch):
         assert provenance["launcher"]["name"] == "@cnkang/qdrant-memory-launcher"
         launcher = json.loads((ROOT / "launcher-source.json").read_text(encoding="utf-8"))
         assert provenance["launcher"]["version"] == launcher["version"]
-        assert provenance["runtime_version"] == launcher["runtime_version"] == "0.6.0"
+        assert provenance["runtime_version"] == launcher["runtime_version"] == "0.6.2"
         assert provenance["launcher"]["runtime_version"] == launcher["runtime_version"]
         assert len(json.loads(archive.read("qdrant-memory-workbuddy/mcp.json"))["mcpServers"]) == 1
     with pytest.raises(ValueError, match="dist/workbuddy"):

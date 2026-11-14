@@ -28,7 +28,7 @@ await Bundle.apply(ctx, config)
 assert.equal(calls.length, 1)
 assert.equal(calls[0].settings.transport, 'stdio')
 assert.equal(calls[0].settings.serverName, 'qdrant-memory')
-assert.deepEqual(calls[0].settings.args, ['-y', '@cnkang/qdrant-memory-launcher@0.1.0-rc.8', 'mcp', 'dsh'])
+assert.deepEqual(calls[0].settings.args, ['-y', '@cnkang/qdrant-memory-launcher@0.1.0-rc.9', 'mcp', 'dsh'])
 await assert.rejects(Bundle.apply(ctx, { ...config, auto_capture: { ...config.auto_capture, enabled: true } }))
 assert.equal(calls.length, 1, 'legacy mode must reject automation before another transport starts')
 process.env.QDRANT_MEMORY_RUNTIME_PYTHON = process.execPath
