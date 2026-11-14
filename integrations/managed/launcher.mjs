@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-import { pathToFileURL } from 'node:url';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { realpath } from 'node:fs/promises';
 import { bridge } from './bridge.mjs';
 import { locations, installed, prepare } from './provision.mjs';
@@ -28,7 +29,24 @@ export async function main(args) {
   }
 }
 
-if (process.argv[1] && pathToFileURL(await realpath(process.argv[1])).href === import.meta.url) {
+export function sameEntryPath(left, right, platform = process.platform) {
+  const pathApi = platform === 'win32' ? path.win32 : path.posix;
+  const normalizedLeft = pathApi.resolve(left);
+  const normalizedRight = pathApi.resolve(right);
+  return platform === 'win32'
+    ? normalizedLeft.toLowerCase() === normalizedRight.toLowerCase()
+    : normalizedLeft === normalizedRight;
+}
+
+async function isCurrentEntrypoint(argumentPath, moduleUrl) {
+  const [argumentRealPath, moduleRealPath] = await Promise.all([
+    realpath(argumentPath),
+    realpath(fileURLToPath(moduleUrl)),
+  ]);
+  return sameEntryPath(argumentRealPath, moduleRealPath);
+}
+
+if (process.argv[1] && await isCurrentEntrypoint(process.argv[1], import.meta.url)) {
   try { await main(process.argv.slice(2)); }
   catch (error) {
     // Keep the message bounded: only the internal stage label may be added.
