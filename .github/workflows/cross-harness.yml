@@ -201,9 +201,11 @@ jobs:
           NPM_CONFIG_CACHE: ${{ runner.temp }}/npm-cache
           QDRANT_PUBLIC_ACCEPTANCE_REPORT: ${{ runner.temp }}/public-launcher-report.json
         run: node tests/public-launcher-acceptance.mjs
-      - name: Record an unpublished pin as NOT VERIFIED
+      - name: Fail when the pinned launcher is unpublished (NOT VERIFIED)
         if: steps.pin.outputs.launcher != 'true'
-        run: 'echo "Public npm acceptance: NOT VERIFIED (pinned launcher version is not yet public; rerun after publication)"'
+        run: |
+          echo "Public npm acceptance: NOT VERIFIED (pinned launcher version is not yet public; rerun after publication)"
+          exit 1
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
