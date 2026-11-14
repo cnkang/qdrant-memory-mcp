@@ -16,7 +16,7 @@ official `@deepseek-ai/dsh-mcp-client`. It needs Node.js (which DSH already
 uses) and no system Python, uvx, Ollama or Qdrant Server.
 
 Choose the Bundle before preparing the backend. The `0.2.0-rc.1` candidate
-requires Node.js 24.9 or newer and uses launcher `0.1.0-rc.9` with Runtime
+requires Node.js 24.9 or newer and uses launcher `0.1.0-rc.10` with Runtime
 0.6.2. Older Hosts should stay on Bundle `0.1.6`, which uses launcher
 `0.1.0-rc.8` and Runtime 0.6.0. Do not prepare with one launcher and install
 the other Bundle.
@@ -31,7 +31,7 @@ dsh plugin --profile <name> add @cnkang/qdrant-memory-dsh-bundle@0.1.6
 For the current candidate, prepare the shared backend first:
 
 ```sh
-npx -y @cnkang/qdrant-memory-launcher@0.1.0-rc.9 prepare dsh
+npx -y @cnkang/qdrant-memory-launcher@0.1.0-rc.10 prepare dsh
 ```
 
 Wait for `{"ready":true,"host":"dsh"}`. Preparation downloads the private

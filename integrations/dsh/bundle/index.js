@@ -75,7 +75,7 @@ export async function apply(ctx, config) {
     if (enabled) throw new Error('Select native-owner or unified-owner explicitly before enabling automatic memory')
     await ctx.plugin(McpClient, {
       serverName: 'qdrant-memory', transport: 'stdio', command: 'npx',
-      args: ['-y', '@cnkang/qdrant-memory-launcher@0.1.0-rc.9', 'mcp', 'dsh'],
+      args: ['-y', '@cnkang/qdrant-memory-launcher@0.1.0-rc.10', 'mcp', 'dsh'],
     })
     return
   }

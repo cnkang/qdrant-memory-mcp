@@ -65,7 +65,7 @@ Never remove locks or change fingerprints to force compatibility.
 | --- | --- | --- |
 | Python MCP | 0.3.3 | Public PyPI and MCP Registry release; pins Runtime 0.6.2 |
 | Runtime | 0.6.2 | Public PyPI wheel; the managed launcher installs this version |
-| Node launcher | 0.1.0-rc.9 | Release candidate pinned by WorkBuddy and DSH sources. It installs Runtime 0.6.2 for standalone MCP use; verify this exact version on npm |
+| Node launcher | 0.1.0-rc.10 | Release candidate pinned by WorkBuddy and DSH sources. It installs Runtime 0.6.2 for standalone MCP use; verify this exact version on npm |
 | DSH bundle | 0.2.0-rc.1 | Host bundle candidate; public npm acceptance and desktop compatibility remain separate gates |
 | Bootstrap | uv 0.13.1 / Python 3.11.15 | Fixed platform artifacts, verified uv hash |
 | Canonical Skill | 0.4.4 | See connector `skill-source.json` for exact commit |
