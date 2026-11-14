@@ -40,8 +40,9 @@ COMPOSED_CONFIGS = {
 }
 
 
-# Keep the tested public pin distinct from the not-yet-published source candidate.
-PUBLISHED_MCP_VERSION = "0.3.3"
+# The release guides document the version this branch prepares. Keep it equal to
+# the project version so the launch gate validates the documented pin.
+PUBLISHED_MCP_VERSION = "0.3.4"
 CANDIDATE_MCP_VERSION = tomllib.loads((ROOT / 'pyproject.toml').read_text())[
     'project'
 ]['version']

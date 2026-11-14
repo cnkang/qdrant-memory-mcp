@@ -56,16 +56,16 @@ ollama pull qwen3-embedding:4b
 }
 ```
 
-公开版 `qdrant-memory-mcp==0.3.3` 固定依赖 Runtime 0.6.2。下方命令使用此精确版本。
-安装前请在 [PyPI](https://pypi.org/project/qdrant-memory-mcp/0.3.3/) 确认该版本。
+公开版 `qdrant-memory-mcp==0.3.4` 固定依赖 Runtime 0.7.0。下方命令使用此精确版本。
+安装前请在 [PyPI](https://pypi.org/project/qdrant-memory-mcp/0.3.4/) 确认该版本。
 
 其他 agent 使用各自的新目录和 `agent_id`。在终端运行下列命令，把
 `/path/to/workbuddy-profile` **全部替换**为刚才的绝对路径；含空格时保留引号。
 Windows 也填写实际的绝对路径，JSON 中反斜杠写成 `\\`，或使用 `/`。
 
 ```sh
-uvx --from qdrant-memory-mcp==0.3.3 qdrant-memory-mcp --home "/path/to/workbuddy-profile" init
-uvx --from qdrant-memory-mcp==0.3.3 qdrant-memory-mcp --home "/path/to/workbuddy-profile" doctor
+uvx --from qdrant-memory-mcp==0.3.4 qdrant-memory-mcp --home "/path/to/workbuddy-profile" init
+uvx --from qdrant-memory-mcp==0.3.4 qdrant-memory-mcp --home "/path/to/workbuddy-profile" doctor
 ```
 
 初始化会调用本地模型、创建本地 collection，并检查模型维度和存储兼容性。
@@ -85,7 +85,7 @@ WorkBuddy 中添加自定义 stdio MCP，使用以下配置；将路径替换为
     "qdrant-memory": {
       "type": "stdio",
       "command": "uvx",
-      "args": ["--from", "qdrant-memory-mcp==0.3.3", "qdrant-memory-mcp", "--home", "/path/to/workbuddy-profile", "mcp"],
+      "args": ["--from", "qdrant-memory-mcp==0.3.4", "qdrant-memory-mcp", "--home", "/path/to/workbuddy-profile", "mcp"],
       "timeout": 30000
     }
   }

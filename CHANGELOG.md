@@ -2,10 +2,6 @@
 
 ## Unreleased
 
-- Release MCP distribution 0.3.3 with the public Runtime 0.6.2 pin. This fixes
-  the dependency mismatch in 0.3.2; MCP schemas, tools and stored data remain
-  unchanged.
-
 - Prepare Codex plugin 0.1.4 (not published): pin MCP distribution 0.3.3,
   Runtime 0.6.2 and Skill 0.4.4 (snapshot `skills-20261113.2`). The plugin's
   `requirements.txt` now installs exact public PyPI releases instead of a
@@ -80,6 +76,15 @@
 - Run the DSH native adapter workflow on every main push and include it in the
   tag release gate; the host profile check now asserts the plugin id and all
   three default-off switches instead of only printing the config.
+
+## 0.3.4
+
+- Release MCP distribution 0.3.4 with the public Runtime 0.7.0 pin. The wheel
+  stays metadata-only, the entry point, the four tool schemas and the stored
+  memory format remain unchanged.
+- Keep every policy maintenance route on the operator CLI. The MCP server does
+  not initialize a collection on connect, does not create payload indexes and
+  does not apply an upgrade.
 
 ## 0.3.2
 

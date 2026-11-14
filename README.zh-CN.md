@@ -13,23 +13,23 @@
 
 ## One Memory, Multiple Agents — 可选启用的共享 owner
 
-本分发新增显式启用的单 owner 共享服务和 stdio 桥接，需安装 Runtime 0.6.2。见[共享接入指南](integrations/shared/README.md)。私有默认配置与 DSH/WorkBuddy 托管配置不变；Hermes Native Provider 自动共享提取尚未实现。
+本分发新增显式启用的单 owner 共享服务和 stdio 桥接，需安装 Runtime 0.7.0。见[共享接入指南](integrations/shared/README.md)。私有默认配置与 DSH/WorkBuddy 托管配置不变；Hermes Native Provider 自动共享提取尚未实现。
 
 这是 Qdrant Memory 的独立 PyPI 包装与 MCP Registry 分发仓库。
 所有业务逻辑来自唯一的 [Python Runtime](https://github.com/cnkang/hermes-plugin-qdrant-memory)，
 本仓库不复制 Runtime 或 [Agent Skill](https://github.com/cnkang/skills/tree/main/qdrant-memory)。
 `qdrant-memory-mcp` 直接引用 `qdrant_memory.standalone:main`，固定依赖
-`hermes-plugin-qdrant-memory[mcp]==0.6.2`，不需要安装 Hermes。
+`hermes-plugin-qdrant-memory[mcp]==0.7.0`，不需要安装 Hermes。
 
-Runtime 固定版本和升级指导见 [0.3.3 发布说明](docs/releases/0.3.3.zh-CN.md)。
+Runtime 固定版本和升级指导见 [0.3.4 发布说明](docs/releases/0.3.4.zh-CN.md)。
 
-使用固定版本安装命令前，请在 [PyPI 版本页面](https://pypi.org/project/qdrant-memory-mcp/0.3.3/)
+使用固定版本安装命令前，请在 [PyPI 版本页面](https://pypi.org/project/qdrant-memory-mcp/0.3.4/)
 确认该版本已公开发布。
-若 0.3.3 尚未发布，请先使用
-[已发布的 0.3.2 指南](https://github.com/cnkang/qdrant-memory-mcp/blob/v0.3.2/README.zh-CN.md)。
+若 0.3.4 尚未发布，请先使用
+[已发布的 0.3.3 指南](https://github.com/cnkang/qdrant-memory-mcp/blob/v0.3.3/README.zh-CN.md)。
 源码候选版不代表对应的 PyPI 或 npm 版本已经可用。
 
-**版本：** 分发 0.3.3 固定依赖 Runtime 0.6.2，支持 MCP Python SDK 1.x 和 2.x
+**版本：** 分发 0.3.4 固定依赖 Runtime 0.7.0，支持 MCP Python SDK 1.x 和 2.x
 （`mcp>=1.30,<3`）；四个固定作用域工具和 stdio 启动参数保持一致。
 下文安装命令使用这些精确版本。发行产物见
 [分发 PyPI 页面](https://pypi.org/project/qdrant-memory-mcp/) 和
@@ -51,7 +51,7 @@ Skill 仅提供可选指导，不是运行依赖。Hermes 的自动提取和 pre
 | WorkBuddy | 否 | 是（connector） | 否 | 否 | 通过 Owner | 是 | 真实桌面 GUI 测试 |
 | Codex | 否 | 是 | 否 | 否 | 通过 Owner | 是 | 官方 CLI 测试 |
 
-本分发不对任何 MCP 宿主自动提取对话。自动捕获与召回需要原生 Provider 或生命周期适配器。DSH 原生预览需显式启用，源码已并入，但 npm 包仍为 private。Runtime 0.6.2 已公开；真实 DSH AgentLoop、模型与桌面 GUI 证据仍待补充。
+本分发不对任何 MCP 宿主自动提取对话。自动捕获与召回需要原生 Provider 或生命周期适配器。DSH 原生预览需显式启用，源码已并入，但 npm 包仍为 private。Runtime 0.7.0 已公开；真实 DSH AgentLoop、模型与桌面 GUI 证据仍待补充。
 已测试的 CLI、源码修订和模型提供方见 [Codex 验证记录](docs/codex-plugin-verification.md)；
 桌面 GUI 与原生记忆接管需要分别验证。
 
@@ -82,12 +82,12 @@ Skill 仅提供可选指导，不是运行依赖。Hermes 的自动提取和 pre
 示例要求自己启动 Ollama 并安装对应模型。将路径替换为自己的绝对路径：
 
 ```bash
-uvx --from qdrant-memory-mcp==0.3.3 qdrant-memory-mcp --home /path/to/profile init
-uvx --from qdrant-memory-mcp==0.3.3 qdrant-memory-mcp --home /path/to/profile mcp
+uvx --from qdrant-memory-mcp==0.3.4 qdrant-memory-mcp --home /path/to/profile init
+uvx --from qdrant-memory-mcp==0.3.4 qdrant-memory-mcp --home /path/to/profile mcp
 ```
 
 省略 `--home` 时使用 `~/.qdrant-memory`，与 Hermes profile 独立。
-Registry 默认运行 `uvx --from qdrant-memory-mcp==0.3.3 qdrant-memory-mcp mcp`，
+Registry 默认运行 `uvx --from qdrant-memory-mcp==0.3.4 qdrant-memory-mcp mcp`，
 应先配置、初始化默认目录。
 客户端可通过 `mcp` 前面的可选 `--home` 参数选择自定义 profile。
 
@@ -95,7 +95,7 @@ Registry 默认运行 `uvx --from qdrant-memory-mcp==0.3.3 qdrant-memory-mcp mcp
 
 ```bash
 python3 -m venv .venv
-.venv/bin/python -m pip install qdrant-memory-mcp==0.3.3
+.venv/bin/python -m pip install qdrant-memory-mcp==0.3.4
 .venv/bin/qdrant-memory-mcp --home /path/to/profile init
 .venv/bin/qdrant-memory-mcp --home /path/to/profile mcp
 ```
@@ -113,7 +113,7 @@ Codex `config.toml`：
 ```toml
 [mcp_servers.qdrant_memory]
 command = "uvx"
-args = ["--from", "qdrant-memory-mcp==0.3.3", "qdrant-memory-mcp", "--home", "/path/to/profile", "mcp"]
+args = ["--from", "qdrant-memory-mcp==0.3.4", "qdrant-memory-mcp", "--home", "/path/to/profile", "mcp"]
 ```
 
 OpenCode `opencode.json`：
@@ -124,7 +124,7 @@ OpenCode `opencode.json`：
   "mcp": {
     "qdrant_memory": {
       "type": "local",
-      "command": ["uvx", "--from", "qdrant-memory-mcp==0.3.3", "qdrant-memory-mcp", "--home", "/path/to/profile", "mcp"],
+      "command": ["uvx", "--from", "qdrant-memory-mcp==0.3.4", "qdrant-memory-mcp", "--home", "/path/to/profile", "mcp"],
       "enabled": true
     }
   }

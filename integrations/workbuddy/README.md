@@ -306,7 +306,7 @@ import, clean-machine provisioning, and full application restart remain
 unverified. The managed route
 does not install the Python MCP distribution or instantiate Hermes' native
 MemoryProvider. The separate Python/uvx alternative uses the public MCP
-distribution 0.3.3, which pins Runtime 0.6.2; the previously released
+distribution 0.3.4, which pins Runtime 0.7.0; the previously released
 Connector 0.2.5 still installs public MCP 0.3.1. Verify the exact launcher
 version on npm and connector assets on their release before installing.
 Earlier connector archives retain their original provenance and immutable bytes.
@@ -330,10 +330,10 @@ the uvx alternative. The builder rejects drift from checked-in pins:
 `mcp.uvx.json` documents the advanced custom-MCP route for users who run
 their own Python backend instead of the managed launcher:
 
-The public `qdrant-memory-mcp==0.3.3` package uses Runtime 0.6.2.
+The public `qdrant-memory-mcp==0.3.4` package uses Runtime 0.7.0.
 
 ```sh
-uvx --from qdrant-memory-mcp==0.3.3 qdrant-memory-mcp mcp
+uvx --from qdrant-memory-mcp==0.3.4 qdrant-memory-mcp mcp
 ```
 
 Add `--home <private-profile-path>` before `mcp` to bind an explicit private
