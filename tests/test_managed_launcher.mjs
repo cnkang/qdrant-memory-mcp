@@ -7,6 +7,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { sameEntryPath } from '../integrations/managed/launcher.mjs';
 import { bridge, tools } from '../integrations/managed/bridge.mjs';
 import { locations, installEnvironment, privateDirectory, run, installed, prepare,
   publishSnapshot, runtime, dependencyDigest, runtimeRequirement, modelCache, publishRename } from '../integrations/managed/provision.mjs';
@@ -14,6 +15,20 @@ import { locations, installEnvironment, privateDirectory, run, installed, prepar
 // Ordered asynchronous steps: each promise waits for the previous one.
 const runSequentially = (items, action) => items.reduce(
   (previous, item) => previous.then(() => action(item)), Promise.resolve());
+
+test('launcher entry detection uses Windows case-insensitive path semantics', () => {
+  assert.equal(
+    sameEntryPath('C:\\Users\\Runner\\node_modules\\launcher\\launcher.mjs',
+      'c:\\users\\runner\\node_modules\\launcher\\LAUNCHER.mjs', 'win32'),
+    true,
+  );
+  assert.equal(
+    sameEntryPath('C:\\Users\\Runner\\launcher.mjs', 'D:\\Users\\Runner\\launcher.mjs', 'win32'),
+    false,
+  );
+  assert.equal(sameEntryPath('/usr/local/bin/../lib/launcher.mjs', '/usr/local/lib/launcher.mjs', 'linux'), true);
+  assert.equal(sameEntryPath('/tmp/Launcher.mjs', '/tmp/launcher.mjs', 'linux'), false);
+});
 
 test('npm-style symlink entry actually executes the launcher CLI', async () => {
   const root = await mkdtemp(join(await realpath(tmpdir()), 'memory-npm-bin-'));
