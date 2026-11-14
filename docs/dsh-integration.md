@@ -13,8 +13,22 @@ every conversation.
 
 The configuration-only Bundle connects the public launcher through the
 official `@deepseek-ai/dsh-mcp-client`. It needs Node.js (which DSH already
-uses) and no system Python, uvx, Ollama or Qdrant Server. Prepare the shared
-backend first:
+uses) and no system Python, uvx, Ollama or Qdrant Server.
+
+Choose the Bundle before preparing the backend. The `0.2.0-rc.1` candidate
+requires Node.js 24.9 or newer and uses launcher `0.1.0-rc.9` with Runtime
+0.6.2. Older Hosts should stay on Bundle `0.1.6`, which uses launcher
+`0.1.0-rc.8` and Runtime 0.6.0. Do not prepare with one launcher and install
+the other Bundle.
+
+For an older Host, run the matching preparation and install commands:
+
+```sh
+npx -y @cnkang/qdrant-memory-launcher@0.1.0-rc.8 prepare dsh
+dsh plugin --profile <name> add @cnkang/qdrant-memory-dsh-bundle@0.1.6
+```
+
+For the current candidate, prepare the shared backend first:
 
 ```sh
 npx -y @cnkang/qdrant-memory-launcher@0.1.0-rc.9 prepare dsh
@@ -29,9 +43,8 @@ Bundle into one profile:
 dsh plugin --profile <name> add @cnkang/qdrant-memory-dsh-bundle
 ```
 
-For the `0.2.0-rc.1` candidate, both `latest` and `next` are set to this
-release; it requires Node.js 24.9 or newer. Older Hosts should pin
-`@cnkang/qdrant-memory-dsh-bundle@0.1.6`.
+For this RC publication, both npm tags `latest` and `next` will point to
+`0.2.0-rc.1` after the exact-main release checks pass.
 
 If your registry has not served the package yet, download
 `cnkang-qdrant-memory-dsh-bundle-0.2.0-rc.1.tgz` from the repository release and
@@ -87,8 +100,11 @@ Use an absolute path such as `"$HOME/memory"` for a literal
 variable. The examples expand the fallback with `$HOME` so shell file operations
 and the Runtime select the same directory.
 
-Before reusing an existing patch, verify that its `--home` points at the selected
-profile; update it before launch if it hardcodes another home.
+To preserve older or customized patches, this guide uses the versioned path
+`$PROFILE/qdrant-memory-mcp-0.3.3.cordis.yml`. An existing
+`qdrant-memory.cordis.yml` is left untouched. Review it and port any intentional
+local edits into the new file; keep `QDRANT_MEMORY_DSH_PROFILE` unchanged. The
+validator checks that `--home` matches the selected profile before launch.
 
 The launch guard uses uv to fetch pinned PyYAML and inspects YAML nodes without
 evaluating `!!js` tags. It accepts the documented `config.args` prefix with
@@ -110,14 +126,14 @@ uvx --from qdrant-memory-mcp==0.3.3 qdrant-memory-mcp --home "$PROFILE" init &&
 uvx --from qdrant-memory-mcp==0.3.3 qdrant-memory-mcp --home "$PROFILE" doctor &&
 (
   mkdir -p "$PROFILE"
-  PATCH="$PROFILE/qdrant-memory.cordis.yml"
+  PATCH="$PROFILE/qdrant-memory-mcp-0.3.3.cordis.yml"
   if [ ! -e "$PATCH" ]; then
     TMP="$(mktemp "${PATCH}.XXXXXX")"
     # Bash can exit before the failure branch runs, for example on Ctrl-C, so
     # keep the partial file out of the profile directory in every exit path.
     trap 'rm -f "$TMP"' EXIT INT
     if curl -fsSL -o "$TMP" \
-      https://raw.githubusercontent.com/cnkang/qdrant-memory-mcp/v0.3.3/integrations/dsh/qdrant-memory.cordis.yml; then
+      https://raw.githubusercontent.com/cnkang/qdrant-memory-mcp/main/integrations/dsh/qdrant-memory.cordis.yml; then
       mv "$TMP" "$PATCH"
       trap - EXIT INT
     else
@@ -270,13 +286,13 @@ if ($LASTEXITCODE -ne 0) { throw "Runtime init failed; DSH was not launched." }
 uvx --from qdrant-memory-mcp==0.3.3 qdrant-memory-mcp --home $MemoryProfile doctor
 if ($LASTEXITCODE -ne 0) { throw "Runtime doctor failed; DSH was not launched." }
 $PatchDir = $MemoryProfile
-$Patch = Join-Path $PatchDir "qdrant-memory.cordis.yml"
+$Patch = Join-Path $PatchDir "qdrant-memory-mcp-0.3.3.cordis.yml"
 New-Item -ItemType Directory -Force -Path $PatchDir | Out-Null
 if (-not (Test-Path $Patch)) {
   $Draft = "$Patch.download"
   try {
-    Invoke-WebRequest -UseBasicParsing -Uri "https://raw.githubusercontent.com/cnkang/qdrant-memory-mcp/v0.3.3/integrations/dsh/qdrant-memory.cordis.yml" -OutFile $Draft -ErrorAction Stop
-    Move-Item -Force $Draft $Patch
+    Invoke-WebRequest -UseBasicParsing -Uri "https://raw.githubusercontent.com/cnkang/qdrant-memory-mcp/main/integrations/dsh/qdrant-memory.cordis.yml" -OutFile $Draft -ErrorAction Stop
+    Move-Item $Draft $Patch
   } catch {
     # Write-Error keeps running under the default error preference; a thrown
     # string stops before the config dump can report a misleading failure.
@@ -419,9 +435,10 @@ try {
 dsh web --patch $Patch
 ```
 
-The overlay patch is part of the published `v0.3.3` tag, so fetch it directly;
-no source checkout is required. Keep the downloaded file outside the package
-environment and pass its local path to `--patch` on every DSH launch.
+The current overlay patch is available from the repository's `main` branch and
+matches the `0.3.3` package pin and guide link above; no source checkout is
+required. Keep the downloaded file outside the package environment and pass
+its local path to `--patch` on every DSH launch.
 
 
 On Windows use the corresponding absolute profile path. Set

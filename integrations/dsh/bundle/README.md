@@ -50,12 +50,11 @@ it currently reads the full individual Session log once per recovery pass.
 Prepare the candidate tarball with `python scripts/pack_dsh_bundle.py
 --output-dir dist/dsh-bundle` from the repository root. Direct `npm pack` of
 this source directory omits the canonical Native module and is not a release
-artifact. Publication requires approved Runtime 0.6.2 public-wheel, protected
-Cloud and Desktop acceptance. When approved, publish this candidate under
-`latest` and `next` are intentionally moved to this RC so testers receive it
-from the default tag. That also means unpinned installs resolve to this
-Node.js 24.9+ candidate; older Hosts must explicitly remain on `0.1.6`. This
-RC does not claim final Desktop or full Cloud acceptance.
+artifact. A final release still requires protected Cloud and Desktop
+acceptance. The release procedure moves both `latest` and `next` to this RC
+after exact-main checks pass. Unpinned installs then resolve to this Node.js
+24.9+ candidate; older Hosts should remain on Bundle `0.1.6`. The RC does not
+claim final Desktop or full Cloud acceptance.
 
 ## Requirements
 
@@ -77,7 +76,20 @@ root defaults to `qdrant-memory-managed` under the platform data directory
 ## Prepare the backend first
 
 The DSH MCP probe is temporary and must never run installation or downloads.
-Prepare the shared backend explicitly, once:
+Choose the Bundle based on the Host's Node.js version before preparing it.
+The current `0.2.0-rc.1` candidate requires Node.js 24.9 or newer and uses
+launcher `0.1.0-rc.9` with Runtime 0.6.2. Older Hosts should use Bundle
+`0.1.6`, which uses launcher `0.1.0-rc.8` with Runtime 0.6.0. Use only the
+matching preparation and install commands below.
+
+For an older Host:
+
+```sh
+npx -y @cnkang/qdrant-memory-launcher@0.1.0-rc.8 prepare dsh
+dsh plugin --profile <name> add @cnkang/qdrant-memory-dsh-bundle@0.1.6
+```
+
+For the current candidate, prepare the shared backend explicitly, once:
 
 ```sh
 npx -y @cnkang/qdrant-memory-launcher@0.1.0-rc.9 prepare dsh
@@ -94,12 +106,12 @@ Hermes profiles. Preparation never deletes existing memory data.
 dsh plugin --profile <name> add @cnkang/qdrant-memory-dsh-bundle
 ```
 
-If the npm registry has not served this package yet, install the release
-tarball instead. Download `cnkang-qdrant-memory-dsh-bundle-0.1.6.tgz` from
+If the npm registry has not served this candidate yet, install the release
+tarball instead. Download `cnkang-qdrant-memory-dsh-bundle-0.2.0-rc.1.tgz` from
 the repository release and run:
 
 ```sh
-dsh plugin --profile <name> add ./cnkang-qdrant-memory-dsh-bundle-0.1.6.tgz
+dsh plugin --profile <name> add ./cnkang-qdrant-memory-dsh-bundle-0.2.0-rc.1.tgz
 ```
 
 Verify the layer without booting:
