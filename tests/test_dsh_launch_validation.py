@@ -41,7 +41,7 @@ COMPOSED_CONFIGS = {
 
 
 # Keep the tested public pin distinct from the not-yet-published source candidate.
-PUBLISHED_MCP_VERSION = "0.3.2"
+PUBLISHED_MCP_VERSION = "0.3.3"
 CANDIDATE_MCP_VERSION = tomllib.loads((ROOT / 'pyproject.toml').read_text())[
     'project'
 ]['version']
@@ -139,7 +139,10 @@ def test_shell_launch_gate(tmp_path, guide, version, base):
     patch = patch.replace('      config:', '      decoy: [--from, qdrant-memory-mcp==0.3.1]\n      config:')
     if base == 'unicode-conflict':
         patch = patch.replace('serverName: qdrant-memory', 'serverName: 共享记忆')
-    (profile / 'qdrant-memory.cordis.yml').write_text(patch, encoding='utf-8')
+    legacy_patch = profile / 'qdrant-memory.cordis.yml'
+    legacy_patch.write_text('custom legacy patch', encoding='utf-8')
+    current_patch = profile / f'qdrant-memory-mcp-{PUBLISHED_MCP_VERSION}.cordis.yml'
+    current_patch.write_text(patch, encoding='utf-8')
     launched = tmp_path / 'launched'
     # Stub provisioning, while executing the real validator with CI's Python.
     # Shell functions also avoid executable-bit and shebang differences on Windows.
@@ -171,7 +174,8 @@ dsh() {
     assert launched.exists() == allowed, result
     assert (result.returncode == 0) == allowed, result
     if launched.exists():
-        assert Path(launched.read_text(encoding='utf-8')) == profile / 'qdrant-memory.cordis.yml'
+        assert Path(launched.read_text(encoding='utf-8')) == current_patch
+        assert legacy_patch.read_text(encoding='utf-8') == 'custom legacy patch'
 
 
 @pytest.mark.parametrize('guide', GUIDES, ids=lambda path: path.name)
@@ -208,7 +212,7 @@ exit "$status"
     assert survived.exists(), result
     assert 'Patch download failed' in result.stderr
     assert not marker.exists()
-    assert not list(profile.glob('qdrant-memory.cordis.yml*'))
+    assert not list(profile.glob(f'qdrant-memory-mcp-{PUBLISHED_MCP_VERSION}.cordis.yml*'))
 
 
 @pytest.mark.parametrize('guide', GUIDES, ids=lambda path: path.name)
@@ -267,7 +271,9 @@ if sys.platform == 'win32':
         """Exercise Windows PowerShell validation and its selected launch path."""
         profile = tmp_path / 'profile with spaces'
         profile.mkdir()
-        patch = profile / 'qdrant-memory.cordis.yml'
+        legacy_patch = profile / 'qdrant-memory.cordis.yml'
+        legacy_patch.write_text('custom legacy patch', encoding='utf-8')
+        patch = profile / f'qdrant-memory-mcp-{PUBLISHED_MCP_VERSION}.cordis.yml'
         patch.write_text(released_overlay().replace(
             f'qdrant-memory-mcp=={PUBLISHED_MCP_VERSION}', f'qdrant-memory-mcp=={version}'), encoding='utf-8')
         if base == 'unicode-conflict':
@@ -305,3 +311,4 @@ function dsh {
         assert launched.exists() == allowed, diagnostic
         if launched.exists():
             assert Path(launched.read_text(encoding='utf-8')) == patch
+            assert legacy_patch.read_text(encoding='utf-8') == 'custom legacy patch'

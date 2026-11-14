@@ -6,7 +6,7 @@
 # https://pypi.org/project/qdrant-memory-mcp/0.3.3/
 # Until the DSH lifecycle overlay passes full acceptance, follow the published
 # 0.3.3 DSH guide:
-# https://github.com/cnkang/qdrant-memory-mcp/blob/v0.3.3/docs/dsh-integration.md
+# https://github.com/cnkang/qdrant-memory-mcp/blob/main/docs/dsh-integration.md
 - insert:
     - id: cnkang-qdrant-memory-mcp
       name: '@deepseek-ai/dsh-mcp-client'

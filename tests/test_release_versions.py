@@ -67,6 +67,15 @@ def test_current_workbuddy_and_dsh_instructions_track_project_version():
         assert requirement in contents, relative
         if relative.startswith(("docs/dsh-integration", "integrations/workbuddy/README")):
             assert published_requirement in contents, relative
+        if relative.startswith("docs/dsh-integration"):
+            assert (
+                f"qdrant-memory-mcp-{published_requirement.rsplit('==', 1)[1]}.cordis.yml"
+                in contents
+            ), relative
+            assert (
+                "raw.githubusercontent.com/cnkang/qdrant-memory-mcp/main/"
+                "integrations/dsh/qdrant-memory.cordis.yml"
+            ) in contents, relative
 
     # The DSH source overlay and WorkBuddy uvx alternative use the public
     # package version that the setup instructions document.

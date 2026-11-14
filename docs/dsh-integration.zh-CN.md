@@ -11,7 +11,20 @@
 
 纯配置 Bundle 通过官方 `@deepseek-ai/dsh-mcp-client` 连接已发布的托管启动器。
 需要 Node.js（DSH 本身依赖），不需要系统 Python、uvx、Ollama 或 Qdrant Server。
-先准备共享后端：
+
+准备后端前先选择 Bundle。`0.2.0-rc.1` 候选要求 Node.js 24.9 或更新版本，
+并使用 launcher `0.1.0-rc.9` 与 Runtime 0.6.2。较旧的 Host 应继续使用 Bundle
+`0.1.6`，它配套 launcher `0.1.0-rc.8` 和 Runtime 0.6.0。不要用一个 launcher
+准备后端后再安装另一版本的 Bundle。
+
+较旧 Host 请使用匹配的准备和安装命令：
+
+```sh
+npx -y @cnkang/qdrant-memory-launcher@0.1.0-rc.8 prepare dsh
+dsh plugin --profile <name> add @cnkang/qdrant-memory-dsh-bundle@0.1.6
+```
+
+当前候选请先准备共享后端：
 
 ```sh
 npx -y @cnkang/qdrant-memory-launcher@0.1.0-rc.9 prepare dsh
@@ -25,9 +38,8 @@ Runtime wheel 和经过校验的 CPU 嵌入模型，可能需要数分钟并需�
 dsh plugin --profile <name> add @cnkang/qdrant-memory-dsh-bundle
 ```
 
-`0.2.0-rc.1` 候选发布时，`latest` 和 `next` 都会指向此版本；它要求
-Node.js 24.9 或更新版本。较旧的 Host 应明确固定到
-`@cnkang/qdrant-memory-dsh-bundle@0.1.6`。
+本 RC 发布时，待 exact-main 发布检查通过后，npm 的 `latest` 和 `next` 都会
+指向 `0.2.0-rc.1`。
 
 若所用 npm 镜像尚未同步该包，可改从仓库 Release 下载
 `cnkang-qdrant-memory-dsh-bundle-0.2.0-rc.1.tgz`，用文件路径安装。不启动即可先验证层：
@@ -73,7 +85,11 @@ MCP 0.3.3 已发布到 PyPI，并固定使用 Runtime 0.6.2。下方命令使用
 `"$HOME/memory"`；`~/memory` 在带引号变量中不会展开。示例用 `$HOME` 展开默认值，确保
 shell 文件操作和 Runtime 使用同一目录。
 
-复用已有 patch 前，请确认其 `--home` 指向当前选择的 profile；如果硬编码了其他路径，请先更新再启动。
+为保留旧版本或自定义 patch，本指南使用带版本号的路径
+`$PROFILE/qdrant-memory-mcp-0.3.3.cordis.yml`。已有
+`qdrant-memory.cordis.yml` 会保持不变。请检查旧文件，并把需要保留的本地修改
+移植到新文件；不要改变 `QDRANT_MEMORY_DSH_PROFILE`。启动前校验器会确认
+`--home` 与所选 profile 一致。
 
 启动检查通过 uv 获取固定版本的 PyYAML，仅解析节点而不执行 `!!js`。
 仅接受只包含 insert 操作的 overlay，以及 `config.args` 中的
@@ -93,14 +109,14 @@ uvx --from qdrant-memory-mcp==0.3.3 qdrant-memory-mcp --home "$PROFILE" init &&
 uvx --from qdrant-memory-mcp==0.3.3 qdrant-memory-mcp --home "$PROFILE" doctor &&
 (
   mkdir -p "$PROFILE"
-  PATCH="$PROFILE/qdrant-memory.cordis.yml"
+  PATCH="$PROFILE/qdrant-memory-mcp-0.3.3.cordis.yml"
   if [ ! -e "$PATCH" ]; then
     TMP="$(mktemp "${PATCH}.XXXXXX")"
     # Bash 可能在失败分支执行前退出（例如 Ctrl-C），因此任何退出路径都要
     # 保证残留的半下载文件不留在 profile 目录里。
     trap 'rm -f "$TMP"' EXIT INT
     if curl -fsSL -o "$TMP" \
-      https://raw.githubusercontent.com/cnkang/qdrant-memory-mcp/v0.3.3/integrations/dsh/qdrant-memory.cordis.yml; then
+      https://raw.githubusercontent.com/cnkang/qdrant-memory-mcp/main/integrations/dsh/qdrant-memory.cordis.yml; then
       mv "$TMP" "$PATCH"
       trap - EXIT INT
     else
@@ -253,13 +269,13 @@ if ($LASTEXITCODE -ne 0) { throw "Runtime init failed; DSH was not launched." }
 uvx --from qdrant-memory-mcp==0.3.3 qdrant-memory-mcp --home $MemoryProfile doctor
 if ($LASTEXITCODE -ne 0) { throw "Runtime doctor failed; DSH was not launched." }
 $PatchDir = $MemoryProfile
-$Patch = Join-Path $PatchDir "qdrant-memory.cordis.yml"
+$Patch = Join-Path $PatchDir "qdrant-memory-mcp-0.3.3.cordis.yml"
 New-Item -ItemType Directory -Force -Path $PatchDir | Out-Null
 if (-not (Test-Path $Patch)) {
   $Draft = "$Patch.download"
   try {
-    Invoke-WebRequest -UseBasicParsing -Uri "https://raw.githubusercontent.com/cnkang/qdrant-memory-mcp/v0.3.3/integrations/dsh/qdrant-memory.cordis.yml" -OutFile $Draft -ErrorAction Stop
-    Move-Item -Force $Draft $Patch
+    Invoke-WebRequest -UseBasicParsing -Uri "https://raw.githubusercontent.com/cnkang/qdrant-memory-mcp/main/integrations/dsh/qdrant-memory.cordis.yml" -OutFile $Draft -ErrorAction Stop
+    Move-Item $Draft $Patch
   } catch {
     # 默认错误偏好下 Write-Error 不会中断脚本；改为 throw，避免继续执行
     # 配置导出并产生误导性的校验失败。
@@ -402,8 +418,9 @@ try {
 dsh web --patch $Patch
 ```
 
-overlay patch 已包含在发布的 `v0.3.3` tag 中，可直接下载，不需要源码 checkout。
-请把文件放在包环境之外，并在每次启动 DSH 时把其本地路径传给 `--patch`。
+当前 overlay patch 可从仓库 `main` 分支下载，与上面的 `0.3.3` package pin
+和 guide 链接匹配，不需要源码 checkout。请把文件放在包环境之外，并在每次
+启动 DSH 时把其本地路径传给 `--patch`。
 
 Windows 请使用对应的绝对路径。启动 DSH 前可用环境变量
 `QDRANT_MEMORY_DSH_PROFILE` 指定其他独立 profile。不要选择正在使用的
