@@ -49,10 +49,10 @@ def test_public_protocol_install_tracks_project_version(tmp_path):
 
 
 def test_current_workbuddy_and_dsh_instructions_track_project_version():
-    """Keep candidate docs distinct from currently published integration pins."""
+    """Keep current integration instructions aligned with public MCP pins."""
     project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     requirement = f"qdrant-memory-mcp=={project['project']['version']}"
-    published_requirement = "qdrant-memory-mcp==0.3.2"
+    published_requirement = "qdrant-memory-mcp==0.3.3"
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     candidate_docs = [
         "docs/quickstart.zh-CN.md",
@@ -68,8 +68,8 @@ def test_current_workbuddy_and_dsh_instructions_track_project_version():
         if relative.startswith(("docs/dsh-integration", "integrations/workbuddy/README")):
             assert published_requirement in contents, relative
 
-    # The source overlay follows the candidate MCP version; published setup
-    # instructions above retain the currently published pin.
+    # The DSH source overlay and WorkBuddy uvx alternative use the public
+    # package version that the setup instructions document.
     overlay = (ROOT / "integrations/dsh/qdrant-memory.cordis.yml").read_text(
         encoding="utf-8"
     )

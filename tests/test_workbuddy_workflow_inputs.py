@@ -82,7 +82,7 @@ def test_preview_inputs_select_only_optional_compatibility_toolchains():
     assert server["args"][1] == f"{launcher['name']}@{launcher['version']}"
     assert server["npmRegistries"] == ["https://registry.npmjs.org"]
     assert launcher["integrity"].startswith("sha512-")
-    assert launcher["runtime_version"] == "0.6.0"
+    assert launcher["runtime_version"] == "0.6.2"
     assert len(skill["commit"]) == 40
 
 

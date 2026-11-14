@@ -92,7 +92,7 @@ withOwnerTargetEnv(() => {
     assert.equal(plugins[0].settings.serverName, 'qdrant-memory')
     assert.deepEqual(
       plugins[0].settings.args,
-      ['-y', '@cnkang/qdrant-memory-launcher@0.1.0-rc.8', 'mcp', 'dsh'],
+      ['-y', '@cnkang/qdrant-memory-launcher@0.1.0-rc.9', 'mcp', 'dsh'],
     )
   })
 

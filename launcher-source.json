@@ -1,6 +1,6 @@
 {
   "name": "@cnkang/qdrant-memory-launcher",
-  "version": "0.1.0-rc.8",
-  "runtime_version": "0.6.0",
-  "integrity": "sha512-vCQnRIy/0HO7Rm1YEf5FWdnWzfsEL2h1JodLnOHFb52ECymLUbRRKTmlmt4LOUXOIiNSPEDOzCDhOfiUFxoePQ=="
+  "version": "0.1.0-rc.9",
+  "runtime_version": "0.6.2",
+  "integrity": "sha512-jfKHlRqZNTV8rLozwT2f8IwJOon0WQLkOjopVG0FYBFAMHeyRPIWZN3trHdFpPTs0/aOxUYc3tlzFHh5vvv32g=="
 }

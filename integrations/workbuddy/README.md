@@ -19,7 +19,7 @@ WorkBuddy's managed Node.js runtime. `mcp.json` declares:
     "qdrant-memory": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "@cnkang/qdrant-memory-launcher@0.1.0-rc.8", "mcp", "workbuddy", "--auto-setup"],
+      "args": ["-y", "@cnkang/qdrant-memory-launcher@0.1.0-rc.9", "mcp", "workbuddy", "--auto-setup"],
       "runtime": {"type": "node", "version": "20"},
       "npmRegistries": ["https://registry.npmjs.org"],
       "timeout": 60000
@@ -99,14 +99,14 @@ program's `.provision.lock`. Never remove profile files or Runtime data locks.
 
 ## Update and versioning
 
-Older managed CPU profiles use the FastEmbed 0.9.0 pipeline. Launcher rc.8 uses
+Older managed CPU profiles use the FastEmbed 0.9.0 pipeline. Launcher rc.9 uses
 0.9.1 and must not silently relabel that data or cache. Keep the previous
 launcher for the old profile. Export from that profile, then preview re-embedding
 into a new profile and collection before importing. Preserve the old store for
 rollback and switch WorkBuddy only after verifying the new profile. The managed
 launcher always starts WorkBuddy with `profiles/workbuddy/local`; importing into
 another profile alone does not change the profile WorkBuddy uses. The pinned
-[Runtime 0.6.0 standalone guide](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/dee6777432f17523db75f6be32cf3ef15e48235c/docs/standalone.md)
+[Runtime 0.6.2 standalone guide](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/913fa705922b5bfeb29d52f102cfc6385a4d0436/docs/standalone.md)
 documents the migration grammar. Use the procedure below:
 
 The managed launcher does not add `qdrant-memory` to the shell `PATH`. The
@@ -296,24 +296,20 @@ try {
 }
 ```
 
-Connector 0.2.5 records MCP distribution 0.3.1, Runtime 0.6.0, launcher
-0.1.0-rc.8 and Skill 0.4.0 in its release provenance. The managed WorkBuddy
-route runs launcher 0.1.0-rc.8 to install Runtime 0.6.0 and ships Skill 0.4.0;
-it does not install the Python MCP distribution or instantiate Hermes' native
-MemoryProvider. The separate Python/uvx alternative below installs MCP
-distribution 0.3.1. Verify the exact launcher version on npm and the connector
-assets on the corresponding GitHub Release before installing. Previous
-connector 0.2.4 archives retain their original per-release provenance and immutable bytes.
-The MCP 0.3.2 release candidate targets Runtime 0.6.1 and pins
-`qdrant-memory-mcp==0.3.2`. The candidate uvx configuration is only usable
-after PyPI publishes MCP 0.3.2; the released
-connector instructions below continue to use public MCP 0.3.1.
-`provenance.json` inside each ZIP records its versions, launcher
-integrity and Skill source commit. Its `runtime_version` identifies the Runtime
-installed by the included managed npm launcher (0.6.0 for launcher 0.1.0-rc.8).
-It is intentionally independent of the source-only uvx candidate, which targets
-Runtime 0.6.1 and is not included in the connector ZIP. The builder rejects
-drift from checked-in pins:
+Previously released Connector 0.2.5 records MCP distribution 0.3.1, Runtime
+0.6.0, launcher 0.1.0-rc.8 and Skill 0.4.0 in its immutable provenance. The
+current repository source preview pins launcher 0.1.0-rc.9, Runtime 0.6.2,
+and Skill 0.4.4; this preview is not yet a new WorkBuddy connector release. The managed route
+does not install the Python MCP distribution or instantiate Hermes' native
+MemoryProvider. The separate Python/uvx alternative uses the public MCP
+distribution 0.3.3, which pins Runtime 0.6.2; the previously released
+Connector 0.2.5 still installs public MCP 0.3.1. Verify the exact launcher
+version on npm and connector assets on their release before installing.
+Earlier connector archives retain their original provenance and immutable bytes.
+`provenance.json` inside each ZIP records its versions, launcher integrity and
+Skill source commit. New source-preview ZIPs record Runtime 0.6.2 through
+launcher 0.1.0-rc.9 and the pinned Skill 0.4.4 source. This is separate from
+the uvx alternative. The builder rejects drift from checked-in pins:
 
 - The launcher pin lives in `launcher-source.json` at the repository root and
   records its Runtime version; it must be public on the npm registry with matching integrity before release
@@ -330,11 +326,10 @@ drift from checked-in pins:
 `mcp.uvx.json` documents the advanced custom-MCP route for users who run
 their own Python backend instead of the managed launcher:
 
-The source candidate is `qdrant-memory-mcp==0.3.3` with Runtime 0.6.2. Until
-that candidate is published, use the public MCP 0.3.2 pin below.
+The public `qdrant-memory-mcp==0.3.3` package uses Runtime 0.6.2.
 
 ```sh
-uvx --from qdrant-memory-mcp==0.3.2 qdrant-memory-mcp mcp
+uvx --from qdrant-memory-mcp==0.3.3 qdrant-memory-mcp mcp
 ```
 
 Add `--home <private-profile-path>` before `mcp` to bind an explicit private
@@ -410,7 +405,7 @@ build environment (the Skill builder needs PyYAML):
 
 ```sh
 git clone --no-checkout https://github.com/cnkang/skills.git .workbuddy-skill
-git -C .workbuddy-skill checkout --detach cc592289f126c786fd6c11038fcaa966c6de2b40
+git -C .workbuddy-skill checkout --detach 607b1335f7babc9a7a2f909d12d8214124d1032c
 python3 -m venv .workbuddy-env
 .workbuddy-env/bin/python -m pip install 'PyYAML==6.0.3'
 .workbuddy-env/bin/python integrations/workbuddy/build.py --check

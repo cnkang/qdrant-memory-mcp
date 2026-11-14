@@ -1,6 +1,6 @@
 # Managed Qdrant Memory launcher
 
-The launcher installs a private Python environment, Runtime 0.6.0 and a
+The launcher installs a private Python environment, Runtime 0.6.2 and a
 verified multilingual CPU embedding model. WorkBuddy and DeepSeek Harness use
 separate embedded memory profiles. Existing Hermes installations keep their
 configuration and data.
@@ -13,7 +13,7 @@ are tracked separately for each operating system.
 For a client that already supplies Node.js 20 or newer:
 
 ```sh
-npm install --global @cnkang/qdrant-memory-launcher@0.1.0-rc.8
+npm install --global @cnkang/qdrant-memory-launcher@0.1.0-rc.9
 qdrant-memory-launcher prepare dsh
 qdrant-memory-launcher mcp dsh
 ```
@@ -90,7 +90,7 @@ installed from the hash-pinned upstream wheel. Preparation no longer downloads
 or executes a compatibility builder. `uv pip check` and CPU model acceptance
 remain required. Existing profiles and model caches are retained.
 
-Runtime 0.6.0 allows 15 minutes per model file and 30 minutes for all network
+Runtime 0.6.2 allows 15 minutes per model file and 30 minutes for all network
 downloads during explicit preparation. The launcher allows 40 minutes for
 profile/model setup, while bootstrap and
 dependency subprocesses keep their separate 10-minute bounds. Cold/public npm
