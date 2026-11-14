@@ -1,7 +1,7 @@
 name: Prepare WorkBuddy draft release assets
 on:
   push:
-    tags: ['v*']
+    tags: ['v*', 'workbuddy-v*']
   workflow_dispatch:
 permissions:
   contents: read
@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   build:
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/workbuddy-v')
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:

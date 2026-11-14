@@ -121,10 +121,13 @@ def test_invalid_metadata_fails_closed(tmp_path, monkeypatch, field, value):
 
 
 def test_release_tag_must_match_current_package():
-    """Require release tags to match the built connector package version."""
+    """Accept MCP and connector-only tags only when they match their metadata."""
     module = builder()
     with pytest.raises(ValueError, match="tag"):
         module.package_name("0.1.0", "0.1.2", "v0.1.4")
+    assert module.package_name("0.2.6", "0.3.3", "workbuddy-v0.2.6") == (
+        "qdrant-memory-workbuddy-connector-v0.2.6-mcp-v0.3.3.zip"
+    )
     assert module.package_name("0.1.0", "0.1.2", None).endswith("-preview.zip")
 
 

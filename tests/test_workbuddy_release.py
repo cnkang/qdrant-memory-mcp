@@ -28,6 +28,9 @@ def source(tmp_path):
     git(tmp_path, 'config', 'user.email', 'test@example.invalid')
     git(tmp_path, 'config', 'user.name', 'Test')
     (tmp_path / 'pyproject.toml').write_text('[project]\nversion = "1.2.3"\n')
+    connector = tmp_path / 'integrations/workbuddy'
+    connector.mkdir(parents=True)
+    (connector / 'connector-meta.json').write_text('{"version": "0.1.0"}\n')
     git(tmp_path, 'add', '.')
     git(tmp_path, 'commit', '-m', 'initial')
     git(tmp_path, 'tag', 'v1.2.3')
@@ -40,7 +43,13 @@ def test_validate_existing_tag_at_clean_merged_head(source):
     assert release.validate_source(source, 'v1.2.3')[0] == git(source, 'rev-parse', 'HEAD')
 
 
-@pytest.mark.parametrize('tag', ['1.2.3', 'v01.2.3', 'v1.2.4', 'v1.2.3-other'])
+def test_validate_connector_tag_at_clean_merged_head(source):
+    release = module()
+    git(source, 'tag', 'workbuddy-v0.1.0')
+    assert release.validate_source(source, 'workbuddy-v0.1.0')[0] == git(source, 'rev-parse', 'HEAD')
+
+
+@pytest.mark.parametrize('tag', ['1.2.3', 'v01.2.3', 'v1.2.4', 'v1.2.3-other', 'workbuddy-v0.1.1', 'workbuddy-v01.0.0'])
 def test_invalid_or_mismatched_tag(source, tag):
     release = module()
     with pytest.raises(ValueError):
@@ -183,8 +192,8 @@ def asset_source(source):
     import zipfile
     (source / 'runtime-source.json').write_text('{"version": "0.6.1"}')
     config = source / 'integrations/workbuddy'
-    config.mkdir(parents=True)
-    (config / 'connector-meta.json').write_text(json.dumps({'version': '0.1.0'}))
+    config.mkdir(parents=True, exist_ok=True)
+    (config / 'connector-meta.json').write_text(json.dumps({'version': '0.1.0'}) + '\n')
     launcher = {'name': '@cnkang/qdrant-memory-launcher', 'version': '0.1.0-rc.2', 'runtime_version': '0.6.0', 'integrity': 'sha512-' + 'A' * 86 + '=='}
     (source / 'launcher-source.json').write_text(json.dumps(launcher))
     mcp = {'mcpServers': {'qdrant-memory': {'type': 'stdio', 'command': 'npx', 'args': ['-y', '@cnkang/qdrant-memory-launcher@0.1.0-rc.2', 'mcp', 'workbuddy', '--auto-setup'], 'runtime': {'type': 'node', 'version': '20'}, 'npmRegistries': ['https://registry.npmjs.org'], 'timeout': 60000}}}
@@ -212,6 +221,23 @@ def asset_source(source):
 def test_validate_assets_binds_names_checksum_and_provenance(asset_source):
     root, directory, archive, checksum = asset_source
     assert module().validate_assets(root, directory, 'v1.2.3') == [archive, checksum]
+
+
+def test_validate_assets_accepts_connector_tag_bound_to_connector_version(asset_source):
+    import json
+    import zipfile
+    root, directory, archive, checksum = asset_source
+    with zipfile.ZipFile(archive) as original:
+        files = {name: original.read(name) for name in original.namelist()}
+    provenance_name = 'qdrant-memory-workbuddy/provenance.json'
+    provenance = json.loads(files[provenance_name])
+    provenance['release_tag'] = 'workbuddy-v0.1.0'
+    files[provenance_name] = json.dumps(provenance).encode()
+    with zipfile.ZipFile(archive, 'w') as output:
+        for name, data in files.items():
+            output.writestr(name, data)
+    checksum.write_text(hashlib.sha256(archive.read_bytes()).hexdigest() + '  ' + archive.name + '\n')
+    assert module().validate_assets(root, directory, 'workbuddy-v0.1.0') == [archive, checksum]
 
 
 @pytest.mark.parametrize('problem', ['checksum', 'extra', 'symlink', 'preview', 'provenance', 'path'])

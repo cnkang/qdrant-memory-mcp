@@ -298,8 +298,9 @@ try {
 
 Previously released Connector 0.2.5 records MCP distribution 0.3.1, Runtime
 0.6.0, launcher 0.1.0-rc.8 and Skill 0.4.0 in its immutable provenance. The
-current repository source preview pins launcher 0.1.0-rc.10, Runtime 0.6.2,
-and Skill 0.4.4; this preview is not yet a new WorkBuddy connector release. The managed route
+current source candidate is Connector 0.2.6, which pins launcher 0.1.0-rc.10,
+Runtime 0.6.2, and Skill 0.4.4; it remains unpublished until its exact-main
+release checks pass. The managed route
 does not install the Python MCP distribution or instantiate Hermes' native
 MemoryProvider. The separate Python/uvx alternative uses the public MCP
 distribution 0.3.3, which pins Runtime 0.6.2; the previously released
@@ -483,12 +484,14 @@ maintainer gates before marketplace submission.
 
 ## Release and recovery
 
-Only an approved MCP version tag matching package metadata and merged main can
-trigger release preparation. `workbuddy-release.yml` builds and tests with
-`contents: read`. A dependent minimal `contents: write` job validates the
-downloaded ZIP, checksum and provenance, then attaches assets to a Draft. It
-never executes upstream Skill code, publishes the Draft, touches
-PyPI/Registry, or moves tags.
+Release preparation accepts either an approved MCP tag `v<MCP-version>` or an
+independent connector tag `workbuddy-v<connector-version>`, each matching its
+own checked-in metadata and merged `main`. The connector-only tag allows a
+WorkBuddy update without publishing another MCP/PyPI version. `workbuddy-release.yml`
+builds and tests with `contents: read`. A dependent minimal `contents: write`
+job validates the downloaded ZIP, checksum and provenance, then attaches assets
+to a Draft. It never executes upstream Skill code, publishes the Draft,
+touches PyPI/Registry, or moves tags.
 
 Reruns compare bytes and reuse matching assets. A conflict, or a published
 release missing attachments, fails without replacement. Investigate

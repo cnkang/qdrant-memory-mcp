@@ -35,14 +35,26 @@ def is_semver(value: str) -> bool:
     return not plus or bool(re.fullmatch(IDENTIFIERS, build))
 
 
+def release_tag_matches(tag: str, mcp_version: str, connector_version: str) -> bool:
+    """Bind a combined release to MCP metadata or a connector-only release to connector metadata."""
+    return ((is_semver(mcp_version) and tag == f'v{mcp_version}')
+            or (is_semver(connector_version) and tag == f'workbuddy-v{connector_version}'))
+
+
+def release_versions(root: Path) -> tuple[str, str]:
+    project = tomllib.loads((root / 'pyproject.toml').read_text(encoding='utf-8'))['project']
+    meta = json.loads((root / 'integrations/workbuddy' / CONNECTOR_META).read_text(encoding='utf-8'))
+    return project['version'], meta['version']
+
+
 def git(root: Path, *args: str) -> str:
     return subprocess.check_output(['git', '-C', str(root), *args], text=True, stderr=subprocess.DEVNULL).strip()
 
 
 def validate_source(root: Path, tag: str, main_ref: str = 'refs/remotes/origin/main') -> tuple[str, str]:
-    version = tomllib.loads((root / 'pyproject.toml').read_text(encoding='utf-8'))['project']['version']
-    if not tag.startswith('v') or not is_semver(tag[1:]) or tag != 'v' + version:
-        raise ValueError('Release tag must be vSemVer matching pyproject.toml version')
+    mcp_version, connector_version = release_versions(root)
+    if not release_tag_matches(tag, mcp_version, connector_version):
+        raise ValueError('Release tag must match v<MCP version> or workbuddy-v<connector version>')
     try:
         sha = git(root, 'rev-parse', '--verify', f'refs/tags/{tag}^{{commit}}')
     except subprocess.CalledProcessError:
@@ -142,7 +154,7 @@ def validate_assets(root: Path, directory: Path, tag: str) -> list[Path]:
     launcher = launcher_pin(json.loads((root / 'launcher-source.json').read_text(encoding='utf-8')))
     version = project['version']
     connector = meta['version']
-    if tag != 'v' + version or not is_semver(connector):
+    if not release_tag_matches(tag, version, connector):
         raise ValueError('Asset versions do not match release metadata')
     runtime = runtime_pin(project)
     if json.loads((root / 'runtime-source.json').read_text(encoding='utf-8'))['version'] != runtime:
