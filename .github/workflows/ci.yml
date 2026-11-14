@@ -76,14 +76,19 @@ jobs:
           "$PY" -m pip install --only-binary=:all: 'hermes-plugin-qdrant-memory[mcp]==0.6.0' 'qdrant-memory-mcp==0.3.1'
           "$PY" -m pip check
           "$PY" -m pytest -q "$GITHUB_WORKSPACE/tests/test_codex_plugin.py" --junitxml="$GITHUB_WORKSPACE/codex-plugin-results.xml"
-      - name: Reject skipped acceptance
+      # This exact edge-case test may skip only when the host cannot store the ref name.
+      - name: Reject unexpected skipped acceptance
         run: >-
           python -c "import os, xml.etree.ElementTree as E;
           paths=['wheel-results.xml','sdist-results.xml','codex-plugin-results.xml'];
           paths += ['powershell-results.xml'] if os.environ.get('RUNNER_OS') == 'Windows' else [];
           suites=[s for p in paths for s in E.parse(p).findall('.//testsuite')];
+          cases=[(p,c) for p in paths for c in E.parse(p).findall('.//testcase')];
+          skipped=[(p,c.get('classname','')+'::'+c.get('name',''),c.find('skipped').get('message','')) for p,c in cases if c.find('skipped') is not None];
+          reason={'Windows':'Non-UTF-8 Git ref test requires POSIX argv bytes','macOS':'Host filesystem cannot store a non-UTF-8 Git ref name'}.get(os.environ.get('RUNNER_OS'));
+          expected=[(p,'tests.test_workbuddy_release::test_unrelated_non_utf8_tag_does_not_break_resolution',reason) for p in ('wheel-results.xml','sdist-results.xml')] if reason else [];
           assert sum(int(s.get('tests',0)) for s in suites)>=24;
-          assert sum(int(s.get('skipped',0)) for s in suites)==0"
+          assert sorted(skipped)==sorted(expected), f'unexpected skipped acceptance: {skipped!r}'"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
