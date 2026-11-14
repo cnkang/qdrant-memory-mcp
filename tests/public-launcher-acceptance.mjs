@@ -69,19 +69,37 @@ function launch(host, extra = []) {
     windowsHide: true,
   });
   const responses = new Map();
-  child.stderr.resume();
+  let stdoutBytes = 0;
+  let stderrBytes = 0;
+  let npmErrorCode = null;
+  const knownNpmErrorCodes = new Set([
+    'EACCES', 'EBADENGINE', 'E404', 'EAI_AGAIN', 'ECONNREFUSED', 'ECONNRESET',
+    'EEXIST', 'ENOENT', 'ENOTFOUND', 'EPERM', 'ERESOLVE', 'ETARGET', 'EUSAGE',
+  ]);
+  child.stdout.on('data', chunk => { stdoutBytes += chunk.length; });
+  child.stderr.on('data', chunk => {
+    stderrBytes += chunk.length;
+    const match = chunk.toString().match(/npm (?:ERR!|error) code ([A-Z0-9_]+)/i);
+    const code = match?.[1]?.toUpperCase();
+    if (knownNpmErrorCodes.has(code)) npmErrorCode = code;
+  });
+  const diagnosticSummary = () => {
+    const fields = [`stdout_bytes=${stdoutBytes}`, `stderr_bytes=${stderrBytes}`];
+    if (npmErrorCode) fields.push(`npm_error_code=${npmErrorCode}`);
+    return ` (${fields.join(', ')})`;
+  };
   const failPending = error => {
     for (const pending of responses.values()) pending.reject(error);
     responses.clear();
   };
   child.once('error', error => {
-    failPending(new Error(`Could not start npx (${error.code ?? 'unknown error'})`));
+    failPending(new Error(`Could not start npx (${error.code ?? 'unknown error'})${diagnosticSummary()}`));
   });
   child.once('close', (code, signal) => {
-    if (responses.size) failPending(new Error(`npx exited before responding (code ${code}, signal ${signal})`));
+    if (responses.size) failPending(new Error(`npx exited before responding (code ${code}, signal ${signal})${diagnosticSummary()}`));
   });
   child.stdin.on('error', error => {
-    failPending(new Error(`Could not send MCP request to npx (${error.code ?? 'unknown error'})`));
+    failPending(new Error(`Could not send MCP request to npx (${error.code ?? 'unknown error'})${diagnosticSummary()}`));
   });
   const lines = createInterface({ input: child.stdout });
   lines.on('line', line => {
@@ -94,12 +112,12 @@ function launch(host, extra = []) {
   async function request(method, params, timeoutMs = 30000) {
     const current = ++id;
     if (child.exitCode !== null || child.signalCode !== null) {
-      throw new Error(`npx exited before ${method} (code ${child.exitCode}, signal ${child.signalCode})`);
+      throw new Error(`npx exited before ${method} (code ${child.exitCode}, signal ${child.signalCode})${diagnosticSummary()}`);
     }
     let timer;
     const response = new Promise((accept, reject) => {
       responses.set(current, { resolve: accept, reject });
-      timer = setTimeout(() => reject(new Error(`Timed out waiting for ${method}`)), timeoutMs);
+      timer = setTimeout(() => reject(new Error(`Timed out waiting for ${method}${diagnosticSummary()}`)), timeoutMs);
     });
     try {
       child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: current, method, params }) + '\n');

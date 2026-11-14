@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -40,10 +40,22 @@ export async function createPublicNpmEnvironment(managedRoot, {
   };
 
   if (platform === 'win32') {
+    env.APPDATA = join(directory, 'AppData', 'Roaming');
+    env.LOCALAPPDATA = join(directory, 'AppData', 'Local');
+    await mkdir(env.APPDATA, { recursive: true });
+    await mkdir(env.LOCALAPPDATA, { recursive: true });
     for (const key of ['SystemRoot', 'WINDIR', 'ComSpec', 'PATHEXT', 'SystemDrive']) {
       if (typeof sourceEnv[key] === 'string' && sourceEnv[key].length > 0) {
         env[key] = sourceEnv[key];
       }
+    }
+    const homeOnDrive = directory.match(/^([A-Za-z]:)(.*)$/);
+    if (homeOnDrive) {
+      env.HOMEDRIVE = homeOnDrive[1];
+      env.HOMEPATH = homeOnDrive[2] || '\\';
+    } else if (env.SystemDrive) {
+      env.HOMEDRIVE = env.SystemDrive;
+      env.HOMEPATH = directory;
     }
   }
 

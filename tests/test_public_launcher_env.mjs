@@ -50,6 +50,10 @@ test('Windows acceptance retains only required process-launch variables', async 
   });
   t.after(sandbox.cleanup);
 
+  assert.equal(sandbox.env.APPDATA, `${sandbox.cwd}/AppData/Roaming`);
+  assert.equal(sandbox.env.LOCALAPPDATA, `${sandbox.cwd}/AppData/Local`);
+  assert.equal(sandbox.env.HOMEDRIVE, 'C:');
+  assert.equal(sandbox.env.HOMEPATH, sandbox.cwd);
   assert.equal(sandbox.env.SystemRoot, 'C:\\Windows');
   assert.equal(sandbox.env.ComSpec, 'C:\\Windows\\System32\\cmd.exe');
   assert.equal(sandbox.env.AWS_BEARER_TOKEN_BEDROCK, undefined);
