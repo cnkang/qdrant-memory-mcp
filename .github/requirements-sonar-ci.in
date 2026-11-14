@@ -1,6 +1,6 @@
 # Source pins for requirements-sonar-ci.txt (Python 3.11). Regenerate the lock with:
 #   cd .github && uv pip compile --universal --python-version 3.11 --generate-hashes requirements-sonar-ci.in -o requirements-sonar-ci.txt
-hermes-plugin-qdrant-memory[mcp]==0.6.2
+hermes-plugin-qdrant-memory[mcp]==0.7.0
 pytest==9.2.0
 pytest-cov==7.1.0
 requests==2.34.2
