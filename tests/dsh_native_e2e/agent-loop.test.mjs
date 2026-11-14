@@ -124,11 +124,16 @@ export async function harness(t, config = {}, directory) {
   await ctx.plugin(AgentLoop, { agents: [] })
   const provider = new DeterministicProvider()
   const cloud = process.env.QM_DSH_CLOUD === '1'
+  // The packed/unload assertion includes one ordinary post-unload turn in
+  // addition to the four bounded capture/recall calls.
+  const cloudModelCallBudget = 5
   const latency = []
   const usage = []
   ctx.on('llm/stream', (options, next) => {
     provider.requests.push(options)
-    if (cloud && provider.requests.length > 4) throw new Error('Cloud acceptance per-process model-call budget exceeded')
+    if (cloud && provider.requests.length > cloudModelCallBudget) {
+      throw new Error('Cloud acceptance per-process model-call budget exceeded')
+    }
     const start = Date.now()
     return (async function* () {
       try {
