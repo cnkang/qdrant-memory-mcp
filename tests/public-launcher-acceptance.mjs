@@ -24,6 +24,7 @@ import { createInterface } from 'node:readline';
 import { existsSync } from 'node:fs';
 import { readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
+import { createPublicNpmEnvironment } from './public-launcher-env.mjs';
 
 const handshakeOnly = process.argv.includes('--handshake-only');
 const launcher = JSON.parse(await readFile(new URL('../launcher-source.json', import.meta.url), 'utf8'));
@@ -31,6 +32,7 @@ const spec = `${launcher.name}@${launcher.version}`;
 const root = process.env.QDRANT_MEMORY_MANAGED_ROOT;
 assert.ok(root, 'Set QDRANT_MEMORY_MANAGED_ROOT to a disposable managed root');
 assert.ok(root.startsWith('/') || /^[A-Za-z]:[\\/]/.test(root), 'Managed root must be absolute');
+const npmEnvironment = await createPublicNpmEnvironment(root);
 const handshakeBudgetMs = 60000;
 const start = performance.now();
 
@@ -52,61 +54,52 @@ function npxCommand(args) {
   return { command: process.execPath, args: [cli, ...args] };
 }
 
-function spawnNpx(args, options) {
+function spawnNpx(args, options = {}) {
   const resolved = npxCommand(args);
-  return spawn(resolved.command, resolved.args, options);
+  return spawn(resolved.command, resolved.args, {
+    ...options,
+    cwd: npmEnvironment.cwd,
+    env: npmEnvironment.env,
+  });
 }
 
 function launch(host, extra = []) {
   const child = spawnNpx(['-y', spec, 'mcp', host, ...extra], {
-    env: { ...process.env, QDRANT_MEMORY_MANAGED_ROOT: root },
     stdio: ['pipe', 'pipe', 'pipe'],
     windowsHide: true,
   });
   const responses = new Map();
-  let stderr = '';
-  child.stderr.on('data', chunk => {
-    stderr = (stderr + chunk.toString()).slice(-4096);
-  });
-  const stderrDetail = () => {
-    const detail = stderr.trim()
-      .replace(/((?:_authToken|password|token)\s*[=:]\s*)\S+/gi, '$1[redacted]')
-      .replace(/(authorization:\s*(?:bearer|basic)\s+)\S+/gi, '$1[redacted]')
-      .replace(/(https?:\/\/)[^/\s@]+@/gi, '$1[redacted]@');
-    return detail ? `\nnpx stderr:\n${detail.slice(-2048)}` : '';
-  };
+  child.stderr.resume();
   const failPending = error => {
     for (const pending of responses.values()) pending.reject(error);
     responses.clear();
   };
   child.once('error', error => {
-    failPending(new Error(`Could not start npx (${error.code ?? error.message})${stderrDetail()}`));
+    failPending(new Error(`Could not start npx (${error.code ?? 'unknown error'})`));
   });
   child.once('close', (code, signal) => {
-    if (responses.size) failPending(new Error(`npx exited before responding (code ${code}, signal ${signal})${stderrDetail()}`));
+    if (responses.size) failPending(new Error(`npx exited before responding (code ${code}, signal ${signal})`));
   });
   child.stdin.on('error', error => {
-    failPending(new Error(`Could not send MCP request to npx (${error.code ?? error.message})${stderrDetail()}`));
+    failPending(new Error(`Could not send MCP request to npx (${error.code ?? 'unknown error'})`));
   });
   const lines = createInterface({ input: child.stdout });
   lines.on('line', line => {
     let message;
     try { message = JSON.parse(line); }
-    catch { throw new Error(`Launcher stdout is not protocol-only JSON: ${line.slice(0, 200)}`); }
+    catch { throw new Error('Launcher stdout is not protocol-only JSON'); }
     if (message.id !== undefined) responses.get(message.id)?.resolve(message);
   });
   let id = 0;
   async function request(method, params, timeoutMs = 30000) {
     const current = ++id;
     if (child.exitCode !== null || child.signalCode !== null) {
-      throw new Error(
-        `npx exited before ${method} (code ${child.exitCode}, signal ${child.signalCode})${stderrDetail()}`,
-      );
+      throw new Error(`npx exited before ${method} (code ${child.exitCode}, signal ${child.signalCode})`);
     }
     let timer;
     const response = new Promise((accept, reject) => {
       responses.set(current, { resolve: accept, reject });
-      timer = setTimeout(() => reject(new Error(`Timed out waiting for ${method}${stderrDetail()}`)), timeoutMs);
+      timer = setTimeout(() => reject(new Error(`Timed out waiting for ${method}`)), timeoutMs);
     });
     try {
       child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: current, method, params }) + '\n');
@@ -115,17 +108,18 @@ function launch(host, extra = []) {
   }
   async function initialize() {
     const response = await request('initialize', { protocolVersion: '2025-11-25', capabilities: {}, clientInfo: { name: 'public-acceptance', version: '1' } }, handshakeBudgetMs);
-    assert.equal(response.result?.serverInfo?.name, 'qdrant-memory-managed');
+    assert.ok(response.result?.serverInfo?.name === 'qdrant-memory-managed', 'MCP initialize returned an unexpected server');
     child.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) + '\n');
     return response;
   }
   async function tools() {
     const names = (await request('tools/list', {})).result.tools.map(tool => tool.name).sort();
-    assert.deepEqual(names, ['qdrant_memory_add', 'qdrant_memory_delete', 'qdrant_memory_search', 'qdrant_memory_update']);
+    const expected = ['qdrant_memory_add', 'qdrant_memory_delete', 'qdrant_memory_search', 'qdrant_memory_update'];
+    assert.ok(names.length === expected.length && names.every((name, index) => name === expected[index]), 'MCP tool list did not match the expected contract');
   }
   async function call(name, args) {
     const response = await request('tools/call', { name: 'qdrant_memory_' + name, arguments: args });
-    assert.ok(!response.error, JSON.stringify(response.error));
+    assert.ok(!response.error, 'MCP tool call returned an error');
     return response.result;
   }
   async function close() {
@@ -138,15 +132,26 @@ function launch(host, extra = []) {
   return { child, request, initialize, tools, call, close };
 }
 
+function parseJsonWithoutEchoingInput(value, message) {
+  try { return JSON.parse(value); }
+  catch { throw new Error(message); }
+}
+
+function parseToolResult(result) {
+  const value = result.content?.[0]?.text;
+  assert.equal(typeof value, 'string', 'MCP tool returned no text result');
+  return parseJsonWithoutEchoingInput(value, 'MCP tool returned invalid JSON');
+}
+
 async function waitReady(session, label) {
   const budget = Number(process.env.QDRANT_PUBLIC_ACCEPTANCE_WAIT_MS || 60 * 60 * 1000);
   const deadline = performance.now() + budget;
   async function poll() {
     const result = await session.call('search', { query: 'readiness' });
     if (!result.isError) return;
-    const text = result.content[0].text;
-    assert.ok(text.includes('Preparing'), `${label}: unexpected preparation failure: ${text}`);
-    assert.ok(performance.now() < deadline, `${label}: preparation still running after ${Math.round(budget / 1000)}s: ${text}`);
+    const text = String(result.content?.[0]?.text ?? '');
+    assert.ok(text.includes('Preparing'), `${label}: unexpected preparation failure`);
+    assert.ok(performance.now() < deadline, `${label}: preparation still running after ${Math.round(budget / 1000)}s`);
     await new Promise(resolve => setTimeout(resolve, 250));
     return poll();
   }
@@ -154,16 +159,26 @@ async function waitReady(session, label) {
 }
 
 async function prepareDsh() {
-  const prepare = spawnNpx(['-y', spec, 'prepare', 'dsh'], { env: { ...process.env, QDRANT_MEMORY_MANAGED_ROOT: root }, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+  const prepare = spawnNpx(['-y', spec, 'prepare', 'dsh'], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+  });
   let out = '';
-  prepare.stdout.on('data', bytes => { out += bytes; });
+  prepare.stdout.on('data', bytes => { out = (out + bytes.toString()).slice(-4096); });
   prepare.stderr.resume();
   await new Promise((accept, reject) => {
     const timer = setTimeout(() => { prepare.kill('SIGKILL'); reject(new Error('prepare dsh timed out')); }, 20 * 60 * 1000);
     prepare.once('close', code => { clearTimeout(timer); code === 0 ? accept() : reject(new Error(`prepare dsh failed with code ${code}`)); });
   });
   const last = out.trim().split('\n').at(-1);
-  assert.equal(last, JSON.stringify({ ready: true, host: 'dsh' }), out);
+  assert.ok(last === JSON.stringify({ ready: true, host: 'dsh' }), 'prepare dsh did not confirm readiness');
+}
+
+async function cleanupAcceptance() {
+  await npmEnvironment.cleanup();
+  if (process.env.QDRANT_PUBLIC_ACCEPTANCE_KEEP !== '1') {
+    await rm(root, { recursive: true, force: true }).catch(() => {});
+  }
 }
 
 const report = { passed: false, launcher: spec, handshake_budget_ms: handshakeBudgetMs, handshake_dsh_ms: null, handshake_workbuddy_ms: null, unprepared_probe_clean: false, workbuddy: false, dsh: false, no_write_replay: false, fresh_process_persistence: false, aborted_preparation_resumed: false };
@@ -183,7 +198,7 @@ async function writeReport() {
   report.handshake_dsh_ms = Math.round(performance.now() - began);
   const attempted = await session.call('add', { text: 'Synthetic unprepared probe text' });
   assert.equal(attempted.isError, true, 'unprepared probe must not report success');
-  assert.match(attempted.content[0].text, /preparation failed|Preparing|No operation/i);
+  assert.ok(/preparation failed|Preparing|No operation/i.test(attempted.content?.[0]?.text ?? ''), 'unprepared add returned an unexpected error');
   await session.close();
   const programRoot = join(root, 'programs');
   if (existsSync(programRoot)) {
@@ -218,6 +233,7 @@ async function writeReport() {
     report.no_write_replay = true;
     await writeReport();
     console.log(JSON.stringify({ report }, null, 2));
+    await cleanupAcceptance();
     process.exit(0);
   }
 }
@@ -232,24 +248,24 @@ async function writeReport() {
   await waitReady(session, 'workbuddy');
   report.aborted_preparation_resumed = true;
   const absent = await session.call('search', { query: 'Synthetic queued write must never appear' });
-  assert.equal(JSON.parse(absent.content[0].text).memories.length, 0, 'a refused write must never execute later');
+  assert.equal(parseToolResult(absent).memories.length, 0, 'a refused write must never execute later');
   const text = 'Synthetic public-launcher workbuddy preference';
-  const created = JSON.parse((await session.call('add', { text })).content[0].text);
+  const created = parseToolResult(await session.call('add', { text }));
   await session.close();
   const second = launch('workbuddy');
   await second.initialize();
   await waitReady(second, 'workbuddy');
-  const found = JSON.parse((await second.call('search', { query: text })).content[0].text);
+  const found = parseToolResult(await second.call('search', { query: text }));
   assert.ok(found.memories.some(m => m.id === created.id), 'fresh process must recall the saved memory');
   await second.call('update', { id: created.id, text: text + ' updated' });
   await second.close();
   const third = launch('workbuddy');
   await third.initialize();
   await waitReady(third, 'workbuddy');
-  const updated = JSON.parse((await third.call('search', { query: text })).content[0].text);
+  const updated = parseToolResult(await third.call('search', { query: text }));
   assert.ok(updated.memories.some(m => m.id === created.id && m.text.endsWith('updated')));
   await third.call('delete', { id: created.id });
-  const gone = JSON.parse((await third.call('search', { query: text })).content[0].text);
+  const gone = parseToolResult(await third.call('search', { query: text }));
   assert.ok(!gone.memories.some(m => m.id === created.id), 'deleted memory must disappear');
   await third.close();
   report.workbuddy = true;
@@ -266,31 +282,35 @@ async function writeReport() {
   await first.initialize();
   await first.tools();
   await waitReady(first, 'dsh');
-  const created = JSON.parse((await first.call('add', { text })).content[0].text);
+  const created = parseToolResult(await first.call('add', { text }));
   await first.close();
   const second = launch('dsh');
   await second.initialize();
   await waitReady(second, 'dsh');
-  const found = JSON.parse((await second.call('search', { query: text })).content[0].text);
+  const found = parseToolResult(await second.call('search', { query: text }));
   assert.ok(found.memories.some(m => m.id === created.id));
   const removed = await second.call('delete', { id: created.id });
   assert.equal(removed.isError ?? false, false, 'delete must not report an error');
-  const after = JSON.parse((await second.call('search', { query: text })).content[0].text);
+  const after = parseToolResult(await second.call('search', { query: text }));
   assert.ok(!after.memories.some(m => m.id === created.id), 'deleted memory must be absent');
   await second.close();
   report.dsh = true;
   console.log(JSON.stringify({ phase: 'dsh', persistence: true }));
 }
 
-const workbuddyConfig = JSON.parse(await readFile(join(root, 'profiles', 'workbuddy', 'local', 'qdrant-memory.json'), 'utf8'));
-const dshConfig = JSON.parse(await readFile(join(root, 'profiles', 'dsh', 'local', 'qdrant-memory.json'), 'utf8'));
-assert.equal(workbuddyConfig.scope.agent_id, 'workbuddy');
-assert.equal(dshConfig.scope.agent_id, 'dsh');
+const workbuddyConfig = parseJsonWithoutEchoingInput(
+  await readFile(join(root, 'profiles', 'workbuddy', 'local', 'qdrant-memory.json'), 'utf8'),
+  'WorkBuddy acceptance profile configuration is invalid JSON',
+);
+const dshConfig = parseJsonWithoutEchoingInput(
+  await readFile(join(root, 'profiles', 'dsh', 'local', 'qdrant-memory.json'), 'utf8'),
+  'DSH acceptance profile configuration is invalid JSON',
+);
+assert.ok(workbuddyConfig.scope.agent_id === 'workbuddy', 'WorkBuddy acceptance profile scope is invalid');
+assert.ok(dshConfig.scope.agent_id === 'dsh', 'DSH acceptance profile scope is invalid');
 
 report.passed = true;
 report.elapsed_seconds = Math.round((performance.now() - start) / 1000);
 await writeReport();
 console.log(JSON.stringify({ report }, null, 2));
-if (process.env.QDRANT_PUBLIC_ACCEPTANCE_KEEP !== '1') {
-  await rm(root, { recursive: true, force: true }).catch(() => {});
-}
+await cleanupAcceptance();

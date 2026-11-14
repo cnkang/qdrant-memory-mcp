@@ -107,6 +107,7 @@ jobs:
           node --test --experimental-test-coverage \
             --test-reporter=lcov --test-reporter-destination=coverage/lcov.info \
             tests/test_managed_launcher.mjs tests/test_managed_bootstrap.mjs \
+            tests/test_public_launcher_env.mjs \
             tests/test_pi_owner_extension.mjs tests/test_pi_owner_host.mjs \
             tests/test_pi_owner_transport.mjs tests/test_dsh_bundle_modes.mjs \
             integrations/dsh/native/test/native.test.js
