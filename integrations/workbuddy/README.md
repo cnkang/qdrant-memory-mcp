@@ -19,7 +19,7 @@ WorkBuddy's managed Node.js runtime. `mcp.json` declares:
     "qdrant-memory": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "@cnkang/qdrant-memory-launcher@0.1.0-rc.9", "mcp", "workbuddy", "--auto-setup"],
+      "args": ["-y", "@cnkang/qdrant-memory-launcher@0.1.0-rc.10", "mcp", "workbuddy", "--auto-setup"],
       "runtime": {"type": "node", "version": "20"},
       "npmRegistries": ["https://registry.npmjs.org"],
       "timeout": 60000
@@ -298,7 +298,7 @@ try {
 
 Previously released Connector 0.2.5 records MCP distribution 0.3.1, Runtime
 0.6.0, launcher 0.1.0-rc.8 and Skill 0.4.0 in its immutable provenance. The
-current repository source preview pins launcher 0.1.0-rc.9, Runtime 0.6.2,
+current repository source preview pins launcher 0.1.0-rc.10, Runtime 0.6.2,
 and Skill 0.4.4; this preview is not yet a new WorkBuddy connector release. The managed route
 does not install the Python MCP distribution or instantiate Hermes' native
 MemoryProvider. The separate Python/uvx alternative uses the public MCP
@@ -308,7 +308,7 @@ version on npm and connector assets on their release before installing.
 Earlier connector archives retain their original provenance and immutable bytes.
 `provenance.json` inside each ZIP records its versions, launcher integrity and
 Skill source commit. New source-preview ZIPs record Runtime 0.6.2 through
-launcher 0.1.0-rc.9 and the pinned Skill 0.4.4 source. This is separate from
+launcher 0.1.0-rc.10 and the pinned Skill 0.4.4 source. This is separate from
 the uvx alternative. The builder rejects drift from checked-in pins:
 
 - The launcher pin lives in `launcher-source.json` at the repository root and
