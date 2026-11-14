@@ -24,6 +24,48 @@ import uuid
 ROOT = Path(__file__).resolve().parents[2]
 FACT = 'Synthetic Project Iris uses SQLite WAL.'
 CAPTURE_FACT = 'Synthetic Project Iris requires encrypted daily backups.'
+_CHILD_OS_ENV_KEYS = ('PATH', 'SYSTEMROOT', 'WINDIR', 'TEMP', 'TMP', 'TMPDIR', 'HOME', 'XDG_DATA_HOME')
+_MODEL_ENV_KEYS = ('QM_DSH_CLOUD', 'SOAK_LLM_BASE_URL', 'SOAK_LLM_MODEL', 'SOAK_LLM_API_KEY')
+
+
+def _minimal_child_environment(source):
+    """Keep host subprocesses away from unrelated runner credentials."""
+    return {key: source[key] for key in _CHILD_OS_ENV_KEYS if key in source}
+
+
+def _dsh_agent_environment(source, values):
+    """Pass only host settings and the model credentials needed by DSH."""
+    env = _minimal_child_environment(source)
+    env.update({key: source[key] for key in _MODEL_ENV_KEYS if key in source})
+    env.update(values)
+    return env
+
+
+def _pi_owner_environment(source, *, endpoint, ca_file, runtime_python, private_token,
+                          recall_token, expected_fact, expected_id):
+    """The Pi Owner check uses its synthetic grant, never the cloud model key."""
+    env = _minimal_child_environment(source)
+    env.update({
+        'QM_REAL_OWNER': '1',
+        'QDRANT_MEMORY_OWNER_URL': endpoint,
+        'QDRANT_MEMORY_CA_FILE': str(ca_file),
+        'QDRANT_MEMORY_RUNTIME_PYTHON': runtime_python,
+        'QDRANT_MEMORY_REMOTE_TOKEN': private_token,
+        'QDRANT_MEMORY_RECALL_TOKEN': recall_token,
+        'QM_PI_EXPECTED_FACT': expected_fact,
+        'QM_PI_EXPECTED_ID': expected_id,
+        'QM_PI_QUERY': 'Synthetic Project Iris backup policy?',
+    })
+    return env
+
+
+def _redact_diagnostics(text, secrets):
+    for secret in secrets:
+        if secret:
+            text = text.replace(secret, '[REDACTED]')
+    text = re.sub(r'(?i)(authorization\s*[:=]\s*bearer\s+)\S+', r'\1[REDACTED]', text)
+    text = re.sub(r'(?i)((?:api[_ -]?key|token|secret|password)\s*[:=]\s*)\S+', r'\1[REDACTED]', text)
+    return text
 
 
 def _normalize_fixture_fact(text: str) -> str:
@@ -85,7 +127,8 @@ def test_dsh_capture_and_mcp_recall_with_scoped_https_owner(tmp_path, monkeypatc
         cert, key = tmp_path / 'ca.pem', tmp_path / 'key.pem'
         subprocess.run(['openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '1',
                         '-subj', '/CN=127.0.0.1', '-addext', 'subjectAltName=IP:127.0.0.1',
-                        '-keyout', str(key), '-out', str(cert)], check=True, capture_output=True)
+                        '-keyout', str(key), '-out', str(cert)], check=True, capture_output=True,
+                       env=_minimal_child_environment(os.environ))
         with socket.socket() as sock:
             sock.bind(('127.0.0.1', 0))
             sock.listen(64)
@@ -105,20 +148,20 @@ def test_dsh_capture_and_mcp_recall_with_scoped_https_owner(tmp_path, monkeypatc
                 return await call_remote(endpoint, token[who], tool, arguments, ca_file=str(cert))
 
             seed = asyncio.run(call('mcp', 'qdrant_memory_add', {'text': FACT, 'request_id': 'seed-iris'}))
-            env = {**os.environ, 'QM_DSH_REAL_OWNER': '1', 'QM_DSH_SEED_ID': seed['id'],
-                   'QM_DSH_CAPTURE_FACT': CAPTURE_FACT,
-                   'QDRANT_MEMORY_DSH_OWNER_URL': endpoint,
-                   'QDRANT_MEMORY_DSH_OWNER_TOKEN': token['dsh'],
-                   'QDRANT_MEMORY_RUNTIME_PYTHON': sys.executable,
-                   'QDRANT_MEMORY_RUNTIME_CA_FILE': str(cert)}
+            env = _dsh_agent_environment(os.environ, {
+                'QM_DSH_REAL_OWNER': '1', 'QM_DSH_SEED_ID': seed['id'],
+                'QM_DSH_CAPTURE_FACT': CAPTURE_FACT,
+                'QDRANT_MEMORY_DSH_OWNER_URL': endpoint,
+                'QDRANT_MEMORY_DSH_OWNER_TOKEN': token['dsh'],
+                'QDRANT_MEMORY_RUNTIME_PYTHON': sys.executable,
+                'QDRANT_MEMORY_RUNTIME_CA_FILE': str(cert),
+            })
             started = time.monotonic()
             result = subprocess.run(['node', '--test', '--test-name-pattern=real AgentLoop injects',
                                      'tests/dsh_native_e2e/agent-loop.test.mjs'], cwd=ROOT, env=env,
                                     capture_output=True, text=True, timeout=240)
-            diagnostics = result.stdout + result.stderr
             cloud_key = os.environ.get('SOAK_LLM_API_KEY')
-            if cloud_key:
-                diagnostics = diagnostics.replace(cloud_key, '[REDACTED]')
+            diagnostics = _redact_diagnostics(result.stdout + result.stderr, [cloud_key, *token.values()])
             assert result.returncode == 0, diagnostics
             dsh_seconds = time.monotonic() - started
             model_metrics = {}
@@ -136,16 +179,16 @@ def test_dsh_capture_and_mcp_recall_with_scoped_https_owner(tmp_path, monkeypatc
             assert _normalize_fixture_fact(captured_fact) == _normalize_fixture_fact(CAPTURE_FACT)
             assert captured[0]['id'] != seed['id']
             assert client.retrieve(collection, [captured[0]['id']])[0].payload['text'] == captured_fact
-            pi_env = {**env, 'QM_REAL_OWNER': '1',
-                      'QDRANT_MEMORY_OWNER_URL': endpoint, 'QDRANT_MEMORY_CA_FILE': str(cert),
-                      'QDRANT_MEMORY_REMOTE_TOKEN': token['private'],
-                      'QDRANT_MEMORY_RECALL_TOKEN': token['read'],
-                      'QM_PI_EXPECTED_FACT': captured_fact, 'QM_PI_EXPECTED_ID': captured[0]['id'],
-                      'QM_PI_QUERY': 'Synthetic Project Iris backup policy?'}
+            pi_env = _pi_owner_environment(
+                os.environ, endpoint=endpoint, ca_file=cert, runtime_python=sys.executable,
+                private_token=token['private'], recall_token=token['read'],
+                expected_fact=captured_fact, expected_id=captured[0]['id'],
+            )
             for _ in range(2):
                 pi = subprocess.run(['node', '--test', 'tests/test_pi_owner_host.mjs'],
                                     cwd=ROOT, env=pi_env, capture_output=True, text=True, timeout=60)
-                assert pi.returncode == 0, pi.stdout + pi.stderr
+                pi_diagnostics = _redact_diagnostics(pi.stdout + pi.stderr, token.values())
+                assert pi.returncode == 0, pi_diagnostics
             private_rows = asyncio.run(call('private', 'qdrant_memory_search', {'query': 'Iris'}))['memories']
             assert captured[0]['id'] not in {row['id'] for row in private_rows}
             assert seed['id'] not in {row['id'] for row in private_rows}
@@ -243,26 +286,26 @@ def test_dsh_capture_and_mcp_recall_with_scoped_https_owner(tmp_path, monkeypatc
             # Persisted Owner receipts and Qdrant IDs, not the assistant's prose.
             assert rt.ledger.db.execute('SELECT COUNT(*) FROM owner_events_v1').fetchone()[0] >= 1
             packed = subprocess.run([sys.executable, 'scripts/pack_dsh_bundle.py', '--output-dir', str(tmp_path / 'packed')],
-                                    cwd=ROOT, capture_output=True, text=True, check=True, timeout=120)
+                                    cwd=ROOT, env=_minimal_child_environment(os.environ),
+                                    capture_output=True, text=True, check=True, timeout=120)
             archive = json.loads(packed.stdout)['archive']
-            install_env = {key: value for key, value in os.environ.items()
-                           if key in {'PATH', 'SYSTEMROOT', 'WINDIR', 'TEMP', 'TMP'}}
+            install_env = _minimal_child_environment(os.environ)
             install_env.update(HOME=str(tmp_path), DSH_HOME=str(tmp_path / 'packed-home'))
             cli = ROOT / '.github/ci-deps/dsh-native/node_modules/@deepseek-ai/dsh/lib/bin.js'
             installed = subprocess.run(['node', str(cli), 'plugin', '--profile', 'packed-native', 'add', archive],
                                        cwd=ROOT, env=install_env, capture_output=True, text=True, timeout=300)
             assert installed.returncode == 0, installed.stdout + installed.stderr
             packed_fact = 'Synthetic Project Iris uses PostgreSQL PITR.'
-            packed_env = {**env, 'QM_DSH_BUNDLE_PROFILE': str(tmp_path / 'packed-home/profiles/packed-native'),
+            packed_env = {**env,
+                          'QM_DSH_BUNDLE_PROFILE': str(tmp_path / 'packed-home/profiles/packed-native'),
                           'QM_DSH_CAPTURE_FACT': packed_fact, 'NODE_EXTRA_CA_CERTS': str(cert)}
             # Package install sees no Owner/Cloud credentials; only the isolated
-            # Host process receives the explicitly provisioned synthetic grant.
+            # Host process receives the explicitly provisioned synthetic grant
+            # and the model credential required for this cloud acceptance.
             combined = subprocess.run(['node', '--test', '--test-name-pattern=packed Bundle runs',
                                       'tests/dsh_native_e2e/agent-loop.test.mjs'], cwd=ROOT, env=packed_env,
                                      capture_output=True, text=True, timeout=240)
-            diagnostics = combined.stdout + combined.stderr
-            if cloud_key:
-                diagnostics = diagnostics.replace(cloud_key, '[REDACTED]')
+            diagnostics = _redact_diagnostics(combined.stdout + combined.stderr, [cloud_key, *token.values()])
             assert combined.returncode == 0, diagnostics
             bundle_metrics = {}
             for line in combined.stdout.splitlines():
