@@ -297,10 +297,13 @@ try {
 ```
 
 Previously released Connector 0.2.5 records MCP distribution 0.3.1, Runtime
-0.6.0, launcher 0.1.0-rc.8 and Skill 0.4.0 in its immutable provenance. The
-current source candidate is Connector 0.2.6, which pins launcher 0.1.0-rc.10,
-Runtime 0.6.2, and Skill 0.4.4; it remains unpublished until its exact-main
-release checks pass. The managed route
+0.6.0, launcher 0.1.0-rc.8 and Skill 0.4.0 in its immutable provenance.
+Connector 0.2.6 is published in the
+[WorkBuddy GitHub Release](https://github.com/cnkang/qdrant-memory-mcp/releases/tag/workbuddy-v0.2.6).
+It pins launcher 0.1.0-rc.10, Runtime 0.6.2, and Skill 0.4.4. Automated
+exact-tag packaging and protocol gates passed, while WorkBuddy GUI Marketplace
+import, clean-machine provisioning, and full application restart remain
+unverified. The managed route
 does not install the Python MCP distribution or instantiate Hermes' native
 MemoryProvider. The separate Python/uvx alternative uses the public MCP
 distribution 0.3.3, which pins Runtime 0.6.2; the previously released
@@ -308,8 +311,8 @@ Connector 0.2.5 still installs public MCP 0.3.1. Verify the exact launcher
 version on npm and connector assets on their release before installing.
 Earlier connector archives retain their original provenance and immutable bytes.
 `provenance.json` inside each ZIP records its versions, launcher integrity and
-Skill source commit. New source-preview ZIPs record Runtime 0.6.2 through
-launcher 0.1.0-rc.10 and the pinned Skill 0.4.4 source. This is separate from
+Skill source commit. The 0.2.6 ZIP records Runtime 0.6.2 through launcher
+0.1.0-rc.10 and the pinned Skill 0.4.4 source. This is separate from
 the uvx alternative. The builder rejects drift from checked-in pins:
 
 - The launcher pin lives in `launcher-source.json` at the repository root and
