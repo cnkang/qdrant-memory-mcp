@@ -36,9 +36,7 @@ See [0.3.5 release notes](docs/releases/0.3.5.md) for the Runtime pin and upgrad
 
 Before using an exact-version installation command, confirm that version on
 the [PyPI release page](https://pypi.org/project/qdrant-memory-mcp/0.3.5/).
-If 0.3.5 is not yet published, use the
-[published 0.3.4 guide](https://github.com/cnkang/qdrant-memory-mcp/blob/v0.3.4/README.md)
-until publication; a source candidate does not establish PyPI or npm availability.
+The [published 0.3.4 guide](https://github.com/cnkang/qdrant-memory-mcp/blob/v0.3.4/README.md) remains available for the previous release.
 
 **Versions:** MCP distribution 0.3.5 pins Runtime 0.7.1, which supports MCP
 Python SDK 1.x and 2.x (`mcp>=1.30,<3`). The four scoped tools and stdio

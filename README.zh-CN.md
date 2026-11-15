@@ -25,8 +25,7 @@ Runtime 固定版本和升级指导见 [0.3.5 发布说明](docs/releases/0.3.5.
 
 使用固定版本安装命令前，请在 [PyPI 版本页面](https://pypi.org/project/qdrant-memory-mcp/0.3.5/)
 确认该版本已公开发布。
-若 0.3.5 尚未发布，请先使用
-[已发布的 0.3.4 指南](https://github.com/cnkang/qdrant-memory-mcp/blob/v0.3.4/README.zh-CN.md)。
+[已发布的 0.3.4 指南](https://github.com/cnkang/qdrant-memory-mcp/blob/v0.3.4/README.zh-CN.md)仍可用于上一版。
 源码候选版不代表对应的 PyPI 或 npm 版本已经可用。
 
 **版本：** 分发 0.3.5 固定依赖 Runtime 0.7.1，支持 MCP Python SDK 1.x 和 2.x
