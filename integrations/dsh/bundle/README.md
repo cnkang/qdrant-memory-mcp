@@ -103,7 +103,7 @@ Hermes profiles. Preparation never deletes existing memory data.
 ## Install into one profile
 
 ```sh
-dsh plugin --profile <name> add @cnkang/qdrant-memory-dsh-bundle
+dsh plugin --profile <name> add @cnkang/qdrant-memory-dsh-bundle@0.2.0-rc.3
 ```
 
 If the npm registry has not served this candidate yet, install the release

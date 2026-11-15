@@ -10,8 +10,9 @@ extraction and prefetch remain Hermes features.
 
 ## How installation works
 
-The shipped connector starts the published managed launcher through
-WorkBuddy's managed Node.js runtime. `mcp.json` declares:
+The published Connector 0.2.6 starts the immutable managed launcher pin
+recorded in its release ZIP through WorkBuddy's managed Node.js runtime. That
+published `mcp.json` declares:
 
 ```json
 {
@@ -19,7 +20,7 @@ WorkBuddy's managed Node.js runtime. `mcp.json` declares:
     "qdrant-memory": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "@cnkang/qdrant-memory-launcher@0.1.0-rc.11", "mcp", "workbuddy", "--auto-setup"],
+      "args": ["-y", "@cnkang/qdrant-memory-launcher@0.1.0-rc.10", "mcp", "workbuddy", "--auto-setup"],
       "runtime": {"type": "node", "version": "20"},
       "npmRegistries": ["https://registry.npmjs.org"],
       "timeout": 60000
@@ -27,6 +28,12 @@ WorkBuddy's managed Node.js runtime. `mcp.json` declares:
   }
 }
 ```
+
+The current repository source selects launcher `0.1.0-rc.12` with Runtime
+0.7.1 for the next connector build. That source pin is not part of the published
+Connector 0.2.6 ZIP and does not change its bytes. The example above is the
+published 0.2.6 configuration; verify it against `mcp.json` and
+`provenance.json` inside that release ZIP.
 
 1. The user installs the connector in WorkBuddy.
 2. WorkBuddy prepares managed Node.js 20 and its isolated npm environment.
@@ -313,7 +320,7 @@ Earlier connector archives retain their original provenance and immutable bytes.
 `provenance.json` inside each ZIP records its versions, launcher integrity and
 Skill source commit. The 0.2.6 ZIP records Runtime 0.6.2 through launcher
 0.1.0-rc.10 and the pinned Skill 0.4.4 source. The next connector build
-selects launcher 0.1.0-rc.11 and Runtime 0.7.1; this does not change the
+selects launcher 0.1.0-rc.12 and Runtime 0.7.1; this does not change the
 published 0.2.6 bytes. This is separate from
 the uvx alternative. The builder rejects drift from checked-in pins:
 

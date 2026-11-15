@@ -40,7 +40,7 @@ model. It can take several minutes and needs network access. Then install the
 Bundle into one profile:
 
 ```sh
-dsh plugin --profile <name> add @cnkang/qdrant-memory-dsh-bundle
+dsh plugin --profile <name> add @cnkang/qdrant-memory-dsh-bundle@0.2.0-rc.3
 ```
 
 For this RC publication, both npm tags `latest` and `next` point to
