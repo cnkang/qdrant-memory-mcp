@@ -1,13 +1,36 @@
 {
   "name": "@cnkang/qdrant-memory-launcher",
-  "version": "0.1.0-rc.10",
+  "version": "0.1.0-rc.11",
   "private": false,
   "type": "module",
   "description": "Private Python and CPU memory runtime for MCP clients",
-  "engines": {"node": ">=20"},
-  "bin": {"qdrant-memory-launcher": "launcher.mjs"},
-  "files": ["launcher.mjs", "provision.mjs", "bridge.mjs", "bootstrap.mjs", "tools.json", "runtime.json", "requirements.in", "requirements.lock", "README.md", "LICENSE", "THIRD_PARTY_NOTICES.md"],
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "qdrant-memory-launcher": "launcher.mjs"
+  },
+  "files": [
+    "launcher.mjs",
+    "provision.mjs",
+    "bridge.mjs",
+    "bootstrap.mjs",
+    "tools.json",
+    "runtime.json",
+    "requirements.in",
+    "requirements.lock",
+    "README.md",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md"
+  ],
   "license": "MIT",
-  "repository": {"type": "git", "url": "git+https://github.com/cnkang/qdrant-memory-mcp.git", "directory": "integrations/managed"},
-  "publishConfig": {"access": "public", "registry": "https://registry.npmjs.org"}
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cnkang/qdrant-memory-mcp.git",
+    "directory": "integrations/managed"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
+  }
 }

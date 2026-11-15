@@ -19,7 +19,7 @@ WorkBuddy's managed Node.js runtime. `mcp.json` declares:
     "qdrant-memory": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "@cnkang/qdrant-memory-launcher@0.1.0-rc.10", "mcp", "workbuddy", "--auto-setup"],
+      "args": ["-y", "@cnkang/qdrant-memory-launcher@0.1.0-rc.11", "mcp", "workbuddy", "--auto-setup"],
       "runtime": {"type": "node", "version": "20"},
       "npmRegistries": ["https://registry.npmjs.org"],
       "timeout": 60000
@@ -312,7 +312,9 @@ version on npm and connector assets on their release before installing.
 Earlier connector archives retain their original provenance and immutable bytes.
 `provenance.json` inside each ZIP records its versions, launcher integrity and
 Skill source commit. The 0.2.6 ZIP records Runtime 0.6.2 through launcher
-0.1.0-rc.10 and the pinned Skill 0.4.4 source. This is separate from
+0.1.0-rc.10 and the pinned Skill 0.4.4 source. The next connector build
+selects launcher 0.1.0-rc.11 and Runtime 0.7.1; this does not change the
+published 0.2.6 bytes. This is separate from
 the uvx alternative. The builder rejects drift from checked-in pins:
 
 - The launcher pin lives in `launcher-source.json` at the repository root and
