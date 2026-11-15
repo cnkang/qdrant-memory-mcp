@@ -43,8 +43,8 @@ Bundle into one profile:
 dsh plugin --profile <name> add @cnkang/qdrant-memory-dsh-bundle
 ```
 
-For this RC publication, both npm tags `latest` and `next` will point to
-`0.2.0-rc.2` after the exact-main release checks pass.
+For this RC publication, both npm tags `latest` and `next` point to
+`0.2.0-rc.2`.
 
 If your registry has not served the package yet, download
 `cnkang-qdrant-memory-dsh-bundle-0.2.0-rc.2.tgz` from the repository release and

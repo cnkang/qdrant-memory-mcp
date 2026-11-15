@@ -38,8 +38,7 @@ Runtime wheel 和经过校验的 CPU 嵌入模型，可能需要数分钟并需�
 dsh plugin --profile <name> add @cnkang/qdrant-memory-dsh-bundle
 ```
 
-本 RC 发布时，待 exact-main 发布检查通过后，npm 的 `latest` 和 `next` 都会
-指向 `0.2.0-rc.2`。
+本 RC 发布时，npm 的 `latest` 和 `next` 都指向 `0.2.0-rc.2`。
 
 若所用 npm 镜像尚未同步该包，可改从仓库 Release 下载
 `cnkang-qdrant-memory-dsh-bundle-0.2.0-rc.2.tgz`，用文件路径安装。不启动即可先验证层：
