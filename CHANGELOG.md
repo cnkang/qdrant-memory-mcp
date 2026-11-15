@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.5
+
+- Pin the MCP distribution to the public Runtime 0.7.1 release. The metadata-only
+  stdio package keeps the same four scoped tools and does not change the Runtime
+  data schema, embedding fingerprint or policy defaults.
+- Runtime 0.7.1 preserves interrupted upgrade recovery records and blocks an
+  upgrade plan or apply while the Shared Owner has an unresolved receipt.
+- Keep the managed launcher, WorkBuddy connector and DSH bundle release lines
+  unchanged. They select their own Runtime and package versions.
+
 ## Unreleased
 
 - Prepare Codex plugin 0.1.4 (not published): pin MCP distribution 0.3.3,
