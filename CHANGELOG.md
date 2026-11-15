@@ -12,6 +12,12 @@
 
 ## Unreleased
 
+- Publish managed launcher `0.1.0-rc.11` with Runtime 0.7.1 and the public
+  PyPI wheel identity.
+- Publish DSH Bundle `0.2.0-rc.2` selecting launcher `0.1.0-rc.11`. Both npm
+  tags `latest` and `next` point to the new versions. The published WorkBuddy
+  Connector 0.2.6 remains immutable on launcher rc.10 and Runtime 0.6.2.
+
 - Prepare Codex plugin 0.1.4 (not published): pin MCP distribution 0.3.3,
   Runtime 0.6.2 and Skill 0.4.4 (snapshot `skills-20261113.2`). The plugin's
   `requirements.txt` now installs exact public PyPI releases instead of a
