@@ -12,9 +12,9 @@
 
 ## Unreleased
 
-- Publish managed launcher `0.1.0-rc.11` with Runtime 0.7.1 and the public
+- Publish managed launcher `0.1.0-rc.12` with Runtime 0.7.1 and the public
   PyPI wheel identity.
-- Publish DSH Bundle `0.2.0-rc.2` selecting launcher `0.1.0-rc.11`. Both npm
+- Publish DSH Bundle `0.2.0-rc.3` selecting launcher `0.1.0-rc.12`. Both npm
   tags `latest` and `next` point to the new versions. The published WorkBuddy
   Connector 0.2.6 remains immutable on launcher rc.10 and Runtime 0.6.2.
 

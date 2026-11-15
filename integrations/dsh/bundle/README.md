@@ -1,6 +1,6 @@
 # Qdrant Memory Bundle for DeepSeek Harness
 
-A Host Bundle under the existing npm name. Candidate `0.2.0-rc.2` retains
+A Host Bundle under the existing npm name. Candidate `0.2.0-rc.3` retains
 Legacy MCP by default and adds explicitly selected Owner modes. It contains
 no memory engine, embeddings or Python code. The Python Runtime owns writes,
 scope, ledger and recovery. The private `native/` directory is canonical source
@@ -77,8 +77,8 @@ root defaults to `qdrant-memory-managed` under the platform data directory
 
 The DSH MCP probe is temporary and must never run installation or downloads.
 Choose the Bundle based on the Host's Node.js version before preparing it.
-The current `0.2.0-rc.2` candidate requires Node.js 24.9 or newer and uses
-launcher `0.1.0-rc.11` with Runtime 0.6.2. Older Hosts should use Bundle
+The current `0.2.0-rc.3` candidate requires Node.js 24.9 or newer and uses
+launcher `0.1.0-rc.12` with Runtime 0.7.1. Older Hosts should use Bundle
 `0.1.6`, which uses launcher `0.1.0-rc.8` with Runtime 0.6.0. Use only the
 matching preparation and install commands below.
 
@@ -92,7 +92,7 @@ dsh plugin --profile <name> add @cnkang/qdrant-memory-dsh-bundle@0.1.6
 For the current candidate, prepare the shared backend explicitly, once:
 
 ```sh
-npx -y @cnkang/qdrant-memory-launcher@0.1.0-rc.11 prepare dsh
+npx -y @cnkang/qdrant-memory-launcher@0.1.0-rc.12 prepare dsh
 ```
 
 Preparation downloads the private Python environment, the Runtime wheel and a
@@ -107,11 +107,11 @@ dsh plugin --profile <name> add @cnkang/qdrant-memory-dsh-bundle
 ```
 
 If the npm registry has not served this candidate yet, install the release
-tarball instead. Download `cnkang-qdrant-memory-dsh-bundle-0.2.0-rc.2.tgz` from
+tarball instead. Download `cnkang-qdrant-memory-dsh-bundle-0.2.0-rc.3.tgz` from
 the repository release and run:
 
 ```sh
-dsh plugin --profile <name> add ./cnkang-qdrant-memory-dsh-bundle-0.2.0-rc.2.tgz
+dsh plugin --profile <name> add ./cnkang-qdrant-memory-dsh-bundle-0.2.0-rc.3.tgz
 ```
 
 Verify the layer without booting:

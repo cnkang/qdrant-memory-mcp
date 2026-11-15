@@ -12,8 +12,8 @@
 纯配置 Bundle 通过官方 `@deepseek-ai/dsh-mcp-client` 连接已发布的托管启动器。
 需要 Node.js（DSH 本身依赖），不需要系统 Python、uvx、Ollama 或 Qdrant Server。
 
-准备后端前先选择 Bundle。`0.2.0-rc.2` 候选要求 Node.js 24.9 或更新版本，
-并使用 launcher `0.1.0-rc.11` 与 Runtime 0.7.1。较旧的 Host 应继续使用 Bundle
+准备后端前先选择 Bundle。`0.2.0-rc.3` 候选要求 Node.js 24.9 或更新版本，
+并使用 launcher `0.1.0-rc.12` 与 Runtime 0.7.1。较旧的 Host 应继续使用 Bundle
 `0.1.6`，它配套 launcher `0.1.0-rc.8` 和 Runtime 0.6.0。不要用一个 launcher
 准备后端后再安装另一版本的 Bundle。
 
@@ -27,7 +27,7 @@ dsh plugin --profile <name> add @cnkang/qdrant-memory-dsh-bundle@0.1.6
 当前候选请先准备共享后端：
 
 ```sh
-npx -y @cnkang/qdrant-memory-launcher@0.1.0-rc.11 prepare dsh
+npx -y @cnkang/qdrant-memory-launcher@0.1.0-rc.12 prepare dsh
 ```
 
 等待输出 `{"ready":true,"host":"dsh"}`。准备过程会下载私有 Python 环境、固定版本的
@@ -38,10 +38,10 @@ Runtime wheel 和经过校验的 CPU 嵌入模型，可能需要数分钟并需�
 dsh plugin --profile <name> add @cnkang/qdrant-memory-dsh-bundle
 ```
 
-本 RC 发布时，npm 的 `latest` 和 `next` 都指向 `0.2.0-rc.2`。
+本 RC 发布时，npm 的 `latest` 和 `next` 都指向 `0.2.0-rc.3`。
 
 若所用 npm 镜像尚未同步该包，可改从仓库 Release 下载
-`cnkang-qdrant-memory-dsh-bundle-0.2.0-rc.2.tgz`，用文件路径安装。不启动即可先验证层：
+`cnkang-qdrant-memory-dsh-bundle-0.2.0-rc.3.tgz`，用文件路径安装。不启动即可先验证层：
 
 ```sh
 dsh --profile <name> --dump-config
