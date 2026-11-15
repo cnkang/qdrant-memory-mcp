@@ -15,8 +15,8 @@ The configuration-only Bundle connects the public launcher through the
 official `@deepseek-ai/dsh-mcp-client`. It needs Node.js (which DSH already
 uses) and no system Python, uvx, Ollama or Qdrant Server.
 
-Choose the Bundle before preparing the backend. The `0.2.0-rc.2` candidate
-requires Node.js 24.9 or newer and uses launcher `0.1.0-rc.11` with Runtime
+Choose the Bundle before preparing the backend. The `0.2.0-rc.3` candidate
+requires Node.js 24.9 or newer and uses launcher `0.1.0-rc.12` with Runtime
 0.7.1. Older Hosts should stay on Bundle `0.1.6`, which uses launcher
 `0.1.0-rc.8` and Runtime 0.6.0. Do not prepare with one launcher and install
 the other Bundle.
@@ -31,7 +31,7 @@ dsh plugin --profile <name> add @cnkang/qdrant-memory-dsh-bundle@0.1.6
 For the current candidate, prepare the shared backend first:
 
 ```sh
-npx -y @cnkang/qdrant-memory-launcher@0.1.0-rc.11 prepare dsh
+npx -y @cnkang/qdrant-memory-launcher@0.1.0-rc.12 prepare dsh
 ```
 
 Wait for `{"ready":true,"host":"dsh"}`. Preparation downloads the private
@@ -44,10 +44,10 @@ dsh plugin --profile <name> add @cnkang/qdrant-memory-dsh-bundle
 ```
 
 For this RC publication, both npm tags `latest` and `next` point to
-`0.2.0-rc.2`.
+`0.2.0-rc.3`.
 
 If your registry has not served the package yet, download
-`cnkang-qdrant-memory-dsh-bundle-0.2.0-rc.2.tgz` from the repository release and
+`cnkang-qdrant-memory-dsh-bundle-0.2.0-rc.3.tgz` from the repository release and
 install the file path instead. Verify the layer without booting:
 
 ```sh
