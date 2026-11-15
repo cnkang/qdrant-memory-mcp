@@ -145,6 +145,32 @@ def test_workbuddy_readme_separates_published_and_next_launcher():
     assert any("0.1.0-rc.12" in value for value in args)
 
 
+def test_dsh_tarball_fallback_uses_the_npm_registry():
+    """A missing mirror must not point users at a nonexistent GitHub asset."""
+    bundle = json.loads(
+        (ROOT / "integrations/dsh/bundle/package.json").read_text(encoding="utf-8")
+    )
+    version = bundle["version"]
+    tarball = (
+        "https://registry.npmjs.org/@cnkang/qdrant-memory-dsh-bundle/-/"
+        f"qdrant-memory-dsh-bundle-{version}.tgz"
+    )
+    for relative in (
+        "docs/dsh-integration.md",
+        "docs/dsh-integration.zh-CN.md",
+        "integrations/dsh/bundle/README.md",
+    ):
+        contents = (ROOT / relative).read_text(encoding="utf-8")
+        assert tarball in contents, relative
+        assert "dist.tarball dist.integrity" in contents, relative
+        assert "repository release" not in contents.lower(), relative
+        assert "仓库 Release" not in contents, relative
+        assert (
+            f"dsh plugin --profile <name> add "
+            f"./qdrant-memory-dsh-bundle-{version}.tgz"
+        ) in contents, relative
+
+
 def test_workbuddy_migration_confirms_empty_exports_on_shell_and_powershell():
     """Require operators to confirm an empty WorkBuddy migration export."""
     guide = (ROOT / "integrations/workbuddy/README.md").read_text(encoding="utf-8")

@@ -106,13 +106,24 @@ Hermes profiles. Preparation never deletes existing memory data.
 dsh plugin --profile <name> add @cnkang/qdrant-memory-dsh-bundle@0.2.0-rc.3
 ```
 
-If the npm registry has not served this candidate yet, install the release
-tarball instead. Download `cnkang-qdrant-memory-dsh-bundle-0.2.0-rc.3.tgz` from
-the repository release and run:
+If your npm mirror has not served this candidate yet, resolve the exact
+registry tarball and integrity metadata:
 
 ```sh
-dsh plugin --profile <name> add ./cnkang-qdrant-memory-dsh-bundle-0.2.0-rc.3.tgz
+npm view @cnkang/qdrant-memory-dsh-bundle@0.2.0-rc.3 dist.tarball dist.integrity --json
 ```
+
+Download `dist.tarball`, verify the downloaded bytes against `dist.integrity`,
+then install the local file:
+
+```sh
+dsh plugin --profile <name> add ./qdrant-memory-dsh-bundle-0.2.0-rc.3.tgz
+```
+
+The official tarball is
+`https://registry.npmjs.org/@cnkang/qdrant-memory-dsh-bundle/-/qdrant-memory-dsh-bundle-0.2.0-rc.3.tgz`.
+This registry fallback is not an offline setup; launcher preparation and model
+downloads can still need network access.
 
 Verify the layer without booting:
 
