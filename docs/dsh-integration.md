@@ -45,9 +45,24 @@ dsh plugin --profile <name> add @cnkang/qdrant-memory-dsh-bundle@0.2.0-rc.3
 
 Both npm tags `latest` and `next` currently point to `0.2.0-rc.3`.
 
-If your registry has not served the package yet, download
-`cnkang-qdrant-memory-dsh-bundle-0.2.0-rc.3.tgz` from the repository release and
-install the file path instead. Verify the layer without booting:
+If your npm mirror has not served the package yet, resolve the exact registry
+tarball and its integrity metadata:
+
+```sh
+npm view @cnkang/qdrant-memory-dsh-bundle@0.2.0-rc.3 dist.tarball dist.integrity --json
+```
+
+Download `dist.tarball`, verify the downloaded bytes against `dist.integrity`,
+then install the local file:
+
+```sh
+dsh plugin --profile <name> add ./qdrant-memory-dsh-bundle-0.2.0-rc.3.tgz
+```
+
+The official tarball is
+`https://registry.npmjs.org/@cnkang/qdrant-memory-dsh-bundle/-/qdrant-memory-dsh-bundle-0.2.0-rc.3.tgz`.
+This is a registry fallback, not an offline setup: launcher preparation and
+model download can still need network access. Verify the layer without booting:
 
 ```sh
 dsh --profile <name> --dump-config

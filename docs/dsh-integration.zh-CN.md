@@ -40,8 +40,22 @@ dsh plugin --profile <name> add @cnkang/qdrant-memory-dsh-bundle@0.2.0-rc.3
 
 当前 npm 的 `latest` 和 `next` 都指向 `0.2.0-rc.3`。
 
-若所用 npm 镜像尚未同步该包，可改从仓库 Release 下载
-`cnkang-qdrant-memory-dsh-bundle-0.2.0-rc.3.tgz`，用文件路径安装。不启动即可先验证层：
+若所用 npm 镜像尚未同步该包，先从 npm Registry 解析精确版本的 tarball 与完整性元数据：
+
+```sh
+npm view @cnkang/qdrant-memory-dsh-bundle@0.2.0-rc.3 dist.tarball dist.integrity --json
+```
+
+下载 `dist.tarball`，用 `dist.integrity` 校验实际字节，再用文件路径安装：
+
+```sh
+dsh plugin --profile <name> add ./qdrant-memory-dsh-bundle-0.2.0-rc.3.tgz
+```
+
+官方 tarball 为
+`https://registry.npmjs.org/@cnkang/qdrant-memory-dsh-bundle/-/qdrant-memory-dsh-bundle-0.2.0-rc.3.tgz`。
+这是 Registry 备用路径，不是完全离线准备：launcher 准备与模型下载仍可能需要网络。
+不启动即可先验证层：
 
 ```sh
 dsh --profile <name> --dump-config
