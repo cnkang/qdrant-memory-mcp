@@ -1,5 +1,6 @@
 """Keep public release acceptance and documented launchers on the selected version."""
 
+import json
 import os
 import re
 import shlex
@@ -96,6 +97,52 @@ def test_current_workbuddy_and_dsh_instructions_track_project_version():
     )
     assert f"| Python MCP | {project['project']['version']} |" in architecture
     assert f"| Runtime | {runtime_version} |" in architecture
+
+
+def test_dsh_documented_install_commands_match_pinned_bundle():
+    """Keep each documented DSH install command tied to the prepared launcher."""
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    launcher = json.loads((ROOT / "launcher-source.json").read_text(encoding="utf-8"))
+    bundle = json.loads(
+        (ROOT / "integrations/dsh/bundle/package.json").read_text(encoding="utf-8")
+    )
+    runtime_version = project["project"]["dependencies"][0].rsplit("==", 1)[1]
+    assert launcher["runtime_version"] == runtime_version
+    assert f"@cnkang/qdrant-memory-launcher@{launcher['version']}" in (
+        ROOT / "integrations/dsh/bundle/index.js"
+    ).read_text(encoding="utf-8")
+    for relative in (
+        "docs/dsh-integration.md",
+        "docs/dsh-integration.zh-CN.md",
+        "integrations/dsh/bundle/README.md",
+    ):
+        contents = (ROOT / relative).read_text(encoding="utf-8")
+        assert (
+            f"@cnkang/qdrant-memory-launcher@{launcher['version']} prepare dsh"
+            in contents
+        ), relative
+        assert (
+            "dsh plugin --profile <name> add "
+            f"@cnkang/qdrant-memory-dsh-bundle@{bundle['version']}"
+            in contents
+        ), relative
+        assert (
+            "dsh plugin --profile <name> add "
+            "@cnkang/qdrant-memory-dsh-bundle\n"
+        ) not in contents, relative
+
+
+def test_workbuddy_readme_separates_published_and_next_launcher():
+    """The published Connector 0.2.6 pin must not drift with the next build."""
+    guide = (ROOT / "integrations/workbuddy/README.md").read_text(encoding="utf-8")
+    mcp = json.loads(
+        (ROOT / "integrations/workbuddy/mcp.json").read_text(encoding="utf-8")
+    )
+    args = mcp["mcpServers"]["qdrant-memory"]["args"]
+    assert "0.1.0-rc.11" not in guide
+    assert "0.1.0-rc.10" in guide
+    assert "selects launcher 0.1.0-rc.12 and Runtime 0.7.1" in guide
+    assert any("0.1.0-rc.12" in value for value in args)
 
 
 def test_workbuddy_migration_confirms_empty_exports_on_shell_and_powershell():
