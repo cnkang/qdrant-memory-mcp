@@ -30,7 +30,11 @@ def test_readmes_prioritize_stable_stdio_and_label_host_candidates():
         assert "0.1.0-rc.12" in text
         assert "0.1.0-rc.10" in text
         assert "Runtime 0.6.2" in text
-        assert "public directory" in text.lower() or "公共插件目录" in text
+        assert (
+            "public directory" in text.lower()
+            or "public plugin directory" in text.lower()
+            or "公共插件目录" in text
+        ), name
         assert "npm package is private" not in text
         assert "npm 包仍为 private" not in text
         assert "GUI Marketplace" in text or "Marketplace GUI" in text
