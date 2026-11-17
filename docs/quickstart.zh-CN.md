@@ -74,6 +74,46 @@ uvx --from qdrant-memory-mcp==0.3.5 qdrant-memory-mcp --home "/path/to/workbuddy
 
 ## 4. 在客户端连接 MCP
 
+### VS Code Copilot
+
+先完成步骤 1–3：启动 Embedding 服务，创建新 profile，再运行 `init` 和 `doctor`。
+在工作区根目录创建 `.mcp.json`，使用 VS Code 原生 Copilot `mcpServers` 格式；
+在聊天会话中选择 Copilot harness。`.vscode/mcp.json` 属于已弃用的 Local harness，
+不是 Copilot 原生配置。
+
+```json
+{
+  "mcpServers": {
+    "qdrant-memory": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["--from", "qdrant-memory-mcp==0.3.5", "qdrant-memory-mcp", "--home", "/path/to/copilot-profile", "mcp"]
+    }
+  }
+}
+```
+
+Manifest 中可选的 `--home` 必须位于位置参数 `mcp` 之前。如果 VS Code 进程找不到
+`uvx`，把 `command` 改成它的绝对路径。这条路径只提供显式的记忆搜索、新增、更新和删除；
+不会自动提取对话，也不需要安装 Hermes 或 Agent Skill。
+
+在 Copilot 工具列表确认存在 `qdrant_memory_search`、`qdrant_memory_add`、
+`qdrant_memory_update` 和 `qdrant_memory_delete`。让 Copilot 使用
+`qdrant_memory_add` 保存一条带唯一标记的合成测试记忆，并确认真实工具调用和返回值。
+停止并重启 MCP 服务，打开新的 Copilot 会话，不要粘贴原文，再要求它使用
+`qdrant_memory_search` 找回该标记。
+
+| 验证项 | 状态 |
+|---|---|
+| VS Code Copilot 桌面会话 | NOT VERIFIED；已确认 VS Code 1.144.1，尚未观察到登录后的 Copilot 工具调用或重启召回 |
+| CI 配置与 stdio 协议 | 候选 wheel 与 PyPI 0.3.5 的本地验收 PASS；GitHub Actions 待运行 |
+| Copilot CLI | NOT VERIFIED |
+| GitHub Registry 一键安装 | NOT VERIFIED；手动配置不等于目录安装 |
+
+MCP Registry 元数据将 `0.3.5` 标记为 active/latest；这不能证明 GitHub 目录一键安装已通过。
+
+### WorkBuddy 与其他 stdio MCP 客户端
+
 WorkBuddy 中添加自定义 stdio MCP，使用以下配置；将路径替换为步骤 3 的同一个目录。
 受管连接器使用其数据根目录下的 `profiles/workbuddy/local`，不会自动选择这里的
 自定义 profile。直接运行不带 `--home` 的 uvx 接口才默认使用 `~/.qdrant-memory`。

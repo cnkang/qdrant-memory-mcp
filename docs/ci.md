@@ -6,6 +6,15 @@ The separate `owner-lifecycle` job runs the Hermes-to-Pi lifecycle handoff test.
 This job installs fixed Runtime, Hermes, and Pi versions.
 It also rejects skipped tests.
 
+On pull requests, the Copilot configuration and protocol regression runs against the
+candidate wheel built by Distribution CI, with the deterministic embedding fixture
+and a disposable embedded profile. It checks the native Copilot example against
+`server.json`, then exercises MCP initialize, tool discovery, CRUD and restart
+persistence through the SDK. It does not use Copilot credentials or claim a live
+Copilot session. The release workflow's `Verify publicly installed package and
+uvx protocol` step runs after PyPI publication and installs the exact release
+version from PyPI; PR candidates do not need to exist on PyPI.
+
 Distribution CI does not select `tests/test_native_pi_handoff.py`.
 The test needs a Hermes host checkout and a Pi workspace.
 The `owner-lifecycle` job supplies both inputs.

@@ -77,6 +77,50 @@ require investigation. Do not add reset options or remove data/lock files.
 
 ## 4. Connect the client
 
+### VS Code Copilot
+
+Complete steps 1–3 first: start the embedding service, create the new profile,
+then run `init` and `doctor`. In the workspace root, create `.mcp.json` using
+VS Code's native Copilot `mcpServers` format. In the chat session, select the
+Copilot harness. `.vscode/mcp.json` is for the deprecated Local harness and is
+not the native Copilot configuration.
+
+```json
+{
+  "mcpServers": {
+    "qdrant-memory": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["--from", "qdrant-memory-mcp==0.3.5", "qdrant-memory-mcp", "--home", "/path/to/copilot-profile", "mcp"]
+    }
+  }
+}
+```
+
+The manifest's optional `--home` argument precedes positional `mcp`. If the
+VS Code process cannot find `uvx`, use its absolute path as `command`. This
+path offers explicit memory search, add, update and delete; it does not
+automatically extract conversation history and needs no Hermes or Agent Skill.
+
+In Copilot, confirm these tools are available: `qdrant_memory_search`,
+`qdrant_memory_add`, `qdrant_memory_update` and `qdrant_memory_delete`. Ask
+Copilot to save a unique synthetic test marker with `qdrant_memory_add`, and
+confirm the tool call and result. Stop and restart the MCP server, open a new
+Copilot session without pasting the saved text, then ask it to find that saved
+marker with `qdrant_memory_search`.
+
+| Verification | Status |
+|---|---|
+| VS Code Copilot desktop session | NOT VERIFIED; installed VS Code 1.144.1, but no authenticated Copilot tool call or restart recall observed |
+| CI configuration and stdio protocol | PASS locally with the candidate wheel and published 0.3.5; GitHub Actions pending |
+| Copilot CLI | NOT VERIFIED |
+| GitHub Registry one-click install | NOT VERIFIED; manual configuration does not establish catalog installation |
+
+The MCP Registry metadata for `0.3.5` is active/latest, but that status does not
+verify a GitHub catalog one-click installation.
+
+### WorkBuddy and other stdio MCP clients
+
 Add a custom stdio MCP in WorkBuddy with the following settings. Use the same
 profile path as step 3. The managed packaged connector uses its own `profiles/workbuddy/local` under
 the managed data root. It does not select this custom profile. The direct uvx

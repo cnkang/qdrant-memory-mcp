@@ -4,8 +4,11 @@ import asyncio
 import importlib.metadata
 import json
 import queue
+import re
 import subprocess
 import threading
+import tomllib
+from pathlib import Path
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
@@ -16,14 +19,64 @@ def _uvx_package_requirement():
     return f"qdrant-memory-mcp=={importlib.metadata.version('qdrant-memory-mcp')}"
 
 
+def _copilot_configuration():
+    """Validate the native Copilot example against this distribution's manifest."""
+    root = Path(__file__).resolve().parents[1]
+    project = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))[
+        "project"
+    ]
+    manifest = json.loads((root / "server.json").read_text(encoding="utf-8"))
+    package = manifest["packages"][0]
+    version = project["version"]
+    runtime_requirement = next(
+        dependency
+        for dependency in project["dependencies"]
+        if dependency.startswith("hermes-plugin-qdrant-memory")
+    )
+    runtime_version = runtime_requirement.rsplit("==", 1)[1]
+    assert project["name"] == package["identifier"] == "qdrant-memory-mcp"
+    assert manifest["version"] == package["version"] == version
+    assert importlib.metadata.version("qdrant-memory-mcp") == version
+    assert package["runtimeHint"] == "uvx"
+    assert package["transport"]["type"] == "stdio"
+    assert runtime_requirement in (
+        importlib.metadata.distribution("qdrant-memory-mcp").requires or []
+    )
+    assert importlib.metadata.version("hermes-plugin-qdrant-memory") == runtime_version
+    assert [
+        (argument["type"], argument.get("name", argument.get("value")))
+        for argument in package["packageArguments"]
+    ] == [("named", "--home"), ("positional", "mcp")]
+
+    quickstart = (root / "docs/quickstart.md").read_text(encoding="utf-8")
+    assert f"pins Runtime {runtime_version}" in quickstart
+    section = quickstart.split("### VS Code Copilot", 1)[1].split("\n### ", 1)[0]
+    example = re.search(r"```json\s*(.*?)\s*```", section, flags=re.DOTALL)
+    assert example, "VS Code Copilot quickstart must include its native JSON example"
+    entry = json.loads(example.group(1))["mcpServers"]["qdrant-memory"]
+    assert entry["type"] == "stdio"
+    assert entry["command"] == package["runtimeHint"]
+    assert entry["args"] == [
+        "--from",
+        f"{package['identifier']}=={package['version']}",
+        package["identifier"],
+        "--home",
+        "/path/to/copilot-profile",
+        "mcp",
+    ]
+    return entry["args"][3:]
+
+
 def test_uvx_acceptance_tracks_installed_distribution(monkeypatch):
     monkeypatch.setattr(importlib.metadata, "version", lambda _name: "9.8.7")
     assert _uvx_package_requirement() == "qdrant-memory-mcp==9.8.7"
 
 
-def test_real_stdio_crud_restart_scope_and_redaction(sandbox):
-    """Exercise real SDK CRUD, scope denial, writer exclusion and restart persistence."""
+def test_copilot_configuration_and_protocol_crud_restart(sandbox):
+    """Check Copilot config parity and candidate/public SDK CRUD over stdio."""
+    app_args = _copilot_configuration()
     profile, config_path, config, env, script, cli, _ = sandbox
+    app_args[app_args.index("--home") + 1] = str(profile)
     foreign = []
     for user, agent in [("other-user", "test-agent"), ("test-user", "other-agent")]:
         config["scope"] = {"user_id": user, "agent_id": agent}
@@ -36,7 +89,7 @@ def test_real_stdio_crud_restart_scope_and_redaction(sandbox):
         """Open a real stdio SDK session and execute one acceptance phase."""
         parameters = StdioServerParameters(
             command=script[0],
-            args=[*script[1:], "--home", str(profile), "mcp"],
+            args=[*script[1:], *app_args],
             env=env,
             cwd=str(profile.parent),
         )

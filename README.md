@@ -65,6 +65,7 @@ SDK/CLI tested, real host tested, real desktop GUI tested, not verified.
 | DeepSeek Harness | No (lifecycle adapter) | Yes (DSH bundle) | Opt-in preview | Opt-in preview | Via Owner | Yes | DSH 0.2.2-rc.1 CI host tested; real model/GUI unverified |
 | WorkBuddy | No | Yes (connector) | No | No | Via Owner | Yes | Real desktop GUI tested |
 | Codex | No | Yes | No | No | Via Owner | Yes | Official CLI tested |
+| VS Code Copilot | No | Yes (four MCP tools) | No | No | Via Owner | Yes | CI config/protocol PASS locally; desktop session, Copilot CLI and GitHub Registry one-click install NOT VERIFIED |
 
 This distribution does not auto-extract conversations for any MCP host. Automatic
 capture and recall require a native provider or a lifecycle adapter. The DSH
