@@ -43,8 +43,6 @@ Bundle into one profile:
 dsh plugin --profile <name> add @cnkang/qdrant-memory-dsh-bundle@0.2.0-rc.3
 ```
 
-Both npm tags `latest` and `next` currently point to `0.2.0-rc.3`.
-
 If your npm mirror has not served the package yet, resolve the exact registry
 tarball and its integrity metadata:
 
