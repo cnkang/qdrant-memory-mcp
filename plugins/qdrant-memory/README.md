@@ -12,7 +12,7 @@ until the native client actually adopts the facts; no unsupported native writes.
 Marketplace: **Kang's plugins** (`cnkang`). Plugin: **Qdrant Memory for Codex**.
 
 Requirements: Codex with portable plugins, Node 20+, uv and Python 3.11+.
-The plugin candidate is 0.1.4; it pins MCP distribution 0.3.5, Runtime 0.7.1 and Skill 0.4.4 as separate components. MCP 0.3.5 and Runtime 0.7.1 are public PyPI releases. Skill 0.4.4 is published in snapshot `skills-20261113.2` at immutable commit `607b1335f7babc9a7a2f909d12d8214124d1032c`.
+The plugin candidate is 0.1.4; it pins MCP distribution 0.3.5, Runtime 0.7.1 and Skill 0.4.6 as separate components. MCP 0.3.5 and Runtime 0.7.1 are public PyPI releases. Skill 0.4.6 is published at immutable commit `60d309148b02d643f5c39e7179ffbaff3ed792f7`.
 `requirements.txt` installs the exact public MCP and Runtime distributions.
 `release.json` records immutable source commits as provenance; installing this
 candidate does not require Git or a source build. This is the GitHub-backed Codex

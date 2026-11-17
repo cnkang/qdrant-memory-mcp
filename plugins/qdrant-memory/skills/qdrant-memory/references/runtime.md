@@ -4,9 +4,8 @@ This skill supplies instructions. The shared [Qdrant memory backend](https://git
 
 The private compatibility examples pin Runtime 0.2.2 and MCP distribution 0.1.3,
 the verified private compatibility baseline for this skill. These minimum
-versions do not provide the Runtime 0.5.0 Owner controls. The current install
-baseline is Runtime 0.7.1; Runtime 0.6.2 introduced the receipt recovery
-contract used by this skill. Its `mcp` extra provides the standalone stdio server directly.
+versions do not provide the Runtime 0.5.0 Owner controls. This skill targets
+Runtime 0.7.1. Its `mcp` extra provides the standalone stdio server directly.
 The optional metadata-only [MCP distribution](https://pypi.org/project/qdrant-memory-mcp/)
 is versioned independently; verify its PyPI release before installing an exact
 version. The installer accepts an installed Runtime that is at least the
@@ -159,11 +158,10 @@ For an explicitly authorized candidate/development/fallback source, use
 `--version 0.7.1 --revision FULL_40_CHARACTER_SHA`. The installer verifies both
 version and VCS commit. A moving `main` or short SHA is rejected. Source installs
 are optional and never the production default. Never silently fall back from PyPI.
-The current Runtime 0.7.1 release commit is
+The immutable Runtime 0.7.1 release commit is
 `cc5cac025f5d18afb5c698b2b5db444e30fc240e`; CI's current-release acceptance
 installs published Runtime 0.7.1 from PyPI and exercises the default installer
-path. Runtime 0.6.2 remains a documented compatibility release at commit
-`913fa705922b5bfeb29d52f102cfc6385a4d0436`. The standalone compatibility lane retains Runtime 0.2.2 at commit
+path. The standalone compatibility lane retains Runtime 0.2.2 at commit
 `c85d2bce788b117dddd854bb124971f7de8e564c`. The published release tag is the
 source of truth.
 For Hermes users, the pin preserves transcript-author isolation across restarts.

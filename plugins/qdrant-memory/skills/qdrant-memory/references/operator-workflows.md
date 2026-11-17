@@ -76,6 +76,42 @@ local Ledger state. If the collection or fingerprint is incompatible, stop and
 explain the mismatch. Do not rebuild, re-embed or create a replacement
 collection without a separate, explicit migration decision.
 
+## Adopt a policy on an existing destination (Runtime 0.7.1)
+
+A destination written by an earlier Runtime keeps serving its dense path. It is
+reported as `legacy` until an operator applies a plan. Do not treat a missing
+policy record as a reason to rebuild the collection, change the embedding model
+or create a new profile.
+
+Run this only inside an authorized maintenance window, with every gateway,
+provider worker and MCP server stopped for that profile. For a remote
+destination also stop every other Owner, device and credential that can write
+the same collection.
+
+```bash
+qdrant-memory --home "/absolute/profile" upgrade plan
+qdrant-memory --home "/absolute/profile" upgrade apply --plan PLAN_ID
+qdrant-memory --home "/absolute/profile" upgrade status
+```
+
+`plan` reports the blockers, the per-field index status and the data checkpoint.
+It saves one control-plane record and writes nothing else. A conflicting index
+type is a blocker: never delete or rebuild that index to make the plan pass.
+`apply` refuses a stale plan, takes a recovery point and re-verifies before it
+commits the effective policy. If it is interrupted, run `upgrade resume` with
+the same plan identifier.
+
+A remote destination needs `--confirm-writers-isolated` and
+`--accept-operator-backup`. Without both the Runtime refuses the apply. It holds
+no Qdrant administrative backup rights, so the operator owns the provider-side
+snapshot.
+
+After a successful apply, restart the hosts so each reader reopens the
+destination with the accepted policy. Report the plan identifier, the schema and
+identity check, the index status and any blocker. Do not describe a rollback of
+the application version as a storage downgrade: restoring the recovery point is
+the supported path, and it discards writes that landed after it.
+
 ## Import Codex native memory
 
 Read [Codex portability](codex.md) first. Inspect only the user-authorized

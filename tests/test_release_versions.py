@@ -141,7 +141,7 @@ def test_workbuddy_readme_separates_published_and_next_launcher():
     args = mcp["mcpServers"]["qdrant-memory"]["args"]
     assert "0.1.0-rc.11" not in guide
     assert "0.1.0-rc.10" in guide
-    assert "selects launcher 0.1.0-rc.12 and Runtime 0.7.1" in guide
+    assert "selects launcher 0.1.0-rc.12, Runtime 0.7.1 and Skill 0.4.6" in guide
     assert any("0.1.0-rc.12" in value for value in args)
 
 

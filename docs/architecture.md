@@ -9,7 +9,7 @@ Runtime source: https://github.com/cnkang/hermes-plugin-qdrant-memory
 
 Skill source: https://github.com/cnkang/skills/tree/main/qdrant-memory
 
-Version lines are independent: Runtime 0.7.1, Skill 0.4.4, and distribution
+Version lines are independent: Runtime 0.7.1, Skill 0.4.6, and distribution
 0.3.5. Runtime source and schema snapshots used for preparation are immutable.
 Publication requires the Runtime version to exist on PyPI.
 

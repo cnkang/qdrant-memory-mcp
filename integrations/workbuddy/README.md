@@ -320,7 +320,7 @@ Earlier connector archives retain their original provenance and immutable bytes.
 `provenance.json` inside each ZIP records its versions, launcher integrity and
 Skill source commit. The 0.2.6 ZIP records Runtime 0.6.2 through launcher
 0.1.0-rc.10 and the pinned Skill 0.4.4 source. The next connector build
-selects launcher 0.1.0-rc.12 and Runtime 0.7.1; this does not change the
+selects launcher 0.1.0-rc.12, Runtime 0.7.1 and Skill 0.4.6; this does not change the
 published 0.2.6 bytes. This is separate from
 the uvx alternative. The builder rejects drift from checked-in pins:
 
@@ -418,7 +418,7 @@ build environment (the Skill builder needs PyYAML):
 
 ```sh
 git clone --no-checkout https://github.com/cnkang/skills.git .workbuddy-skill
-git -C .workbuddy-skill checkout --detach 607b1335f7babc9a7a2f909d12d8214124d1032c
+git -C .workbuddy-skill checkout --detach 60d309148b02d643f5c39e7179ffbaff3ed792f7
 python3 -m venv .workbuddy-env
 .workbuddy-env/bin/python -m pip install 'PyYAML==6.0.3'
 .workbuddy-env/bin/python integrations/workbuddy/build.py --check
