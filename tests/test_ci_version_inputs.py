@@ -238,3 +238,26 @@ def test_protected_cloud_acceptance_keeps_a_fixed_codex_cli_version():
     assert 'release["runtime_version"]' in install["run"]
     assert 'distribution.read_text("direct_url.json") is not None' in install["run"]
     assert 'source["vcs_info"]["commit_id"]' not in install["run"]
+
+
+def test_codex_plugin_published_pin_replaces_the_source_candidate():
+    workflow = _workflow("codex-plugin.yml")
+    install_steps = [
+        step
+        for job in workflow["jobs"].values()
+        for step in job["steps"]
+        if step.get("name")
+        == "Install the published MCP pin used by the current portable plugin"
+    ]
+
+    assert len(install_steps) == 3
+    for step in install_steps:
+        run = step["run"]
+        uninstall = "python -m pip uninstall -y qdrant-memory-mcp"
+        published_install = (
+            "python -m pip install --only-binary=:all: --no-deps "
+            "qdrant-memory-mcp==0.3.5"
+        )
+        assert uninstall in run
+        assert published_install in run
+        assert run.index(uninstall) < run.index(published_install)
