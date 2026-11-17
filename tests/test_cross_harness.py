@@ -84,7 +84,7 @@ def test_dsh_native_bundle_pins_release_and_keeps_automation_disabled():
     }
     assert runners == {
         ('ubuntu-24.04', 'x64'),
-        ('macos-15', 'arm64'),
+        ('macos-latest', 'arm64'),
         ('windows-2025', 'x64'),
     }
     node_versions = {
