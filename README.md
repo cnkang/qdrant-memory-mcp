@@ -30,7 +30,7 @@ MCP, the managed launcher and the canonical Skill.
 | Path | Published artifact and pin | Current status and acceptance boundary |
 |---|---|---|
 | [Stable stdio MCP](docs/quickstart.md) | PyPI `qdrant-memory-mcp==0.3.5`, Runtime 0.7.1 | Public stable release; protocol CI uses isolated profiles and a deterministic embedding fixture. This does not establish every live model/provider combination. |
-| [Codex plugin](plugins/qdrant-memory/README.md) | Candidate 0.1.4; MCP 0.3.3, Runtime 0.6.2 (`913fa705922b5bfeb29d52f102cfc6385a4d0436`), Skill 0.4.4 (`607b1335f7babc9a7a2f909d12d8214124d1032c`) | Not submitted to the public plugin directory. Official Codex CLI checks are recorded; Desktop GUI and native-memory adoption are separate. |
+| [Codex plugin](plugins/qdrant-memory/README.md) | Candidate 0.1.4; MCP 0.3.5, Runtime 0.7.1 (`cc5cac025f5d18afb5c698b2b5db444e30fc240e`), Skill 0.4.6 (`60d309148b02d643f5c39e7179ffbaff3ed792f7`) | Not submitted to the public plugin directory. Official Codex CLI checks are recorded; Desktop GUI and native-memory adoption are separate. |
 | [DSH Bundle](docs/dsh-integration.md) | Public npm prerelease `@cnkang/qdrant-memory-dsh-bundle@0.2.0-rc.3`; DSH 0.2.2-rc.1, launcher 0.1.0-rc.12, Runtime 0.7.1 | Installable prerelease. Protected live-model/Cloud and Desktop GUI acceptance remain incomplete. |
 | [WorkBuddy connector](integrations/workbuddy/README.md) | GitHub release `workbuddy-v0.2.6`; launcher 0.1.0-rc.10, Runtime 0.6.2, Skill 0.4.4 | Exact-tag packaging and protocol gates passed. Marketplace GUI import, clean-machine provisioning and full application restart remain unverified. |
 

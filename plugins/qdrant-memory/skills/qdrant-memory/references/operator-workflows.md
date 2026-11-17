@@ -88,23 +88,33 @@ provider worker and MCP server stopped for that profile. For a remote
 destination also stop every other Owner, device and credential that can write
 the same collection.
 
+For an enrolled destination, set `OWNER_POLICY` to its existing protected Owner
+policy file and reuse that file for `plan`, `apply` and `resume`. Keep its
+protection unchanged; do not replace it with an unprotected policy. For a legacy
+destination that is not enrolled, omit `--policy`.
+
 ```bash
-qdrant-memory --home "/absolute/profile" upgrade plan
-qdrant-memory --home "/absolute/profile" upgrade apply --plan PLAN_ID
+OWNER_POLICY="/absolute/path/to/existing-protected-owner-policy"
+qdrant-memory --home "/absolute/profile" upgrade plan --policy "$OWNER_POLICY"
+qdrant-memory --home "/absolute/profile" upgrade apply --plan PLAN_ID --policy "$OWNER_POLICY"
+# If apply was interrupted, resume the same plan:
+qdrant-memory --home "/absolute/profile" upgrade resume --plan PLAN_ID --policy "$OWNER_POLICY"
 qdrant-memory --home "/absolute/profile" upgrade status
 ```
 
 `plan` reports the blockers, the per-field index status and the data checkpoint.
 It saves one control-plane record and writes nothing else. A conflicting index
 type is a blocker: never delete or rebuild that index to make the plan pass.
-`apply` refuses a stale plan, takes a recovery point and re-verifies before it
-commits the effective policy. If it is interrupted, run `upgrade resume` with
-the same plan identifier.
+`apply` refuses a stale plan and re-verifies before committing the effective
+policy. For embedded destinations it creates and verifies a local recovery
+point. If it is interrupted, run `upgrade resume` with the same plan identifier.
 
-A remote destination needs `--confirm-writers-isolated` and
-`--accept-operator-backup`. Without both the Runtime refuses the apply. It holds
-no Qdrant administrative backup rights, so the operator owns the provider-side
-snapshot.
+For a remote destination, before `apply` the operator must create a provider-side
+snapshot at the stopped-writer boundary and retain its attestation with the
+maintenance record. The Runtime cannot create this snapshot. Remote `apply`
+requires `--confirm-writers-isolated` and `--accept-operator-backup`; the latter
+confirms the operator-created snapshot and does not create it. Use the same
+confirmations when resuming an interrupted remote apply.
 
 After a successful apply, restart the hosts so each reader reopens the
 destination with the accepted policy. Report the plan identifier, the schema and
