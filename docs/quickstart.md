@@ -112,8 +112,8 @@ marker with `qdrant_memory_search`.
 | Verification | Status |
 |---|---|
 | VS Code Copilot desktop session | NOT VERIFIED; installed VS Code 1.144.1, but no authenticated Copilot tool call or restart recall observed |
-| CI configuration and stdio protocol | PASS locally with the candidate wheel and published 0.3.5; GitHub Actions pending |
-| Copilot CLI | NOT VERIFIED |
+| CI configuration and stdio protocol | PASS locally with the candidate wheel and published 0.3.5; [GitHub Distribution CI PASS](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/44051231521) |
+| Copilot CLI | PASS — GitHub Copilot CLI 1.0.112 discovered all four tools and made real stdio add/search calls with published `qdrant-memory-mcp==0.3.5`; a fresh CLI process and session recalled the same synthetic record after the MCP process restarted |
 | GitHub Registry one-click install | NOT VERIFIED; manual configuration does not establish catalog installation |
 
 The MCP Registry metadata for `0.3.5` is active/latest, but that status does not

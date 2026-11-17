@@ -106,8 +106,8 @@ Manifest 中可选的 `--home` 必须位于位置参数 `mcp` 之前。如果 VS
 | 验证项 | 状态 |
 |---|---|
 | VS Code Copilot 桌面会话 | NOT VERIFIED；已确认 VS Code 1.144.1，尚未观察到登录后的 Copilot 工具调用或重启召回 |
-| CI 配置与 stdio 协议 | 候选 wheel 与 PyPI 0.3.5 的本地验收 PASS；GitHub Actions 待运行 |
-| Copilot CLI | NOT VERIFIED |
+| CI 配置与 stdio 协议 | 候选 wheel 与 PyPI 0.3.5 的本地验收 PASS；[GitHub Distribution CI PASS](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/44051231521) |
+| Copilot CLI | PASS — GitHub Copilot CLI 1.0.112 已发现四个工具，并通过 stdio 对公开发布的 `qdrant-memory-mcp==0.3.5` 实际调用新增和搜索；重启 MCP 进程后，新 CLI 进程和会话召回了同一条合成记录 |
 | GitHub Registry 一键安装 | NOT VERIFIED；手动配置不等于目录安装 |
 
 MCP Registry 元数据将 `0.3.5` 标记为 active/latest；这不能证明 GitHub 目录一键安装已通过。
