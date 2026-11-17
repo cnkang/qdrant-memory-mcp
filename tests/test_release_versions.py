@@ -15,6 +15,35 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def test_readmes_prioritize_stable_stdio_and_label_host_candidates():
+    """Keep stable installation first and host artifact claims separate."""
+    english = (ROOT / "README.md").read_text(encoding="utf-8")
+    chinese = (ROOT / "README.zh-CN.md").read_text(encoding="utf-8")
+    for name, text, quickstart in (
+        ("README.md", english, "docs/quickstart.md"),
+        ("README.zh-CN.md", chinese, "docs/quickstart.zh-CN.md"),
+    ):
+        assert quickstart in text[:2500], name
+        assert "qdrant-memory-mcp==0.3.5" in text
+        assert "Runtime 0.7.1" in text
+        assert "0.2.0-rc.3" in text
+        assert "0.1.0-rc.12" in text
+        assert "0.1.0-rc.10" in text
+        assert "Runtime 0.6.2" in text
+        assert "public directory" in text.lower() or "公共插件目录" in text
+        assert "npm package is private" not in text
+        assert "npm 包仍为 private" not in text
+        assert "GUI Marketplace" in text or "Marketplace GUI" in text
+
+    for name in ("docs/quickstart.md", "docs/quickstart.zh-CN.md"):
+        text = (ROOT / name).read_text(encoding="utf-8")
+        assert "qdrant-memory-mcp==0.3.5" in text
+        assert "Runtime 0.7.1" in text
+        assert "--force" in text
+        assert "does not automatically" in text or "不会自动提取" in text
+        assert "recreate the profile" in text or "重建 profile" in text
+
+
 def test_public_protocol_install_tracks_project_version(tmp_path):
     """Execute the workflow's version lookup against a future synthetic release."""
     workflow = (ROOT / ".github/workflows/publish.yml").read_text(encoding="utf-8")

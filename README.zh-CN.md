@@ -2,10 +2,10 @@
 
 **One Memory. Multiple Agents. No Lock-in.**
 
-[Codex 插件候选版](plugins/qdrant-memory/README.zh-CN.md)提供隔离安装向导、原生记忆
-只读导入和可校验的 JSON/Markdown 交接，独立版本，不新增 Runtime。
-[验证记录和限制](docs/codex-plugin-verification.md)区分实际测试与未验证项目。
-退出后无需插件或订阅也能读取导出；文件创建不等于原生系统已经接管。
+Codex 与其他非 Hermes Agent 的默认入口是公开稳定的 stdio MCP。
+从[快速开始](docs/quickstart.zh-CN.md)开始：`qdrant-memory-mcp==0.3.5`
+固定依赖 Runtime 0.7.1，并提供四个显式记忆工具。Hermes 用户请使用
+[Hermes 原生 Plugin Catalog 安装指南](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/INSTALL.md)。
 
 面向 AI Agent 的持久化、可移植、权限感知记忆，以 MCP 适配层分发 Qdrant Memory Runtime。
 
@@ -14,6 +14,17 @@
 ## One Memory, Multiple Agents — 可选启用的共享 owner
 
 本分发新增显式启用的单 owner 共享服务和 stdio 桥接，需安装 Runtime 0.7.1。见[共享接入指南](integrations/shared/README.md)。私有默认配置与 DSH/WorkBuddy 托管配置不变；Hermes Native Provider 自动共享提取尚未实现。
+
+## 已发布路径与验收范围
+
+| 路径 | 已发布产物与固定依赖 | 当前状态与验收边界 |
+|---|---|---|
+| [稳定 stdio MCP](docs/quickstart.zh-CN.md) | PyPI `qdrant-memory-mcp==0.3.5`，Runtime 0.7.1 | 公开稳定版；协议 CI 使用隔离 profile 和确定性 embedding fixture，不代表所有真实模型/Provider 组合均已验收 |
+| [Codex 插件](plugins/qdrant-memory/README.zh-CN.md) | 候选版 0.1.4；MCP 0.3.3、Runtime 0.6.2（`913fa705922b5bfeb29d52f102cfc6385a4d0436`）、Skill 0.4.4（`607b1335f7babc9a7a2f909d12d8214124d1032c`） | 尚未提交公共插件目录；有官方 Codex CLI 检查，Desktop GUI 与原生记忆接管另行验证 |
+| [DSH Bundle](docs/dsh-integration.zh-CN.md) | npm 公开预发布 `@cnkang/qdrant-memory-dsh-bundle@0.2.0-rc.3`；DSH 0.2.2-rc.1、launcher 0.1.0-rc.12、Runtime 0.7.1 | 可安装的预发布版；真实模型/Cloud 与 Desktop GUI 验收仍未完成 |
+| [WorkBuddy connector](integrations/workbuddy/README.md) | GitHub release `workbuddy-v0.2.6`；launcher 0.1.0-rc.10、Runtime 0.6.2、Skill 0.4.4 | 精确 tag 打包与协议门禁通过；Marketplace GUI 导入、干净机器配置和完整重启仍未验证 |
+
+宿主适配包各自独立版本。候选版或可从 npm 安装不等于真实模型、Cloud、Desktop 或市场验收完成；选择前请读各自宿主指南和证据。
 
 这是 Qdrant Memory 的独立 PyPI 包装与 MCP Registry 分发仓库。
 所有业务逻辑来自唯一的 [Python Runtime](https://github.com/cnkang/hermes-plugin-qdrant-memory)，
@@ -51,60 +62,17 @@ Skill 仅提供可选指导，不是运行依赖。Hermes 的自动提取和 pre
 | Codex | 否 | 是 | 否 | 否 | 通过 Owner | 是 | 官方 CLI 测试 |
 | VS Code Copilot | 否 | 是（四个 MCP 工具） | 否 | 否 | 通过 Owner | 是 | [CI 配置/协议 PASS](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/44061227907)；Copilot CLI 1.0.112 PASS；VS Code 1.146.0 Copilot 桌面新增/重启召回 PASS；GitHub Registry 一键安装 NOT VERIFIED |
 
-本分发不对任何 MCP 宿主自动提取对话。自动捕获与召回需要原生 Provider 或生命周期适配器。DSH 原生预览需显式启用，源码已并入，但 npm 包仍为 private。Runtime 0.7.1 已公开；真实 DSH AgentLoop、模型与桌面 GUI 证据仍待补充。
+本分发不对任何 MCP 宿主自动提取对话。自动捕获与召回需要原生 Provider 或生命周期适配器。DSH 自动功能为可选启用；npm 预发布包可安装，但真实模型/Cloud 与 Desktop GUI 验收仍待完成。
 已测试的 CLI、源码修订和模型提供方见 [Codex 验证记录](docs/codex-plugin-verification.md)；
 桌面 GUI 与原生记忆接管需要分别验证。
 
-## 安装与配置
+## 稳定 stdio 安装
 
-最少步骤见 [本地 Ollama 快速开始](docs/quickstart.zh-CN.md)，包括复用已有模型、
-缺少模型时的安装指引、独立 WorkBuddy profile、连接配置和首次保存/搜索验证。
-这条本地路径不需要 Qdrant Server、Docker、云账号或 Embedding API Key；
-本直接路径仍需要准备 Python/uv，并完成一次 profile 配置。受管的 WorkBuddy
-连接器和 DSH Bundle 则由 Node.js 准备这些依赖。
-
-需要 Python 3.11+，以及 [uv](https://docs.astral.sh/uv/) 或 Python 虚拟环境。
-必须自行配置存储和 Embedding 服务。
-在可信 profile 目录内创建 `qdrant-memory.json`：
-
-```json
-{
-  "schema_version": 1,
-  "scope": {"user_id": "my-user", "agent_id": "my-agent"},
-  "qdrant": {"mode": "embedded", "collection": "qdrant_memory"},
-  "embedding": {
-    "mode": "plugin", "provider": "ollama", "model": "qwen3-embedding:4b",
-    "base_url": "http://127.0.0.1:11434", "dimensions": 2560, "distance": "Cosine"
-  }
-}
-```
-
-示例要求自己启动 Ollama 并安装对应模型。将路径替换为自己的绝对路径：
-
-```bash
-uvx --from qdrant-memory-mcp==0.3.5 qdrant-memory-mcp --home /path/to/profile init
-uvx --from qdrant-memory-mcp==0.3.5 qdrant-memory-mcp --home /path/to/profile mcp
-```
-
-省略 `--home` 时使用 `~/.qdrant-memory`，与 Hermes profile 独立。
-Registry 默认运行 `uvx --from qdrant-memory-mcp==0.3.5 qdrant-memory-mcp mcp`，
-应先配置、初始化默认目录。
-客户端可通过 `mcp` 前面的可选 `--home` 参数选择自定义 profile。
-
-也可以使用虚拟环境：
-
-```bash
-python3 -m venv .venv
-.venv/bin/python -m pip install qdrant-memory-mcp==0.3.5
-.venv/bin/qdrant-memory-mcp --home /path/to/profile init
-.venv/bin/qdrant-memory-mcp --home /path/to/profile mcp
-```
-
-Windows 使用 `.venv\Scripts\python.exe` 和 `.venv\Scripts\qdrant-memory-mcp.exe`。
-Qdrant Embedded、Server、Cloud 和 OpenAI-compatible Embedding 的配置见
-[原始配置文档](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/configuration.md)。
-凭据由可信进程环境提供（如 `QDRANT_API_KEY`、`EMBEDDING_API_KEY`），不要提交密钥。
-首次测试请使用独立的临时存储，现有 collection 的复用必须由操作者明确选择。
+请按[固定版本快速开始](docs/quickstart.zh-CN.md)逐步检查环境、建立独立 profile、
+运行 `init` 和 `doctor`、复用本地模型、配置宿主并验证工具写入/检索/重连。
+先在终端准备包与 profile，再连接客户端；连接时不自动安装、下载模型、初始化已有
+collection 或迁移数据。Hermes profile 请使用
+[Runtime 原生安装指南](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/INSTALL.md)。
 
 ## 客户端示例
 

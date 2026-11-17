@@ -1,9 +1,12 @@
-# Shortest local setup with Ollama
+# Stable stdio MCP: local Ollama quickstart
 
 Use an existing Ollama embedding model and embedded Qdrant with WorkBuddy or
 another stdio MCP client. No Docker, Qdrant server, cloud account or embedding
 API key is required. Python/uv and one-time configuration are still necessary.
-Installing a connector does not initialize its storage.
+This route uses the public stable `qdrant-memory-mcp==0.3.5` package, which pins
+Runtime 0.7.1. Ordinary MCP performs explicit memory operations; it does not
+automatically extract conversation turns or prefetch memories. Installing a
+connector does not initialize its storage.
 
 ## 1. Start the embedding service
 
@@ -36,9 +39,11 @@ not required.
 
 ## 3. Create and initialize a separate profile
 
-Create a new private directory, such as `.qdrant-memory-workbuddy` under your
-user home. Record its absolute path. Do not use an existing Hermes or other
-agent profile. Save this as `qdrant-memory.json` inside the new directory:
+Choose a new private directory, such as `.qdrant-memory-workbuddy` under your
+user home. Confirm that the directory and its `qdrant-memory.json` do not
+already exist; do not overwrite an existing profile or config. Do not use an
+existing Hermes or other agent profile. Save this as `qdrant-memory.json` inside
+the new directory:
 
 ```json
 {
@@ -72,10 +77,15 @@ uvx --from qdrant-memory-mcp==0.3.5 qdrant-memory-mcp --home "/path/to/workbuddy
 
 Initialization calls the local model, creates local storage and validates its
 schema. Connect only after both commands succeed. Normal restarts do not need
-another initialization. Existing-collection, compatibility or writer-lock errors
-require investigation. A `WriterBusyError` means another MCP process still owns
-the profile; stop it before starting a replacement. Do not add reset options or
-remove data/lock files.
+another initialization. This terminal step also prepares the fixed package so
+the client can start the cached command. The MCP connection itself does not
+install Ollama, download models, initialize an existing collection or migrate
+data. Existing-file, collection, compatibility or writer-lock errors require
+investigation. A `WriterBusyError` means another MCP process still owns the
+profile; stop it before starting a replacement. Do not overwrite config,
+recreate the profile, use `--force`, add reset options or remove data/lock files.
+After a partial failure, inspect the exact profile with `doctor` before deciding
+on a next step.
 
 ## 4. Connect the client
 
