@@ -11,12 +11,12 @@ on:
         default: next
         type: string
       dsh_mcp_client_version:
-        description: DSH MCP client version (next, latest, or an exact published semver)
+        description: DSH host-compatible version (next/latest) or an exact published semver override
         required: false
         default: next
         type: string
       dsh_skill_filesystem_version:
-        description: DSH skill filesystem version (next, latest, or an exact published semver)
+        description: DSH host-compatible version (next/latest) or an exact published semver override
         required: false
         default: next
         type: string
@@ -105,6 +105,39 @@ jobs:
                 ;;
             esac
           done
+          DSH_VERSION="$(npm view "@deepseek-ai/dsh@${DSH_VERSION}" version)"
+          if [[ ! "$DSH_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$ ]]; then
+            echo "::error::Selected DSH host did not resolve to an exact published semver; got $DSH_VERSION"
+            exit 1
+          fi
+          host_dependencies="$(npm view "@deepseek-ai/dsh@${DSH_VERSION}" dependencies --json)"
+          resolve_host_dependency() {
+            dependency="$1"
+            version="$(printf '%s\n' "$host_dependencies" | node -e '
+          const dependencies = JSON.parse(require("node:fs").readFileSync(0, "utf8"));
+          const version = dependencies[process.argv[1]];
+          if (typeof version !== "string") {
+            throw new Error("selected DSH host does not declare " + process.argv[1]);
+          }
+          process.stdout.write(version);
+          ' "$dependency")"
+            if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$ ]]; then
+              echo "::error::Selected DSH host must pin $dependency to an exact published semver; got $version"
+              exit 1
+            fi
+            printf '%s' "$version"
+          }
+          case "$DSH_MCP_CLIENT_VERSION" in
+            next|latest)
+              DSH_MCP_CLIENT_VERSION="$(resolve_host_dependency '@deepseek-ai/dsh-mcp-client')"
+              ;;
+          esac
+          case "$DSH_SKILL_FILESYSTEM_VERSION" in
+            next|latest)
+              DSH_SKILL_FILESYSTEM_VERSION="$(resolve_host_dependency '@deepseek-ai/dsh-skill-filesystem')"
+              ;;
+          esac
+          echo "Resolved DSH package versions: host=$DSH_VERSION, mcp-client=$DSH_MCP_CLIENT_VERSION, skill-filesystem=$DSH_SKILL_FILESYSTEM_VERSION"
           npm install --package-lock-only --save-exact --ignore-scripts --no-audit --no-fund \
             "@deepseek-ai/dsh@${DSH_VERSION}" \
             "@deepseek-ai/dsh-mcp-client@${DSH_MCP_CLIENT_VERSION}" \

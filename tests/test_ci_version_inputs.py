@@ -181,6 +181,22 @@ def test_dsh_compatibility_probe_resolves_selected_host_into_its_lock():
     )
     assert "next|latest" in run_script
     assert "published semver" in run_script
+    assert (
+        'DSH_VERSION="$(npm view "@deepseek-ai/dsh@${DSH_VERSION}" version)"'
+        in run_script
+    )
+    assert (
+        'npm view "@deepseek-ai/dsh@${DSH_VERSION}" dependencies --json'
+        in run_script
+    )
+    assert (
+        'DSH_MCP_CLIENT_VERSION="$(resolve_host_dependency '
+        + "'@deepseek-ai/dsh-mcp-client')\""
+    ) in run_script
+    assert (
+        'DSH_SKILL_FILESYSTEM_VERSION="$(resolve_host_dependency '
+        + "'@deepseek-ai/dsh-skill-filesystem')\""
+    ) in run_script
     for package_name, env_name in (
         ("dsh", "DSH_VERSION"),
         ("dsh-mcp-client", "DSH_MCP_CLIENT_VERSION"),
