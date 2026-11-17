@@ -2,12 +2,11 @@
 
 **One Memory. Multiple Agents. No Lock-in.**
 
-The [Codex plugin candidate](plugins/qdrant-memory/README.md) adds guided local
-setup, read-only native-memory import and verified JSON/Markdown handoff. It is
-versioned independently and does not add a second Runtime. See the
-[executed validation and limits](docs/codex-plugin-verification.md). Exports remain
-readable without this plugin or a subscription; native adoption is verified
-separately from file creation.
+For Codex and other non-Hermes agents, the primary path is the public stable
+stdio MCP distribution. Start with the [quickstart](docs/quickstart.md)
+([中文](docs/quickstart.zh-CN.md)): `qdrant-memory-mcp==0.3.5` pins Runtime
+0.7.1 and exposes four explicit memory tools. Hermes users should use the
+[native Plugin Catalog guide](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/INSTALL.md).
 
 Durable, portable, and permission-aware memory for AI agents — distributed as
 an MCP adapter over the Qdrant Memory Runtime.
@@ -25,6 +24,19 @@ A [WorkBuddy connector](integrations/workbuddy/README.md) and a
 MCP, the managed launcher and the canonical Skill.
 
 [简体中文](README.zh-CN.md)
+
+## Published paths and verification
+
+| Path | Published artifact and pin | Current status and acceptance boundary |
+|---|---|---|
+| [Stable stdio MCP](docs/quickstart.md) | PyPI `qdrant-memory-mcp==0.3.5`, Runtime 0.7.1 | Public stable release; protocol CI uses isolated profiles and a deterministic embedding fixture. This does not establish every live model/provider combination. |
+| [Codex plugin](plugins/qdrant-memory/README.md) | Candidate 0.1.4; MCP 0.3.3, Runtime 0.6.2 (`913fa705922b5bfeb29d52f102cfc6385a4d0436`), Skill 0.4.4 (`607b1335f7babc9a7a2f909d12d8214124d1032c`) | Not submitted to the public plugin directory. Official Codex CLI checks are recorded; Desktop GUI and native-memory adoption are separate. |
+| [DSH Bundle](docs/dsh-integration.md) | Public npm prerelease `@cnkang/qdrant-memory-dsh-bundle@0.2.0-rc.3`; DSH 0.2.2-rc.1, launcher 0.1.0-rc.12, Runtime 0.7.1 | Installable prerelease. Protected live-model/Cloud and Desktop GUI acceptance remain incomplete. |
+| [WorkBuddy connector](integrations/workbuddy/README.md) | GitHub release `workbuddy-v0.2.6`; launcher 0.1.0-rc.10, Runtime 0.6.2, Skill 0.4.4 | Exact-tag packaging and protocol gates passed. Marketplace GUI import, clean-machine provisioning and full application restart remain unverified. |
+
+The host adapters keep independent versions. A candidate or npm-installable RC
+does not imply model, Cloud, Desktop or marketplace acceptance. See each linked
+host guide and its evidence before choosing an adapter.
 
 Persistent, scoped memory for AI agents through four explicit **stdio MCP** tools.
 This repository distributes the existing [Python Runtime](https://github.com/cnkang/hermes-plugin-qdrant-memory).
@@ -62,73 +74,28 @@ SDK/CLI tested, real host tested, real desktop GUI tested, not verified.
 | Hermes | Yes | Yes (via standalone) | Yes | Yes | Opt-in | Yes | Real host tested |
 | OpenCode | No | Yes | No | No | Via Owner | Yes | Real host tested (dual-device) |
 | Pi | No | Yes (extension) | Opt-in adapter | Opt-in adapter | Via Owner | Yes | Real host tested |
-| DeepSeek Harness | No (lifecycle adapter) | Yes (DSH bundle) | Opt-in preview | Opt-in preview | Via Owner | Yes | DSH 0.2.2-rc.1 CI host tested; real model/GUI unverified |
-| WorkBuddy | No | Yes (connector) | No | No | Via Owner | Yes | Real desktop GUI tested |
-| Codex | No | Yes | No | No | Via Owner | Yes | Official CLI tested |
+| DeepSeek Harness | No (lifecycle adapter) | Yes (DSH bundle) | Opt-in preview | Opt-in preview | Via Owner | Yes | Bundle 0.2.0-rc.3; real model/Cloud/Desktop acceptance incomplete |
+| WorkBuddy | No | Yes (connector) | No | No | Via Owner | Yes | Connector 0.2.6 packaging/protocol passed; GUI Marketplace, clean-machine and restart unverified |
+| Codex | No | Yes | No | No | Via Owner | Yes | Candidate 0.1.4; official CLI tested, public directory not submitted |
 
 This distribution does not auto-extract conversations for any MCP host. Automatic
-capture and recall require a native provider or a lifecycle adapter. The DSH
-native preview is opt-in and source-merged, but its npm package is private and
-Runtime 0.7.1 is published. Real DSH AgentLoop, model, and desktop GUI evidence
-remains pending.
+capture and recall require a native provider or a lifecycle adapter. DSH automatic
+features are opt-in; the published npm prerelease is installable, while full
+live-model/Cloud and Desktop GUI acceptance remain pending.
 See the [Codex validation record](docs/codex-plugin-verification.md) for the
 tested CLI, source revisions and model providers; desktop GUI and native-memory
 adoption are separate verification boundaries.
 
-## Install and initialize
+## Stable stdio installation
 
-For the shortest currently supported local setup, follow the
-[Ollama quickstart](docs/quickstart.md) ([中文](docs/quickstart.zh-CN.md)).
-It covers an existing model, installing a missing model, a separate WorkBuddy
-profile, connection settings and a first save/search check. No Qdrant server,
-Docker, cloud account or embedding API key is needed for that local path.
-Python/uv and one-time profile configuration are still required for this
-direct route. The managed WorkBuddy connector and DSH bundle prepare those
-dependencies from Node.js instead.
-
-Requires Python 3.11+ and either [uv](https://docs.astral.sh/uv/) or a Python
-virtual environment. You must configure storage and an embedding service.
-For the example below, run Ollama and install `qwen3-embedding:4b` yourself.
-
-Create an operator-owned profile directory and save `qdrant-memory.json` inside:
-
-```json
-{
-  "schema_version": 1,
-  "scope": {"user_id": "my-user", "agent_id": "my-agent"},
-  "qdrant": {"mode": "embedded", "collection": "qdrant_memory"},
-  "embedding": {
-    "mode": "plugin", "provider": "ollama", "model": "qwen3-embedding:4b",
-    "base_url": "http://127.0.0.1:11434", "dimensions": 2560, "distance": "Cosine"
-  }
-}
-```
-
-Initialize, then launch (replace `/path/to/profile` with your absolute path):
-
-```bash
-uvx --from qdrant-memory-mcp==0.3.5 qdrant-memory-mcp --home /path/to/profile init
-uvx --from qdrant-memory-mcp==0.3.5 qdrant-memory-mcp --home /path/to/profile mcp
-```
-
-The command without `--home` uses `~/.qdrant-memory`, independent of Hermes.
-Configure and initialize that directory before letting a Registry client launch
-`uvx --from qdrant-memory-mcp==0.3.5 qdrant-memory-mcp mcp`.
-The executable name matches the package name.
-The Registry's positional `mcp` selects protocol mode. Its optional named
-`--home` precedes `mcp` when a client supplies a custom profile.
-
-Alternatively:
-
-```bash
-python3 -m venv .venv
-.venv/bin/python -m pip install qdrant-memory-mcp==0.3.5
-.venv/bin/qdrant-memory-mcp --home /path/to/profile init
-.venv/bin/qdrant-memory-mcp --home /path/to/profile mcp
-```
-
-On Windows use `.venv\Scripts\python.exe` and
-`.venv\Scripts\qdrant-memory-mcp.exe`.
+Follow the [fixed-version quickstart](docs/quickstart.md)
+([中文](docs/quickstart.zh-CN.md)) for environment checks, the dedicated
+profile, `init`, `doctor`, model reuse, client configuration and tool-level
+write/search/reconnect verification. Complete package preparation and profile
+checks in a terminal before connecting the host; the client connection must
+not be used to install, download models, initialize an existing collection or
+migrate data. Hermes profiles should use the native provider documented in the
+[Runtime installation guide](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/INSTALL.md).
 
 Qdrant embedded, self-hosted server and Cloud, plus Ollama and OpenAI-compatible
 embeddings, are configured in the Runtime's [configuration reference](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/configuration.md).

@@ -1,9 +1,10 @@
-# 最少步骤：用本地 Ollama 启用长期记忆
+# 稳定版 stdio MCP：本地 Ollama 快速开始
 
 适用于 WorkBuddy，也适用于能启动 stdio MCP 的 Codex、OpenCode 等客户端。
 使用本地 Ollama 和 Qdrant embedded，不需要 Docker、Qdrant Server、云账号或
-Embedding API Key。当前版本仍需 Python/uv 和一次配置；连接器安装成功不代表
-存储已经就绪。
+Embedding API Key。此路径使用公开稳定包 `qdrant-memory-mcp==0.3.5`，固定依赖
+Runtime 0.7.1；仍需 Python/uv 和一次 profile 配置。普通 MCP 只执行明确请求的记忆操作，
+不会自动提取对话或预取记忆。连接器安装成功不代表存储已经就绪。
 
 ## 1. 准备 Embedding 模型
 
@@ -35,7 +36,8 @@ ollama pull qwen3-embedding:4b
 
 ## 3. 创建独立 profile 并初始化一次
 
-创建一个新的私人目录，例如用户主目录下的 `.qdrant-memory-workbuddy`。
+选择一个新的私人目录，例如用户主目录下的 `.qdrant-memory-workbuddy`。
+先确认目录和其中的 `qdrant-memory.json` 都不存在；不要覆盖已有配置或 profile。
 不要使用已有 Hermes 或其他 agent 的 profile。记下该目录的**绝对路径**。
 
 在这个目录中新建 `qdrant-memory.json`，填写：
@@ -70,7 +72,10 @@ uvx --from qdrant-memory-mcp==0.3.5 qdrant-memory-mcp --home "/path/to/workbuddy
 
 初始化会调用本地模型、创建本地 collection，并检查模型维度和存储兼容性。
 两条命令都成功后再连接。平时和重启后无需重复初始化。若提示已有 collection、
-模型不匹配或锁被占用，先解决原因，不要添加 reset 参数或删除数据/锁文件。
+模型不匹配或锁被占用，先解决原因，不要覆盖配置、重建 profile、添加 `--force`/
+reset 参数或删除数据/锁文件。终端步骤也会预热固定版本的包，客户端可直接启动已缓存
+的命令；MCP 连接本身不安装 Ollama、不下载模型、不初始化已有 collection，也不迁移数据。
+若部分失败，先对同一 profile 运行 `doctor` 并检查结果，再决定下一步，不要盲目重跑初始化。
 
 ## 4. 在客户端连接 MCP
 
