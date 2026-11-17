@@ -1,11 +1,19 @@
 """Keep DSH compatibility overrides separate from protected release pins."""
 
+import io
+import json
+from contextlib import redirect_stdout
 from pathlib import Path
+from runpy import run_path
 
+import pytest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOWS = ROOT / ".github/workflows"
+validate_dsh_next_audit = run_path(
+    str(ROOT / "tests/dev/validate_dsh_next_audit.py")
+)["validate"]
 
 
 def _workflow(name):
@@ -110,6 +118,68 @@ def test_dsh_next_dispatch_versions_are_optional_and_default_to_current_values()
     )
     assert setup["with"]["install"] is False
     assert "npm install --global" not in serialized
+
+
+def test_dsh_next_audit_exception_is_limited_to_the_unpatched_upstream_advisory(tmp_path):
+    workflow = _workflow("dsh-next.yml")
+    audit_step = next(
+        step
+        for step in workflow["jobs"]["next"]["steps"]
+        if step.get("name") == "Capture npm advisory report"
+    )
+    assert "npm audit --json" in audit_step["run"]
+    assert "npm view picomatch version" in audit_step["run"]
+    assert "validate_dsh_next_audit.py" in audit_step["run"]
+
+    advisory_url = "https://github.com/advisories/GHSA-fc5q-39xc-vjpf"
+    report = {
+        "metadata": {
+            "vulnerabilities": {
+                "info": 0,
+                "low": 0,
+                "moderate": 0,
+                "high": 2,
+                "critical": 0,
+                "total": 2,
+            }
+        },
+        "vulnerabilities": {
+            "@deepseek-ai/dsh": {
+                "severity": "high",
+                "via": ["picomatch"],
+            },
+            "picomatch": {
+                "severity": "high",
+                "via": [{"url": advisory_url, "range": "<=4.0.7"}],
+            },
+        },
+    }
+    lock = {
+        "lockfileVersion": 3,
+        "packages": {"node_modules/picomatch": {"version": "4.0.7"}},
+    }
+    audit_path = tmp_path / "audit.json"
+    lock_path = tmp_path / "package-lock.json"
+    audit_path.write_text(json.dumps(report), encoding="utf-8")
+    lock_path.write_text(json.dumps(lock), encoding="utf-8")
+    with redirect_stdout(io.StringIO()) as output:
+        validate_dsh_next_audit(audit_path, lock_path, "4.0.7")
+    assert advisory_url in output.getvalue()
+
+    report["metadata"]["vulnerabilities"].update(high=3, total=3)
+    report["vulnerabilities"]["another-package"] = {
+        "severity": "high",
+        "via": [{"url": "https://github.com/advisories/GHSA-unapproved"}],
+    }
+    audit_path.write_text(json.dumps(report), encoding="utf-8")
+    with pytest.raises(ValueError, match="unapproved"):
+        validate_dsh_next_audit(audit_path, lock_path, "4.0.7")
+
+    report["metadata"]["vulnerabilities"].update(high=2, total=2)
+    del report["vulnerabilities"]["another-package"]
+    audit_path.write_text(json.dumps(report), encoding="utf-8")
+    with pytest.raises(ValueError, match="4.0.8"):
+        validate_dsh_next_audit(audit_path, lock_path, "4.0.8")
 
 
 def test_protected_cloud_and_release_toolchains_have_no_mutable_inputs():
