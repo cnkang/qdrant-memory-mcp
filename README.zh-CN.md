@@ -49,7 +49,7 @@ Skill 仅提供可选指导，不是运行依赖。Hermes 的自动提取和 pre
 | DeepSeek Harness | 否（生命周期适配器） | 是（DSH bundle） | 可选预览 | 可选预览 | 通过 Owner | 是 | DSH 0.2.2-rc.1 CI 宿主测试；真实模型/GUI 未验证 |
 | WorkBuddy | 否 | 是（connector） | 否 | 否 | 通过 Owner | 是 | 真实桌面 GUI 测试 |
 | Codex | 否 | 是 | 否 | 否 | 通过 Owner | 是 | 官方 CLI 测试 |
-| VS Code Copilot | 否 | 是（四个 MCP 工具） | 否 | 否 | 通过 Owner | 是 | [CI 配置/协议 PASS](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/44051231521)；Copilot CLI 1.0.112 新增/搜索及重启召回 PASS；桌面会话与 GitHub Registry 一键安装 NOT VERIFIED |
+| VS Code Copilot | 否 | 是（四个 MCP 工具） | 否 | 否 | 通过 Owner | 是 | [CI 配置/协议 PASS](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/44061227907)；Copilot CLI 1.0.112 PASS；VS Code 1.146.0 Copilot 桌面新增/重启召回 PASS；GitHub Registry 一键安装 NOT VERIFIED |
 
 本分发不对任何 MCP 宿主自动提取对话。自动捕获与召回需要原生 Provider 或生命周期适配器。DSH 原生预览需显式启用，源码已并入，但 npm 包仍为 private。Runtime 0.7.1 已公开；真实 DSH AgentLoop、模型与桌面 GUI 证据仍待补充。
 已测试的 CLI、源码修订和模型提供方见 [Codex 验证记录](docs/codex-plugin-verification.md)；

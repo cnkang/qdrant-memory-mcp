@@ -73,7 +73,9 @@ uvx --from qdrant-memory-mcp==0.3.5 qdrant-memory-mcp --home "/path/to/workbuddy
 Initialization calls the local model, creates local storage and validates its
 schema. Connect only after both commands succeed. Normal restarts do not need
 another initialization. Existing-collection, compatibility or writer-lock errors
-require investigation. Do not add reset options or remove data/lock files.
+require investigation. A `WriterBusyError` means another MCP process still owns
+the profile; stop it before starting a replacement. Do not add reset options or
+remove data/lock files.
 
 ## 4. Connect the client
 
@@ -109,12 +111,23 @@ confirm the tool call and result. Stop and restart the MCP server, open a new
 Copilot session without pasting the saved text, then ask it to find that saved
 marker with `qdrant_memory_search`.
 
+The embedded profile grants one active writer lease. Stop the previous session's
+MCP process completely before the new Copilot session starts its server from
+`.mcp.json`. A still-running old process causes `WriterBusyError`; do not start
+a second server against the same profile.
+
 | Verification | Status |
 |---|---|
-| VS Code Copilot desktop session | NOT VERIFIED; installed VS Code 1.144.1, but no authenticated Copilot tool call or restart recall observed |
-| CI configuration and stdio protocol | PASS locally with the candidate wheel and published 0.3.5; [GitHub Distribution CI PASS](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/44051231521) |
+| VS Code Copilot desktop session | PASS — VS Code 1.146.0; Copilot harness; workspace `.mcp.json`; public MCP 0.3.5 / Runtime 0.7.1; all four tools discovered and fresh-session restart recall passed |
+| CI configuration and stdio protocol | PASS locally with the candidate wheel and published 0.3.5; [GitHub Distribution CI PASS](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/44061227907) |
 | Copilot CLI | PASS — GitHub Copilot CLI 1.0.112 discovered all four tools and made real stdio add/search calls with published `qdrant-memory-mcp==0.3.5`; a fresh CLI process and session recalled the same synthetic record after the MCP process restarted |
 | GitHub Registry one-click install | NOT VERIFIED; manual configuration does not establish catalog installation |
+
+Desktop evidence (2026-11-17): `qdrant_memory_add` stored synthetic marker
+`VSCOPILOT-20261117-IK3Y7SOJ` and returned ID
+`20251dcf-3e15-5586-919d-838412bc392f`. After the MCP process stopped, a new
+Copilot session searched only for that marker and `qdrant_memory_search`
+returned the same synthetic record and ID.
 
 The MCP Registry metadata for `0.3.5` is active/latest, but that status does not
 verify a GitHub catalog one-click installation.

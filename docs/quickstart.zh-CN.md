@@ -71,6 +71,7 @@ uvx --from qdrant-memory-mcp==0.3.5 qdrant-memory-mcp --home "/path/to/workbuddy
 初始化会调用本地模型、创建本地 collection，并检查模型维度和存储兼容性。
 两条命令都成功后再连接。平时和重启后无需重复初始化。若提示已有 collection、
 模型不匹配或锁被占用，先解决原因，不要添加 reset 参数或删除数据/锁文件。
+`WriterBusyError` 表示另一个 MCP 进程仍持有该 profile；先彻底停止该进程，再启动替代进程。
 
 ## 4. 在客户端连接 MCP
 
@@ -103,12 +104,21 @@ Manifest 中可选的 `--home` 必须位于位置参数 `mcp` 之前。如果 VS
 停止并重启 MCP 服务，打开新的 Copilot 会话，不要粘贴原文，再要求它使用
 `qdrant_memory_search` 找回该标记。
 
+Embedded profile 同一时间只允许一个 writer lease。新 Copilot 会话从
+`.mcp.json` 启动服务前，先彻底停止上一会话的 MCP 进程；旧进程仍运行时，
+新会话会收到 `WriterBusyError`。不要对同一个 profile 再启动第二个服务进程。
+
 | 验证项 | 状态 |
 |---|---|
-| VS Code Copilot 桌面会话 | NOT VERIFIED；已确认 VS Code 1.144.1，尚未观察到登录后的 Copilot 工具调用或重启召回 |
-| CI 配置与 stdio 协议 | 候选 wheel 与 PyPI 0.3.5 的本地验收 PASS；[GitHub Distribution CI PASS](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/44051231521) |
+| VS Code Copilot 桌面会话 | PASS — VS Code 1.146.0；Copilot harness；工作区 `.mcp.json`；公开 MCP 0.3.5 / Runtime 0.7.1；发现四个工具，且新会话重启召回通过 |
+| CI 配置与 stdio 协议 | 候选 wheel 与 PyPI 0.3.5 的本地验收 PASS；[GitHub Distribution CI PASS](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/44061227907) |
 | Copilot CLI | PASS — GitHub Copilot CLI 1.0.112 已发现四个工具，并通过 stdio 对公开发布的 `qdrant-memory-mcp==0.3.5` 实际调用新增和搜索；重启 MCP 进程后，新 CLI 进程和会话召回了同一条合成记录 |
 | GitHub Registry 一键安装 | NOT VERIFIED；手动配置不等于目录安装 |
+
+桌面证据（2026-11-17）：`qdrant_memory_add` 保存了合成标记
+`VSCOPILOT-20261117-IK3Y7SOJ`，返回 ID
+`20251dcf-3e15-5586-919d-838412bc392f`。MCP 进程停止后，新 Copilot 会话只搜索该标记；
+`qdrant_memory_search` 找回了同一条合成记录和 ID。
 
 MCP Registry 元数据将 `0.3.5` 标记为 active/latest；这不能证明 GitHub 目录一键安装已通过。
 
