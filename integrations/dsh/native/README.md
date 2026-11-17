@@ -151,9 +151,9 @@ Runtime Owner must be ready before enabling either write or recall behavior.
 Embedding selection belongs to the Python Owner profile, not DSH. Create a new
 Owner destination using the [Runtime embedding guide](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/local-embedding.md)
 and [shared Owner setup](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/shared-memory/README.md).
-Runtime 0.6.2 provides the versioned candidate-event and failed-operation retry
-contract used by the adapter and is publicly available on PyPI. The commands
-below install the released `0.6.2` wheel. On replay, the adapter automatically
+Runtime 0.6.2 introduced the versioned candidate-event and failed-operation retry
+contract used by the adapter. The commands below install the current published
+`0.7.1` wheel. On replay, the adapter automatically
 retries Owner receipts in `ACCEPTED`, `PENDING`, or `FAILED` state by event ID.
 Runtime reuses the stored plan and retries only failed operations; `QUARANTINED`
 events still require explicit Owner-operator recovery.
@@ -162,14 +162,14 @@ For a new local CPU Owner, explicitly install the Runtime's `local` extra and
 create a separate profile:
 
 ```sh
-python -m pip install 'hermes-plugin-qdrant-memory[remote,local]==0.6.2'
+python -m pip install 'hermes-plugin-qdrant-memory[remote,local]==0.7.1'
 qdrant-memory setup --profile /absolute/private/dsh-owner --embedding-provider fastembed --agent-id dsh-owner
 ```
 
 For an existing Ollama model, the Runtime `local` extra is not needed:
 
 ```sh
-python -m pip install 'hermes-plugin-qdrant-memory[remote]==0.6.2'
+python -m pip install 'hermes-plugin-qdrant-memory[remote]==0.7.1'
 qdrant-memory setup --profile /absolute/private/dsh-owner --embedding-provider ollama --model qwen3-embedding:4b --dimensions 2560 --agent-id dsh-owner
 ```
 

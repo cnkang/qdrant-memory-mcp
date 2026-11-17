@@ -18,22 +18,22 @@ def _workflow(name):
 def test_cross_client_dispatch_defaults_to_public_runtime_and_keeps_old_fixture_optional():
     workflow = _workflow("dsh-cross-client.yml")
     inputs = workflow["on"]["workflow_dispatch"]["inputs"]
-    assert inputs["runtime_version"]["default"] == "0.6.2"
-    assert inputs["runtime_version"]["options"] == ["0.6.1", "0.6.2"]
+    assert inputs["runtime_version"]["default"] == "0.7.1"
+    assert inputs["runtime_version"]["options"] == ["0.6.1", "0.6.2", "0.7.1"]
     assert inputs["node_version"]["default"] == "24.9.0"
     assert inputs["python_version"]["default"] == "3.11"
     assert inputs["python_version"]["options"] == ["3.11", "3.12", "3.13", "3.14"]
     assert inputs["qdrant_client_version"]["default"] == "1.20.0"
 
     owner = workflow["jobs"]["owner"]
-    assert owner["env"]["DSH_RUNTIME_VERSION"] == "0.6.2"
+    assert owner["env"]["DSH_RUNTIME_VERSION"] == "0.7.1"
     assert owner["env"]["QDRANT_CLIENT_VERSION"] == "1.20.0"
     runtime_checkout = next(
         step["with"]
         for step in owner["steps"]
         if step.get("with", {}).get("repository") == "cnkang/hermes-plugin-qdrant-memory"
     )
-    assert runtime_checkout["ref"] == "913fa705922b5bfeb29d52f102cfc6385a4d0436"
+    assert runtime_checkout["ref"] == "cc5cac025f5d18afb5c698b2b5db444e30fc240e"
     node_setup = next(step["with"] for step in owner["steps"] if "setup-node" in step.get("uses", ""))
     python_setup = next(step["with"] for step in owner["steps"] if "setup-python" in step.get("uses", ""))
     assert node_setup["node-version"] == "24.9.0"
@@ -45,7 +45,7 @@ def test_cross_client_dispatch_defaults_to_public_runtime_and_keeps_old_fixture_
     assert compatibility["needs"] == "owner"
     assert "github.event_name == 'workflow_dispatch'" in compatibility["if"]
     for field, default in (
-        ("runtime_version", "0.6.2"),
+        ("runtime_version", "0.7.1"),
         ("node_version", "24.9.0"),
         ("python_version", "3.11"),
         ("qdrant_client_version", "1.20.0"),
@@ -61,7 +61,9 @@ def test_cross_client_dispatch_defaults_to_public_runtime_and_keeps_old_fixture_
     assert compatibility_checkout["ref"] == (
         "${{ inputs.runtime_version == '0.6.1' && "
         "'2696122405e3324a1e227c131e0f9b2a320dd23c' || "
-        "'913fa705922b5bfeb29d52f102cfc6385a4d0436' }}"
+        "inputs.runtime_version == '0.6.2' && "
+        "'913fa705922b5bfeb29d52f102cfc6385a4d0436' || "
+        "'cc5cac025f5d18afb5c698b2b5db444e30fc240e' }}"
     )
 
 
@@ -120,8 +122,8 @@ def test_protected_cloud_and_release_toolchains_have_no_mutable_inputs():
     cloud = _workflow("dsh-native-cloud.yml")
     assert cloud["jobs"]["cloud"]["environment"] == "soak-cloud"
     cloud_text = (WORKFLOWS / "dsh-native-cloud.yml").read_text(encoding="utf-8")
-    assert "hermes-plugin-qdrant-memory[remote]==0.6.2" in cloud_text
-    assert "ref: 913fa705922b5bfeb29d52f102cfc6385a4d0436" in cloud_text
+    assert "hermes-plugin-qdrant-memory[remote]==0.7.1" in cloud_text
+    assert "ref: cc5cac025f5d18afb5c698b2b5db444e30fc240e" in cloud_text
 
     release = _workflow("dsh-bundle-release.yml")
     build_steps = release["jobs"]["build"]["steps"]

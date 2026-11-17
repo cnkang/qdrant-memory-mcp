@@ -86,19 +86,19 @@ auto_capture:
   enabled: true
 ```
 
-嵌入模型和存储只能配置在 Python Owner profile 中，不属于 DSH profile。请先创建新的 Owner destination，并阅读 [Runtime 嵌入设置](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/local-embedding.md)与[共享 Owner 部署](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/shared-memory/README.zh-CN.md)。Runtime 0.6.2 已在 PyPI 正式发布，提供原生适配器使用的候选事件和失败操作重试契约；下方安装命令使用公开发布的 `0.6.2` wheel。会话恢复时，适配器仅按事件 ID 自动重试 `ACCEPTED`、`PENDING` 和 `FAILED` receipt，复用 Owner 保存的计划，且只重试失败操作；`QUARANTINED` 事件仍须由 Owner 操作员显式恢复。
+嵌入模型和存储只能配置在 Python Owner profile 中，不属于 DSH profile。请先创建新的 Owner destination，并阅读 [Runtime 嵌入设置](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/local-embedding.md)与[共享 Owner 部署](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/shared-memory/README.zh-CN.md)。Runtime 0.6.2 引入了原生适配器使用的候选事件和失败操作重试契约；下方安装命令使用当前公开发布的 `0.7.1` wheel。会话恢复时，适配器仅按事件 ID 自动重试 `ACCEPTED`、`PENDING` 和 `FAILED` receipt，复用 Owner 保存的计划，且只重试失败操作；`QUARANTINED` 事件仍须由 Owner 操作员显式恢复。
 
 为新的本地 CPU Owner 显式安装 Runtime 的 `local` extra，并创建独立 profile：
 
 ```sh
-python -m pip install 'hermes-plugin-qdrant-memory[remote,local]==0.6.2'
+python -m pip install 'hermes-plugin-qdrant-memory[remote,local]==0.7.1'
 qdrant-memory setup --profile /absolute/private/dsh-owner --embedding-provider fastembed --agent-id dsh-owner
 ```
 
 使用已安装的 Ollama 模型时，无需 Runtime 的 `local` extra：
 
 ```sh
-python -m pip install 'hermes-plugin-qdrant-memory[remote]==0.6.2'
+python -m pip install 'hermes-plugin-qdrant-memory[remote]==0.7.1'
 qdrant-memory setup --profile /absolute/private/dsh-owner --embedding-provider ollama --model qwen3-embedding:4b --dimensions 2560 --agent-id dsh-owner
 ```
 

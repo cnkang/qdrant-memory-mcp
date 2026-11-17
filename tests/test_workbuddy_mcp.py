@@ -12,7 +12,7 @@ from pathlib import Path
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 from test_protocol import (
-    test_copilot_configuration_and_protocol_crud_restart as exercise_scopes,
+    exercise_protocol_crud_restart as exercise_scopes,
 )
 from test_protocol import test_stdout_is_jsonrpc_only as exercise_stdout
 

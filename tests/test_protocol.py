@@ -75,7 +75,16 @@ def test_uvx_acceptance_tracks_installed_distribution(monkeypatch):
 def test_copilot_configuration_and_protocol_crud_restart(sandbox):
     """Check Copilot config parity and candidate/public SDK CRUD over stdio."""
     app_args = _copilot_configuration()
+    exercise_protocol_crud_restart(sandbox, app_args)
+
+
+def exercise_protocol_crud_restart(sandbox, app_args=None):
+    """Exercise stdio SDK CRUD, scopes and restart persistence in a sandbox."""
     profile, config_path, config, env, script, cli, _ = sandbox
+    if app_args is None:
+        app_args = ["--home", str(profile), "mcp"]
+    else:
+        app_args = list(app_args)
     app_args[app_args.index("--home") + 1] = str(profile)
     foreign = []
     for user, agent in [("other-user", "test-agent"), ("test-user", "other-agent")]:

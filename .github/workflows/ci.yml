@@ -81,7 +81,7 @@ jobs:
         working-directory: ${{ runner.temp }}
         run: |
           if [ '${{ runner.os }}' = 'Windows' ]; then WORKSPACE="$(cygpath -u "$GITHUB_WORKSPACE")"; PY="$WORKSPACE/.wheel-env/Scripts/python.exe"; else PY="$GITHUB_WORKSPACE/.wheel-env/bin/python"; fi
-          "$PY" -m pip install --only-binary=:all: 'hermes-plugin-qdrant-memory[mcp]==0.6.0' 'qdrant-memory-mcp==0.3.1'
+          "$PY" -m pip install --only-binary=:all: 'hermes-plugin-qdrant-memory[mcp]==0.7.1' 'qdrant-memory-mcp==0.3.5'
           "$PY" -m pip check
           "$PY" -m pytest -q "$GITHUB_WORKSPACE/tests/test_codex_plugin.py" --junitxml="$GITHUB_WORKSPACE/codex-plugin-results.xml"
       # This exact edge-case test may skip only when the host cannot store the ref name.

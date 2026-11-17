@@ -18,7 +18,7 @@ version from PyPI; PR candidates do not need to exist on PyPI.
 Distribution CI does not select `tests/test_native_pi_handoff.py`.
 The test needs a Hermes host checkout and a Pi workspace.
 The `owner-lifecycle` job supplies both inputs.
-That job pins Runtime `dee6777432f17523db75f6be32cf3ef15e48235c`, the 0.6.0 release source, which provides `remote-call` and `remote-event`.
+That job checks out Runtime `cc5cac025f5d18afb5c698b2b5db444e30fc240e`, the public 0.7.1 release source, which provides `remote-call` and `remote-event`.
 Both jobs reject skipped tests.
 
 - Distribution CI builds metadata-only artifacts.
@@ -114,7 +114,7 @@ They verify a ZIP roundtrip and reject a malformed ZIP64 archive within a fixed 
 These npm dependencies serve development tests only.
 Python artifacts and the configuration-only Bundle do not include them.
 
-The Runtime dependency uses the exact version `0.6.0`.
+The Runtime dependency uses the exact version `0.7.1`.
 For a Runtime update, also update compatibility expectations and the preparation fixture.
 A dependency-only PR cannot bypass distribution metadata and protocol checks.
 This repository scans distribution scripts and workflows.
