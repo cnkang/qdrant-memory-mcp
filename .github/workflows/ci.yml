@@ -81,8 +81,8 @@ jobs:
         working-directory: ${{ runner.temp }}
         run: |
           if [ '${{ runner.os }}' = 'Windows' ]; then WORKSPACE="$(cygpath -u "$GITHUB_WORKSPACE")"; PY="$WORKSPACE/.wheel-env/Scripts/python.exe"; else PY="$GITHUB_WORKSPACE/.wheel-env/bin/python"; fi
-          # Remove the candidate wheel installed above so this exercises PyPI.
-          "$PY" -m pip uninstall -y qdrant-memory-mcp
+          # Remove preparation-only candidate packages so this exercises PyPI.
+          "$PY" -m pip uninstall -y qdrant-memory-mcp hermes-plugin-qdrant-memory
           "$PY" -m pip install --only-binary=:all: 'hermes-plugin-qdrant-memory[mcp]==0.7.1' 'qdrant-memory-mcp==0.3.5'
           "$PY" -m pip check
           "$PY" -m pytest -q "$GITHUB_WORKSPACE/tests/test_codex_plugin.py" --junitxml="$GITHUB_WORKSPACE/codex-plugin-results.xml"

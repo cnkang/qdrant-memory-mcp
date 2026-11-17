@@ -41,7 +41,7 @@ jobs:
           - os: ubuntu-24.04
             arch: x64
             node: '24.9.0'
-          - os: macos-15
+          - os: macos-latest
             arch: arm64
             node: '24'
           - os: windows-2025

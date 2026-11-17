@@ -97,7 +97,7 @@ destination that is not enrolled, omit `--policy`.
 OWNER_POLICY="/absolute/path/to/existing-protected-owner-policy"
 qdrant-memory --home "/absolute/profile" upgrade plan --policy "$OWNER_POLICY"
 qdrant-memory --home "/absolute/profile" upgrade apply --plan PLAN_ID --policy "$OWNER_POLICY"
-# If apply was interrupted, resume the same plan:
+# Resume only if every writer stayed stopped and the stop-write window is confirmed unbroken:
 qdrant-memory --home "/absolute/profile" upgrade resume --plan PLAN_ID --policy "$OWNER_POLICY"
 qdrant-memory --home "/absolute/profile" upgrade status
 ```
@@ -107,14 +107,22 @@ It saves one control-plane record and writes nothing else. A conflicting index
 type is a blocker: never delete or rebuild that index to make the plan pass.
 `apply` refuses a stale plan and re-verifies before committing the effective
 policy. For embedded destinations it creates and verifies a local recovery
-point. If it is interrupted, run `upgrade resume` with the same plan identifier.
+point. Resume an interrupted apply with the same plan only when every writer
+remained stopped and the stop-write window is confirmed unbroken. If any writer
+resumed, or the window was interrupted or cannot be confirmed, isolate writers
+again and run `upgrade plan --replace` to archive the old plan and its recovery
+point. Reuse the existing protected `--policy` for an enrolled destination.
+Before applying the replacement plan, use a fresh recovery point. For embedded
+destinations, the replacement `apply` creates and verifies a new local recovery
+point.
 
-For a remote destination, before `apply` the operator must create a provider-side
-snapshot at the stopped-writer boundary and retain its attestation with the
-maintenance record. The Runtime cannot create this snapshot. Remote `apply`
-requires `--confirm-writers-isolated` and `--accept-operator-backup`; the latter
-confirms the operator-created snapshot and does not create it. Use the same
-confirmations when resuming an interrupted remote apply.
+For a remote destination, before each `apply` (including a replacement plan),
+the operator must create a new provider-side snapshot at the stopped-writer
+boundary and retain its attestation with the maintenance record. The Runtime
+cannot create this snapshot. Remote `apply` requires
+`--confirm-writers-isolated` and `--accept-operator-backup`; the latter confirms
+the operator-created snapshot and does not create it. A remote `resume` also
+requires the unbroken stop-write window above and the same confirmations.
 
 After a successful apply, restart the hosts so each reader reopens the
 destination with the accepted policy. Report the plan identifier, the schema and
