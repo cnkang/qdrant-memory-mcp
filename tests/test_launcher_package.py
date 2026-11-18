@@ -68,3 +68,13 @@ def test_managed_lock_uses_official_fastembed_and_pillow_security_version():
     assert "+qm.pillow13" not in lock
     assert "--hash=sha256:" + metadata["sha256"] in lock
     assert "hermes-plugin-qdrant-memory==" + metadata["version"] + " \\\n" in lock
+
+
+def test_packaged_readme_installs_the_current_launcher_version():
+    """The README ships inside the tarball, so it must name its own version."""
+    manifest = json.loads(
+        (ROOT / "integrations/managed/package.json").read_text(encoding="utf-8")
+    )
+    readme = (ROOT / "integrations/managed/README.md").read_text(encoding="utf-8")
+    command = f"npm install --global {manifest['name']}@{manifest['version']}"
+    assert command in readme
