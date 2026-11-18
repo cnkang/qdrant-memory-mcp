@@ -2,8 +2,8 @@
 
 适用于 WorkBuddy，也适用于能启动 stdio MCP 的 Codex、OpenCode 等客户端。
 使用本地 Ollama 和 Qdrant embedded，不需要 Docker、Qdrant Server、云账号或
-Embedding API Key。此路径使用公开稳定包 `qdrant-memory-mcp==0.3.5`，固定依赖
-Runtime 0.7.1；仍需 Python/uv 和一次 profile 配置。普通 MCP 只执行明确请求的记忆操作，
+Embedding API Key。此路径使用公开稳定包 `qdrant-memory-mcp==0.3.6`，固定依赖
+Runtime 0.7.2；仍需 Python/uv 和一次 profile 配置。普通 MCP 只执行明确请求的记忆操作，
 不会自动提取对话或预取记忆。连接器安装成功不代表存储已经就绪。
 
 ## 1. 准备 Embedding 模型
@@ -58,7 +58,7 @@ ollama pull qwen3-embedding:4b
 }
 ```
 
-公开版 `qdrant-memory-mcp==0.3.5` 固定依赖 Runtime 0.7.1。下方命令使用此精确版本。
+公开版 `qdrant-memory-mcp==0.3.6` 固定依赖 Runtime 0.7.2。下方命令使用此精确版本。
 安装前请在 [PyPI](https://pypi.org/project/qdrant-memory-mcp/0.3.5/) 确认该版本。
 
 其他 agent 使用各自的新目录和 `agent_id`。在终端运行下列命令，把
@@ -66,8 +66,8 @@ ollama pull qwen3-embedding:4b
 Windows 也填写实际的绝对路径，JSON 中反斜杠写成 `\\`，或使用 `/`。
 
 ```sh
-uvx --from qdrant-memory-mcp==0.3.5 qdrant-memory-mcp --home "/path/to/workbuddy-profile" init
-uvx --from qdrant-memory-mcp==0.3.5 qdrant-memory-mcp --home "/path/to/workbuddy-profile" doctor
+uvx --from qdrant-memory-mcp==0.3.6 qdrant-memory-mcp --home "/path/to/workbuddy-profile" init
+uvx --from qdrant-memory-mcp==0.3.6 qdrant-memory-mcp --home "/path/to/workbuddy-profile" doctor
 ```
 
 初始化会调用本地模型、创建本地 collection，并检查模型维度和存储兼容性。
@@ -94,7 +94,7 @@ Ollama、下载模型、初始化已有 collection 或迁移数据。不要覆�
     "qdrant-memory": {
       "type": "stdio",
       "command": "uvx",
-      "args": ["--from", "qdrant-memory-mcp==0.3.5", "qdrant-memory-mcp", "--home", "/path/to/copilot-profile", "mcp"]
+      "args": ["--from", "qdrant-memory-mcp==0.3.6", "qdrant-memory-mcp", "--home", "/path/to/copilot-profile", "mcp"]
     }
   }
 }
@@ -118,7 +118,7 @@ Embedded profile 同一时间只允许一个 writer lease。新 Copilot 会话�
 |---|---|
 | VS Code Copilot 桌面会话 | PASS — VS Code 1.146.0；Copilot harness；工作区 `.mcp.json`；公开 MCP 0.3.5 / Runtime 0.7.1；发现四个工具，且新会话重启召回通过 |
 | CI 配置与 stdio 协议 | 候选 wheel 与 PyPI 0.3.5 的本地验收 PASS；[GitHub Distribution CI PASS](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/44061227907) |
-| Copilot CLI | PASS — GitHub Copilot CLI 1.0.112 已发现四个工具，并通过 stdio 对公开发布的 `qdrant-memory-mcp==0.3.5` 实际调用新增和搜索；重启 MCP 进程后，新 CLI 进程和会话召回了同一条合成记录 |
+| Copilot CLI | PASS — GitHub Copilot CLI 1.0.112 已发现四个工具，并通过 stdio 对公开发布的 `qdrant-memory-mcp==0.3.6` 实际调用新增和搜索；重启 MCP 进程后，新 CLI 进程和会话召回了同一条合成记录 |
 | GitHub Registry 一键安装 | NOT VERIFIED；手动配置不等于目录安装 |
 
 桌面证据（2026-11-17）：`qdrant_memory_add` 保存了合成标记
@@ -141,7 +141,7 @@ WorkBuddy 中添加自定义 stdio MCP，使用以下配置；将路径替换为
     "qdrant-memory": {
       "type": "stdio",
       "command": "uvx",
-      "args": ["--from", "qdrant-memory-mcp==0.3.5", "qdrant-memory-mcp", "--home", "/path/to/workbuddy-profile", "mcp"],
+      "args": ["--from", "qdrant-memory-mcp==0.3.6", "qdrant-memory-mcp", "--home", "/path/to/workbuddy-profile", "mcp"],
       "timeout": 30000
     }
   }
