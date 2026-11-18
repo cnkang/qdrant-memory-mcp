@@ -9,7 +9,7 @@ installed Runtime CLI. Do not turn CLI maintenance into additional MCP tools.
 ## New isolated local profile
 
 Use this path only when the user wants a new profile and confirms a new
-user-controlled directory. The supported Runtime 0.6.2 `setup` command creates a
+user-controlled directory. The supported Runtime 0.7.1 `setup` command creates a
 private embedded profile and initializes its collection. It requires an
 explicit embedding-provider choice. For the recommended local CPU option:
 
@@ -75,6 +75,60 @@ authorized a diagnostic against that profile; diagnostics can open or migrate
 local Ledger state. If the collection or fingerprint is incompatible, stop and
 explain the mismatch. Do not rebuild, re-embed or create a replacement
 collection without a separate, explicit migration decision.
+
+## Adopt a policy on an existing destination (Runtime 0.7.1)
+
+A destination written by an earlier Runtime keeps serving its dense path. It is
+reported as `legacy` until an operator applies a plan. Do not treat a missing
+policy record as a reason to rebuild the collection, change the embedding model
+or create a new profile.
+
+Run this only inside an authorized maintenance window, with every gateway,
+provider worker and MCP server stopped for that profile. For a remote
+destination also stop every other Owner, device and credential that can write
+the same collection.
+
+For an enrolled destination, set `OWNER_POLICY` to its existing protected Owner
+policy file and reuse that file for `plan`, `apply` and `resume`. Keep its
+protection unchanged; do not replace it with an unprotected policy. For a legacy
+destination that is not enrolled, omit `--policy`.
+
+```bash
+OWNER_POLICY="/absolute/path/to/existing-protected-owner-policy"
+qdrant-memory --home "/absolute/profile" upgrade plan --policy "$OWNER_POLICY"
+qdrant-memory --home "/absolute/profile" upgrade apply --plan PLAN_ID --policy "$OWNER_POLICY"
+# Resume only if every writer stayed stopped and the stop-write window is confirmed unbroken:
+qdrant-memory --home "/absolute/profile" upgrade resume --plan PLAN_ID --policy "$OWNER_POLICY"
+qdrant-memory --home "/absolute/profile" upgrade status
+```
+
+`plan` reports the blockers, the per-field index status and the data checkpoint.
+It saves one control-plane record and writes nothing else. A conflicting index
+type is a blocker: never delete or rebuild that index to make the plan pass.
+`apply` refuses a stale plan and re-verifies before committing the effective
+policy. For embedded destinations it creates and verifies a local recovery
+point. Resume an interrupted apply with the same plan only when every writer
+remained stopped and the stop-write window is confirmed unbroken. If any writer
+resumed, or the window was interrupted or cannot be confirmed, isolate writers
+again and run `upgrade plan --replace` to archive the old plan and its recovery
+point. Reuse the existing protected `--policy` for an enrolled destination.
+Before applying the replacement plan, use a fresh recovery point. For embedded
+destinations, the replacement `apply` creates and verifies a new local recovery
+point.
+
+For a remote destination, before each `apply` (including a replacement plan),
+the operator must create a new provider-side snapshot at the stopped-writer
+boundary and retain its attestation with the maintenance record. The Runtime
+cannot create this snapshot. Remote `apply` requires
+`--confirm-writers-isolated` and `--accept-operator-backup`; the latter confirms
+the operator-created snapshot and does not create it. A remote `resume` also
+requires the unbroken stop-write window above and the same confirmations.
+
+After a successful apply, restart the hosts so each reader reopens the
+destination with the accepted policy. Report the plan identifier, the schema and
+identity check, the index status and any blocker. Do not describe a rollback of
+the application version as a storage downgrade: restoring the recovery point is
+the supported path, and it discards writes that landed after it.
 
 ## Import Codex native memory
 

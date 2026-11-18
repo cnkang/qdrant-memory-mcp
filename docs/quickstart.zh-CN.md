@@ -71,13 +71,64 @@ uvx --from qdrant-memory-mcp==0.3.5 qdrant-memory-mcp --home "/path/to/workbuddy
 ```
 
 初始化会调用本地模型、创建本地 collection，并检查模型维度和存储兼容性。
-两条命令都成功后再连接。平时和重启后无需重复初始化。若提示已有 collection、
-模型不匹配或锁被占用，先解决原因，不要覆盖配置、重建 profile、添加 `--force`/
-reset 参数或删除数据/锁文件。终端步骤也会预热固定版本的包，客户端可直接启动已缓存
-的命令；MCP 连接本身不安装 Ollama、不下载模型、不初始化已有 collection，也不迁移数据。
-若部分失败，先对同一 profile 运行 `doctor` 并检查结果，再决定下一步，不要盲目重跑初始化。
+两条命令都成功后再连接。平时和重启后无需重复初始化。如遇到已有文件、已有 collection、
+模型不匹配或兼容性错误、锁被占用，应先调查原因。
+`WriterBusyError` 表示另一个 MCP 进程仍持有该 profile；先彻底停止该进程，再启动替代进程。
+终端步骤也会预热固定版本的包，客户端可直接启动已缓存的命令。MCP 连接本身不会安装
+Ollama、下载模型、初始化已有 collection 或迁移数据。不要覆盖配置、重建 profile、使用
+`--force`、添加 reset 参数或删除数据/锁文件。若部分失败，先对同一 profile 运行 `doctor`
+并检查结果，再决定下一步。
 
 ## 4. 在客户端连接 MCP
+
+### VS Code Copilot
+
+先完成步骤 1–3：启动 Embedding 服务，创建新 profile，再运行 `init` 和 `doctor`。
+在工作区根目录创建 `.mcp.json`，使用 VS Code 原生 Copilot `mcpServers` 格式；
+在聊天会话中选择 Copilot harness。`.vscode/mcp.json` 属于已弃用的 Local harness，
+不是 Copilot 原生配置。
+
+```json
+{
+  "mcpServers": {
+    "qdrant-memory": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["--from", "qdrant-memory-mcp==0.3.5", "qdrant-memory-mcp", "--home", "/path/to/copilot-profile", "mcp"]
+    }
+  }
+}
+```
+
+Manifest 中可选的 `--home` 必须位于位置参数 `mcp` 之前。如果 VS Code 进程找不到
+`uvx`，把 `command` 改成它的绝对路径。这条路径只提供显式的记忆搜索、新增、更新和删除；
+不会自动提取对话，也不需要安装 Hermes 或 Agent Skill。
+
+在 Copilot 工具列表确认存在 `qdrant_memory_search`、`qdrant_memory_add`、
+`qdrant_memory_update` 和 `qdrant_memory_delete`。让 Copilot 使用
+`qdrant_memory_add` 保存一条带唯一标记的合成测试记忆，并确认真实工具调用和返回值。
+停止并重启 MCP 服务，打开新的 Copilot 会话，不要粘贴原文，再要求它使用
+`qdrant_memory_search` 找回该标记。
+
+Embedded profile 同一时间只允许一个 writer lease。新 Copilot 会话从
+`.mcp.json` 启动服务前，先彻底停止上一会话的 MCP 进程；旧进程仍运行时，
+新会话会收到 `WriterBusyError`。不要对同一个 profile 再启动第二个服务进程。
+
+| 验证项 | 状态 |
+|---|---|
+| VS Code Copilot 桌面会话 | PASS — VS Code 1.146.0；Copilot harness；工作区 `.mcp.json`；公开 MCP 0.3.5 / Runtime 0.7.1；发现四个工具，且新会话重启召回通过 |
+| CI 配置与 stdio 协议 | 候选 wheel 与 PyPI 0.3.5 的本地验收 PASS；[GitHub Distribution CI PASS](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/44061227907) |
+| Copilot CLI | PASS — GitHub Copilot CLI 1.0.112 已发现四个工具，并通过 stdio 对公开发布的 `qdrant-memory-mcp==0.3.5` 实际调用新增和搜索；重启 MCP 进程后，新 CLI 进程和会话召回了同一条合成记录 |
+| GitHub Registry 一键安装 | NOT VERIFIED；手动配置不等于目录安装 |
+
+桌面证据（2026-11-17）：`qdrant_memory_add` 保存了合成标记
+`VSCOPILOT-20261117-IK3Y7SOJ`，返回 ID
+`20251dcf-3e15-5586-919d-838412bc392f`。MCP 进程停止后，新 Copilot 会话只搜索该标记；
+`qdrant_memory_search` 找回了同一条合成记录和 ID。
+
+MCP Registry 元数据将 `0.3.5` 标记为 active/latest；这不能证明 GitHub 目录一键安装已通过。
+
+### WorkBuddy 与其他 stdio MCP 客户端
 
 WorkBuddy 中添加自定义 stdio MCP，使用以下配置；将路径替换为步骤 3 的同一个目录。
 受管连接器使用其数据根目录下的 `profiles/workbuddy/local`，不会自动选择这里的

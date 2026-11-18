@@ -1,6 +1,7 @@
 """Share the disposable installed-runtime sandbox across harness modules."""
 
 import hashlib
+import importlib.metadata
 import json
 import os
 import shutil
@@ -99,7 +100,8 @@ def sandbox(tmp_path):
     if runtime_wheels or os.environ.get("DIST_TEST_UVX"):
         uvx = shutil.which("uvx")
         assert uvx, "uvx acceptance was requested but uvx is unavailable"
-        launch = [uvx, "--from", "qdrant-memory-mcp==0.2.4"]
+        package_version = importlib.metadata.version("qdrant-memory-mcp")
+        launch = [uvx, "--from", f"qdrant-memory-mcp=={package_version}"]
         if runtime_wheels:
             launch += [
                 "--find-links",
@@ -108,7 +110,9 @@ def sandbox(tmp_path):
                 runtime_wheels,
             ]
         launch += ["qdrant-memory-mcp"]
-        env["UV_CACHE_DIR"] = str(tmp_path / "uv-cache")
+        env["UV_CACHE_DIR"] = os.environ.get(
+            "DIST_TEST_UVX_CACHE_DIR", str(tmp_path / "uv-cache")
+        )
         env["UV_PYTHON"] = sys.executable
 
     def cli(*args, ok=True):

@@ -31,7 +31,7 @@ source/requirements.txt delivery and must not carry desktop
 bundle payloads.
 
 Generated platforms: linux-x64, macos-arm64, macos-x64, windows-x64
-Runtime wheel: hermes_plugin_qdrant_memory-0.6.2-py3-none-any.whl
-Runtime wheel sha256: 1102eead4bce75004928b6d7a38880ebf7700f9d1a420e0d4b2a6f69f4a3714b
-Runtime source commit: 913fa705922b5bfeb29d52f102cfc6385a4d0436
-Runtime version: 0.6.2
+Runtime wheel: hermes_plugin_qdrant_memory-0.7.1-py3-none-any.whl
+Runtime wheel sha256: 59a37af83246027b0dd39f13645d1b51633704c5abd787c6642581410a06f252
+Runtime source commit: cc5cac025f5d18afb5c698b2b5db444e30fc240e
+Runtime version: 0.7.1

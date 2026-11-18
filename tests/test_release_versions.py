@@ -30,7 +30,11 @@ def test_readmes_prioritize_stable_stdio_and_label_host_candidates():
         assert "0.1.0-rc.12" in text
         assert "0.1.0-rc.10" in text
         assert "Runtime 0.6.2" in text
-        assert "public directory" in text.lower() or "公共插件目录" in text
+        assert (
+            "public directory" in text.lower()
+            or "public plugin directory" in text.lower()
+            or "公共插件目录" in text
+        ), name
         assert "npm package is private" not in text
         assert "npm 包仍为 private" not in text
         assert "GUI Marketplace" in text or "Marketplace GUI" in text
@@ -170,7 +174,7 @@ def test_workbuddy_readme_separates_published_and_next_launcher():
     args = mcp["mcpServers"]["qdrant-memory"]["args"]
     assert "0.1.0-rc.11" not in guide
     assert "0.1.0-rc.10" in guide
-    assert "selects launcher 0.1.0-rc.12 and Runtime 0.7.1" in guide
+    assert "selects launcher 0.1.0-rc.12, Runtime 0.7.1 and Skill 0.4.6" in guide
     assert any("0.1.0-rc.12" in value for value in args)
 
 

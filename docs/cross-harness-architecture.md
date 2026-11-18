@@ -68,7 +68,7 @@ Never remove locks or change fingerprints to force compatibility.
 | Node launcher | 0.1.0-rc.12 | Release candidate pinned by WorkBuddy and DSH sources. It installs Runtime 0.7.1 for standalone MCP use; verify this exact version on npm |
 | DSH bundle | 0.2.0-rc.3 | Host bundle candidate; public npm acceptance and desktop compatibility remain separate gates |
 | Bootstrap | uv 0.13.1 / Python 3.11.15 | Fixed platform artifacts, verified uv hash |
-| Canonical Skill | 0.4.4 | See connector `skill-source.json` for exact commit |
+| Canonical Skill | 0.4.6 | See connector `skill-source.json` for exact commit |
 | DSH contract-test packages | 0.2.1-rc.2 | Exact npm test pins and lockfile |
 
 The managed Node launcher selects Runtime 0.7.1 with official FastEmbed 0.9.1

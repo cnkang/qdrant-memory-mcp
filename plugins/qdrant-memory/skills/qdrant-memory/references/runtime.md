@@ -5,7 +5,7 @@ This skill supplies instructions. The shared [Qdrant memory backend](https://git
 The private compatibility examples pin Runtime 0.2.2 and MCP distribution 0.1.3,
 the verified private compatibility baseline for this skill. These minimum
 versions do not provide the Runtime 0.5.0 Owner controls. This skill targets
-Runtime 0.6.2. Its `mcp` extra provides the standalone stdio server directly.
+Runtime 0.7.1. Its `mcp` extra provides the standalone stdio server directly.
 The optional metadata-only [MCP distribution](https://pypi.org/project/qdrant-memory-mcp/)
 is versioned independently; verify its PyPI release before installing an exact
 version. The installer accepts an installed Runtime that is at least the
@@ -23,21 +23,21 @@ sizes/hashes and atomic cache publication. Managed launchers allow forty
 minutes for setup. Authorize the initial model download explicitly; ordinary
 memory operations do not download models.
 
-## Install Runtime 0.6.2 for Owner controls and Codex portability
+## Install Runtime 0.7.1 for Owner controls and Codex portability
 
 When Owner setup is explicitly authorized, select a new private environment and
 request the version that provides the controls:
 
 ```bash
 python3 /path/to/installed/qdrant-memory/scripts/install_runtime.py \
-  --venv /private/path/qdrant-owner-env --version 0.6.2
+  --venv /private/path/qdrant-owner-env --version 0.7.1
 /private/path/qdrant-owner-env/bin/qdrant-memory --help
 ```
 
-The published `v0.6.2` tag resolves to immutable source commit
-[`913fa705922b5bfeb29d52f102cfc6385a4d0436`](https://github.com/cnkang/hermes-plugin-qdrant-memory/commit/913fa705922b5bfeb29d52f102cfc6385a4d0436).
+The published `v0.7.1` tag resolves to immutable source commit
+[`cc5cac025f5d18afb5c698b2b5db444e30fc240e`](https://github.com/cnkang/hermes-plugin-qdrant-memory/commit/cc5cac025f5d18afb5c698b2b5db444e30fc240e).
 The PyPI wheel SHA-256 is
-`4606d1529092104d5594866032c61a02376c127f2ffc483c0442a7549b40c264`.
+`0cbb7ed46dbe1eac191e51e076601c2744dc21dd108db03bf17e357b60aea75a`.
 
 This installs the CLI/MCP base. The HTTPS gateway also needs the optional remote
 dependencies and operator-configured TLS and credentials. Follow the pinned
@@ -133,7 +133,7 @@ available, the agent can run the installed skill's [installer](../scripts/instal
 
 ```bash
 python3 /path/to/installed/qdrant-memory/scripts/install_runtime.py \
-  --venv /private/path/qdrant-env --version 0.6.2
+  --venv /private/path/qdrant-env --version 0.7.1
 ```
 
 Use the actual installed skill path reported by `npx skills` (global Codex usually
@@ -155,12 +155,12 @@ profile and destination, and retain the same scope. Reuse the collection only
 when the embedding pipeline is unchanged. For FastEmbed 0.9.0 to 0.9.1, use the
 new profile and collection procedure above.
 For an explicitly authorized candidate/development/fallback source, use
-`--version 0.6.2 --revision FULL_40_CHARACTER_SHA`. The installer verifies both
+`--version 0.7.1 --revision FULL_40_CHARACTER_SHA`. The installer verifies both
 version and VCS commit. A moving `main` or short SHA is rejected. Source installs
 are optional and never the production default. Never silently fall back from PyPI.
-The immutable Runtime 0.6.2 release commit is
-`913fa705922b5bfeb29d52f102cfc6385a4d0436`; CI's current-release acceptance
-installs published Runtime 0.6.2 from PyPI and exercises the default installer
+The immutable Runtime 0.7.1 release commit is
+`cc5cac025f5d18afb5c698b2b5db444e30fc240e`; CI's current-release acceptance
+installs published Runtime 0.7.1 from PyPI and exercises the default installer
 path. The standalone compatibility lane retains Runtime 0.2.2 at commit
 `c85d2bce788b117dddd854bb124971f7de8e564c`. The published release tag is the
 source of truth.
@@ -245,7 +245,7 @@ installation remains a separate operator-authorized development route. Existing
 environments are verified without reinstallation, so this flag does not
 retroactively certify their bytes.
 
-New installations default to Runtime 0.6.2. Runtime 0.2.2 remains the tested
+New installations default to Runtime 0.7.1. Runtime 0.2.2 remains the tested
 private-compatibility baseline in explicit examples and CI fixture pins. Runtime
 0.4.0 adds the separately configured shared owner. Use Runtime 0.5.0 or later for
 protected policy, doctor and remote Owner features, and discover its schemas before

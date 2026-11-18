@@ -476,7 +476,7 @@ def test_compile_lock_uses_expected_flags(work, monkeypatch):
         requirement_inputs.append(requirement_path.read_text(encoding="utf-8"))
         output_path = Path(arguments[arguments.index("-o") + 1])
         output_path.write_text(
-            "qdrant-memory-mcp==0.3.3\n"
+            "qdrant-memory-mcp==0.3.5\n"
             f"    # via -r {requirement_path}\n",
             encoding="utf-8",
         )
@@ -492,7 +492,7 @@ def test_compile_lock_uses_expected_flags(work, monkeypatch):
     assert "--no-header" in args
     assert args[args.index("-o") + 1] == str(output)
     release = current_release()
-    assert "qdrant-memory-mcp==0.3.3" in requirement_inputs[0]
+    assert "qdrant-memory-mcp==0.3.5" in requirement_inputs[0]
     assert (
         f"hermes-plugin-qdrant-memory[mcp,local] @ git+"
         f"{module.RUNTIME_REPOSITORY}@{release['runtime_commit']}"
@@ -829,7 +829,7 @@ def test_build_wheelhouse_downloads_for_host_and_saves_wheel(work, monkeypatch):
         )
         for text in downloaded_requirements
     )
-    assert all("qdrant-memory-mcp==0.3.3" in text for text in downloaded_requirements)
+    assert all("qdrant-memory-mcp==0.3.5" in text for text in downloaded_requirements)
     assert (wheelhouse / runtime_wheel_name()).is_file()
     metadata = json.loads((wheelhouse / "runtime-wheel.json").read_text(encoding="utf-8"))
     assert metadata["sha256"] == hashlib.sha256(

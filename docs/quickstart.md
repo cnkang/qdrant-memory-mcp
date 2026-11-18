@@ -81,11 +81,68 @@ another initialization. This terminal step also prepares the fixed package so
 the client can start the cached command. The MCP connection itself does not
 install Ollama, download models, initialize an existing collection or migrate
 data. Existing-file, collection, compatibility or writer-lock errors require
-investigation; do not overwrite config, recreate the profile, use `--force`,
-add reset options or remove data/lock files. After a partial failure, inspect
-the exact profile with `doctor` before deciding on a next step.
+investigation. A `WriterBusyError` means another MCP process still owns the
+profile; stop it before starting a replacement. Do not overwrite config,
+recreate the profile, use `--force`, add reset options or remove data/lock files.
+After a partial failure, inspect the exact profile with `doctor` before deciding
+on a next step.
 
 ## 4. Connect the client
+
+### VS Code Copilot
+
+Complete steps 1–3 first: start the embedding service, create the new profile,
+then run `init` and `doctor`. In the workspace root, create `.mcp.json` using
+VS Code's native Copilot `mcpServers` format. In the chat session, select the
+Copilot harness. `.vscode/mcp.json` is for the deprecated Local harness and is
+not the native Copilot configuration.
+
+```json
+{
+  "mcpServers": {
+    "qdrant-memory": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["--from", "qdrant-memory-mcp==0.3.5", "qdrant-memory-mcp", "--home", "/path/to/copilot-profile", "mcp"]
+    }
+  }
+}
+```
+
+The manifest's optional `--home` argument precedes positional `mcp`. If the
+VS Code process cannot find `uvx`, use its absolute path as `command`. This
+path offers explicit memory search, add, update and delete; it does not
+automatically extract conversation history and needs no Hermes or Agent Skill.
+
+In Copilot, confirm these tools are available: `qdrant_memory_search`,
+`qdrant_memory_add`, `qdrant_memory_update` and `qdrant_memory_delete`. Ask
+Copilot to save a unique synthetic test marker with `qdrant_memory_add`, and
+confirm the tool call and result. Stop and restart the MCP server, open a new
+Copilot session without pasting the saved text, then ask it to find that saved
+marker with `qdrant_memory_search`.
+
+The embedded profile grants one active writer lease. Stop the previous session's
+MCP process completely before the new Copilot session starts its server from
+`.mcp.json`. A still-running old process causes `WriterBusyError`; do not start
+a second server against the same profile.
+
+| Verification | Status |
+|---|---|
+| VS Code Copilot desktop session | PASS — VS Code 1.146.0; Copilot harness; workspace `.mcp.json`; public MCP 0.3.5 / Runtime 0.7.1; all four tools discovered and fresh-session restart recall passed |
+| CI configuration and stdio protocol | PASS locally with the candidate wheel and published 0.3.5; [GitHub Distribution CI PASS](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/44061227907) |
+| Copilot CLI | PASS — GitHub Copilot CLI 1.0.112 discovered all four tools and made real stdio add/search calls with published `qdrant-memory-mcp==0.3.5`; a fresh CLI process and session recalled the same synthetic record after the MCP process restarted |
+| GitHub Registry one-click install | NOT VERIFIED; manual configuration does not establish catalog installation |
+
+Desktop evidence (2026-11-17): `qdrant_memory_add` stored synthetic marker
+`VSCOPILOT-20261117-IK3Y7SOJ` and returned ID
+`20251dcf-3e15-5586-919d-838412bc392f`. After the MCP process stopped, a new
+Copilot session searched only for that marker and `qdrant_memory_search`
+returned the same synthetic record and ID.
+
+The MCP Registry metadata for `0.3.5` is active/latest, but that status does not
+verify a GitHub catalog one-click installation.
+
+### WorkBuddy and other stdio MCP clients
 
 Add a custom stdio MCP in WorkBuddy with the following settings. Use the same
 profile path as step 3. The managed packaged connector uses its own `profiles/workbuddy/local` under

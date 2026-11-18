@@ -20,7 +20,7 @@ Codex 与其他非 Hermes Agent 的默认入口是公开稳定的 stdio MCP。
 | 路径 | 已发布产物与固定依赖 | 当前状态与验收边界 |
 |---|---|---|
 | [稳定 stdio MCP](docs/quickstart.zh-CN.md) | PyPI `qdrant-memory-mcp==0.3.5`，Runtime 0.7.1 | 公开稳定版；协议 CI 使用隔离 profile 和确定性 embedding fixture，不代表所有真实模型/Provider 组合均已验收 |
-| [Codex 插件](plugins/qdrant-memory/README.zh-CN.md) | 候选版 0.1.4；MCP 0.3.3、Runtime 0.6.2（`913fa705922b5bfeb29d52f102cfc6385a4d0436`）、Skill 0.4.4（`607b1335f7babc9a7a2f909d12d8214124d1032c`） | 尚未提交公共插件目录；有官方 Codex CLI 检查，Desktop GUI 与原生记忆接管另行验证 |
+| [Codex 插件](plugins/qdrant-memory/README.zh-CN.md) | 候选版 0.1.4；MCP 0.3.5、Runtime 0.7.1（`cc5cac025f5d18afb5c698b2b5db444e30fc240e`）、Skill 0.4.6（`2cb0b4d61ba2aae9a04c9eaf571f804918e151ce`） | 尚未提交公共插件目录；有官方 Codex CLI 检查，Desktop GUI 与原生记忆接管另行验证 |
 | [DSH Bundle](docs/dsh-integration.zh-CN.md) | npm 公开预发布 `@cnkang/qdrant-memory-dsh-bundle@0.2.0-rc.3`；DSH 0.2.2-rc.1、launcher 0.1.0-rc.12、Runtime 0.7.1 | 可安装的预发布版；真实模型/Cloud 与 Desktop GUI 验收仍未完成 |
 | [WorkBuddy connector](integrations/workbuddy/README.md) | GitHub release `workbuddy-v0.2.6`；launcher 0.1.0-rc.10、Runtime 0.6.2、Skill 0.4.4 | 精确 tag 打包与协议门禁通过；Marketplace GUI 导入、干净机器配置和完整重启仍未验证 |
 
@@ -60,6 +60,7 @@ Skill 仅提供可选指导，不是运行依赖。Hermes 的自动提取和 pre
 | DeepSeek Harness | 否（生命周期适配器） | 是（DSH bundle） | 可选预览 | 可选预览 | 通过 Owner | 是 | Bundle 0.2.0-rc.3；真实模型/Cloud/Desktop 验收未完成 |
 | WorkBuddy | 否 | 是（connector） | 否 | 否 | 通过 Owner | 是 | Connector 0.2.6 打包/协议通过；GUI Marketplace、干净机器和重启未验证 |
 | Codex | 否 | 是 | 否 | 否 | 通过 Owner | 是 | 候选版 0.1.4；官方 CLI 已测，尚未提交公共目录 |
+| VS Code Copilot | 否 | 是（四个 MCP 工具） | 否 | 否 | 通过 Owner | 是 | [CI 配置/协议 PASS](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/44061227907)；Copilot CLI 1.0.112 PASS；VS Code 1.146.0 Copilot 桌面新增/重启召回 PASS；GitHub Registry 一键安装 NOT VERIFIED |
 
 本分发不对任何 MCP 宿主自动提取对话。自动捕获与召回需要原生 Provider 或生命周期适配器。DSH 自动功能为可选启用；npm 预发布包可安装，但真实模型/Cloud 与 Desktop GUI 验收仍待完成。
 已测试的 CLI、源码修订和模型提供方见 [Codex 验证记录](docs/codex-plugin-verification.md)；

@@ -4,7 +4,7 @@ description: Use, maintain and migrate Qdrant memories through MCP tools or a st
 license: MIT
 compatibility: Requires a configured Qdrant memory runtime and embedding service. Use scoped MCP tools or the qdrant-memory standalone CLI without Hermes. Existing Hermes tools and hermes qdrant-memory remain compatible. Install and configure the runtime separately.
 metadata:
-  version: "0.4.4"
+  version: "0.4.6"
 ---
 
 # Qdrant memory
@@ -23,6 +23,7 @@ Read only the reference needed for the request:
 | New local profile, connect an existing Qdrant, back up/exit or troubleshoot | [Operator workflows](references/operator-workflows.md) | Standalone Runtime CLI for setup/doctor/export; the plugin MCP server exposes only scoped memory tools |
 | Search/save facts, replace/delete by exact ID, inspect provenance | [Usage](references/usage.md) | Scoped MCP/Hermes `qdrant_memory_*` tools or standalone CLI |
 | Status, diagnostics, inventory/export, authorized retry/scope deletion | [Maintenance](references/maintenance.md) | Standalone `qdrant-memory --home PROFILE` or existing Hermes CLI |
+| Adopt an existing destination onto the 0.7.1 Qdrant policy | [Operator workflows](references/operator-workflows.md) | Operator CLI `upgrade plan/apply/resume/status`; never exposed through MCP |
 | Mem0 JSON/collection dry-run, import, resume/retry-failed, verification | [Migration](references/migration.md) | Selected CLI's `migrate mem0` command |
 | Codex native v1/v2 inspection, migration, handoff or Owner candidate events | [Codex portability](references/codex.md) | Runtime CLI and, for Owner events, a separately verified adapter |
 
@@ -89,7 +90,15 @@ Use only supported runtime tools/CLI. Never edit `state.db`, remove locks/sideca
 write directly to collections, create another schema/embedding pipeline or bypass
 Runtime/WriterLease. Embedded readers also need exclusive storage access. Local
 leases do not exclude other profiles/hosts. Preserve recorded destructive recovery.
-Never automatically add `--confirm`, `--force` or `--all-agents`.
+Never automatically add `--confirm`, `--force` or `--all-agents`. A policy upgrade
+is an operator maintenance window: run `upgrade plan`, review its blockers, then
+`upgrade apply` only with the user's authorization. MCP never applies a policy,
+creates payload indexes on connect or changes the backend.
+If an upgrade was interrupted, keep every writer stopped and resume the same
+plan ID. If any writer resumed, or you cannot confirm the stop-write window was
+unbroken, isolate writers again, run `upgrade plan --replace` to archive the old
+plan and its recovery point, then take a new backup and apply. Do not present a
+successful resume as proof that every payload stayed unchanged.
 
 ## Hermes interface choice
 

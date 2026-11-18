@@ -11,7 +11,9 @@ from pathlib import Path
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
-from test_protocol import test_real_stdio_crud_restart_scope_and_redaction as exercise_scopes
+from test_protocol import (
+    exercise_protocol_crud_restart as exercise_scopes,
+)
 from test_protocol import test_stdout_is_jsonrpc_only as exercise_stdout
 
 ROOT = Path(__file__).resolve().parents[1]

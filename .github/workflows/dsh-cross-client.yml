@@ -12,7 +12,8 @@ on:
         options:
           - '0.6.1'
           - '0.6.2'
-        default: '0.6.2'
+          - '0.7.1'
+        default: '0.7.1'
       node_version:
         description: Node.js version for the DSH host compatibility run
         required: false
@@ -50,7 +51,7 @@ jobs:
       PYTHONWARNINGS: 'error:Qdrant client version:UserWarning'
       QDRANT_OWNER_RUNTIME_ROOT: ${{ github.workspace }}/.scratch/dsh-runtime
       QDRANT_DSH_EVIDENCE: ${{ github.workspace }}/dsh-cross-client.json
-      DSH_RUNTIME_VERSION: '0.6.2'
+      DSH_RUNTIME_VERSION: '0.7.1'
       QDRANT_CLIENT_VERSION: '1.20.0'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -59,7 +60,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: cnkang/hermes-plugin-qdrant-memory
-          ref: 913fa705922b5bfeb29d52f102cfc6385a4d0436
+          ref: cc5cac025f5d18afb5c698b2b5db444e30fc240e
           path: .scratch/dsh-runtime
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
@@ -113,7 +114,7 @@ jobs:
     needs: owner
     if: >-
       github.event_name == 'workflow_dispatch' &&
-      (inputs.runtime_version != '0.6.2' ||
+      (inputs.runtime_version != '0.7.1' ||
        inputs.node_version != '24.9.0' ||
        inputs.python_version != '3.11' ||
        inputs.qdrant_client_version != '1.20.0')
@@ -133,7 +134,7 @@ jobs:
         with:
           repository: cnkang/hermes-plugin-qdrant-memory
           # Manual selections can choose only these immutable release sources.
-          ref: ${{ inputs.runtime_version == '0.6.1' && '2696122405e3324a1e227c131e0f9b2a320dd23c' || '913fa705922b5bfeb29d52f102cfc6385a4d0436' }}
+          ref: ${{ inputs.runtime_version == '0.6.1' && '2696122405e3324a1e227c131e0f9b2a320dd23c' || inputs.runtime_version == '0.6.2' && '913fa705922b5bfeb29d52f102cfc6385a4d0436' || 'cc5cac025f5d18afb5c698b2b5db444e30fc240e' }}
           path: .scratch/dsh-runtime
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
