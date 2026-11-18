@@ -104,27 +104,40 @@ Manifest 中可选的 `--home` 必须位于位置参数 `mcp` 之前。如果 VS
 `uvx`，把 `command` 改成它的绝对路径。这条路径只提供显式的记忆搜索、新增、更新和删除；
 不会自动提取对话，也不需要安装 Hermes 或 Agent Skill。
 
+发布前可以用 `uv build --wheel` 构建候选 wheel，再用 `uv venv` 创建并激活独立虚拟环境，
+运行 `uv pip install /path/to/qdrant_memory_mcp-0.3.6-py3-none-any.whl` 安装。
+将 `command` 指向安装后的
+`qdrant-memory-mcp` 可执行文件的绝对路径，`args` 设为
+`["--home", "/path/to/copilot-profile", "mcp"]`。使用一次性测试 profile，
+或在旧 MCP 进程停下后复制现有测试 profile。
+
 在 Copilot 工具列表确认存在 `qdrant_memory_search`、`qdrant_memory_add`、
 `qdrant_memory_update` 和 `qdrant_memory_delete`。让 Copilot 使用
 `qdrant_memory_add` 保存一条带唯一标记的合成测试记忆，并确认真实工具调用和返回值。
 停止并重启 MCP 服务，打开新的 Copilot 会话，不要粘贴原文，再要求它使用
 `qdrant_memory_search` 找回该标记。
 
-Embedded profile 同一时间只允许一个 writer lease。新 Copilot 会话从
-`.mcp.json` 启动服务前，先彻底停止上一会话的 MCP 进程；旧进程仍运行时，
-新会话会收到 `WriterBusyError`。不要对同一个 profile 再启动第二个服务进程。
+Embedded profile 同一时间只允许一个 writer lease。修改 `.mcp.json` 时，Copilot
+可能为多个已打开的会话启动服务。第二个使用同一 profile 的进程会在初始化时收到
+`WriterBusyError`。测试重启召回前，先停止上一会话的 MCP 进程并确认它已退出，
+再打开新 Copilot 会话，让它启动新的 MCP 进程。
 
 | 验证项 | 状态 |
 |---|---|
-| VS Code Copilot 桌面会话 | PASS — VS Code 1.146.0；Copilot harness；工作区 `.mcp.json`；公开 MCP 0.3.5 / Runtime 0.7.1；发现四个工具，且新会话重启召回通过 |
-| CI 配置与 stdio 协议 | 候选 wheel 与 PyPI 0.3.5 的本地验收 PASS；[GitHub Distribution CI PASS](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/44061227907) |
+| VS Code Copilot 桌面版，0.3.6 候选包 | PASS — macOS arm64，VS Code 1.146.0，Copilot harness，工作区 `.mcp.json`，本地 wheel，PyPI Runtime 0.7.2，MCP SDK 2.3.0。旧版记录召回、新增、搜索、重启召回、更新和删除均通过。 |
+| VS Code Copilot 桌面版，PyPI 0.3.5 | PASS — VS Code 1.146.0，Runtime 0.7.1。发现四个工具，重启后在新会话成功召回。 |
+| VS Code Copilot 桌面版，PyPI 0.3.6 | 等待发布。 |
+| CI 配置与 stdio 协议 | 0.3.6 候选包通过。[Distribution CI](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/44231566353) |
 | Copilot CLI | PASS — GitHub Copilot CLI 1.0.112 已发现四个工具，并通过 stdio 对公开发布的 `qdrant-memory-mcp==0.3.5` 实际调用新增和搜索；重启 MCP 进程后，新 CLI 进程和会话召回了同一条合成记录 |
 | GitHub Registry 一键安装 | NOT VERIFIED；手动配置不等于目录安装 |
 
-桌面证据（2026-11-17）：`qdrant_memory_add` 保存了合成标记
-`VSCOPILOT-20261117-IK3Y7SOJ`，返回 ID
-`20251dcf-3e15-5586-919d-838412bc392f`。MCP 进程停止后，新 Copilot 会话只搜索该标记；
-`qdrant_memory_search` 找回了同一条合成记录和 ID。
+2026-11-17，PyPI 0.3.5 安装保存并召回了合成标记
+`VSCOPILOT-20261117-IK3Y7SOJ`，ID 为 `20251dcf-3e15-5586-919d-838412bc392f`。
+2026-11-18，从 `76177dd` 构建的 0.3.6 wheel 在复制的 0.3.5 测试 profile 中找回
+同一 ID。候选包新增 `VSCOPILOT-036-20261118-N8Q4HX`，返回 ID
+`0abce594-6ce3-526a-8a0b-ac8ffe0849ac`。停止 MCP 进程前，以及新 Copilot 会话
+启动新进程后，搜索均返回该 ID。更新后的文本也能读回，ID 保持一致。删除后，
+再次搜索该标记，结果中没有该标记或 ID。
 
 MCP Registry 元数据将 `0.3.5` 标记为 active/latest；这不能证明 GitHub 目录一键安装已通过。
 
