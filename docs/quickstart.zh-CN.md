@@ -126,7 +126,7 @@ Embedded profile 同一时间只允许一个 writer lease。修改 `.mcp.json` �
 |---|---|
 | VS Code Copilot 桌面版，0.3.6 候选包 | PASS — macOS arm64，VS Code 1.146.0，Copilot harness，工作区 `.mcp.json`，本地 wheel，PyPI Runtime 0.7.2，MCP SDK 2.3.0。旧版记录召回、新增、搜索、重启召回、更新和删除均通过。 |
 | VS Code Copilot 桌面版，PyPI 0.3.5 | PASS — VS Code 1.146.0，Runtime 0.7.1。发现四个工具，重启后在新会话成功召回。 |
-| VS Code Copilot 桌面版，PyPI 0.3.6 | 等待发布。 |
+| VS Code Copilot 桌面版，PyPI 0.3.6 | 已发布。上一条宿主结果使用候选 wheel；未记录用公开包复测的结果。 |
 | CI 配置与 stdio 协议 | 0.3.6 候选包通过。[Distribution CI](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/44231566353) |
 | Copilot CLI | PASS — GitHub Copilot CLI 1.0.112 已发现四个工具，并通过 stdio 对公开发布的 `qdrant-memory-mcp==0.3.5` 实际调用新增和搜索；重启 MCP 进程后，新 CLI 进程和会话召回了同一条合成记录 |
 | GitHub Registry 一键安装 | NOT VERIFIED；手动配置不等于目录安装 |
