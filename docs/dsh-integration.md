@@ -95,7 +95,7 @@ and the current test boundaries.
 
 ## Alternative: Python/uvx overlay
 
-The prepared MCP 0.3.6 package pins Runtime 0.7.2. Before running the commands
+The published MCP 0.3.6 package pins Runtime 0.7.2. Before running the commands
 below, confirm that exact version is available on
 [PyPI](https://pypi.org/project/qdrant-memory-mcp/0.3.6/). Until then, use the
 [published 0.3.5 guide](https://github.com/cnkang/qdrant-memory-mcp/blob/v0.3.5/docs/dsh-integration.md).

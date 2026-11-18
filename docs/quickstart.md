@@ -3,7 +3,7 @@
 Use an existing Ollama embedding model and embedded Qdrant with WorkBuddy or
 another stdio MCP client. No Docker, Qdrant server, cloud account or embedding
 API key is required. Python/uv and one-time configuration are still necessary.
-This route uses the prepared stable `qdrant-memory-mcp==0.3.6` package, which pins
+This route uses the public stable `qdrant-memory-mcp==0.3.6` package, which pins
 Runtime 0.7.2. Ordinary MCP performs explicit memory operations; it does not
 automatically extract conversation turns or prefetch memories. Installing a
 connector does not initialize its storage.

@@ -2,7 +2,7 @@
 
 适用于 WorkBuddy，也适用于能启动 stdio MCP 的 Codex、OpenCode 等客户端。
 使用本地 Ollama 和 Qdrant embedded，不需要 Docker、Qdrant Server、云账号或
-Embedding API Key。此路径使用已准备的稳定包 `qdrant-memory-mcp==0.3.6`，固定依赖
+Embedding API Key。此路径使用公开稳定包 `qdrant-memory-mcp==0.3.6`，固定依赖
 Runtime 0.7.2；仍需 Python/uv 和一次 profile 配置。普通 MCP 只执行明确请求的记忆操作，
 不会自动提取对话或预取记忆。连接器安装成功不代表存储已经就绪。
 
@@ -58,7 +58,7 @@ ollama pull qwen3-embedding:4b
 }
 ```
 
-已准备的 `qdrant-memory-mcp==0.3.6` 固定依赖 Runtime 0.7.2。安装前请在
+公开版 `qdrant-memory-mcp==0.3.6` 固定依赖 Runtime 0.7.2。安装前请在
 [PyPI](https://pypi.org/project/qdrant-memory-mcp/0.3.6/) 确认该版本；下方命令使用此精确版本。
 
 其他 agent 使用各自的新目录和 `agent_id`。在终端运行下列命令，把
