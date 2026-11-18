@@ -1,6 +1,6 @@
 {
   "name": "@cnkang/qdrant-memory-dsh-bundle",
-  "version": "0.2.0-rc.4",
+  "version": "0.2.0-rc.5",
   "type": "module",
   "description": "DSH Qdrant Memory: legacy MCP tools and opt-in unified Owner lifecycle",
   "main": "./index.js",

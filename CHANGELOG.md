@@ -23,11 +23,11 @@
 
 ## Unreleased
 
-- Prepare managed launcher `0.1.0-rc.13` with Runtime 0.7.2. Its `runtime.json`
+- Publish managed launcher `0.1.0-rc.14` with Runtime 0.7.2. Its `runtime.json`
   records the published 0.7.2 wheel URL, SHA-256 and size, and
   `requirements.lock` carries the same wheel and sdist hashes.
-- Prepare DSH Bundle `0.2.0-rc.4` selecting launcher `0.1.0-rc.13`. Both npm
-  tags `latest` and `next` point to the new versions after publication. The
+- Publish DSH Bundle `0.2.0-rc.5` selecting launcher `0.1.0-rc.14`. Both npm
+  tags `latest` and `next` point to the new versions. The
   published WorkBuddy Connector 0.2.6 remains immutable on launcher rc.10 and
   Runtime 0.6.2.
 - Publish managed launcher `0.1.0-rc.12` with Runtime 0.7.1 and the public
