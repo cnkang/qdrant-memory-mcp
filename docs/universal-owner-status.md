@@ -7,7 +7,7 @@ Runtime 0.6.1 introduced versioned Owner events; distribution 0.3.6 selects the 
 Preview adapters require a separate installation of the applicable integration.
 Publication and source CI do not establish production acceptance.
 
-Current Owner source CI pins the published Runtime 0.7.1 source at [`0ce83104fefbaecabe6b9e4560d3c83ee4e20438`](https://github.com/cnkang/hermes-plugin-qdrant-memory/tree/0ce83104fefbaecabe6b9e4560d3c83ee4e20438).
+Current Owner source CI pins the published Runtime 0.7.2 source at [`0ce83104fefbaecabe6b9e4560d3c83ee4e20438`](https://github.com/cnkang/hermes-plugin-qdrant-memory/tree/0ce83104fefbaecabe6b9e4560d3c83ee4e20438).
 
 ## Capabilities
 
