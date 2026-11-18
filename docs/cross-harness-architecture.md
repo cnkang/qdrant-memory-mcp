@@ -63,7 +63,7 @@ Never remove locks or change fingerprints to force compatibility.
 
 | Component | Pin | Availability |
 | --- | --- | --- |
-| Python MCP | 0.3.6 | Public PyPI and MCP Registry release; pins Runtime 0.7.2 |
+| Python MCP | 0.3.6 | Prepared release; PyPI and MCP Registry publication follows merge approval; pins Runtime 0.7.2 |
 | Runtime | 0.7.2 | Public PyPI wheel; the managed launcher installs 0.7.1 |
 | Node launcher | 0.1.0-rc.12 | Release candidate pinned by WorkBuddy and DSH sources. It installs Runtime 0.7.1 for standalone MCP use; verify this exact version on npm |
 | DSH bundle | 0.2.0-rc.3 | Host bundle candidate; public npm acceptance and desktop compatibility remain separate gates |

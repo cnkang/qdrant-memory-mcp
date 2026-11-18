@@ -7,7 +7,7 @@ Runtime 0.6.1 引入了版本化 Owner 事件；分发 0.3.6 固定使用已发�
 预览适配器需要单独安装相应集成。
 发布和源码 CI 不代表生产环境验收。
 
-当前 Owner 源码 CI 固定已发布 Runtime 0.7.1 的源码提交 [`0ce83104fefbaecabe6b9e4560d3c83ee4e20438`](https://github.com/cnkang/hermes-plugin-qdrant-memory/tree/0ce83104fefbaecabe6b9e4560d3c83ee4e20438)。
+当前 Owner 源码 CI 固定已发布 Runtime 0.7.2 的源码提交 [`0ce83104fefbaecabe6b9e4560d3c83ee4e20438`](https://github.com/cnkang/hermes-plugin-qdrant-memory/tree/0ce83104fefbaecabe6b9e4560d3c83ee4e20438)。
 
 ## 功能
 

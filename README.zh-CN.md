@@ -19,7 +19,7 @@ Codex 与其他非 Hermes Agent 的默认入口是公开稳定的 stdio MCP。
 
 | 路径 | 已发布产物与固定依赖 | 当前状态与验收边界 |
 |---|---|---|
-| [稳定 stdio MCP](docs/quickstart.zh-CN.md) | PyPI `qdrant-memory-mcp==0.3.6`，Runtime 0.7.2 | 公开稳定版；协议 CI 使用隔离 profile 和确定性 embedding fixture，不代表所有真实模型/Provider 组合均已验收 |
+| [稳定 stdio MCP](docs/quickstart.zh-CN.md) | PyPI `qdrant-memory-mcp==0.3.6`，Runtime 0.7.2 | 已准备的稳定版；安装前请在 PyPI 确认 `0.3.6`；协议 CI 使用隔离 profile 和确定性 embedding fixture，不代表所有真实模型/Provider 组合均已验收 |
 | [Codex 插件](plugins/qdrant-memory/README.zh-CN.md) | 候选版 0.1.4；MCP 0.3.5、Runtime 0.7.1（`cc5cac025f5d18afb5c698b2b5db444e30fc240e`）、Skill 0.4.6（`2cb0b4d61ba2aae9a04c9eaf571f804918e151ce`） | 尚未提交公共插件目录；有官方 Codex CLI 检查，Desktop GUI 与原生记忆接管另行验证 |
 | [DSH Bundle](docs/dsh-integration.zh-CN.md) | npm 公开预发布 `@cnkang/qdrant-memory-dsh-bundle@0.2.0-rc.3`；DSH 0.2.2-rc.1、launcher 0.1.0-rc.12、Runtime 0.7.1 | 可安装的预发布版；真实模型/Cloud 与 Desktop GUI 验收仍未完成 |
 | [WorkBuddy connector](integrations/workbuddy/README.md) | GitHub release `workbuddy-v0.2.6`；launcher 0.1.0-rc.10、Runtime 0.6.2、Skill 0.4.4 | 精确 tag 打包与协议门禁通过；Marketplace GUI 导入、干净机器配置和完整重启仍未验证 |
