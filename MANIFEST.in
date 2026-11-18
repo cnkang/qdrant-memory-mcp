@@ -17,6 +17,7 @@ recursive-include integrations/workbuddy *.py *.json *.svg *.md
 recursive-include integrations/managed *.mjs *.md *.json
 include integrations/managed/requirements.in integrations/managed/requirements.lock integrations/managed/LICENSE
 include integrations/dsh/README.md integrations/dsh/qdrant-memory.cordis.yml
+include integrations/dsh/qdrant-memory-mcp-*.cordis.yml
 recursive-include integrations/dsh/bundle *.json *.yml *.md
 exclude integrations/dsh/bundle/package-lock.json
 prune integrations/dsh/node_modules

@@ -15,9 +15,12 @@ TRUSTED_HOME_EXPRESSION = (
     "process.env.QDRANT_MEMORY_DSH_PROFILE || "
     "require('node:path').join(require('node:os').homedir(), '.qdrant-memory-dsh')"
 )
-MCP_SPEC = 'qdrant-memory-mcp==' + tomllib.loads(
-    (Path(__file__).resolve().parents[1] / 'pyproject.toml').read_text(encoding='utf-8'),
+ROOT = Path(__file__).resolve().parents[1]
+MCP_VERSION = tomllib.loads(
+    (ROOT / 'pyproject.toml').read_text(encoding='utf-8'),
 )['project']['version']
+MCP_SPEC = f'qdrant-memory-mcp=={MCP_VERSION}'
+DSH_OVERLAY = ROOT / f'integrations/dsh/qdrant-memory-mcp-{MCP_VERSION}.cordis.yml'
 
 
 
@@ -145,8 +148,7 @@ def test_official_dsh_cli_composes_checkout_overlay(tmp_path):
     selected = tmp_path / 'selected-profile'
     selected.mkdir()
     env['QDRANT_MEMORY_DSH_PROFILE'] = str(selected)
-    overlay = Path(__file__).resolve().parents[1] / 'integrations/dsh/qdrant-memory.cordis.yml'
-    _assert_overlay_composes(Path(cli[1]), overlay, env)
+    _assert_overlay_composes(Path(cli[1]), DSH_OVERLAY, env)
 
 
 def test_official_dsh_cli_overlay_preserves_user_patches(tmp_path):
@@ -175,8 +177,7 @@ def test_official_dsh_cli_overlay_preserves_user_patches(tmp_path):
         USERPROFILE=str(tmp_path),
         QDRANT_MEMORY_DSH_PROFILE=str(selected_profile),
     )
-    overlay = Path(__file__).resolve().parents[1] / 'integrations/dsh/qdrant-memory.cordis.yml'
-    _assert_overlay_composes(cli, overlay, env)
+    _assert_overlay_composes(cli, DSH_OVERLAY, env)
     assert patch.read_text() == '[]\n'
     assert sentinel.read_text() == '# unrelated profile\n[]\n'
 

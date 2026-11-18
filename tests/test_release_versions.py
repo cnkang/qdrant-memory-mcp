@@ -85,7 +85,9 @@ def test_public_protocol_install_tracks_project_version(tmp_path):
 def test_current_workbuddy_and_dsh_instructions_track_project_version():
     """Keep current integration instructions aligned with public MCP pins."""
     project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
-    requirement = f"qdrant-memory-mcp=={project['project']['version']}"
+    version = project["project"]["version"]
+    requirement = f"qdrant-memory-mcp=={version}"
+    overlay_path = f"integrations/dsh/qdrant-memory-mcp-{version}.cordis.yml"
     published_requirement = "qdrant-memory-mcp==0.3.6"
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     candidate_docs = [
@@ -106,20 +108,23 @@ def test_current_workbuddy_and_dsh_instructions_track_project_version():
                 f"qdrant-memory-mcp-{published_requirement.rsplit('==', 1)[1]}.cordis.yml"
                 in contents
             ), relative
-            assert (
-                "raw.githubusercontent.com/cnkang/qdrant-memory-mcp/main/"
-                "integrations/dsh/qdrant-memory.cordis.yml"
-            ) in contents, relative
+            assert contents.count(
+                f"https://raw.githubusercontent.com/cnkang/qdrant-memory-mcp/main/{overlay_path}"
+            ) == 2, relative
 
     # The DSH source overlay and WorkBuddy uvx alternative use the public
     # package version that the setup instructions document.
-    overlay = (ROOT / "integrations/dsh/qdrant-memory.cordis.yml").read_text(
-        encoding="utf-8"
-    )
+    overlay = (ROOT / overlay_path).read_text(encoding="utf-8")
     active_pins = re.findall(
         r"(?m)^\s+- (qdrant-memory-mcp==\S+)\s*$", overlay
     )
     assert active_pins == [requirement]
+    legacy_overlay = (ROOT / "integrations/dsh/qdrant-memory.cordis.yml").read_text(
+        encoding="utf-8"
+    )
+    assert re.findall(r"(?m)^\s+- (qdrant-memory-mcp==\S+)\s*$", legacy_overlay) == [
+        "qdrant-memory-mcp==0.3.5"
+    ]
     assert requirement in (ROOT / "integrations/workbuddy/mcp.uvx.json").read_text(
         encoding="utf-8"
     )

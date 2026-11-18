@@ -72,7 +72,7 @@ Hermes 相互独立。更新、卸载与恢复说明见 [Bundle 说明](../integ
 `auto_recall.enabled` 和 `memory_injection.enabled`。
 
 该适配器针对 `@deepseek-ai/dsh@0.2.2-rc.1`，要求 Runtime 0.6.2 或更高版本提供失败操作的 receipt 级恢复。Runtime 0.7.2 已公开发布到 PyPI，但原生适配器包仍为 private，真实模型和 GUI 验收也未完成。
-已发布的安装路径请使用上面的 Bundle 或 Python/uvx overlay。
+现在可使用上面的 Bundle。下方 Python/uvx overlay 需要先确认 PyPI 上的精确 MCP 版本可用。
 原生包尚未发布，也没有真实模型或 GUI 验收结论。详见
 [原生设计与支持状态](dsh-native/design.md)。配置、回退和验证边界见
 [英文设置指南](../integrations/dsh/native/README.md)、
@@ -81,8 +81,14 @@ Hermes 相互独立。更新、卸载与恢复说明见 [Bundle 说明](../integ
 
 ## 备选：Python/uvx overlay
 
-MCP 0.3.6 已发布到 PyPI，并固定使用 Runtime 0.7.2。下方命令使用此精确版本；
-此 overlay 路径不需要源码 checkout。
+MCP 0.3.6 已准备并固定依赖 Runtime 0.7.2。运行下方命令前，请先在
+[PyPI](https://pypi.org/project/qdrant-memory-mcp/0.3.6/) 确认该版本可用。
+在此之前，请使用[已发布的 0.3.5 指南](https://github.com/cnkang/qdrant-memory-mcp/blob/v0.3.5/docs/dsh-integration.zh-CN.md)。
+此 overlay 路径无需检出源码。
+
+如果按 0.3.4 指南安装，请将 shell 或 PowerShell 命令中的 overlay 下载地址替换为
+[v0.3.4 标签中的 overlay](https://raw.githubusercontent.com/cnkang/qdrant-memory-mcp/v0.3.4/integrations/dsh/qdrant-memory.cordis.yml)。
+该文件与指南校验的 0.3.4 包版本一致。
 
 需要 Python 3.11+、uv/uvx 和可用的嵌入服务（例如 Ollama）。按照
 [快速入门](quickstart.zh-CN.md) 配置，但把 profile 改为独立的
@@ -127,7 +133,7 @@ uvx --from qdrant-memory-mcp==0.3.6 qdrant-memory-mcp --home "$PROFILE" doctor &
     # 保证残留的半下载文件不留在 profile 目录里。
     trap 'rm -f "$TMP"' EXIT INT
     if curl -fsSL -o "$TMP" \
-      https://raw.githubusercontent.com/cnkang/qdrant-memory-mcp/main/integrations/dsh/qdrant-memory.cordis.yml; then
+      https://raw.githubusercontent.com/cnkang/qdrant-memory-mcp/main/integrations/dsh/qdrant-memory-mcp-0.3.6.cordis.yml; then
       mv "$TMP" "$PATCH"
       trap - EXIT INT
     else
@@ -285,7 +291,7 @@ New-Item -ItemType Directory -Force -Path $PatchDir | Out-Null
 if (-not (Test-Path $Patch)) {
   $Draft = "$Patch.download"
   try {
-    Invoke-WebRequest -UseBasicParsing -Uri "https://raw.githubusercontent.com/cnkang/qdrant-memory-mcp/main/integrations/dsh/qdrant-memory.cordis.yml" -OutFile $Draft -ErrorAction Stop
+    Invoke-WebRequest -UseBasicParsing -Uri "https://raw.githubusercontent.com/cnkang/qdrant-memory-mcp/main/integrations/dsh/qdrant-memory-mcp-0.3.6.cordis.yml" -OutFile $Draft -ErrorAction Stop
     Move-Item $Draft $Patch
   } catch {
     # 默认错误偏好下 Write-Error 不会中断脚本；改为 throw，避免继续执行
@@ -429,8 +435,7 @@ try {
 dsh web --patch $Patch
 ```
 
-当前 overlay patch 可从仓库 `main` 分支下载，与上面的 `0.3.6` package pin
-和 guide 链接匹配，不需要源码 checkout。请把文件放在包环境之外，并在每次
+带版本号的 overlay 文件与 `0.3.6` 包版本一致。请把文件放在包环境之外，并在每次
 启动 DSH 时把其本地路径传给 `--patch`。
 
 Windows 请使用对应的绝对路径。启动 DSH 前可用环境变量
