@@ -1,4 +1,10 @@
-"""Build and inspect the npm launcher archive without publishing it."""
+"""Build and inspect the npm launcher archive without publishing it.
+
+npm does not emit identical tarball bytes on every operating system, so the
+integrity recorded in ``launcher-source.json`` belongs to the machine that
+published the archive. Continuous integration compares the published tarball
+with this checkout instead of repacking it; see ``verify_published_launcher.py``.
+"""
 
 import argparse
 import base64
