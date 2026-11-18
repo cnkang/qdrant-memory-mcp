@@ -61,9 +61,9 @@ the new directory:
 }
 ```
 
-The prepared MCP `qdrant-memory-mcp==0.3.6` pins Runtime 0.7.2. Confirm that
-exact version on PyPI before installing. The commands below use it. Confirm it on
-[PyPI](https://pypi.org/project/qdrant-memory-mcp/0.3.6/) before installing.
+The examples use `qdrant-memory-mcp==0.3.6`, which pins Runtime 0.7.2.
+Check [PyPI](https://pypi.org/project/qdrant-memory-mcp/0.3.6/) for the exact
+version before using the version-pinned install commands.
 
 Use a separate directory and `agent_id` for each client. Replace every
 `/path/to/workbuddy-profile` below with your actual absolute path. Keep quotes
@@ -114,6 +114,14 @@ VS Code process cannot find `uvx`, use its absolute path as `command`. This
 path offers explicit memory search, add, update and delete; it does not
 automatically extract conversation history and needs no Hermes or Agent Skill.
 
+For a pre-release test, build the wheel with `uv build --wheel`. Create a
+separate virtual environment with `uv venv`, activate it, and install the wheel
+with `uv pip install /path/to/qdrant_memory_mcp-0.3.6-py3-none-any.whl`.
+Set `command` to the absolute path of the installed `qdrant-memory-mcp`
+executable and use `["--home", "/path/to/copilot-profile", "mcp"]` as `args`.
+Use a disposable profile or a copy of the test profile taken while its MCP
+process is stopped.
+
 In Copilot, confirm these tools are available: `qdrant_memory_search`,
 `qdrant_memory_add`, `qdrant_memory_update` and `qdrant_memory_delete`. Ask
 Copilot to save a unique synthetic test marker with `qdrant_memory_add`, and
@@ -121,23 +129,30 @@ confirm the tool call and result. Stop and restart the MCP server, open a new
 Copilot session without pasting the saved text, then ask it to find that saved
 marker with `qdrant_memory_search`.
 
-The embedded profile grants one active writer lease. Stop the previous session's
-MCP process completely before the new Copilot session starts its server from
-`.mcp.json`. A still-running old process causes `WriterBusyError`; do not start
-a second server against the same profile.
+The embedded profile grants one active writer lease. Copilot can start a server
+for each open session when `.mcp.json` changes. A second process using the
+same profile fails to initialize with `WriterBusyError`. Before testing recall,
+stop the previous MCP process and confirm it exited, then open the new Copilot
+session and let it start the replacement.
 
 | Verification | Status |
 |---|---|
-| VS Code Copilot desktop session | PASS — VS Code 1.146.0; Copilot harness; workspace `.mcp.json`; public MCP 0.3.5 / Runtime 0.7.1; all four tools discovered and fresh-session restart recall passed |
-| CI configuration and stdio protocol | PASS locally with the candidate wheel and published 0.3.5; [GitHub Distribution CI PASS](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/44061227907) |
+| VS Code Copilot desktop, 0.3.6 candidate | PASS — VS Code 1.146.0 on macOS arm64, Copilot harness, workspace `.mcp.json`, local wheel, Runtime 0.7.2 from PyPI, MCP SDK 2.3.0. Previous-version recall, add, search, restart recall, update and delete passed. |
+| VS Code Copilot desktop, PyPI 0.3.5 | PASS — VS Code 1.146.0, Runtime 0.7.1. Discovered all four tools and recalled a record after restart in a fresh session. |
+| VS Code Copilot desktop, PyPI 0.3.6 | Pending publication. |
+| CI configuration and stdio protocol | PASS for the 0.3.6 candidate. [Distribution CI](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/44231566353) |
 | Copilot CLI | PASS — GitHub Copilot CLI 1.0.112 discovered all four tools and made real stdio add/search calls with published `qdrant-memory-mcp==0.3.5`; a fresh CLI process and session recalled the same synthetic record after the MCP process restarted |
 | GitHub Registry one-click install | NOT VERIFIED; manual configuration does not establish catalog installation |
 
-Desktop evidence (2026-11-17): `qdrant_memory_add` stored synthetic marker
-`VSCOPILOT-20261117-IK3Y7SOJ` and returned ID
-`20251dcf-3e15-5586-919d-838412bc392f`. After the MCP process stopped, a new
-Copilot session searched only for that marker and `qdrant_memory_search`
-returned the same synthetic record and ID.
+On 2026-11-17, the PyPI 0.3.5 install stored and recalled the synthetic marker
+`VSCOPILOT-20261117-IK3Y7SOJ` with ID
+`20251dcf-3e15-5586-919d-838412bc392f`. On 2026-11-18, the 0.3.6 wheel
+built from `76177dd` found the same ID in a copy of the 0.3.5 profile.
+The candidate added `VSCOPILOT-036-20261118-N8Q4HX` and returned ID
+`0abce594-6ce3-526a-8a0b-ac8ffe0849ac`. Search found that ID before and after
+the MCP process stopped and a new Copilot session launched a new process.
+The update changed the text while preserving the ID. After deletion, a search
+for the marker returned no result with that marker or ID.
 
 The MCP Registry metadata for `0.3.5` is active/latest, but that status does not
 verify a GitHub catalog one-click installation.
