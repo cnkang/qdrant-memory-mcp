@@ -29,7 +29,7 @@ published `mcp.json` declares:
 }
 ```
 
-The current repository source selects launcher `0.1.0-rc.12` with Runtime
+The current repository source selects launcher `0.1.0-rc.13` with Runtime
 0.7.1 for the next connector build. That source pin is not part of the published
 Connector 0.2.6 ZIP and does not change its bytes. The example above is the
 published 0.2.6 configuration; verify it against `mcp.json` and
@@ -320,7 +320,7 @@ Earlier connector archives retain their original provenance and immutable bytes.
 `provenance.json` inside each ZIP records its versions, launcher integrity and
 Skill source commit. The 0.2.6 ZIP records Runtime 0.6.2 through launcher
 0.1.0-rc.10 and the pinned Skill 0.4.4 source. The next connector build
-selects launcher 0.1.0-rc.12, Runtime 0.7.1 and Skill 0.4.6; this does not change the
+selects launcher 0.1.0-rc.13, Runtime 0.7.2 and Skill 0.4.6; this does not change the
 published 0.2.6 bytes. This is separate from
 the uvx alternative. The builder rejects drift from checked-in pins:
 

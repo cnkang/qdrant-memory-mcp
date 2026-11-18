@@ -1,5 +1,5 @@
 # Optional CPU dependencies are isolated from native Hermes installations.
-hermes-plugin-qdrant-memory[local,mcp]==0.7.1
+hermes-plugin-qdrant-memory[local,mcp]==0.7.2
 # Official FastEmbed supports the pinned Pillow security version.
 fastembed==0.9.1
 Pillow==13.0.0
