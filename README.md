@@ -74,9 +74,9 @@ SDK/CLI tested, real host tested, real desktop GUI tested, not verified.
 | Hermes | Yes | Yes (via standalone) | Yes | Yes | Opt-in | Yes | Real host tested |
 | OpenCode | No | Yes | No | No | Via Owner | Yes | Real host tested (dual-device) |
 | Pi | No | Yes (extension) | Opt-in adapter | Opt-in adapter | Via Owner | Yes | Real host tested |
-| DeepSeek Harness | No (lifecycle adapter) | Yes (DSH bundle) | Opt-in preview | Opt-in preview | Via Owner | Yes | DSH 0.2.2-rc.1 CI host tested; real model/GUI unverified |
-| WorkBuddy | No | Yes (connector) | No | No | Via Owner | Yes | Real desktop GUI tested |
-| Codex | No | Yes | No | No | Via Owner | Yes | Official CLI tested |
+| DeepSeek Harness | No (lifecycle adapter) | Yes (DSH bundle) | Opt-in preview | Opt-in preview | Via Owner | Yes | Bundle 0.2.0-rc.3; real model/Cloud/Desktop acceptance incomplete |
+| WorkBuddy | No | Yes (connector) | No | No | Via Owner | Yes | Connector 0.2.6 packaging/protocol passed; GUI Marketplace, clean-machine and restart unverified |
+| Codex | No | Yes | No | No | Via Owner | Yes | Candidate 0.1.4; official CLI tested, public directory not submitted |
 | VS Code Copilot | No | Yes (four MCP tools) | No | No | Via Owner | Yes | [CI config/protocol PASS](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/44061227907); Copilot CLI 1.0.112 PASS; VS Code 1.146.0 Copilot desktop add/restart recall PASS; GitHub Registry one-click install NOT VERIFIED |
 
 This distribution does not auto-extract conversations for any MCP host. Automatic

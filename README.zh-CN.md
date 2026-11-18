@@ -57,9 +57,9 @@ Skill 仅提供可选指导，不是运行依赖。Hermes 的自动提取和 pre
 | Hermes | 是 | 是（通过 standalone） | 是 | 是 | 可选 | 是 | 真实宿主测试 |
 | OpenCode | 否 | 是 | 否 | 否 | 通过 Owner | 是 | 真实宿主测试（双设备） |
 | Pi | 否 | 是（扩展） | 可选适配器 | 可选适配器 | 通过 Owner | 是 | 真实宿主测试 |
-| DeepSeek Harness | 否（生命周期适配器） | 是（DSH bundle） | 可选预览 | 可选预览 | 通过 Owner | 是 | DSH 0.2.2-rc.1 CI 宿主测试；真实模型/GUI 未验证 |
-| WorkBuddy | 否 | 是（connector） | 否 | 否 | 通过 Owner | 是 | 真实桌面 GUI 测试 |
-| Codex | 否 | 是 | 否 | 否 | 通过 Owner | 是 | 官方 CLI 测试 |
+| DeepSeek Harness | 否（生命周期适配器） | 是（DSH bundle） | 可选预览 | 可选预览 | 通过 Owner | 是 | Bundle 0.2.0-rc.3；真实模型/Cloud/Desktop 验收未完成 |
+| WorkBuddy | 否 | 是（connector） | 否 | 否 | 通过 Owner | 是 | Connector 0.2.6 打包/协议通过；GUI Marketplace、干净机器和重启未验证 |
+| Codex | 否 | 是 | 否 | 否 | 通过 Owner | 是 | 候选版 0.1.4；官方 CLI 已测，尚未提交公共目录 |
 | VS Code Copilot | 否 | 是（四个 MCP 工具） | 否 | 否 | 通过 Owner | 是 | [CI 配置/协议 PASS](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/44061227907)；Copilot CLI 1.0.112 PASS；VS Code 1.146.0 Copilot 桌面新增/重启召回 PASS；GitHub Registry 一键安装 NOT VERIFIED |
 
 本分发不对任何 MCP 宿主自动提取对话。自动捕获与召回需要原生 Provider 或生命周期适配器。DSH 自动功能为可选启用；npm 预发布包可安装，但真实模型/Cloud 与 Desktop GUI 验收仍待完成。

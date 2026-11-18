@@ -71,8 +71,8 @@ uvx --from qdrant-memory-mcp==0.3.5 qdrant-memory-mcp --home "/path/to/workbuddy
 ```
 
 初始化会调用本地模型、创建本地 collection，并检查模型维度和存储兼容性。
-两条命令都成功后再连接。平时和重启后无需重复初始化。若提示已有 collection、
-如遇到已有文件、已有 collection、模型不匹配或兼容性错误、锁被占用，应先调查原因。
+两条命令都成功后再连接。平时和重启后无需重复初始化。如遇到已有文件、已有 collection、
+模型不匹配或兼容性错误、锁被占用，应先调查原因。
 `WriterBusyError` 表示另一个 MCP 进程仍持有该 profile；先彻底停止该进程，再启动替代进程。
 终端步骤也会预热固定版本的包，客户端可直接启动已缓存的命令。MCP 连接本身不会安装
 Ollama、下载模型、初始化已有 collection 或迁移数据。不要覆盖配置、重建 profile、使用
