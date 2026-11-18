@@ -24,8 +24,8 @@ def test_readmes_prioritize_stable_stdio_and_label_host_candidates():
         ("README.zh-CN.md", chinese, "docs/quickstart.zh-CN.md"),
     ):
         assert quickstart in text[:2500], name
-        assert "qdrant-memory-mcp==0.3.5" in text
-        assert "Runtime 0.7.1" in text
+        assert "qdrant-memory-mcp==0.3.6" in text
+        assert "Runtime 0.7.2" in text
         assert "0.2.0-rc.3" in text
         assert "0.1.0-rc.12" in text
         assert "0.1.0-rc.10" in text
@@ -41,8 +41,8 @@ def test_readmes_prioritize_stable_stdio_and_label_host_candidates():
 
     for name in ("docs/quickstart.md", "docs/quickstart.zh-CN.md"):
         text = (ROOT / name).read_text(encoding="utf-8")
-        assert "qdrant-memory-mcp==0.3.5" in text
-        assert "Runtime 0.7.1" in text
+        assert "qdrant-memory-mcp==0.3.6" in text
+        assert "Runtime 0.7.2" in text
         assert "--force" in text
         assert "does not automatically" in text or "不会自动提取" in text
         assert "recreate the profile" in text or "重建 profile" in text
@@ -86,7 +86,7 @@ def test_current_workbuddy_and_dsh_instructions_track_project_version():
     """Keep current integration instructions aligned with public MCP pins."""
     project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     requirement = f"qdrant-memory-mcp=={project['project']['version']}"
-    published_requirement = "qdrant-memory-mcp==0.3.5"
+    published_requirement = "qdrant-memory-mcp==0.3.6"
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     candidate_docs = [
         "docs/quickstart.zh-CN.md",
@@ -140,7 +140,13 @@ def test_dsh_documented_install_commands_match_pinned_bundle():
         (ROOT / "integrations/dsh/bundle/package.json").read_text(encoding="utf-8")
     )
     runtime_version = project["project"]["dependencies"][0].rsplit("==", 1)[1]
-    assert launcher["runtime_version"] == runtime_version
+    managed = json.loads(
+        (ROOT / "integrations/managed/runtime.json").read_text(encoding="utf-8")
+    )
+    assert launcher["runtime_version"] == managed["version"]
+    assert f"| Runtime | {runtime_version} |" in (
+        ROOT / "docs/cross-harness-architecture.md"
+    ).read_text(encoding="utf-8")
     assert f"@cnkang/qdrant-memory-launcher@{launcher['version']}" in (
         ROOT / "integrations/dsh/bundle/index.js"
     ).read_text(encoding="utf-8")
