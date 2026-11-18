@@ -8,8 +8,10 @@ See the [English guide](../../docs/dsh-integration.md) or
   launcher by default and can explicitly select one HTTPS Owner for tools and
   opt-in Native lifecycle. Install it with
   `dsh plugin --profile <name> add`. Backend preparation is an explicit step.
-- `qdrant-memory.cordis.yml`: published Python/uvx overlay for `--patch` use.
-  Prepare a separate profile first.
+- `qdrant-memory.cordis.yml`: compatibility URL for the published 0.3.5 guide.
+- `qdrant-memory-mcp-0.3.6.cordis.yml`: Python/uvx overlay for the prepared
+  0.3.6 release. Confirm the package is available on PyPI and prepare a separate
+  profile before using `--patch`.
 - `native/`: unpublished, opt-in Cordis lifecycle adapter for the exact
   `@deepseek-ai/dsh@0.2.2-rc.1` lane. It requires the companion Runtime
   candidate-event support and keeps automatic recall, capture, and memory

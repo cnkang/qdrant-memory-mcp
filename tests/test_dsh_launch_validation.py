@@ -49,18 +49,10 @@ CANDIDATE_MCP_VERSION = tomllib.loads((ROOT / 'pyproject.toml').read_text())[
 
 
 def released_overlay():
-    """Use the published MCP pin while testing the released DSH guide."""
-    overlay = (ROOT / 'integrations/dsh/qdrant-memory.cordis.yml').read_text(
-        encoding='utf-8'
-    )
-    overlay, replacements = re.subn(
-        r'(?m)^(\s+- )qdrant-memory-mcp==\S+(\s*)$',
-        lambda match: f'{match.group(1)}qdrant-memory-mcp=={PUBLISHED_MCP_VERSION}{match.group(2)}',
-        overlay,
-        count=1,
-    )
-    assert replacements == 1
-    return overlay
+    """Read the same versioned overlay that both guides download."""
+    return (
+        ROOT / f'integrations/dsh/qdrant-memory-mcp-{PUBLISHED_MCP_VERSION}.cordis.yml'
+    ).read_text(encoding='utf-8')
 
 
 @pytest.fixture(autouse=True)

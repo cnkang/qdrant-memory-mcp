@@ -85,8 +85,9 @@ Python Owner. All three switches default to `false`. Recall requires both
 This adapter targets `@deepseek-ai/dsh@0.2.2-rc.1` and requires Runtime 0.6.2
 or newer for receipt-scoped recovery of failed operations. Runtime 0.7.2 is
 published on PyPI, but the native adapter package remains private and real-model
-or GUI acceptance is incomplete. Use the Bundle or Python/uvx overlay below for
-a published installation path. See [native design and support status](dsh-native/design.md).
+or GUI acceptance is incomplete. The Bundle above is available now. The
+Python/uvx overlay below requires the exact MCP version on PyPI.
+See [native design and support status](dsh-native/design.md).
 See the [English setup guide](../integrations/dsh/native/README.md),
 [中文设置说明](../integrations/dsh/native/README.zh-CN.md), and
 [validation evidence](dsh-native/validation.md) for configuration, rollback,
@@ -94,8 +95,16 @@ and the current test boundaries.
 
 ## Alternative: Python/uvx overlay
 
-The published MCP 0.3.6 package pins Runtime 0.7.2. The commands below use
-that exact PyPI release; no source checkout is required for this overlay lane.
+The prepared MCP 0.3.6 package pins Runtime 0.7.2. Before running the commands
+below, confirm that exact version is available on
+[PyPI](https://pypi.org/project/qdrant-memory-mcp/0.3.6/). Until then, use the
+[published 0.3.5 guide](https://github.com/cnkang/qdrant-memory-mcp/blob/v0.3.5/docs/dsh-integration.md).
+The overlay requires no source checkout.
+
+If you follow the 0.3.4 guide, replace its overlay download URL in the shell
+or PowerShell command with the
+[overlay from the v0.3.4 tag](https://raw.githubusercontent.com/cnkang/qdrant-memory-mcp/v0.3.4/integrations/dsh/qdrant-memory.cordis.yml).
+That download matches the guide's 0.3.4 package check.
 
 This path requires Python 3.11+, uv/uvx, and a working embedding service, such
 as Ollama. Follow the [quickstart](quickstart.md), using a new dedicated profile
@@ -145,7 +154,7 @@ uvx --from qdrant-memory-mcp==0.3.6 qdrant-memory-mcp --home "$PROFILE" doctor &
     # keep the partial file out of the profile directory in every exit path.
     trap 'rm -f "$TMP"' EXIT INT
     if curl -fsSL -o "$TMP" \
-      https://raw.githubusercontent.com/cnkang/qdrant-memory-mcp/main/integrations/dsh/qdrant-memory.cordis.yml; then
+      https://raw.githubusercontent.com/cnkang/qdrant-memory-mcp/main/integrations/dsh/qdrant-memory-mcp-0.3.6.cordis.yml; then
       mv "$TMP" "$PATCH"
       trap - EXIT INT
     else
@@ -303,7 +312,7 @@ New-Item -ItemType Directory -Force -Path $PatchDir | Out-Null
 if (-not (Test-Path $Patch)) {
   $Draft = "$Patch.download"
   try {
-    Invoke-WebRequest -UseBasicParsing -Uri "https://raw.githubusercontent.com/cnkang/qdrant-memory-mcp/main/integrations/dsh/qdrant-memory.cordis.yml" -OutFile $Draft -ErrorAction Stop
+    Invoke-WebRequest -UseBasicParsing -Uri "https://raw.githubusercontent.com/cnkang/qdrant-memory-mcp/main/integrations/dsh/qdrant-memory-mcp-0.3.6.cordis.yml" -OutFile $Draft -ErrorAction Stop
     Move-Item $Draft $Patch
   } catch {
     # Write-Error keeps running under the default error preference; a thrown
@@ -447,10 +456,9 @@ try {
 dsh web --patch $Patch
 ```
 
-The current overlay patch is available from the repository's `main` branch and
-matches the `0.3.6` package pin and guide link above; no source checkout is
-required. Keep the downloaded file outside the package environment and pass
-its local path to `--patch` on every DSH launch.
+The versioned overlay file matches the `0.3.6` package pin. Keep the downloaded
+file outside the package environment and pass its local path to `--patch` on
+every DSH launch.
 
 
 On Windows use the corresponding absolute profile path. Set

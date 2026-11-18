@@ -5,6 +5,7 @@ import os
 import shlex
 import shutil
 import subprocess
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -23,7 +24,8 @@ def test_bridge_catalogue_is_exact_runtime_schema():
 
 def test_dsh_overlay_is_additive_and_explicit_about_credentials():
     """The DSH overlay adds one plugin without changing host permission defaults."""
-    text = (ROOT / 'integrations/dsh/qdrant-memory.cordis.yml').read_text()
+    version = tomllib.loads((ROOT / 'pyproject.toml').read_text())['project']['version']
+    text = (ROOT / f'integrations/dsh/qdrant-memory-mcp-{version}.cordis.yml').read_text()
     assert text.count('- insert:') == 1
     assert "name: '@deepseek-ai/dsh-mcp-client'" in text
     assert 'id: cnkang-qdrant-memory-mcp' in text
