@@ -26,8 +26,8 @@ def test_readmes_prioritize_stable_stdio_and_label_host_candidates():
         assert quickstart in text[:2500], name
         assert "qdrant-memory-mcp==0.3.6" in text
         assert "Runtime 0.7.2" in text
-        assert "0.2.0-rc.4" in text
-        assert "0.1.0-rc.13" in text
+        assert "0.2.0-rc.5" in text
+        assert "0.1.0-rc.14" in text
         assert "0.1.0-rc.10" in text
         assert "Runtime 0.6.2" in text
         assert (
@@ -185,8 +185,8 @@ def test_workbuddy_readme_separates_published_and_next_launcher():
     args = mcp["mcpServers"]["qdrant-memory"]["args"]
     assert "0.1.0-rc.11" not in guide
     assert "0.1.0-rc.10" in guide
-    assert "selects launcher 0.1.0-rc.13, Runtime 0.7.2 and Skill 0.4.6" in guide
-    assert any("0.1.0-rc.13" in value for value in args)
+    assert "selects launcher 0.1.0-rc.14, Runtime 0.7.2 and Skill 0.4.6" in guide
+    assert any("0.1.0-rc.14" in value for value in args)
 
 
 def test_dsh_tarball_fallback_uses_the_npm_registry():

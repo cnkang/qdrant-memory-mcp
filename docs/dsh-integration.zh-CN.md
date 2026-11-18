@@ -12,8 +12,8 @@
 纯配置 Bundle 通过官方 `@deepseek-ai/dsh-mcp-client` 连接已发布的托管启动器。
 需要 Node.js（DSH 本身依赖），不需要系统 Python、uvx、Ollama 或 Qdrant Server。
 
-准备后端前先选择 Bundle。`0.2.0-rc.4` 候选要求 Node.js 24.9 或更新版本，
-并使用 launcher `0.1.0-rc.13` 与 Runtime 0.7.2。较旧的 Host 应继续使用 Bundle
+准备后端前先选择 Bundle。`0.2.0-rc.5` 候选要求 Node.js 24.9 或更新版本，
+并使用 launcher `0.1.0-rc.14` 与 Runtime 0.7.2。较旧的 Host 应继续使用 Bundle
 `0.1.6`，它配套 launcher `0.1.0-rc.8` 和 Runtime 0.6.0。不要用一个 launcher
 准备后端后再安装另一版本的 Bundle。
 
@@ -27,7 +27,7 @@ dsh plugin --profile <name> add @cnkang/qdrant-memory-dsh-bundle@0.1.6
 当前候选请先准备共享后端：
 
 ```sh
-npx -y @cnkang/qdrant-memory-launcher@0.1.0-rc.13 prepare dsh
+npx -y @cnkang/qdrant-memory-launcher@0.1.0-rc.14 prepare dsh
 ```
 
 等待输出 `{"ready":true,"host":"dsh"}`。准备过程会下载私有 Python 环境、固定版本的
@@ -35,23 +35,23 @@ Runtime wheel 和经过校验的 CPU 嵌入模型，可能需要数分钟并需�
 安装到一个 profile：
 
 ```sh
-dsh plugin --profile <name> add @cnkang/qdrant-memory-dsh-bundle@0.2.0-rc.4
+dsh plugin --profile <name> add @cnkang/qdrant-memory-dsh-bundle@0.2.0-rc.5
 ```
 
 若所用 npm 镜像尚未同步该包，先从 npm Registry 解析精确版本的 tarball 与完整性元数据：
 
 ```sh
-npm view @cnkang/qdrant-memory-dsh-bundle@0.2.0-rc.4 dist.tarball dist.integrity --json
+npm view @cnkang/qdrant-memory-dsh-bundle@0.2.0-rc.5 dist.tarball dist.integrity --json
 ```
 
 下载 `dist.tarball`，用 `dist.integrity` 校验实际字节，再用文件路径安装：
 
 ```sh
-dsh plugin --profile <name> add ./qdrant-memory-dsh-bundle-0.2.0-rc.4.tgz
+dsh plugin --profile <name> add ./qdrant-memory-dsh-bundle-0.2.0-rc.5.tgz
 ```
 
 官方 tarball 为
-`https://registry.npmjs.org/@cnkang/qdrant-memory-dsh-bundle/-/qdrant-memory-dsh-bundle-0.2.0-rc.4.tgz`。
+`https://registry.npmjs.org/@cnkang/qdrant-memory-dsh-bundle/-/qdrant-memory-dsh-bundle-0.2.0-rc.5.tgz`。
 这是 Registry 备用路径，不是完全离线准备：launcher 准备与模型下载仍可能需要网络。
 不启动即可先验证层：
 

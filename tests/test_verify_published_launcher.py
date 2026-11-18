@@ -253,3 +253,16 @@ def test_runtime_drift_with_the_checkout_is_rejected(tmp_path):
     (source / "runtime.json").write_text('{"version": "0.7.1"}', encoding="utf-8")
     with pytest.raises(ValueError):
         verifier().verify(body, pin, source)
+
+
+def test_manifest_drift_with_the_checkout_is_rejected(tmp_path):
+    """A checkout manifest that differs from the published one fails the check."""
+    source, pin, body = build(
+        tmp_path,
+        {"launcher.mjs": b"#!/usr/bin/env node\n", "requirements.lock": b"x==1\n"},
+    )
+    manifest = json.loads((source / "package.json").read_text(encoding="utf-8"))
+    manifest["engines"] = {"node": ">=24"}
+    (source / "package.json").write_text(json.dumps(manifest), encoding="utf-8")
+    with pytest.raises(ValueError):
+        verifier().verify(body, pin, source)

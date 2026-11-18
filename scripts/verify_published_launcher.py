@@ -72,6 +72,11 @@ def verify(body, pin, source):
             raise ValueError(
                 "Published package version differs from launcher-source.json"
             )
+        checkout_manifest = json.loads(
+            (source / "package.json").read_text(encoding="utf-8")
+        )
+        if package != checkout_manifest:
+            raise ValueError("Published package.json differs from this checkout")
         if runtime["version"] != pin["runtime_version"]:
             raise ValueError("Published runtime.json differs from launcher-source.json")
         allowed = {f"package/{name}" for name in package["files"]}
