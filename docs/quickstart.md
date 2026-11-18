@@ -139,7 +139,7 @@ session and let it start the replacement.
 |---|---|
 | VS Code Copilot desktop, 0.3.6 candidate | PASS — VS Code 1.146.0 on macOS arm64, Copilot harness, workspace `.mcp.json`, local wheel, Runtime 0.7.2 from PyPI, MCP SDK 2.3.0. Previous-version recall, add, search, restart recall, update and delete passed. |
 | VS Code Copilot desktop, PyPI 0.3.5 | PASS — VS Code 1.146.0, Runtime 0.7.1. Discovered all four tools and recalled a record after restart in a fresh session. |
-| VS Code Copilot desktop, PyPI 0.3.6 | Pending publication. |
+| VS Code Copilot desktop, PyPI 0.3.6 | Published. The host result above was recorded with the candidate wheel; a public-package re-run is not recorded. |
 | CI configuration and stdio protocol | PASS for the 0.3.6 candidate. [Distribution CI](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/44231566353) |
 | Copilot CLI | PASS — GitHub Copilot CLI 1.0.112 discovered all four tools and made real stdio add/search calls with published `qdrant-memory-mcp==0.3.5`; a fresh CLI process and session recalled the same synthetic record after the MCP process restarted |
 | GitHub Registry one-click install | NOT VERIFIED; manual configuration does not establish catalog installation |
