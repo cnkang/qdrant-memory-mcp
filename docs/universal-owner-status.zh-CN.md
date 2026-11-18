@@ -2,12 +2,12 @@
 
 [English](universal-owner-status.md)
 
-本页说明当前 Runtime 0.7.1 的功能及本仓库的预览适配器。
-Runtime 0.6.1 引入了版本化 Owner 事件；分发 0.3.5 固定使用已发布的 Runtime 0.7.1 包。
+本页说明当前 Runtime 0.7.2 的功能及本仓库的预览适配器。
+Runtime 0.6.1 引入了版本化 Owner 事件；分发 0.3.6 固定使用已发布的 Runtime 0.7.2 包。
 预览适配器需要单独安装相应集成。
 发布和源码 CI 不代表生产环境验收。
 
-当前 Owner 源码 CI 固定已发布 Runtime 0.7.1 的源码提交 [`cc5cac025f5d18afb5c698b2b5db444e30fc240e`](https://github.com/cnkang/hermes-plugin-qdrant-memory/tree/cc5cac025f5d18afb5c698b2b5db444e30fc240e)。
+当前 Owner 源码 CI 固定已发布 Runtime 0.7.1 的源码提交 [`0ce83104fefbaecabe6b9e4560d3c83ee4e20438`](https://github.com/cnkang/hermes-plugin-qdrant-memory/tree/0ce83104fefbaecabe6b9e4560d3c83ee4e20438)。
 
 ## 功能
 

@@ -2,12 +2,12 @@
 
 [简体中文](universal-owner-status.zh-CN.md)
 
-This page describes the current Runtime 0.7.1 capabilities and the repository's preview adapters.
-Runtime 0.6.1 introduced versioned Owner events; distribution 0.3.5 selects the published Runtime 0.7.1 package.
+This page describes the current Runtime 0.7.2 capabilities and the repository's preview adapters.
+Runtime 0.6.1 introduced versioned Owner events; distribution 0.3.6 selects the published Runtime 0.7.2 package.
 Preview adapters require a separate installation of the applicable integration.
 Publication and source CI do not establish production acceptance.
 
-Current Owner source CI pins the published Runtime 0.7.1 source at [`cc5cac025f5d18afb5c698b2b5db444e30fc240e`](https://github.com/cnkang/hermes-plugin-qdrant-memory/tree/cc5cac025f5d18afb5c698b2b5db444e30fc240e).
+Current Owner source CI pins the published Runtime 0.7.1 source at [`0ce83104fefbaecabe6b9e4560d3c83ee4e20438`](https://github.com/cnkang/hermes-plugin-qdrant-memory/tree/0ce83104fefbaecabe6b9e4560d3c83ee4e20438).
 
 ## Capabilities
 

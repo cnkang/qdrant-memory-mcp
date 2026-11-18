@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.6
+
+- Pin the MCP distribution to the public Runtime 0.7.2 release. The
+  metadata-only stdio package keeps the same four scoped tools and does not
+  change the Runtime data schema, embedding fingerprint or policy defaults.
+- Runtime 0.7.2 records a local Ledger write watermark in each upgrade plan and
+  refuses `apply` or `resume` when a later local write crossed the stop-write
+  boundary. A plan without a watermark needs `upgrade plan --replace`.
+- Keep the managed launcher, WorkBuddy connector and DSH bundle release lines
+  unchanged. Published launcher `0.1.0-rc.12` still installs Runtime 0.7.1.
+
 ## 0.3.5
 
 - Pin the MCP distribution to the public Runtime 0.7.1 release. The metadata-only

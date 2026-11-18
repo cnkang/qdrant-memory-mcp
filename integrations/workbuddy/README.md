@@ -339,10 +339,10 @@ the uvx alternative. The builder rejects drift from checked-in pins:
 `mcp.uvx.json` documents the advanced custom-MCP route for users who run
 their own Python backend instead of the managed launcher:
 
-The public `qdrant-memory-mcp==0.3.5` package uses Runtime 0.7.1.
+The public `qdrant-memory-mcp==0.3.6` package uses Runtime 0.7.2.
 
 ```sh
-uvx --from qdrant-memory-mcp==0.3.5 qdrant-memory-mcp mcp
+uvx --from qdrant-memory-mcp==0.3.6 qdrant-memory-mcp mcp
 ```
 
 Add `--home <private-profile-path>` before `mcp` to bind an explicit private

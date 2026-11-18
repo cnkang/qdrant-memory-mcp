@@ -3,8 +3,8 @@
 Use an existing Ollama embedding model and embedded Qdrant with WorkBuddy or
 another stdio MCP client. No Docker, Qdrant server, cloud account or embedding
 API key is required. Python/uv and one-time configuration are still necessary.
-This route uses the public stable `qdrant-memory-mcp==0.3.5` package, which pins
-Runtime 0.7.1. Ordinary MCP performs explicit memory operations; it does not
+This route uses the public stable `qdrant-memory-mcp==0.3.6` package, which pins
+Runtime 0.7.2. Ordinary MCP performs explicit memory operations; it does not
 automatically extract conversation turns or prefetch memories. Installing a
 connector does not initialize its storage.
 
@@ -61,7 +61,7 @@ the new directory:
 }
 ```
 
-The public MCP `qdrant-memory-mcp==0.3.5` pins Runtime 0.7.1. The commands
+The public MCP `qdrant-memory-mcp==0.3.6` pins Runtime 0.7.2. The commands
 below use that exact release. Confirm it on
 [PyPI](https://pypi.org/project/qdrant-memory-mcp/0.3.5/) before installing.
 
@@ -71,8 +71,8 @@ around paths with spaces. On Windows, use your Windows path. Double backslashes
 inside JSON, or use forward slashes.
 
 ```sh
-uvx --from qdrant-memory-mcp==0.3.5 qdrant-memory-mcp --home "/path/to/workbuddy-profile" init
-uvx --from qdrant-memory-mcp==0.3.5 qdrant-memory-mcp --home "/path/to/workbuddy-profile" doctor
+uvx --from qdrant-memory-mcp==0.3.6 qdrant-memory-mcp --home "/path/to/workbuddy-profile" init
+uvx --from qdrant-memory-mcp==0.3.6 qdrant-memory-mcp --home "/path/to/workbuddy-profile" doctor
 ```
 
 Initialization calls the local model, creates local storage and validates its
@@ -103,7 +103,7 @@ not the native Copilot configuration.
     "qdrant-memory": {
       "type": "stdio",
       "command": "uvx",
-      "args": ["--from", "qdrant-memory-mcp==0.3.5", "qdrant-memory-mcp", "--home", "/path/to/copilot-profile", "mcp"]
+      "args": ["--from", "qdrant-memory-mcp==0.3.6", "qdrant-memory-mcp", "--home", "/path/to/copilot-profile", "mcp"]
     }
   }
 }
@@ -130,7 +130,7 @@ a second server against the same profile.
 |---|---|
 | VS Code Copilot desktop session | PASS — VS Code 1.146.0; Copilot harness; workspace `.mcp.json`; public MCP 0.3.5 / Runtime 0.7.1; all four tools discovered and fresh-session restart recall passed |
 | CI configuration and stdio protocol | PASS locally with the candidate wheel and published 0.3.5; [GitHub Distribution CI PASS](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/44061227907) |
-| Copilot CLI | PASS — GitHub Copilot CLI 1.0.112 discovered all four tools and made real stdio add/search calls with published `qdrant-memory-mcp==0.3.5`; a fresh CLI process and session recalled the same synthetic record after the MCP process restarted |
+| Copilot CLI | PASS — GitHub Copilot CLI 1.0.112 discovered all four tools and made real stdio add/search calls with published `qdrant-memory-mcp==0.3.6`; a fresh CLI process and session recalled the same synthetic record after the MCP process restarted |
 | GitHub Registry one-click install | NOT VERIFIED; manual configuration does not establish catalog installation |
 
 Desktop evidence (2026-11-17): `qdrant_memory_add` stored synthetic marker
@@ -156,7 +156,7 @@ enable both the packaged default and this custom instance for this setup.
     "qdrant-memory": {
       "type": "stdio",
       "command": "uvx",
-      "args": ["--from", "qdrant-memory-mcp==0.3.5", "qdrant-memory-mcp", "--home", "/path/to/workbuddy-profile", "mcp"],
+      "args": ["--from", "qdrant-memory-mcp==0.3.6", "qdrant-memory-mcp", "--home", "/path/to/workbuddy-profile", "mcp"],
       "timeout": 30000
     }
   }
