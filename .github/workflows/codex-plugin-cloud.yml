@@ -86,7 +86,7 @@ jobs:
       - name: Install the declared Runtime and pinned Codex
         shell: bash
         env:
-          CODEX_CLI_VERSION: '0.167.2'
+          CODEX_CLI_VERSION: '0.170.0'
         run: |
           lock_dir=".github/codex-cli-locks/${CODEX_CLI_VERSION}"
           install_dir="$RUNNER_TEMP/codex-cli"
