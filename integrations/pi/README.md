@@ -4,7 +4,7 @@ This adapter requires Runtime 0.5.2, which provides `remote-call` and `remote-ev
 Current Owner lifecycle CI pins Runtime 0.5.4.
 This adapter is off by default. It uses Pi's public `session_start`,
 `before_agent_start`, `context`, `turn_end` and `session_shutdown` extension hooks.
-Tests use the actual Pi 1.3.0 session runtime and deterministic model responses.
+Tests use the actual Pi 1.5.2 session runtime and deterministic model responses.
 These tests do not verify the user interface or production model quality.
 
 Install `owner-memory.mjs` through Pi's extension configuration.
@@ -88,7 +88,7 @@ Both tests use deterministic model and embedding fixtures.
 They do not verify production extraction accuracy.
 The separate Runtime tests use two containers to verify TLS and network separation.
 
-The test manifest and lockfile use Pi 1.3.0 with compatible dependencies.
+The test manifest and lockfile use Pi 1.5.2 with compatible dependencies.
 Pi 1.1.0 selected incompatible 1.2.0 subpackages and could not import them.
 Codex, DSH, WorkBuddy, and OpenCode support explicit MCP or assisted use.
 They require separate, verified lifecycle adapters for automatic memory.

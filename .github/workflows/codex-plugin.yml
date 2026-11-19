@@ -24,9 +24,10 @@ on:
       codex_cli_version:
         description: Select a hash-locked @openai/codex version for the optional compatibility probe
         required: false
-        default: '0.167.2'
+        default: '0.170.0'
         type: choice
         options:
+          - '0.170.0'
           - '0.167.2'
           - '0.165.0'
 permissions:
@@ -57,11 +58,11 @@ jobs:
       - name: Install fixed hash-locked Codex CLI version
         shell: bash
         env:
-          CODEX_CLI_VERSION: '0.167.2'
+          CODEX_CLI_VERSION: '0.170.0'
         run: |
           case "$CODEX_CLI_VERSION" in
-            0.167.2) ;;
-            *) echo "::error::required Codex CLI version must remain 0.167.2"; exit 1 ;;
+            0.170.0) ;;
+            *) echo "::error::required Codex CLI version must remain 0.170.0"; exit 1 ;;
           esac
           lock_dir=".github/codex-cli-locks/${CODEX_CLI_VERSION}"
           install_dir="$RUNNER_TEMP/codex-cli"
@@ -194,11 +195,11 @@ jobs:
       - name: Install fixed hash-locked Codex CLI version
         shell: bash
         env:
-          CODEX_CLI_VERSION: '0.167.2'
+          CODEX_CLI_VERSION: '0.170.0'
         run: |
           case "$CODEX_CLI_VERSION" in
-            0.167.2) ;;
-            *) echo "::error::required Codex CLI version must remain 0.167.2"; exit 1 ;;
+            0.170.0) ;;
+            *) echo "::error::required Codex CLI version must remain 0.170.0"; exit 1 ;;
           esac
           lock_dir=".github/codex-cli-locks/${CODEX_CLI_VERSION}"
           install_dir="$RUNNER_TEMP/codex-cli"
@@ -230,13 +231,13 @@ jobs:
 
   compatibility-probe:
     name: Optional manual toolchain compatibility probe
-    if: ${{ github.event_name == 'workflow_dispatch' && (inputs.node_version != '22' || inputs.python_version != '3.11' || inputs.codex_cli_version != '0.167.2') }}
+    if: ${{ github.event_name == 'workflow_dispatch' && (inputs.node_version != '22' || inputs.python_version != '3.11' || inputs.codex_cli_version != '0.170.0') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
       CODEX_PLUGIN_NODE_VERSION: ${{ inputs.node_version || '22' }}
       CODEX_PLUGIN_PYTHON_VERSION: ${{ inputs.python_version || '3.11' }}
-      CODEX_CLI_VERSION: ${{ inputs.codex_cli_version || '0.167.2' }}
+      CODEX_CLI_VERSION: ${{ inputs.codex_cli_version || '0.170.0' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -254,7 +255,7 @@ jobs:
             *) echo "::error::python_version must be 3.11 or 3.14"; exit 1 ;;
           esac
           case "$CODEX_CLI_VERSION" in
-            0.167.2|0.165.0) ;;
+            0.170.0|0.167.2|0.165.0) ;;
             *) echo "::error::codex_cli_version must select a checked-in dependency lock"; exit 1 ;;
           esac
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
