@@ -81,8 +81,10 @@ Hermes 相互独立。更新、卸载与恢复说明见 [Bundle 说明](../integ
 
 ## 备选：Python/uvx overlay
 
-MCP 0.3.6 已准备并固定依赖 Runtime 0.7.2。运行下方命令前，请先在
-[PyPI](https://pypi.org/project/qdrant-memory-mcp/0.3.6/) 确认该版本可用。
+当前公开版 qdrant-memory-mcp==0.3.6 固定依赖 Runtime 0.7.2。下方命令准备
+MCP 0.3.7 候选版，固定依赖已公开发布的 Runtime 0.7.3。请仅在
+[PyPI](https://pypi.org/project/qdrant-memory-mcp/0.3.7/) 显示 0.3.7 已发布后使用候选命令；
+此前请继续使用公开版 0.3.6 及其 qdrant-memory-mcp-0.3.6.cordis.yml overlay。
 在此之前，请使用[已发布的 0.3.5 指南](https://github.com/cnkang/qdrant-memory-mcp/blob/v0.3.5/docs/dsh-integration.zh-CN.md)。
 此 overlay 路径无需检出源码。
 
@@ -103,7 +105,7 @@ MCP 0.3.6 已准备并固定依赖 Runtime 0.7.2。运行下方命令前，请�
 shell 文件操作和 Runtime 使用同一目录。
 
 为保留旧版本或自定义 patch，本指南使用带版本号的路径
-`$PROFILE/qdrant-memory-mcp-0.3.6.cordis.yml`。已有
+`$PROFILE/qdrant-memory-mcp-0.3.7.cordis.yml`。已有
 `qdrant-memory.cordis.yml` 会保持不变。请检查旧文件，并把需要保留的本地修改
 移植到新文件；不要改变 `QDRANT_MEMORY_DSH_PROFILE`。启动前校验器会确认
 `--home` 与所选 profile 一致。
@@ -122,18 +124,18 @@ home 表达式，或者使用已准备 profile 的字面路径。
 ```sh
 PROFILE="${QDRANT_MEMORY_DSH_PROFILE:-$HOME/.qdrant-memory-dsh}"
 export QDRANT_MEMORY_DSH_PROFILE="$PROFILE"
-uvx --from qdrant-memory-mcp==0.3.6 qdrant-memory-mcp --home "$PROFILE" init &&
-uvx --from qdrant-memory-mcp==0.3.6 qdrant-memory-mcp --home "$PROFILE" doctor &&
+uvx --from qdrant-memory-mcp==0.3.7 qdrant-memory-mcp --home "$PROFILE" init &&
+uvx --from qdrant-memory-mcp==0.3.7 qdrant-memory-mcp --home "$PROFILE" doctor &&
 (
   mkdir -p "$PROFILE"
-  PATCH="$PROFILE/qdrant-memory-mcp-0.3.6.cordis.yml"
+  PATCH="$PROFILE/qdrant-memory-mcp-0.3.7.cordis.yml"
   if [ ! -e "$PATCH" ]; then
     TMP="$(mktemp "${PATCH}.XXXXXX")"
     # Bash 可能在失败分支执行前退出（例如 Ctrl-C），因此任何退出路径都要
     # 保证残留的半下载文件不留在 profile 目录里。
     trap 'rm -f "$TMP"' EXIT INT
     if curl -fsSL -o "$TMP" \
-      https://raw.githubusercontent.com/cnkang/qdrant-memory-mcp/main/integrations/dsh/qdrant-memory-mcp-0.3.6.cordis.yml; then
+      https://raw.githubusercontent.com/cnkang/qdrant-memory-mcp/main/integrations/dsh/qdrant-memory-mcp-0.3.7.cordis.yml; then
       mv "$TMP" "$PATCH"
       trap - EXIT INT
     else
@@ -145,7 +147,7 @@ uvx --from qdrant-memory-mcp==0.3.6 qdrant-memory-mcp --home "$PROFILE" doctor &
   # 仅解析 YAML 节点，不执行 !!js 表达式。
   COMPOSED="$(mktemp)"
   if dsh web --dump-config > "$COMPOSED"; then
-    if uv run --no-project --with PyYAML==6.0.3 python -I - "$PATCH" qdrant-memory-mcp==0.3.6 "$PROFILE" "$COMPOSED" <<'PY'
+    if uv run --no-project --with PyYAML==6.0.3 python -I - "$PATCH" qdrant-memory-mcp==0.3.7 "$PROFILE" "$COMPOSED" <<'PY'
 import sys
 import yaml
 from pathlib import Path
@@ -256,7 +258,7 @@ try:
         assert home.tag == 'tag:yaml.org,2002:str'
         assert Path(home.value).expanduser().resolve() == Path(sys.argv[3]).expanduser().resolve(), 'Profile mismatch'
 except (AssertionError, KeyError, AttributeError, OSError, yaml.YAMLError):
-    sys.exit('Invalid patch: require one unambiguous memory server, qdrant-memory-mcp==0.3.6 and the prepared profile; DSH was not launched.')
+    sys.exit('Invalid patch: require one unambiguous memory server, qdrant-memory-mcp==0.3.7 and the prepared profile; DSH was not launched.')
 PY
     then
       rm -f "$COMPOSED"
@@ -281,17 +283,17 @@ if (-not (Get-Command uvx -ErrorAction SilentlyContinue)) {
 }
 $MemoryProfile = if ($env:QDRANT_MEMORY_DSH_PROFILE) { $env:QDRANT_MEMORY_DSH_PROFILE } else { Join-Path $HOME ".qdrant-memory-dsh" }
 $env:QDRANT_MEMORY_DSH_PROFILE = $MemoryProfile
-uvx --from qdrant-memory-mcp==0.3.6 qdrant-memory-mcp --home $MemoryProfile init
+uvx --from qdrant-memory-mcp==0.3.7 qdrant-memory-mcp --home $MemoryProfile init
 if ($LASTEXITCODE -ne 0) { throw "Runtime init failed; DSH was not launched." }
-uvx --from qdrant-memory-mcp==0.3.6 qdrant-memory-mcp --home $MemoryProfile doctor
+uvx --from qdrant-memory-mcp==0.3.7 qdrant-memory-mcp --home $MemoryProfile doctor
 if ($LASTEXITCODE -ne 0) { throw "Runtime doctor failed; DSH was not launched." }
 $PatchDir = $MemoryProfile
-$Patch = Join-Path $PatchDir "qdrant-memory-mcp-0.3.6.cordis.yml"
+$Patch = Join-Path $PatchDir "qdrant-memory-mcp-0.3.7.cordis.yml"
 New-Item -ItemType Directory -Force -Path $PatchDir | Out-Null
 if (-not (Test-Path $Patch)) {
   $Draft = "$Patch.download"
   try {
-    Invoke-WebRequest -UseBasicParsing -Uri "https://raw.githubusercontent.com/cnkang/qdrant-memory-mcp/main/integrations/dsh/qdrant-memory-mcp-0.3.6.cordis.yml" -OutFile $Draft -ErrorAction Stop
+    Invoke-WebRequest -UseBasicParsing -Uri "https://raw.githubusercontent.com/cnkang/qdrant-memory-mcp/main/integrations/dsh/qdrant-memory-mcp-0.3.7.cordis.yml" -OutFile $Draft -ErrorAction Stop
     Move-Item $Draft $Patch
   } catch {
     # 默认错误偏好下 Write-Error 不会中断脚本；改为 throw，避免继续执行
@@ -413,7 +415,7 @@ try:
         assert home.tag == 'tag:yaml.org,2002:str'
         assert Path(home.value).expanduser().resolve() == Path(sys.argv[3]).expanduser().resolve(), 'Profile mismatch'
 except (AssertionError, KeyError, AttributeError, OSError, yaml.YAMLError):
-    sys.exit('Invalid patch: require one unambiguous memory server, qdrant-memory-mcp==0.3.6 and the prepared profile; DSH was not launched.')
+    sys.exit('Invalid patch: require one unambiguous memory server, qdrant-memory-mcp==0.3.7 and the prepared profile; DSH was not launched.')
 '@
 $Composed = [IO.Path]::GetTempFileName()
 try {
@@ -427,7 +429,7 @@ try {
   }
   if ($LASTEXITCODE -ne 0) { throw "Profile config dump failed; DSH was not launched." }
   [IO.File]::WriteAllText($Composed, ($Dump -join "`n"))
-  $ValidatePatch | uv run --no-project --with PyYAML==6.0.3 python -I - $Patch qdrant-memory-mcp==0.3.6 $MemoryProfile $Composed
+  $ValidatePatch | uv run --no-project --with PyYAML==6.0.3 python -I - $Patch qdrant-memory-mcp==0.3.7 $MemoryProfile $Composed
   if ($LASTEXITCODE -ne 0) { throw "Patch/profile validation failed; DSH was not launched." }
 } finally {
   Remove-Item -Force $Composed -ErrorAction SilentlyContinue

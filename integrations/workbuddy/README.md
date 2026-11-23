@@ -29,9 +29,10 @@ published `mcp.json` declares:
 }
 ```
 
-The current repository source selects launcher `0.1.0-rc.14` with Runtime
-0.7.2 for the next connector build. That source pin is not part of the published
-Connector 0.2.6 ZIP and does not change its bytes. The example above is the
+The current managed route selects launcher `0.1.0-rc.14` with Runtime 0.7.2
+for the next connector build. The separate uvx route is preparing MCP 0.3.7
+with Runtime 0.7.3. These source pins are not part of the published Connector
+0.2.6 ZIP and do not change its bytes. The example above is the
 published 0.2.6 configuration; verify it against `mcp.json` and
 `provenance.json` inside that release ZIP.
 
@@ -339,7 +340,10 @@ the uvx alternative. The builder rejects drift from checked-in pins:
 `mcp.uvx.json` documents the advanced custom-MCP route for users who run
 their own Python backend instead of the managed launcher:
 
-The public `qdrant-memory-mcp==0.3.6` package uses Runtime 0.7.2.
+The public `qdrant-memory-mcp==0.3.6` package uses Runtime 0.7.2. The next
+source candidate is `qdrant-memory-mcp==0.3.7`, pinned to public Runtime 0.7.3;
+it is not part of the published Connector 0.2.6 and must not be used until its
+PyPI and MCP Registry publication is verified.
 
 ```sh
 uvx --from qdrant-memory-mcp==0.3.6 qdrant-memory-mcp mcp

@@ -8,6 +8,12 @@ stdio MCP distribution. Start with the [quickstart](docs/quickstart.md)
 0.7.2 and exposes four explicit memory tools. Hermes users should use the
 [native Plugin Catalog guide](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/INSTALL.md).
 
+Release candidate: this source prepares `qdrant-memory-mcp==0.3.7` against
+public Runtime 0.7.3. Keep using stable 0.3.6 until PyPI and the MCP Registry
+show 0.3.7 as published.
+After publication, the exact client argument prefix is
+`["--from", "qdrant-memory-mcp==0.3.7", "qdrant-memory-mcp"]`.
+
 Durable, portable, and permission-aware memory for AI agents — distributed as
 an MCP adapter over the Qdrant Memory Runtime.
 
@@ -97,6 +103,10 @@ checks in a terminal before connecting the host; the client connection must
 not be used to install, download models, initialize an existing collection or
 migrate data. Hermes profiles should use the native provider documented in the
 [Runtime installation guide](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/INSTALL.md).
+
+The next MCP release candidate is `qdrant-memory-mcp==0.3.7`, pinned to public
+Runtime 0.7.3. This candidate is not yet an installation target; use the
+published 0.3.6 commands above until publication is verified.
 
 Qdrant embedded, self-hosted server and Cloud, plus Ollama and OpenAI-compatible
 embeddings, are configured in the Runtime's [configuration reference](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/configuration.md).

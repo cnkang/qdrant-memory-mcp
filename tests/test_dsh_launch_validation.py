@@ -49,9 +49,16 @@ CANDIDATE_MCP_VERSION = tomllib.loads((ROOT / 'pyproject.toml').read_text())[
 
 
 def released_overlay():
-    """Read the same versioned overlay that both guides download."""
+    """Read the last published overlay used by the stable-version tests."""
     return (
         ROOT / f'integrations/dsh/qdrant-memory-mcp-{PUBLISHED_MCP_VERSION}.cordis.yml'
+    ).read_text(encoding='utf-8')
+
+
+def candidate_overlay():
+    """Read the candidate overlay currently prepared by the release branch."""
+    return (
+        ROOT / f'integrations/dsh/qdrant-memory-mcp-{CANDIDATE_MCP_VERSION}.cordis.yml'
     ).read_text(encoding='utf-8')
 
 
@@ -121,12 +128,12 @@ def test_invalid_active_configuration_is_rejected(tmp_path, mutation, guide):
 @pytest.mark.parametrize('version', [PUBLISHED_MCP_VERSION, CANDIDATE_MCP_VERSION])
 @pytest.mark.parametrize('base', COMPOSED_CONFIGS)
 def test_shell_launch_gate(tmp_path, guide, version, base):
-    """Execute the published shell flow with inert setup and launch commands."""
+    """Execute the prepared candidate shell flow with inert setup commands."""
     profile = tmp_path / 'profile'
     profile.mkdir()
-    patch = released_overlay()
+    patch = candidate_overlay()
     patch = patch.replace(
-        f'qdrant-memory-mcp=={PUBLISHED_MCP_VERSION}',
+        f'qdrant-memory-mcp=={CANDIDATE_MCP_VERSION}',
         f'qdrant-memory-mcp=={version}',
     )
     patch = patch.replace('      config:', '      decoy: [--from, qdrant-memory-mcp==0.3.1]\n      config:')
@@ -134,7 +141,7 @@ def test_shell_launch_gate(tmp_path, guide, version, base):
         patch = patch.replace('serverName: qdrant-memory', 'serverName: 共享记忆')
     legacy_patch = profile / 'qdrant-memory.cordis.yml'
     legacy_patch.write_text('custom legacy patch', encoding='utf-8')
-    current_patch = profile / f'qdrant-memory-mcp-{PUBLISHED_MCP_VERSION}.cordis.yml'
+    current_patch = profile / f'qdrant-memory-mcp-{CANDIDATE_MCP_VERSION}.cordis.yml'
     current_patch.write_text(patch, encoding='utf-8')
     launched = tmp_path / 'launched'
     # Stub provisioning, while executing the real validator with CI's Python.
@@ -163,7 +170,7 @@ dsh() {
     # Feed source over stdin rather than Windows' command-line quoting rules.
     result = subprocess.run([bash, '--noprofile', '--norc', '-s'], input=script,
                             env=env, capture_output=True, encoding='utf-8', timeout=30)
-    allowed = version == PUBLISHED_MCP_VERSION and base in ('clean', 'unrelated', 'group-unrelated')
+    allowed = version == CANDIDATE_MCP_VERSION and base in ('clean', 'unrelated', 'group-unrelated')
     assert launched.exists() == allowed, result
     assert (result.returncode == 0) == allowed, result
     if launched.exists():
@@ -205,7 +212,7 @@ exit "$status"
     assert survived.exists(), result
     assert 'Patch download failed' in result.stderr
     assert not marker.exists()
-    assert not list(profile.glob(f'qdrant-memory-mcp-{PUBLISHED_MCP_VERSION}.cordis.yml*'))
+    assert not list(profile.glob(f'qdrant-memory-mcp-{CANDIDATE_MCP_VERSION}.cordis.yml*'))
 
 
 @pytest.mark.parametrize('guide', GUIDES, ids=lambda path: path.name)
@@ -266,9 +273,9 @@ if sys.platform == 'win32':
         profile.mkdir()
         legacy_patch = profile / 'qdrant-memory.cordis.yml'
         legacy_patch.write_text('custom legacy patch', encoding='utf-8')
-        patch = profile / f'qdrant-memory-mcp-{PUBLISHED_MCP_VERSION}.cordis.yml'
-        patch.write_text(released_overlay().replace(
-            f'qdrant-memory-mcp=={PUBLISHED_MCP_VERSION}', f'qdrant-memory-mcp=={version}'), encoding='utf-8')
+        patch = profile / f'qdrant-memory-mcp-{CANDIDATE_MCP_VERSION}.cordis.yml'
+        patch.write_text(candidate_overlay().replace(
+            f'qdrant-memory-mcp=={CANDIDATE_MCP_VERSION}', f'qdrant-memory-mcp=={version}'), encoding='utf-8')
         if base == 'unicode-conflict':
             patch.write_text(patch.read_text(encoding='utf-8').replace(
                 'serverName: qdrant-memory', 'serverName: 共享记忆'), encoding='utf-8')
@@ -298,7 +305,7 @@ function dsh {
                    COMPOSED_CONFIG=COMPOSED_CONFIGS[base], DUMP_FAIL=str(int(base == 'dump-failure')))
         result = subprocess.run(['powershell.exe', '-NoProfile', '-NonInteractive', '-File', str(script)],
                                 env=env, capture_output=True, timeout=30)
-        allowed = version == PUBLISHED_MCP_VERSION and base in ('clean', 'unrelated', 'group-unrelated')
+        allowed = version == CANDIDATE_MCP_VERSION and base in ('clean', 'unrelated', 'group-unrelated')
         diagnostic = (result.stdout + result.stderr).decode('utf-8', errors='replace')
         assert (result.returncode == 0) == allowed, diagnostic
         assert launched.exists() == allowed, diagnostic

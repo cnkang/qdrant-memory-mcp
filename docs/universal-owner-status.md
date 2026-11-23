@@ -2,8 +2,10 @@
 
 [简体中文](universal-owner-status.zh-CN.md)
 
-This page describes the current Runtime 0.7.2 capabilities and the repository's preview adapters.
-Runtime 0.6.1 introduced versioned Owner events; distribution 0.3.6 selects the published Runtime 0.7.2 package.
+This page records Owner preview capabilities verified against Runtime 0.7.2
+and the repository's preview adapters. Runtime 0.7.3 is now public, and the MCP
+0.3.7 candidate selects it. Runtime 0.6.1 introduced versioned Owner events;
+the preview CI pin below remains tied to its verified 0.7.2 source snapshot.
 Preview adapters require a separate installation of the applicable integration.
 Publication and source CI do not establish production acceptance.
 

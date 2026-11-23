@@ -8,6 +8,10 @@ Runtime 0.7.2. Ordinary MCP performs explicit memory operations; it does not
 automatically extract conversation turns or prefetch memories. Installing a
 connector does not initialize its storage.
 
+The source also prepares candidate `qdrant-memory-mcp==0.3.7`; this candidate
+pins Runtime 0.7.3. It is not available to install until PyPI and the MCP
+Registry publish it; use the stable 0.3.6 commands in this guide meanwhile.
+
 ## 1. Start the embedding service
 
 If Ollama and `qwen3-embedding:4b` are already installed, open Ollama and continue.
@@ -61,9 +65,10 @@ the new directory:
 }
 ```
 
-The examples use `qdrant-memory-mcp==0.3.6`, which pins Runtime 0.7.2.
-Check [PyPI](https://pypi.org/project/qdrant-memory-mcp/0.3.6/) for the exact
-version before using the version-pinned install commands.
+The stable commands below use the published `qdrant-memory-mcp==0.3.6`, which
+pins Runtime 0.7.2. Check [PyPI](https://pypi.org/project/qdrant-memory-mcp/0.3.6/)
+before installation. The candidate MCP 0.3.7 pins Runtime 0.7.3; only use its
+commands after both PyPI and the MCP Registry publish 0.3.7.
 
 Use a separate directory and `agent_id` for each client. Replace every
 `/path/to/workbuddy-profile` below with your actual absolute path. Keep quotes
@@ -73,6 +78,14 @@ inside JSON, or use forward slashes.
 ```sh
 uvx --from qdrant-memory-mcp==0.3.6 qdrant-memory-mcp --home "/path/to/workbuddy-profile" init
 uvx --from qdrant-memory-mcp==0.3.6 qdrant-memory-mcp --home "/path/to/workbuddy-profile" doctor
+```
+
+After candidate 0.3.7 is published on PyPI and the MCP Registry, its exact
+installation commands are:
+
+```sh
+uvx --from qdrant-memory-mcp==0.3.7 qdrant-memory-mcp --home "/path/to/workbuddy-profile" init
+uvx --from qdrant-memory-mcp==0.3.7 qdrant-memory-mcp --home "/path/to/workbuddy-profile" doctor
 ```
 
 Initialization calls the local model, creates local storage and validates its
@@ -97,13 +110,17 @@ VS Code's native Copilot `mcpServers` format. In the chat session, select the
 Copilot harness. `.vscode/mcp.json` is for the deprecated Local harness and is
 not the native Copilot configuration.
 
+The configuration below targets candidate MCP 0.3.7, which pins Runtime 0.7.3.
+Until 0.3.7 is published on PyPI and the MCP Registry, use the stable 0.3.6
+configuration above.
+
 ```json
 {
   "mcpServers": {
     "qdrant-memory": {
       "type": "stdio",
       "command": "uvx",
-      "args": ["--from", "qdrant-memory-mcp==0.3.6", "qdrant-memory-mcp", "--home", "/path/to/copilot-profile", "mcp"]
+      "args": ["--from", "qdrant-memory-mcp==0.3.7", "qdrant-memory-mcp", "--home", "/path/to/copilot-profile", "mcp"]
     }
   }
 }
@@ -116,7 +133,7 @@ automatically extract conversation history and needs no Hermes or Agent Skill.
 
 For a pre-release test, build the wheel with `uv build --wheel`. Create a
 separate virtual environment with `uv venv`, activate it, and install the wheel
-with `uv pip install /path/to/qdrant_memory_mcp-0.3.6-py3-none-any.whl`.
+with `uv pip install /path/to/qdrant_memory_mcp-0.3.7-py3-none-any.whl`.
 Set `command` to the absolute path of the installed `qdrant-memory-mcp`
 executable and use `["--home", "/path/to/copilot-profile", "mcp"]` as `args`.
 Use a disposable profile or a copy of the test profile taken while its MCP

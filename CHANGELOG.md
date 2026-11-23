@@ -23,6 +23,10 @@
 
 ## Unreleased
 
+- Prepare MCP 0.3.7 against the public Runtime 0.7.3 release. The package stays
+  metadata-only and retains its four explicitly scoped stdio tools.
+- Validate the distribution and stdio protocol against public Runtime 0.7.3,
+  including MCP Python SDK 1.x and 2.x compatibility.
 - Publish managed launcher `0.1.0-rc.14` with Runtime 0.7.2. Its `runtime.json`
   records the published 0.7.2 wheel URL, SHA-256 and size, and
   `requirements.lock` carries the same wheel and sdist hashes.

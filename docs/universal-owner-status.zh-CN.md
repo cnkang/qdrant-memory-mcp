@@ -2,8 +2,9 @@
 
 [English](universal-owner-status.md)
 
-本页说明当前 Runtime 0.7.2 的功能及本仓库的预览适配器。
-Runtime 0.6.1 引入了版本化 Owner 事件；分发 0.3.6 固定使用已发布的 Runtime 0.7.2 包。
+本页记录针对 Runtime 0.7.2 验证的 Owner 预览功能及本仓库的预览适配器。
+Runtime 0.7.3 已公开发布，MCP 0.3.7 候选版固定使用该版本。Runtime 0.6.1 引入了版本化
+Owner 事件；下方预览 CI 仍固定到已验证的 0.7.2 源码快照。
 预览适配器需要单独安装相应集成。
 发布和源码 CI 不代表生产环境验收。
 
