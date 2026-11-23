@@ -38,10 +38,14 @@ Runtime wheel 和经过校验的 CPU 嵌入模型，可能需要数分钟并需�
 dsh plugin --profile <name> add @cnkang/qdrant-memory-dsh-bundle@0.2.0-rc.6
 ```
 
-若所用 npm 镜像尚未同步该包，先从 npm Registry 解析精确版本的 tarball 与完整性元数据：
+若所用 npm 镜像尚未同步该包，请通过 npm 公共 Registry 解析 tarball 和完整性元数据。
+下面两个环境变量会同时覆盖默认 registry 和 `@cnkang` scope registry：
 
 ```sh
-npm view @cnkang/qdrant-memory-dsh-bundle@0.2.0-rc.6 dist.tarball dist.integrity --json
+env \
+  npm_config_registry=https://registry.npmjs.org \
+  'npm_config_@cnkang:registry=https://registry.npmjs.org' \
+  npm view @cnkang/qdrant-memory-dsh-bundle@0.2.0-rc.6 dist.tarball dist.integrity --json
 ```
 
 下载 `dist.tarball`，用 `dist.integrity` 校验实际字节，再用文件路径安装：

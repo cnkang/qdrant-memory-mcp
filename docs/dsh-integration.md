@@ -43,11 +43,15 @@ Bundle into one profile:
 dsh plugin --profile <name> add @cnkang/qdrant-memory-dsh-bundle@0.2.0-rc.6
 ```
 
-If your npm mirror has not served the package yet, resolve the exact registry
-tarball and its integrity metadata:
+If your npm mirror has not served the package yet, resolve the exact tarball
+and integrity metadata from the public registry. These environment overrides
+bypass both the default registry and the `@cnkang` scope registry:
 
 ```sh
-npm view @cnkang/qdrant-memory-dsh-bundle@0.2.0-rc.6 dist.tarball dist.integrity --json
+env \
+  npm_config_registry=https://registry.npmjs.org \
+  'npm_config_@cnkang:registry=https://registry.npmjs.org' \
+  npm view @cnkang/qdrant-memory-dsh-bundle@0.2.0-rc.6 dist.tarball dist.integrity --json
 ```
 
 Download `dist.tarball`, verify the downloaded bytes against `dist.integrity`,
