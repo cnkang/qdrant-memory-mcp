@@ -24,7 +24,7 @@ def test_readmes_prioritize_stable_stdio_and_label_host_candidates():
         ("README.zh-CN.md", chinese, "docs/quickstart.zh-CN.md"),
     ):
         assert quickstart in text[:2500], name
-        assert "qdrant-memory-mcp==0.3.6" in text
+        assert "qdrant-memory-mcp==0.3.7" in text
         assert "Runtime 0.7.2" in text
         assert "0.2.0-rc.5" in text
         assert "0.1.0-rc.14" in text
@@ -41,7 +41,7 @@ def test_readmes_prioritize_stable_stdio_and_label_host_candidates():
 
     for name in ("docs/quickstart.md", "docs/quickstart.zh-CN.md"):
         text = (ROOT / name).read_text(encoding="utf-8")
-        assert "qdrant-memory-mcp==0.3.6" in text
+        assert "qdrant-memory-mcp==0.3.7" in text
         assert "Runtime 0.7.2" in text
         assert "--force" in text
         assert "does not automatically" in text or "不会自动提取" in text
@@ -88,7 +88,7 @@ def test_current_workbuddy_and_dsh_instructions_track_project_version():
     version = project["project"]["version"]
     requirement = f"qdrant-memory-mcp=={version}"
     overlay_path = f"integrations/dsh/qdrant-memory-mcp-{version}.cordis.yml"
-    published_requirement = "qdrant-memory-mcp==0.3.6"
+    published_requirement = "qdrant-memory-mcp==0.3.7"
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     candidate_docs = [
         "docs/quickstart.zh-CN.md",
