@@ -99,6 +99,21 @@ Ollama、下载模型、初始化已有 collection 或迁移数据。不要覆�
 在聊天会话中选择 Copilot harness。`.vscode/mcp.json` 属于已弃用的 Local harness，
 不是 Copilot 原生配置。
 
+下方首个配置对应 MCP 0.3.7 候选版，固定依赖 Runtime 0.7.3。PyPI 和 MCP Registry
+均发布 0.3.7 后才可使用；发布前请使用紧随其后的稳定版 0.3.6 配置。
+
+```json
+{
+  "mcpServers": {
+    "qdrant-memory": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["--from", "qdrant-memory-mcp==0.3.7", "qdrant-memory-mcp", "--home", "/path/to/copilot-profile", "mcp"]
+    }
+  }
+}
+```
+
 在 PyPI 和 MCP Registry 均发布 0.3.7 前，请使用以下公开稳定版 0.3.6 配置：
 
 ```json
@@ -108,20 +123,6 @@ Ollama、下载模型、初始化已有 collection 或迁移数据。不要覆�
       "type": "stdio",
       "command": "uvx",
       "args": ["--from", "qdrant-memory-mcp==0.3.6", "qdrant-memory-mcp", "--home", "/path/to/copilot-profile", "mcp"]
-    }
-  }
-}
-```
-
-两个 registry 均发布 0.3.7 后，改用下方固定依赖 Runtime 0.7.3 的候选配置：
-
-```json
-{
-  "mcpServers": {
-    "qdrant-memory": {
-      "type": "stdio",
-      "command": "uvx",
-      "args": ["--from", "qdrant-memory-mcp==0.3.7", "qdrant-memory-mcp", "--home", "/path/to/copilot-profile", "mcp"]
     }
   }
 }

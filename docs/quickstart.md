@@ -110,23 +110,9 @@ VS Code's native Copilot `mcpServers` format. In the chat session, select the
 Copilot harness. `.vscode/mcp.json` is for the deprecated Local harness and is
 not the native Copilot configuration.
 
-Until 0.3.7 is published on both PyPI and the MCP Registry, use this stable
-0.3.6 configuration:
-
-```json
-{
-  "mcpServers": {
-    "qdrant-memory": {
-      "type": "stdio",
-      "command": "uvx",
-      "args": ["--from", "qdrant-memory-mcp==0.3.6", "qdrant-memory-mcp", "--home", "/path/to/copilot-profile", "mcp"]
-    }
-  }
-}
-```
-
-After both registries publish 0.3.7, use the candidate configuration below,
-which pins Runtime 0.7.3:
+The configuration below targets candidate MCP 0.3.7, which pins Runtime 0.7.3.
+Use it only after 0.3.7 is published on both PyPI and the MCP Registry. Until
+then, use the stable 0.3.6 configuration that follows it.
 
 ```json
 {
@@ -135,6 +121,20 @@ which pins Runtime 0.7.3:
       "type": "stdio",
       "command": "uvx",
       "args": ["--from", "qdrant-memory-mcp==0.3.7", "qdrant-memory-mcp", "--home", "/path/to/copilot-profile", "mcp"]
+    }
+  }
+}
+```
+
+Stable MCP 0.3.6 configuration for use until both registries publish 0.3.7:
+
+```json
+{
+  "mcpServers": {
+    "qdrant-memory": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["--from", "qdrant-memory-mcp==0.3.6", "qdrant-memory-mcp", "--home", "/path/to/copilot-profile", "mcp"]
     }
   }
 }
