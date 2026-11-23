@@ -4,14 +4,11 @@
 
 For Codex and other non-Hermes agents, the primary path is the public stable
 stdio MCP distribution. Start with the [quickstart](docs/quickstart.md)
-([中文](docs/quickstart.zh-CN.md)): `qdrant-memory-mcp==0.3.6` pins Runtime
-0.7.2 and exposes four explicit memory tools. Hermes users should use the
+([中文](docs/quickstart.zh-CN.md)): `qdrant-memory-mcp==0.3.7` pins Runtime
+0.7.3 and exposes four explicit memory tools. Hermes users should use the
 [native Plugin Catalog guide](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/INSTALL.md).
 
-Release candidate: this source prepares `qdrant-memory-mcp==0.3.7` against
-public Runtime 0.7.3. Keep using stable 0.3.6 until PyPI and the MCP Registry
-show 0.3.7 as published.
-After publication, the exact client argument prefix is
+MCP 0.3.7 is published on PyPI and the MCP Registry. Its exact client argument prefix is
 `["--from", "qdrant-memory-mcp==0.3.7", "qdrant-memory-mcp"]`.
 
 Durable, portable, and permission-aware memory for AI agents — distributed as
@@ -21,7 +18,7 @@ For shared production deployments, read the [deployment security guide](docs/sha
 
 ## One Memory, Multiple Agents — opt-in shared owner
 
-The distribution adds an opt-in single-owner service and stdio bridge. Install Runtime 0.7.2 to use them. See [shared integration guide](integrations/shared/README.md). Private defaults are unchanged. Native Provider automatic shared extraction is deferred.
+The distribution adds an opt-in single-owner service and stdio bridge. Install Runtime 0.7.3 to use them. See [shared integration guide](integrations/shared/README.md). Private defaults are unchanged. Native Provider automatic shared extraction is deferred.
 
 <!-- mcp-name: io.github.cnkang/qdrant-memory -->
 
@@ -35,7 +32,7 @@ MCP, the managed launcher and the canonical Skill.
 
 | Path | Published artifact and pin | Current status and acceptance boundary |
 |---|---|---|
-| [Stable stdio MCP](docs/quickstart.md) | PyPI `qdrant-memory-mcp==0.3.6`, Runtime 0.7.2 | Public stable release; protocol CI uses isolated profiles and a deterministic embedding fixture. This does not establish every live model/provider combination. |
+| [Stable stdio MCP](docs/quickstart.md) | PyPI `qdrant-memory-mcp==0.3.7`, Runtime 0.7.3 | Public stable release on PyPI and the MCP Registry; release acceptance uses isolated profiles and a deterministic embedding fixture. This does not establish every live model/provider combination. |
 | [Codex plugin](plugins/qdrant-memory/README.md) | Candidate 0.1.4; MCP 0.3.5, Runtime 0.7.1 (`cc5cac025f5d18afb5c698b2b5db444e30fc240e`), Skill 0.4.6 (`2cb0b4d61ba2aae9a04c9eaf571f804918e151ce`) | Not submitted to the public plugin directory. Official Codex CLI checks are recorded; Desktop GUI and native-memory adoption are separate. |
 | [DSH Bundle](docs/dsh-integration.md) | Public npm prerelease `@cnkang/qdrant-memory-dsh-bundle@0.2.0-rc.5`; DSH 0.2.2-rc.1, launcher 0.1.0-rc.14, Runtime 0.7.2 | Installable prerelease. Protected live-model/Cloud and Desktop GUI acceptance remain incomplete. |
 | [WorkBuddy connector](integrations/workbuddy/README.md) | GitHub release `workbuddy-v0.2.6`; launcher 0.1.0-rc.10, Runtime 0.6.2, Skill 0.4.4 | Exact-tag packaging and protocol gates passed. Marketplace GUI import, clean-machine provisioning and full application restart remain unverified. |
@@ -48,15 +45,15 @@ Persistent, scoped memory for AI agents through four explicit **stdio MCP** tool
 This repository distributes the existing [Python Runtime](https://github.com/cnkang/hermes-plugin-qdrant-memory).
 Its metadata-only wheel contains no Python business implementation. The console
 script points directly to `qdrant_memory.standalone:main` and depends on
-`hermes-plugin-qdrant-memory[mcp]==0.7.2`.
+`hermes-plugin-qdrant-memory[mcp]==0.7.3`.
 
-See [0.3.6 release notes](docs/releases/0.3.6.md) for the Runtime pin and upgrade guidance.
+See [0.3.7 release notes](docs/releases/0.3.7.md) for the Runtime pin and upgrade guidance.
 
 Before using an exact-version installation command, confirm that version on
-the [PyPI release page](https://pypi.org/project/qdrant-memory-mcp/0.3.6/).
+the [PyPI release page](https://pypi.org/project/qdrant-memory-mcp/0.3.7/).
 The [published 0.3.5 guide](https://github.com/cnkang/qdrant-memory-mcp/blob/v0.3.5/README.md) remains available for the previous release.
 
-**Versions:** MCP distribution 0.3.6 pins Runtime 0.7.2, which supports MCP
+**Versions:** MCP distribution 0.3.7 pins Runtime 0.7.3, which supports MCP
 Python SDK 1.x and 2.x (`mcp>=1.30,<3`). The four scoped tools and stdio
 launch arguments are the same for both SDK majors. The commands below use
 these exact versions. Release
@@ -104,9 +101,9 @@ not be used to install, download models, initialize an existing collection or
 migrate data. Hermes profiles should use the native provider documented in the
 [Runtime installation guide](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/INSTALL.md).
 
-The next MCP release candidate is `qdrant-memory-mcp==0.3.7`, pinned to public
-Runtime 0.7.3. This candidate is not yet an installation target; use the
-published 0.3.6 commands above until publication is verified.
+The current published MCP distribution is `qdrant-memory-mcp==0.3.7`, pinned
+to public Runtime 0.7.3. Verify the exact version on PyPI and the MCP Registry
+before installing it.
 
 Qdrant embedded, self-hosted server and Cloud, plus Ollama and OpenAI-compatible
 embeddings, are configured in the Runtime's [configuration reference](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/docs/configuration.md).
@@ -122,7 +119,7 @@ Codex `config.toml` example:
 ```toml
 [mcp_servers.qdrant_memory]
 command = "uvx"
-args = ["--from", "qdrant-memory-mcp==0.3.6", "qdrant-memory-mcp", "--home", "/path/to/profile", "mcp"]
+args = ["--from", "qdrant-memory-mcp==0.3.7", "qdrant-memory-mcp", "--home", "/path/to/profile", "mcp"]
 ```
 
 OpenCode `opencode.json` example:
@@ -133,7 +130,7 @@ OpenCode `opencode.json` example:
   "mcp": {
     "qdrant_memory": {
       "type": "local",
-      "command": ["uvx", "--from", "qdrant-memory-mcp==0.3.6", "qdrant-memory-mcp", "--home", "/path/to/profile", "mcp"],
+      "command": ["uvx", "--from", "qdrant-memory-mcp==0.3.7", "qdrant-memory-mcp", "--home", "/path/to/profile", "mcp"],
       "enabled": true
     }
   }

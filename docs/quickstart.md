@@ -3,14 +3,10 @@
 Use an existing Ollama embedding model and embedded Qdrant with WorkBuddy or
 another stdio MCP client. No Docker, Qdrant server, cloud account or embedding
 API key is required. Python/uv and one-time configuration are still necessary.
-This route uses the public stable `qdrant-memory-mcp==0.3.6` package, which pins
-Runtime 0.7.2. Ordinary MCP performs explicit memory operations; it does not
+This route uses the public stable `qdrant-memory-mcp==0.3.7` package, which pins
+Runtime 0.7.3. Ordinary MCP performs explicit memory operations; it does not
 automatically extract conversation turns or prefetch memories. Installing a
 connector does not initialize its storage.
-
-The source also prepares candidate `qdrant-memory-mcp==0.3.7`; this candidate
-pins Runtime 0.7.3. It is not available to install until PyPI and the MCP
-Registry publish it; use the stable 0.3.6 commands in this guide meanwhile.
 
 ## 1. Start the embedding service
 
@@ -65,23 +61,15 @@ the new directory:
 }
 ```
 
-The stable commands below use the published `qdrant-memory-mcp==0.3.6`, which
-pins Runtime 0.7.2. Check [PyPI](https://pypi.org/project/qdrant-memory-mcp/0.3.6/)
-before installation. The candidate MCP 0.3.7 pins Runtime 0.7.3; only use its
-commands after both PyPI and the MCP Registry publish 0.3.7.
+The stable commands below use the published `qdrant-memory-mcp==0.3.7`, which
+pins Runtime 0.7.3. Confirm exact version 0.3.7 on [PyPI](https://pypi.org/project/qdrant-memory-mcp/0.3.7/)
+and the [MCP Registry](https://registry.modelcontextprotocol.io/v0.1/servers/io.github.cnkang%2Fqdrant-memory/versions/0.3.7)
+before installation.
 
 Use a separate directory and `agent_id` for each client. Replace every
 `/path/to/workbuddy-profile` below with your actual absolute path. Keep quotes
 around paths with spaces. On Windows, use your Windows path. Double backslashes
 inside JSON, or use forward slashes.
-
-```sh
-uvx --from qdrant-memory-mcp==0.3.6 qdrant-memory-mcp --home "/path/to/workbuddy-profile" init
-uvx --from qdrant-memory-mcp==0.3.6 qdrant-memory-mcp --home "/path/to/workbuddy-profile" doctor
-```
-
-After candidate 0.3.7 is published on PyPI and the MCP Registry, its exact
-installation commands are:
 
 ```sh
 uvx --from qdrant-memory-mcp==0.3.7 qdrant-memory-mcp --home "/path/to/workbuddy-profile" init
@@ -110,9 +98,7 @@ VS Code's native Copilot `mcpServers` format. In the chat session, select the
 Copilot harness. `.vscode/mcp.json` is for the deprecated Local harness and is
 not the native Copilot configuration.
 
-The configuration below targets candidate MCP 0.3.7, which pins Runtime 0.7.3.
-Use it only after 0.3.7 is published on both PyPI and the MCP Registry. Until
-then, use the stable 0.3.6 configuration that follows it.
+Use the published MCP 0.3.7 configuration, which pins Runtime 0.7.3:
 
 ```json
 {
@@ -121,20 +107,6 @@ then, use the stable 0.3.6 configuration that follows it.
       "type": "stdio",
       "command": "uvx",
       "args": ["--from", "qdrant-memory-mcp==0.3.7", "qdrant-memory-mcp", "--home", "/path/to/copilot-profile", "mcp"]
-    }
-  }
-}
-```
-
-Stable MCP 0.3.6 configuration for use until both registries publish 0.3.7:
-
-```json
-{
-  "mcpServers": {
-    "qdrant-memory": {
-      "type": "stdio",
-      "command": "uvx",
-      "args": ["--from", "qdrant-memory-mcp==0.3.6", "qdrant-memory-mcp", "--home", "/path/to/copilot-profile", "mcp"]
     }
   }
 }
@@ -171,7 +143,7 @@ session and let it start the replacement.
 | VS Code Copilot desktop, 0.3.6 candidate | PASS — VS Code 1.146.0 on macOS arm64, Copilot harness, workspace `.mcp.json`, local wheel, Runtime 0.7.2 from PyPI, MCP SDK 2.3.0. Previous-version recall, add, search, restart recall, update and delete passed. |
 | VS Code Copilot desktop, PyPI 0.3.5 | PASS — VS Code 1.146.0, Runtime 0.7.1. Discovered all four tools and recalled a record after restart in a fresh session. |
 | VS Code Copilot desktop, PyPI 0.3.6 | Published. The host result above was recorded with the candidate wheel; a public-package re-run is not recorded. |
-| CI configuration and stdio protocol | PASS for the 0.3.6 candidate. [Distribution CI](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/44231566353) |
+| MCP 0.3.7 release acceptance | PASS — public wheel/sdist install, SDK 1.x/2.x checks and stdio protocol gate. [Publish workflow](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/45138420470) |
 | Copilot CLI | PASS — GitHub Copilot CLI 1.0.112 discovered all four tools and made real stdio add/search calls with published `qdrant-memory-mcp==0.3.5`; a fresh CLI process and session recalled the same synthetic record after the MCP process restarted |
 | GitHub Registry one-click install | NOT VERIFIED; manual configuration does not establish catalog installation |
 
@@ -196,9 +168,7 @@ the managed data root. It does not select this custom profile. The direct uvx
 launcher without `--home` defaults to `~/.qdrant-memory`. Do not
 enable both the packaged default and this custom instance for this setup.
 
-The configuration below uses stable MCP 0.3.6. If you used the candidate 0.3.7
-commands above, change the `--from` version to 0.3.7 only after 0.3.7 is
-published on both PyPI and the MCP Registry.
+The configuration below uses published MCP 0.3.7, pinned to Runtime 0.7.3.
 
 ```json
 {
@@ -206,7 +176,7 @@ published on both PyPI and the MCP Registry.
     "qdrant-memory": {
       "type": "stdio",
       "command": "uvx",
-      "args": ["--from", "qdrant-memory-mcp==0.3.6", "qdrant-memory-mcp", "--home", "/path/to/workbuddy-profile", "mcp"],
+      "args": ["--from", "qdrant-memory-mcp==0.3.7", "qdrant-memory-mcp", "--home", "/path/to/workbuddy-profile", "mcp"],
       "timeout": 30000
     }
   }
