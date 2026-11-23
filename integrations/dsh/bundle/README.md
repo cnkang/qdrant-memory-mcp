@@ -1,6 +1,6 @@
 # Qdrant Memory Bundle for DeepSeek Harness
 
-A Host Bundle under the existing npm name. Candidate `0.2.0-rc.5` retains
+A Host Bundle under the existing npm name. Candidate `0.2.0-rc.6` retains
 Legacy MCP by default and adds explicitly selected Owner modes. It contains
 no memory engine, embeddings or Python code. The Python Runtime owns writes,
 scope, ledger and recovery. The private `native/` directory is canonical source
@@ -77,8 +77,8 @@ root defaults to `qdrant-memory-managed` under the platform data directory
 
 The DSH MCP probe is temporary and must never run installation or downloads.
 Choose the Bundle based on the Host's Node.js version before preparing it.
-The current `0.2.0-rc.5` candidate requires Node.js 24.9 or newer and uses
-launcher `0.1.0-rc.14` with Runtime 0.7.2. Older Hosts should use Bundle
+The current `0.2.0-rc.6` candidate requires Node.js 24.9 or newer and uses
+launcher `0.1.0-rc.15` with Runtime 0.7.3. Older Hosts should use Bundle
 `0.1.6`, which uses launcher `0.1.0-rc.8` with Runtime 0.6.0. Use only the
 matching preparation and install commands below.
 
@@ -92,7 +92,7 @@ dsh plugin --profile <name> add @cnkang/qdrant-memory-dsh-bundle@0.1.6
 For the current candidate, prepare the shared backend explicitly, once:
 
 ```sh
-npx -y @cnkang/qdrant-memory-launcher@0.1.0-rc.14 prepare dsh
+npx -y @cnkang/qdrant-memory-launcher@0.1.0-rc.15 prepare dsh
 ```
 
 Preparation downloads the private Python environment, the Runtime wheel and a
@@ -103,25 +103,29 @@ Hermes profiles. Preparation never deletes existing memory data.
 ## Install into one profile
 
 ```sh
-dsh plugin --profile <name> add @cnkang/qdrant-memory-dsh-bundle@0.2.0-rc.5
+dsh plugin --profile <name> add @cnkang/qdrant-memory-dsh-bundle@0.2.0-rc.6
 ```
 
-If your npm mirror has not served this candidate yet, resolve the exact
-registry tarball and integrity metadata:
+If your npm mirror has not served this candidate yet, resolve the exact tarball
+and integrity metadata from the public registry. These environment overrides
+bypass both the default registry and the `@cnkang` scope registry:
 
 ```sh
-npm view @cnkang/qdrant-memory-dsh-bundle@0.2.0-rc.5 dist.tarball dist.integrity --json
+env \
+  npm_config_registry=https://registry.npmjs.org \
+  'npm_config_@cnkang:registry=https://registry.npmjs.org' \
+  npm view @cnkang/qdrant-memory-dsh-bundle@0.2.0-rc.6 dist.tarball dist.integrity --json
 ```
 
 Download `dist.tarball`, verify the downloaded bytes against `dist.integrity`,
 then install the local file:
 
 ```sh
-dsh plugin --profile <name> add ./qdrant-memory-dsh-bundle-0.2.0-rc.5.tgz
+dsh plugin --profile <name> add ./qdrant-memory-dsh-bundle-0.2.0-rc.6.tgz
 ```
 
 The official tarball is
-`https://registry.npmjs.org/@cnkang/qdrant-memory-dsh-bundle/-/qdrant-memory-dsh-bundle-0.2.0-rc.5.tgz`.
+`https://registry.npmjs.org/@cnkang/qdrant-memory-dsh-bundle/-/qdrant-memory-dsh-bundle-0.2.0-rc.6.tgz`.
 This registry fallback is not an offline setup; launcher preparation and model
 downloads can still need network access.
 

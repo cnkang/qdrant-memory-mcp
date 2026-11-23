@@ -27,7 +27,7 @@ MCP 0.3.7 已发布到 PyPI 和 MCP Registry。客户端应使用精确参数前
 |---|---|---|
 | [稳定 stdio MCP](docs/quickstart.zh-CN.md) | PyPI `qdrant-memory-mcp==0.3.7`，Runtime 0.7.3 | 已发布到 PyPI 和 MCP Registry；发布验收使用隔离 profile 和确定性 embedding fixture，不代表所有真实模型/Provider 组合均已验收 |
 | [Codex 插件](plugins/qdrant-memory/README.zh-CN.md) | 候选版 0.1.4；MCP 0.3.5、Runtime 0.7.1（`cc5cac025f5d18afb5c698b2b5db444e30fc240e`）、Skill 0.4.6（`2cb0b4d61ba2aae9a04c9eaf571f804918e151ce`） | 尚未提交公共插件目录；有官方 Codex CLI 检查，Desktop GUI 与原生记忆接管另行验证 |
-| [DSH Bundle](docs/dsh-integration.zh-CN.md) | npm 公开预发布 `@cnkang/qdrant-memory-dsh-bundle@0.2.0-rc.5`；DSH 0.2.2-rc.1、launcher 0.1.0-rc.14、Runtime 0.7.2 | 可安装的预发布版；真实模型/Cloud 与 Desktop GUI 验收仍未完成 |
+| [DSH Bundle](docs/dsh-integration.zh-CN.md) | 已公开发布 npm 预发布版 `@cnkang/qdrant-memory-dsh-bundle@0.2.0-rc.6`；DSH 0.2.2-rc.1、launcher 0.1.0-rc.15、Runtime 0.7.3 | 真实模型/Cloud 与 Desktop GUI 验收尚未完成 |
 | [WorkBuddy connector](integrations/workbuddy/README.md) | GitHub release `workbuddy-v0.2.6`；launcher 0.1.0-rc.10、Runtime 0.6.2、Skill 0.4.4 | 精确 tag 打包与协议门禁通过；Marketplace GUI 导入、干净机器配置和完整重启仍未验证 |
 
 宿主适配包各自独立版本。候选版或可从 npm 安装不等于真实模型、Cloud、Desktop 或市场验收完成；选择前请读各自宿主指南和证据。
@@ -63,7 +63,7 @@ Skill 仅提供可选指导，不是运行依赖。Hermes 的自动提取和 pre
 | Hermes | 是 | 是（通过 standalone） | 是 | 是 | 可选 | 是 | 真实宿主测试 |
 | OpenCode | 否 | 是 | 否 | 否 | 通过 Owner | 是 | 真实宿主测试（双设备） |
 | Pi | 否 | 是（扩展） | 可选适配器 | 可选适配器 | 通过 Owner | 是 | 真实宿主测试 |
-| DeepSeek Harness | 否（生命周期适配器） | 是（DSH bundle） | 可选预览 | 可选预览 | 通过 Owner | 是 | Bundle 0.2.0-rc.5；真实模型/Cloud/Desktop 验收未完成 |
+| DeepSeek Harness | 否（生命周期适配器） | 是（DSH bundle） | 可选预览 | 可选预览 | 通过 Owner | 是 | Bundle 0.2.0-rc.6 已发布到 npm；真实模型/Cloud/Desktop 验收未完成 |
 | WorkBuddy | 否 | 是（connector） | 否 | 否 | 通过 Owner | 是 | Connector 0.2.6 打包/协议通过；GUI Marketplace、干净机器和重启未验证 |
 | Codex | 否 | 是 | 否 | 否 | 通过 Owner | 是 | 候选版 0.1.4；官方 CLI 已测，尚未提交公共目录 |
 | VS Code Copilot | 否 | 是（四个 MCP 工具） | 否 | 否 | 通过 Owner | 是 | [CI 配置/协议 PASS](https://github.com/cnkang/qdrant-memory-mcp/actions/runs/44061227907)；Copilot CLI 1.0.112 PASS；VS Code 1.146.0 Copilot 桌面新增/重启召回 PASS；GitHub Registry 一键安装 NOT VERIFIED |

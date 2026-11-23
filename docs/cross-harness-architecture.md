@@ -63,15 +63,15 @@ Never remove locks or change fingerprints to force compatibility.
 
 | Component | Pin | Availability |
 | --- | --- | --- |
-| Python MCP | 0.3.7 | Release candidate; prepared for PyPI and MCP Registry, pins public Runtime 0.7.3 |
-| Runtime | 0.7.3 | Public PyPI wheel; the managed launcher still installs 0.7.2 |
-| Node launcher | 0.1.0-rc.14 | Release candidate pinned by WorkBuddy and DSH sources. It installs Runtime 0.7.2 for standalone MCP use; verify this exact version on npm |
-| DSH bundle | 0.2.0-rc.5 | Host bundle candidate; public npm acceptance and desktop compatibility remain separate gates |
+| Python MCP | 0.3.7 | Public PyPI and MCP Registry release, pinned to public Runtime 0.7.3 |
+| Runtime | 0.7.3 | Public PyPI wheel; selected by the managed launcher |
+| Node launcher | 0.1.0-rc.15 | Release candidate pinned by WorkBuddy and DSH sources. It installs Runtime 0.7.3 for standalone MCP use; verify this exact version on npm |
+| DSH bundle | 0.2.0-rc.6 | Host bundle candidate; public npm acceptance and desktop compatibility remain separate gates |
 | Bootstrap | uv 0.13.1 / Python 3.11.15 | Fixed platform artifacts, verified uv hash |
-| Canonical Skill | 0.4.6 | See connector `skill-source.json` for exact commit |
+| Canonical Skill | 0.4.8 | Public snapshot `skills-20261123.1`; see connector `skill-source.json` for exact commit |
 | DSH contract-test packages | 0.2.1-rc.2 | Exact npm test pins and lockfile |
 
-The managed Node launcher selects Runtime 0.7.2 with official FastEmbed 0.9.1
+The managed Node launcher selects Runtime 0.7.3 with official FastEmbed 0.9.1
 and Pillow 13.0.0, replacing the temporary compatibility builder. Its
 WorkBuddy/DSH child process runs the standalone MCP entrypoint and does not
 construct Hermes' native MemoryProvider. This coordinated update requires new
