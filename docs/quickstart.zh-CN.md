@@ -99,8 +99,21 @@ Ollama、下载模型、初始化已有 collection 或迁移数据。不要覆�
 在聊天会话中选择 Copilot harness。`.vscode/mcp.json` 属于已弃用的 Local harness，
 不是 Copilot 原生配置。
 
-下方配置对应 MCP 0.3.7 候选版，固定依赖 Runtime 0.7.3。PyPI 和 MCP Registry
-均发布 0.3.7 前，请使用前文的公开稳定版 0.3.6 配置。
+在 PyPI 和 MCP Registry 均发布 0.3.7 前，请使用以下公开稳定版 0.3.6 配置：
+
+```json
+{
+  "mcpServers": {
+    "qdrant-memory": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["--from", "qdrant-memory-mcp==0.3.6", "qdrant-memory-mcp", "--home", "/path/to/copilot-profile", "mcp"]
+    }
+  }
+}
+```
+
+两个 registry 均发布 0.3.7 后，改用下方固定依赖 Runtime 0.7.3 的候选配置：
 
 ```json
 {
@@ -161,6 +174,9 @@ WorkBuddy 中添加自定义 stdio MCP，使用以下配置；将路径替换为
 受管连接器使用其数据根目录下的 `profiles/workbuddy/local`，不会自动选择这里的
 自定义 profile。直接运行不带 `--home` 的 uvx 接口才默认使用 `~/.qdrant-memory`。
 此设置只启用一个实例，避免同时启用受管连接器与自定义实例。
+
+下方配置使用公开稳定版 MCP 0.3.6。如果前面使用了 0.3.7 候选命令，请在 PyPI 和
+MCP Registry 均发布 0.3.7 后，再把下面 `--from` 后的版本改为 0.3.7。
 
 ```json
 {
