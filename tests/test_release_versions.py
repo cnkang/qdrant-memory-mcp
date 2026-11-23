@@ -25,9 +25,9 @@ def test_readmes_prioritize_stable_stdio_and_label_host_candidates():
     ):
         assert quickstart in text[:2500], name
         assert "qdrant-memory-mcp==0.3.7" in text
-        assert "Runtime 0.7.2" in text
-        assert "0.2.0-rc.5" in text
-        assert "0.1.0-rc.14" in text
+        assert "Runtime 0.7.3" in text
+        assert "0.2.0-rc.6" in text
+        assert "0.1.0-rc.15" in text
         assert "0.1.0-rc.10" in text
         assert "Runtime 0.6.2" in text
         assert (
@@ -42,7 +42,7 @@ def test_readmes_prioritize_stable_stdio_and_label_host_candidates():
     for name in ("docs/quickstart.md", "docs/quickstart.zh-CN.md"):
         text = (ROOT / name).read_text(encoding="utf-8")
         assert "qdrant-memory-mcp==0.3.7" in text
-        assert "Runtime 0.7.2" in text
+        assert "Runtime 0.7.3" in text
         assert "--force" in text
         assert "does not automatically" in text or "不会自动提取" in text
         assert "recreate the profile" in text or "重建 profile" in text
@@ -185,8 +185,8 @@ def test_workbuddy_readme_separates_published_and_next_launcher():
     args = mcp["mcpServers"]["qdrant-memory"]["args"]
     assert "0.1.0-rc.11" not in guide
     assert "0.1.0-rc.10" in guide
-    assert "selects launcher 0.1.0-rc.14, Runtime 0.7.2 and Skill 0.4.6" in guide
-    assert any("0.1.0-rc.14" in value for value in args)
+    assert "selects launcher 0.1.0-rc.15, Runtime 0.7.3 and Skill 0.4.8" in guide
+    assert any("0.1.0-rc.15" in value for value in args)
 
 
 def test_dsh_tarball_fallback_uses_the_npm_registry():

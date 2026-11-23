@@ -9,8 +9,8 @@ Runtime source: https://github.com/cnkang/hermes-plugin-qdrant-memory
 
 Skill source: https://github.com/cnkang/skills/tree/main/qdrant-memory
 
-Version lines are independent: public Runtime 0.7.3, Skill 0.4.6, and MCP
-0.3.7 candidate. The previous public MCP release is 0.3.6. Runtime source and
+Version lines are independent: public Runtime 0.7.3, Skill 0.4.8, and public MCP
+0.3.7. The previous public MCP release is 0.3.6. Runtime source and
 schema snapshots used for preparation are immutable.
 Publication requires the Runtime version to exist on PyPI.
 

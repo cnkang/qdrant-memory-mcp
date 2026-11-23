@@ -67,7 +67,7 @@ def build(root, files, members=None):
         "version": "0.1.0-rc.13",
         "files": sorted(files),
     }
-    runtime = {"version": "0.7.2"}
+    runtime = {"version": "0.7.3"}
     (source / "package.json").write_bytes(json.dumps(package).encode())
     (source / "runtime.json").write_bytes(json.dumps(runtime).encode())
     default = {
@@ -208,7 +208,7 @@ def test_published_payload_rejects_drift(tmp_path, mutation):
         "package/launcher.mjs": files["launcher.mjs"],
         "package/requirements.lock": files["requirements.lock"],
         "package/package.json": json.dumps(package).encode(),
-        "package/runtime.json": json.dumps({"version": "0.7.2"}).encode(),
+        "package/runtime.json": json.dumps({"version": "0.7.3"}).encode(),
     }
     members = None
     if mutation == "unexpected":

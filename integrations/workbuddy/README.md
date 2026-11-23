@@ -29,7 +29,7 @@ published `mcp.json` declares:
 }
 ```
 
-The current managed route selects launcher `0.1.0-rc.14` with Runtime 0.7.2
+The current managed route selects launcher `0.1.0-rc.15` with Runtime 0.7.3
 for the next connector build. The separate uvx route is preparing MCP 0.3.7
 with Runtime 0.7.3. These source pins are not part of the published Connector
 0.2.6 ZIP and do not change its bytes. The example above is the
@@ -314,14 +314,14 @@ import, clean-machine provisioning, and full application restart remain
 unverified. The managed route
 does not install the Python MCP distribution or instantiate Hermes' native
 MemoryProvider. The separate Python/uvx alternative uses the public MCP
-distribution 0.3.5, which pins Runtime 0.7.1; the previously released
+distribution 0.3.7, which pins Runtime 0.7.3; the previously released
 Connector 0.2.5 still installs public MCP 0.3.1. Verify the exact launcher
 version on npm and connector assets on their release before installing.
 Earlier connector archives retain their original provenance and immutable bytes.
 `provenance.json` inside each ZIP records its versions, launcher integrity and
 Skill source commit. The 0.2.6 ZIP records Runtime 0.6.2 through launcher
 0.1.0-rc.10 and the pinned Skill 0.4.4 source. The next connector build
-selects launcher 0.1.0-rc.14, Runtime 0.7.2 and Skill 0.4.6; this does not change the
+selects launcher 0.1.0-rc.15, Runtime 0.7.3 and Skill 0.4.8; this does not change the
 published 0.2.6 bytes. This is separate from
 the uvx alternative. The builder rejects drift from checked-in pins:
 
@@ -340,13 +340,12 @@ the uvx alternative. The builder rejects drift from checked-in pins:
 `mcp.uvx.json` documents the advanced custom-MCP route for users who run
 their own Python backend instead of the managed launcher:
 
-The public `qdrant-memory-mcp==0.3.6` package uses Runtime 0.7.2. The next
-source candidate is `qdrant-memory-mcp==0.3.7`, pinned to public Runtime 0.7.3;
-it is not part of the published Connector 0.2.6 and must not be used until its
-PyPI and MCP Registry publication is verified.
+The public `qdrant-memory-mcp==0.3.7` package uses Runtime 0.7.3. It is not
+part of the published Connector 0.2.6. The uvx route remains independent from
+that immutable connector release.
 
 ```sh
-uvx --from qdrant-memory-mcp==0.3.6 qdrant-memory-mcp mcp
+uvx --from qdrant-memory-mcp==0.3.7 qdrant-memory-mcp mcp
 ```
 
 Add `--home <private-profile-path>` before `mcp` to bind an explicit private
@@ -384,7 +383,7 @@ then `doctor`, in place of `mcp`, and pass `--home <private-profile-path>`
 for the authorized target. Check service readiness before
 connecting. For self-hosted or Cloud storage, follow the Runtime's documented
 server/cloud profile configuration. See the
-[canonical setup reference](https://github.com/cnkang/skills/blob/5bac228e8594a6cf8ff642c22f0f0e100ebca3a6/qdrant-memory/references/runtime.md)
+[canonical setup reference](https://github.com/cnkang/skills/blob/b2353078f35018a35c2b1404797d2e5f07892935/qdrant-memory/references/runtime.md)
 and [Runtime configuration](https://github.com/cnkang/hermes-plugin-qdrant-memory).
 
 Scope is operator-configured. Client names and tool arguments cannot switch
@@ -422,7 +421,7 @@ build environment (the Skill builder needs PyYAML):
 
 ```sh
 git clone --no-checkout https://github.com/cnkang/skills.git .workbuddy-skill
-git -C .workbuddy-skill checkout --detach 60d309148b02d643f5c39e7179ffbaff3ed792f7
+git -C .workbuddy-skill checkout --detach b2353078f35018a35c2b1404797d2e5f07892935
 python3 -m venv .workbuddy-env
 .workbuddy-env/bin/python -m pip install 'PyYAML==6.0.3'
 .workbuddy-env/bin/python integrations/workbuddy/build.py --check

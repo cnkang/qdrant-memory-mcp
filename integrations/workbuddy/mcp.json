@@ -5,7 +5,7 @@
       "command": "npx",
       "args": [
         "-y",
-        "@cnkang/qdrant-memory-launcher@0.1.0-rc.14",
+        "@cnkang/qdrant-memory-launcher@0.1.0-rc.15",
         "mcp",
         "workbuddy",
         "--auto-setup"

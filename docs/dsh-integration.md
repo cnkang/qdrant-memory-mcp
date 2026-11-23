@@ -15,9 +15,9 @@ The configuration-only Bundle connects the public launcher through the
 official `@deepseek-ai/dsh-mcp-client`. It needs Node.js (which DSH already
 uses) and no system Python, uvx, Ollama or Qdrant Server.
 
-Choose the Bundle before preparing the backend. The `0.2.0-rc.5` candidate
-requires Node.js 24.9 or newer and uses launcher `0.1.0-rc.14` with Runtime
-0.7.2. Older Hosts should stay on Bundle `0.1.6`, which uses launcher
+Choose the Bundle before preparing the backend. The `0.2.0-rc.6` candidate
+requires Node.js 24.9 or newer and uses launcher `0.1.0-rc.15` with Runtime
+0.7.3. Older Hosts should stay on Bundle `0.1.6`, which uses launcher
 `0.1.0-rc.8` and Runtime 0.6.0. Do not prepare with one launcher and install
 the other Bundle.
 
@@ -31,7 +31,7 @@ dsh plugin --profile <name> add @cnkang/qdrant-memory-dsh-bundle@0.1.6
 For the current candidate, prepare the shared backend first:
 
 ```sh
-npx -y @cnkang/qdrant-memory-launcher@0.1.0-rc.14 prepare dsh
+npx -y @cnkang/qdrant-memory-launcher@0.1.0-rc.15 prepare dsh
 ```
 
 Wait for `{"ready":true,"host":"dsh"}`. Preparation downloads the private
@@ -40,25 +40,25 @@ model. It can take several minutes and needs network access. Then install the
 Bundle into one profile:
 
 ```sh
-dsh plugin --profile <name> add @cnkang/qdrant-memory-dsh-bundle@0.2.0-rc.5
+dsh plugin --profile <name> add @cnkang/qdrant-memory-dsh-bundle@0.2.0-rc.6
 ```
 
 If your npm mirror has not served the package yet, resolve the exact registry
 tarball and its integrity metadata:
 
 ```sh
-npm view @cnkang/qdrant-memory-dsh-bundle@0.2.0-rc.5 dist.tarball dist.integrity --json
+npm view @cnkang/qdrant-memory-dsh-bundle@0.2.0-rc.6 dist.tarball dist.integrity --json
 ```
 
 Download `dist.tarball`, verify the downloaded bytes against `dist.integrity`,
 then install the local file:
 
 ```sh
-dsh plugin --profile <name> add ./qdrant-memory-dsh-bundle-0.2.0-rc.5.tgz
+dsh plugin --profile <name> add ./qdrant-memory-dsh-bundle-0.2.0-rc.6.tgz
 ```
 
 The official tarball is
-`https://registry.npmjs.org/@cnkang/qdrant-memory-dsh-bundle/-/qdrant-memory-dsh-bundle-0.2.0-rc.5.tgz`.
+`https://registry.npmjs.org/@cnkang/qdrant-memory-dsh-bundle/-/qdrant-memory-dsh-bundle-0.2.0-rc.6.tgz`.
 This is a registry fallback, not an offline setup: launcher preparation and
 model download can still need network access. Verify the layer without booting:
 
@@ -83,10 +83,10 @@ Python Owner. All three switches default to `false`. Recall requires both
 `auto_recall.enabled` and `memory_injection.enabled`.
 
 This adapter targets `@deepseek-ai/dsh@0.2.2-rc.1` and requires Runtime 0.6.2
-or newer for receipt-scoped recovery of failed operations. Runtime 0.7.2 is
+or newer for receipt-scoped recovery of failed operations. Runtime 0.7.3 is
 published on PyPI, but the native adapter package remains private and real-model
-or GUI acceptance is incomplete. The Bundle above is available now. The
-Python/uvx overlay below requires the exact MCP version on PyPI.
+or GUI acceptance is incomplete. The Bundle above is under release validation.
+The Python/uvx overlay below uses the published MCP 0.3.7 package.
 See [native design and support status](dsh-native/design.md).
 See the [English setup guide](../integrations/dsh/native/README.md),
 [中文设置说明](../integrations/dsh/native/README.zh-CN.md), and
@@ -95,11 +95,10 @@ and the current test boundaries.
 
 ## Alternative: Python/uvx overlay
 
-The current public qdrant-memory-mcp==0.3.6 release pins Runtime 0.7.2.
-The commands below prepare MCP 0.3.7, a candidate pinned to public Runtime 0.7.3.
-Use the candidate commands only after [PyPI](https://pypi.org/project/qdrant-memory-mcp/0.3.7/)
-shows 0.3.7 as published; until then, use public MCP 0.3.6 and its
-qdrant-memory-mcp-0.3.6.cordis.yml overlay.
+The current public qdrant-memory-mcp==0.3.7 release pins Runtime 0.7.3.
+Use its published `qdrant-memory-mcp-0.3.7.cordis.yml` overlay. Existing
+installations may continue using the 0.3.6 overlay with its matching package.
+See [PyPI](https://pypi.org/project/qdrant-memory-mcp/0.3.7/) for the public release.
 The overlay requires no source checkout.
 
 If you follow the 0.3.4 guide, replace its overlay download URL in the shell
@@ -457,7 +456,7 @@ try {
 dsh web --patch $Patch
 ```
 
-The versioned overlay file matches the `0.3.6` package pin. Keep the downloaded
+The versioned overlay file matches the `0.3.7` package pin. Keep the downloaded
 file outside the package environment and pass its local path to `--patch` on
 every DSH launch.
 

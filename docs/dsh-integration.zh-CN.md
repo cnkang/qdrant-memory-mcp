@@ -12,8 +12,8 @@
 纯配置 Bundle 通过官方 `@deepseek-ai/dsh-mcp-client` 连接已发布的托管启动器。
 需要 Node.js（DSH 本身依赖），不需要系统 Python、uvx、Ollama 或 Qdrant Server。
 
-准备后端前先选择 Bundle。`0.2.0-rc.5` 候选要求 Node.js 24.9 或更新版本，
-并使用 launcher `0.1.0-rc.14` 与 Runtime 0.7.2。较旧的 Host 应继续使用 Bundle
+准备后端前先选择 Bundle。`0.2.0-rc.6` 候选要求 Node.js 24.9 或更新版本，
+并使用 launcher `0.1.0-rc.15` 与 Runtime 0.7.3。较旧的 Host 应继续使用 Bundle
 `0.1.6`，它配套 launcher `0.1.0-rc.8` 和 Runtime 0.6.0。不要用一个 launcher
 准备后端后再安装另一版本的 Bundle。
 
@@ -27,7 +27,7 @@ dsh plugin --profile <name> add @cnkang/qdrant-memory-dsh-bundle@0.1.6
 当前候选请先准备共享后端：
 
 ```sh
-npx -y @cnkang/qdrant-memory-launcher@0.1.0-rc.14 prepare dsh
+npx -y @cnkang/qdrant-memory-launcher@0.1.0-rc.15 prepare dsh
 ```
 
 等待输出 `{"ready":true,"host":"dsh"}`。准备过程会下载私有 Python 环境、固定版本的
@@ -35,23 +35,23 @@ Runtime wheel 和经过校验的 CPU 嵌入模型，可能需要数分钟并需�
 安装到一个 profile：
 
 ```sh
-dsh plugin --profile <name> add @cnkang/qdrant-memory-dsh-bundle@0.2.0-rc.5
+dsh plugin --profile <name> add @cnkang/qdrant-memory-dsh-bundle@0.2.0-rc.6
 ```
 
 若所用 npm 镜像尚未同步该包，先从 npm Registry 解析精确版本的 tarball 与完整性元数据：
 
 ```sh
-npm view @cnkang/qdrant-memory-dsh-bundle@0.2.0-rc.5 dist.tarball dist.integrity --json
+npm view @cnkang/qdrant-memory-dsh-bundle@0.2.0-rc.6 dist.tarball dist.integrity --json
 ```
 
 下载 `dist.tarball`，用 `dist.integrity` 校验实际字节，再用文件路径安装：
 
 ```sh
-dsh plugin --profile <name> add ./qdrant-memory-dsh-bundle-0.2.0-rc.5.tgz
+dsh plugin --profile <name> add ./qdrant-memory-dsh-bundle-0.2.0-rc.6.tgz
 ```
 
 官方 tarball 为
-`https://registry.npmjs.org/@cnkang/qdrant-memory-dsh-bundle/-/qdrant-memory-dsh-bundle-0.2.0-rc.5.tgz`。
+`https://registry.npmjs.org/@cnkang/qdrant-memory-dsh-bundle/-/qdrant-memory-dsh-bundle-0.2.0-rc.6.tgz`。
 这是 Registry 备用路径，不是完全离线准备：launcher 准备与模型下载仍可能需要网络。
 不启动即可先验证层：
 
@@ -71,8 +71,8 @@ Hermes 相互独立。更新、卸载与恢复说明见 [Bundle 说明](../integ
 再把候选交给现有 Python Owner。三个开关默认都为 `false`。召回需要同时启用
 `auto_recall.enabled` 和 `memory_injection.enabled`。
 
-该适配器针对 `@deepseek-ai/dsh@0.2.2-rc.1`，要求 Runtime 0.6.2 或更高版本提供失败操作的 receipt 级恢复。Runtime 0.7.2 已公开发布到 PyPI，但原生适配器包仍为 private，真实模型和 GUI 验收也未完成。
-现在可使用上面的 Bundle。下方 Python/uvx overlay 需要先确认 PyPI 上的精确 MCP 版本可用。
+该适配器针对 `@deepseek-ai/dsh@0.2.2-rc.1`，要求 Runtime 0.6.2 或更高版本提供失败操作的 receipt 级恢复。Runtime 0.7.3 已公开发布到 PyPI，但原生适配器包仍为 private，真实模型和 GUI 验收也未完成。
+上方 Bundle 仍在发布验收中。下方 Python/uvx overlay 使用已发布的 MCP 0.3.7。
 原生包尚未发布，也没有真实模型或 GUI 验收结论。详见
 [原生设计与支持状态](dsh-native/design.md)。配置、回退和验证边界见
 [英文设置指南](../integrations/dsh/native/README.md)、
@@ -81,10 +81,9 @@ Hermes 相互独立。更新、卸载与恢复说明见 [Bundle 说明](../integ
 
 ## 备选：Python/uvx overlay
 
-当前公开版 qdrant-memory-mcp==0.3.6 固定依赖 Runtime 0.7.2。下方命令准备
-MCP 0.3.7 候选版，固定依赖已公开发布的 Runtime 0.7.3。请仅在
-[PyPI](https://pypi.org/project/qdrant-memory-mcp/0.3.7/) 显示 0.3.7 已发布后使用候选命令；
-此前请继续使用公开版 0.3.6 及其 qdrant-memory-mcp-0.3.6.cordis.yml overlay。
+当前公开版 qdrant-memory-mcp==0.3.7 固定依赖 Runtime 0.7.3。请使用已发布的
+`qdrant-memory-mcp-0.3.7.cordis.yml` overlay。已有安装可以继续使用匹配的
+0.3.6 包和 overlay。详见 [PyPI](https://pypi.org/project/qdrant-memory-mcp/0.3.7/)。
 在此之前，请使用[已发布的 0.3.5 指南](https://github.com/cnkang/qdrant-memory-mcp/blob/v0.3.5/docs/dsh-integration.zh-CN.md)。
 此 overlay 路径无需检出源码。
 
@@ -437,7 +436,7 @@ try {
 dsh web --patch $Patch
 ```
 
-带版本号的 overlay 文件与 `0.3.6` 包版本一致。请把文件放在包环境之外，并在每次
+带版本号的 overlay 文件与 `0.3.7` 包版本一致。请把文件放在包环境之外，并在每次
 启动 DSH 时把其本地路径传给 `--patch`。
 
 Windows 请使用对应的绝对路径。启动 DSH 前可用环境变量

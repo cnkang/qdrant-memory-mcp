@@ -31,13 +31,15 @@
 
 ## Unreleased
 
-- Publish managed launcher `0.1.0-rc.14` with Runtime 0.7.2. Its `runtime.json`
-  records the published 0.7.2 wheel URL, SHA-256 and size, and
+- Publish managed launcher `0.1.0-rc.15` with Runtime 0.7.3. Its `runtime.json`
+  records the published 0.7.3 wheel URL, SHA-256 and size, and
   `requirements.lock` carries the same wheel and sdist hashes.
-- Publish DSH Bundle `0.2.0-rc.5` selecting launcher `0.1.0-rc.14`. Both npm
+- Publish DSH Bundle `0.2.0-rc.6` selecting launcher `0.1.0-rc.15`. Both npm
   tags `latest` and `next` point to the new versions. The
   published WorkBuddy Connector 0.2.6 remains immutable on launcher rc.10 and
   Runtime 0.6.2.
+- Pin DSH cross-harness and WorkBuddy preview inputs to the published Qdrant
+  Memory Skill 0.4.8 (`skills-20261123.1`).
 - Publish managed launcher `0.1.0-rc.12` with Runtime 0.7.1 and the public
   PyPI wheel identity.
 - Publish DSH Bundle `0.2.0-rc.3` selecting launcher `0.1.0-rc.12`. Both npm

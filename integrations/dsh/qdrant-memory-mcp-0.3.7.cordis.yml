@@ -1,7 +1,7 @@
-# Candidate overlay; enable for this launch only with dsh web --patch.
+# Published overlay; enable for this launch only with dsh web --patch.
 # Prepare this dedicated profile first; no setup/download occurs during probing.
-# Targets the candidate MCP 0.3.7 package and public Runtime 0.7.3.
-# Wait for this exact package to appear on PyPI before using the candidate:
+# Targets the published MCP 0.3.7 package and public Runtime 0.7.3.
+# Confirm package availability on PyPI:
 # https://pypi.org/project/qdrant-memory-mcp/0.3.7/
 - insert:
     - id: cnkang-qdrant-memory-mcp
