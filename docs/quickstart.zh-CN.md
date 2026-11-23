@@ -6,6 +6,9 @@ Embedding API Key。此路径使用公开稳定包 `qdrant-memory-mcp==0.3.6`，
 Runtime 0.7.2；仍需 Python/uv 和一次 profile 配置。普通 MCP 只执行明确请求的记忆操作，
 不会自动提取对话或预取记忆。连接器安装成功不代表存储已经就绪。
 
+源码也在准备候选版 `qdrant-memory-mcp==0.3.7`，固定依赖已公开发布的 Runtime 0.7.3。
+PyPI 和 MCP Registry 均发布前无法安装；此期间请继续使用本指南中的稳定版 0.3.6 命令。
+
 ## 1. 准备 Embedding 模型
 
 已经安装 Ollama 和 `qwen3-embedding:4b`：打开 Ollama，直接进入下一步，
@@ -58,8 +61,9 @@ ollama pull qwen3-embedding:4b
 }
 ```
 
-公开版 `qdrant-memory-mcp==0.3.6` 固定依赖 Runtime 0.7.2。安装前请在
-[PyPI](https://pypi.org/project/qdrant-memory-mcp/0.3.6/) 确认该版本；下方命令使用此精确版本。
+下方稳定版命令使用已公开发布的 `qdrant-memory-mcp==0.3.6`，固定依赖 Runtime 0.7.2。
+安装前请在 [PyPI](https://pypi.org/project/qdrant-memory-mcp/0.3.6/) 确认版本。
+MCP 0.3.7 候选版固定依赖 Runtime 0.7.3；请等 PyPI 和 MCP Registry 均发布 0.3.7 后再用候选命令。
 
 其他 agent 使用各自的新目录和 `agent_id`。在终端运行下列命令，把
 `/path/to/workbuddy-profile` **全部替换**为刚才的绝对路径；含空格时保留引号。
@@ -68,6 +72,13 @@ Windows 也填写实际的绝对路径，JSON 中反斜杠写成 `\\`，或使�
 ```sh
 uvx --from qdrant-memory-mcp==0.3.6 qdrant-memory-mcp --home "/path/to/workbuddy-profile" init
 uvx --from qdrant-memory-mcp==0.3.6 qdrant-memory-mcp --home "/path/to/workbuddy-profile" doctor
+```
+
+MCP 0.3.7 在 PyPI 和 MCP Registry 均发布后，可使用以下精确版本命令：
+
+```sh
+uvx --from qdrant-memory-mcp==0.3.7 qdrant-memory-mcp --home "/path/to/workbuddy-profile" init
+uvx --from qdrant-memory-mcp==0.3.7 qdrant-memory-mcp --home "/path/to/workbuddy-profile" doctor
 ```
 
 初始化会调用本地模型、创建本地 collection，并检查模型维度和存储兼容性。
@@ -88,6 +99,23 @@ Ollama、下载模型、初始化已有 collection 或迁移数据。不要覆�
 在聊天会话中选择 Copilot harness。`.vscode/mcp.json` 属于已弃用的 Local harness，
 不是 Copilot 原生配置。
 
+下方首个配置对应 MCP 0.3.7 候选版，固定依赖 Runtime 0.7.3。PyPI 和 MCP Registry
+均发布 0.3.7 后才可使用；发布前请使用紧随其后的稳定版 0.3.6 配置。
+
+```json
+{
+  "mcpServers": {
+    "qdrant-memory": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["--from", "qdrant-memory-mcp==0.3.7", "qdrant-memory-mcp", "--home", "/path/to/copilot-profile", "mcp"]
+    }
+  }
+}
+```
+
+在 PyPI 和 MCP Registry 均发布 0.3.7 前，请使用以下公开稳定版 0.3.6 配置：
+
 ```json
 {
   "mcpServers": {
@@ -105,7 +133,7 @@ Manifest 中可选的 `--home` 必须位于位置参数 `mcp` 之前。如果 VS
 不会自动提取对话，也不需要安装 Hermes 或 Agent Skill。
 
 发布前可以用 `uv build --wheel` 构建候选 wheel，再用 `uv venv` 创建并激活独立虚拟环境，
-运行 `uv pip install /path/to/qdrant_memory_mcp-0.3.6-py3-none-any.whl` 安装。
+运行 `uv pip install /path/to/qdrant_memory_mcp-0.3.7-py3-none-any.whl` 安装。
 将 `command` 指向安装后的
 `qdrant-memory-mcp` 可执行文件的绝对路径，`args` 设为
 `["--home", "/path/to/copilot-profile", "mcp"]`。使用一次性测试 profile，
@@ -147,6 +175,9 @@ WorkBuddy 中添加自定义 stdio MCP，使用以下配置；将路径替换为
 受管连接器使用其数据根目录下的 `profiles/workbuddy/local`，不会自动选择这里的
 自定义 profile。直接运行不带 `--home` 的 uvx 接口才默认使用 `~/.qdrant-memory`。
 此设置只启用一个实例，避免同时启用受管连接器与自定义实例。
+
+下方配置使用公开稳定版 MCP 0.3.6。如果前面使用了 0.3.7 候选命令，请在 PyPI 和
+MCP Registry 均发布 0.3.7 后，再把下面 `--from` 后的版本改为 0.3.7。
 
 ```json
 {

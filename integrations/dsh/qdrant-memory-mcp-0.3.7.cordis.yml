@@ -1,0 +1,22 @@
+# Candidate overlay; enable for this launch only with dsh web --patch.
+# Prepare this dedicated profile first; no setup/download occurs during probing.
+# Targets the candidate MCP 0.3.7 package and public Runtime 0.7.3.
+# Wait for this exact package to appear on PyPI before using the candidate:
+# https://pypi.org/project/qdrant-memory-mcp/0.3.7/
+- insert:
+    - id: cnkang-qdrant-memory-mcp
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: qdrant-memory
+        transport: stdio
+        command: uvx
+        args:
+          - --from
+          - qdrant-memory-mcp==0.3.7
+          - qdrant-memory-mcp
+          - --home
+          - !!js process.env.QDRANT_MEMORY_DSH_PROFILE || require('node:path').join(require('node:os').homedir(), '.qdrant-memory-dsh')
+          - mcp
+        env:
+          QDRANT_API_KEY: !!js process.env.QDRANT_API_KEY || ''
+          EMBEDDING_API_KEY: !!js process.env.EMBEDDING_API_KEY || ''

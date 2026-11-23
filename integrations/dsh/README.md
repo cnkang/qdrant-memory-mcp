@@ -12,6 +12,8 @@ See the [English guide](../../docs/dsh-integration.md) or
 - `qdrant-memory-mcp-0.3.6.cordis.yml`: Python/uvx overlay for the prepared
   0.3.6 release. Confirm the package is available on PyPI and prepare a separate
   profile before using `--patch`.
+- `qdrant-memory-mcp-0.3.7.cordis.yml`: release candidate overlay pinned to
+  public Runtime 0.7.3. Use it only after MCP 0.3.7 is published on PyPI.
 - `native/`: unpublished, opt-in Cordis lifecycle adapter for the exact
   `@deepseek-ai/dsh@0.2.2-rc.1` lane. It requires the companion Runtime
   candidate-event support and keeps automatic recall, capture, and memory

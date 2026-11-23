@@ -7,6 +7,11 @@ Codex 与其他非 Hermes Agent 的默认入口是公开稳定的 stdio MCP。
 固定依赖 Runtime 0.7.2，并提供四个显式记忆工具。Hermes 用户请使用
 [Hermes 原生 Plugin Catalog 安装指南](https://github.com/cnkang/hermes-plugin-qdrant-memory/blob/main/INSTALL.md)。
 
+源码正在准备 MCP 0.3.7 候选版，固定依赖已发布的 Runtime 0.7.3。在 PyPI
+和 MCP Registry 均显示 0.3.7 已发布前，请继续使用公开稳定版 0.3.6。
+发布后客户端应使用精确参数前缀
+`["--from", "qdrant-memory-mcp==0.3.7", "qdrant-memory-mcp"]`。
+
 面向 AI Agent 的持久化、可移植、权限感知记忆，以 MCP 适配层分发 Qdrant Memory Runtime。
 
 共享生产部署请参阅[部署安全指南](docs/shared-deployment-security.md)。Owner 必须独占数据库应用写凭据，MCP 授权不能替代此要求。部署前须配置目的地保护和 shared doctor。支持边界请查看 [Owner 支持记录](docs/universal-owner-status.zh-CN.md)。
@@ -14,6 +19,9 @@ Codex 与其他非 Hermes Agent 的默认入口是公开稳定的 stdio MCP。
 ## One Memory, Multiple Agents — 可选启用的共享 owner
 
 本分发新增显式启用的单 owner 共享服务和 stdio 桥接，需安装 Runtime 0.7.2。见[共享接入指南](integrations/shared/README.md)。私有默认配置与 DSH/WorkBuddy 托管配置不变；Hermes Native Provider 自动共享提取尚未实现。
+
+下一个 MCP 候选版本为 `qdrant-memory-mcp==0.3.7`，固定依赖已公开发布的 Runtime 0.7.3。
+确认 PyPI 和 MCP Registry 均已发布后再使用；此前请继续使用上方公开稳定版 0.3.6。
 
 ## 已发布路径与验收范围
 
